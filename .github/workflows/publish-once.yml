@@ -1,0 +1,45 @@
+name: Publish InputStitch 1.0.0 once
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.repository == 'ZhiHanyu-H57/InputStitch'
+    runs-on: windows-2022
+    steps:
+      - name: Check out audited public source
+        uses: actions/checkout@v4
+        with:
+          ref: bbdd693511d7771ed8201375ef56bacfc5177e6e
+
+      - name: Build and verify release files
+        shell: powershell
+        run: .\build.ps1
+
+      - name: Publish v1.0.0
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            "dist/InputStitch-1.0.0-Windows-x64.exe",
+            "dist/InputStitch-1.0.0-Windows-x86.exe",
+            "dist/InputStitch-1.0.0-Source.zip",
+            "dist/SHA256SUMS.txt"
+          )
+          gh release view "v1.0.0" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "v1.0.0" $assets --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to replace release assets." }
+            gh release edit "v1.0.0" --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md"
+            if ($LASTEXITCODE -ne 0) { throw "Failed to update release notes." }
+          } else {
+            gh release create "v1.0.0" $assets --target "bbdd693511d7771ed8201375ef56bacfc5177e6e" --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md"
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub release." }
+          }
