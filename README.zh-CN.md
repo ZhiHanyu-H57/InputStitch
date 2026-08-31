@@ -1,0 +1,95 @@
+# InputStitch
+
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+InputStitch 是一款轻量级 Windows 可视化键鼠宏工具，重点关注精确时序、适合游戏场景的输入方式，以及可靠的紧急停止能力。
+
+程序基于 Windows Forms 和 .NET Framework 4.7.2 构建。界面可以在 **简体中文** 与 **English** 之间即时切换，无需重启。
+
+## 下载
+
+可以从 [GitHub 最新正式版](../../releases/latest) 直接下载可执行文件：
+
+| Windows 架构 | 直接下载 |
+| --- | --- |
+| 64 位 Windows（x64） | [InputStitch-1.0.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.0.0-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.0.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.0.0-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.0.0-Source.zip](../../releases/latest/download/InputStitch-1.0.0-Source.zip) |
+| 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
+
+InputStitch 仅支持 Windows，没有 macOS 或 Linux 版 EXE。如果不确定应该下载哪个版本，现代 64 位 Windows 通常请选择 x64。
+
+EXE 为便携式程序：下载后放入有写入权限的文件夹即可运行。系统需要安装 .NET Framework 4.7.2 或兼容的更高版本。
+
+## 主要功能
+
+- 可视化编辑键盘、鼠标按键、侧键和滚轮步骤
+- 为每个步骤设置按住时长和执行后间隔
+- 全局热键、单次触发启停和按住运行模式
+- 固定执行次数或无限循环
+- 录制物理键盘、鼠标按钮和滚轮操作并自动还原时序；有意不录制鼠标移动
+- 使用扫描码发送键盘输入，提高在许多游戏中的兼容性
+- 用宏包分享选定的宏
+- 用配置方案保存并切换整套设置
+- 可选的目标窗口切换，以及按前台程序自动切换已绑定方案
+- 选择性快捷键冲突防护：允许 `W + Shift` 等正常游戏操作，同时拦截高风险的意外特殊组合键
+- 可自定义的全局紧急停止键；即使普通宏触发被暂停，紧急停止仍然有效
+- 简体中文 / English 即时切换
+- 适配 DPI 且可自由调整大小的 Windows Forms 界面
+
+## 快速开始
+
+1. 下载与 Windows 架构匹配的 EXE。
+2. 启动 InputStitch，新建或选择一个宏。
+3. 手动添加执行步骤，或者点击“录制宏”。
+4. 录制触发键并选择触发方式。
+5. 从主界面执行宏，或者启用该宏的全局触发。
+6. 在其他程序中使用前，确认并测试 InputStitch 中显示的紧急停止键。
+
+点击齿轮按钮可以进入设置，其中包含“语言 / Language”、安全选项、目标窗口行为、诊断和托盘偏好。
+
+## 安全提示
+
+InputStitch 会向 Windows 发送模拟的键盘和鼠标输入。正式使用新宏前，请先在无关紧要的程序里测试。
+
+- 设置一个容易按到的紧急停止键，并先确认它能够正常工作。
+- 不要运行未经检查的宏，也不要导入来源不可信的宏包。
+- 不要在违反软件、服务、游戏、单位规定或当地法律的场景中使用自动化。
+- 在线游戏或受保护的程序可能禁止自动化或拒绝模拟输入，兼容性不作保证。
+- InputStitch 不会绕过反作弊、访问控制或程序安全机制。
+
+安全问题报告方式请参阅 [SECURITY.md](SECURITY.md)。
+
+## 从源码构建
+
+需要：
+
+- Windows
+- .NET Framework 4.7.2 Developer Pack 或兼容的 MSBuild 工具
+- 带有“.NET 桌面开发”组件的 Visual Studio，或对应的 Build Tools
+
+可以执行：
+
+```powershell
+.\build.ps1
+```
+
+或者：
+
+```bat
+build.bat
+```
+
+也可以用 Visual Studio 打开 `InputStitch.csproj`。正式发布产物会分别构建 x64 和 x86 版本。
+
+## 数据与隐私
+
+配置、方案、宏包、备份和日志都保存在本地，InputStitch 不要求登录在线账号。分享诊断信息或配置文件之前，请先检查内容，因为其中可能包含本机的窗口标题、进程名、宏名称或路径。
+
+## 参与贡献
+
+欢迎提交问题报告和范围明确的拉取请求。参与前请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 许可证
+
+本仓库目前**没有声明开源许可证**。源代码可公开访问，并不代表自动授予复制、修改、再发布或其他超出适用法律规定范围的使用权。仓库所有者以后可能会补充许可证。

@@ -1,0 +1,50 @@
+# Visual Studio and MSBuild
+.vs/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+
+# Build outputs and release staging
+dist/
+artifacts/
+*.exe
+*.zip
+*.pdb
+*.ilk
+*.cache
+*.log
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Local application data and exported user content
+config.xml
+logs/
+backups/
+profiles/
+macro-packages/
+*.mpmacro
+*.mpprofile
+
+# Local tools and editors
+.idea/
+.vscode/
+*.swp
+*.tmp
+*.bak
+
+# OS metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
