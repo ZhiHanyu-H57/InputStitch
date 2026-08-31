@@ -32,7 +32,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub release
-        if: github.ref == 'refs/tags/v1.0.0'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/tags/v1.0.0'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,6 +50,6 @@ jobs:
             gh release edit "v1.0.0" --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md"
             if ($LASTEXITCODE -ne 0) { throw "Failed to update release notes." }
           } else {
-            gh release create "v1.0.0" $assets --verify-tag --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md"
+            gh release create "v1.0.0" $assets --target "$env:GITHUB_SHA" --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md"
             if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub release." }
           }
