@@ -3824,6 +3824,8 @@ namespace InputStitch
             RefreshToolTipsLanguage();
             RefreshTargetWindowUi();
             UpdateTriggerModeUiText();
+            if (captureTriggerButton != null)
+                captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") : Localizer.T("录制触发键");
             RefreshSteps();
             RefreshPanicUi();
             UpdateRunButton();
@@ -3894,7 +3896,12 @@ namespace InputStitch
             if (traySuspendMenuItem != null) traySuspendMenuItem.Text = Localizer.T("暂停全局宏触发");
             if (trayExitMenuItem != null) trayExitMenuItem.Text = Localizer.T("退出");
             if (panicMenuItem != null && captureMode != CaptureMode.PanicTrigger)
-                panicMenuItem.Text = Localizer.Dynamic("设置紧急停止键...（当前：" + InputNames.FormatTrigger(config == null ? null : config.PanicTrigger) + "）");
+            {
+                string panicText = InputNames.FormatTrigger(config == null ? null : config.PanicTrigger);
+                panicMenuItem.Text = Localizer.IsEnglish
+                    ? "Set Emergency Stop hotkey... (current: " + panicText + ")"
+                    : "设置紧急停止键...（当前：" + panicText + "）";
+            }
         }
 
         private void RefreshToolTipsLanguage()
