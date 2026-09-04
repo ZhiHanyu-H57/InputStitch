@@ -4,7 +4,7 @@
 
 ## English
 
-InputStitch 1.0.0 is the first public release of the lightweight visual keyboard and mouse macro tool for Windows.
+InputStitch 1.0.0 is the first public release of the lightweight visual keyboard, mouse, and virtual gamepad macro tool for Windows.
 
 ### Download
 
@@ -22,6 +22,10 @@ InputStitch supports Windows only. There is no macOS or Linux executable. The pr
 
 - DPI-aware, resizable interface with instant Simplified Chinese / English switching
 - Visual keyboard and mouse macro editing and physical-input recording
+- Xbox 360 and PS4 / DualShock 4 virtual-controller output, including sticks, analog triggers, buttons, D-pad, shoulders, and menu controls
+- Xbox 360 compatibility-first default with PS4 as an optional device type
+- Driver detection, clear bilingual guidance, and a direct link to the retired upstream ViGEmBus project's official Release page; no silent driver installation
+- Persistent virtual-device lifecycle: connect before game launch, neutralize on Stop/Emergency Stop, and disconnect only when InputStitch exits
 - Per-step hold duration and delay, finite repetition, infinite looping, and hold-to-run
 - Global triggers and configurable Emergency Stop
 - Selective protection against unintended high-risk Windows shortcut combinations while preserving normal held-modifier gameplay
@@ -38,9 +42,11 @@ These executables are currently **not code-signed**. Windows Defender SmartScree
 
 Test a new macro in a harmless application first, confirm that the Emergency Stop hotkey works, and follow the automation rules of the software or game you use.
 
+Virtual gamepad output requires the separately installed [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest). ViGEmBus is retired and no longer maintained; use only the original author's official Release page. Keyboard and mouse features do not require it.
+
 ## 简体中文
 
-InputStitch 1.0.0 是这款轻量级 Windows 可视化键鼠宏工具的首个公开正式版。
+InputStitch 1.0.0 是这款轻量级 Windows 可视化键盘、鼠标与虚拟手柄宏工具的首个公开正式版。
 
 ### 下载
 
@@ -58,6 +64,10 @@ InputStitch 仅支持 Windows，没有 macOS 或 Linux 版 EXE。程序需要 .N
 
 - 适配 DPI、可调整大小的界面，以及简体中文 / English 即时切换
 - 可视化键鼠宏编辑和物理输入录制
+- Xbox 360 与 PS4 / DualShock 4 虚拟手柄输出，包括摇杆、模拟扳机、按键、方向键、肩键和菜单键
+- 默认采用兼容性更稳妥的 Xbox 360，PS4 作为可选设备类型
+- 缺少驱动时提供清晰的中英文说明，并可直达已停止维护的 ViGEmBus 上游官方 Release 页面；不会静默安装驱动
+- 虚拟设备保持连接：建议在游戏启动前连接；停止宏和紧急停止只归零；退出 InputStitch 才断开
 - 每步按住时长与间隔、固定循环、无限循环和按住运行
 - 全局触发和可自定义的紧急停止
 - 选择性防护意外的高风险 Windows 特殊组合键，同时保留正常的按住修饰键游戏操作
@@ -74,3 +84,4 @@ InputStitch 仅支持 Windows，没有 macOS 或 Linux 版 EXE。程序需要 .N
 
 请先在无关紧要的程序里测试新宏，确认紧急停止键能够正常工作，并遵守所使用软件或游戏的自动化规则。
 
+虚拟手柄输出需要另行安装 [ViGEmBus 驱动](https://github.com/nefarius/ViGEmBus/releases/latest)。ViGEmBus 已停止维护，请只使用原作者的官方 Release 页面；键鼠功能不依赖它。

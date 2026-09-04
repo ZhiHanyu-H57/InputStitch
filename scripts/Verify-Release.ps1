@@ -78,4 +78,3 @@ foreach ($fileName in $requiredChecksumFiles) {
 }
 
 Write-Host 'Release verification passed for Windows x64 and Windows x86.' -ForegroundColor Green
-

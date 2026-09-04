@@ -16,6 +16,8 @@ $manifestPath = Join-Path $projectRoot 'app.manifest'
 $iconPath = Join-Path $projectRoot 'InputStitch.ico'
 $restoreScript = Join-Path $projectRoot 'scripts\Restore-NetFramework472.ps1'
 $verifyScript = Join-Path $projectRoot 'scripts\Verify-Release.ps1'
+$viGEmClientPath = Join-Path $projectRoot 'third-party\Nefarius.ViGEm.Client\Nefarius.ViGEm.Client.dll'
+$viGEmClientSha256 = '4458301000b732d115521e99f9936f4edb70d6ceb3036ef158715e0e6b8902e0'
 
 function Assert-FileExists {
     param([Parameter(Mandatory = $true)][string]$LiteralPath)
@@ -104,6 +106,12 @@ function Invoke-ArchitectureBuild {
         Assert-FileExists -LiteralPath $referencePath
         $compilerArguments += "/reference:$referencePath"
     }
+    $netstandardPath = Join-Path $ReferenceDirectory 'Facades\netstandard.dll'
+    Assert-FileExists -LiteralPath $netstandardPath
+    Assert-FileExists -LiteralPath $viGEmClientPath
+    $compilerArguments += "/reference:$netstandardPath"
+    $compilerArguments += "/reference:$viGEmClientPath"
+    $compilerArguments += "/resource:$viGEmClientPath,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll"
     $compilerArguments += $TargetFrameworkSource
     $compilerArguments += $sourcePath
 
@@ -123,6 +131,7 @@ function New-SourceArchive {
         '.github',
         'docs',
         'scripts',
+        'third-party',
         '.gitignore',
         'app.manifest',
         'build.bat',
@@ -135,7 +144,8 @@ function New-SourceArchive {
         'README.md',
         'README.zh-CN.md',
         'RELEASE_NOTES.md',
-        'SECURITY.md'
+        'SECURITY.md',
+        'THIRD_PARTY_NOTICES.md'
     )
 
     $existingItems = foreach ($relativePath in $includedFiles) {
@@ -175,6 +185,11 @@ function New-UpdateManifest {
 Assert-FileExists -LiteralPath $sourcePath
 Assert-FileExists -LiteralPath $manifestPath
 Assert-FileExists -LiteralPath $iconPath
+Assert-FileExists -LiteralPath $viGEmClientPath
+$actualViGEmClientSha256 = (Get-FileHash -LiteralPath $viGEmClientPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualViGEmClientSha256 -ne $viGEmClientSha256) {
+    throw "Nefarius.ViGEm.Client.dll hash mismatch. Expected $viGEmClientSha256 but found $actualViGEmClientSha256."
+}
 Assert-SourceVersion
 
 if (Test-Path -LiteralPath $distDirectory) {
@@ -225,4 +240,3 @@ try {
         Remove-Item -LiteralPath $targetFrameworkSource -Force
     }
 }
-

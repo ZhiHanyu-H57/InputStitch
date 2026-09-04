@@ -29,6 +29,10 @@ Game rules, anti-cheat decisions, antivirus false positives without technical ev
 
 游戏规则、反作弊判定、没有技术证据的杀毒软件误报，以及一般兼容性问题不属于安全漏洞，但仍可作为普通 Issue 提交。
 
+Virtual gamepad output depends on the retired third-party ViGEmBus driver. InputStitch does not install it automatically. Obtain it only from the original author's official GitHub Releases page; do not use mirrors or old updater links. Keyboard and mouse output is unaffected when the driver is absent.
+
+虚拟手柄输出依赖已经停止维护的第三方 ViGEmBus 驱动。InputStitch 不会自动安装它；请只从原作者的 GitHub Releases 官方页面获取，不要使用镜像或旧更新器链接。未安装驱动不会影响键鼠输出。
+
 ## Safe handling / 安全处理
 
 Do not upload private profiles, macro packages, configuration files, or raw diagnostics unless you have reviewed and sanitized them. These files may reveal application names, window titles, local paths, and user-created macro content.

@@ -13,10 +13,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml.Serialization;
+using Nefarius.ViGEm.Client;
+using Nefarius.ViGEm.Client.Exceptions;
+using Nefarius.ViGEm.Client.Targets;
+using Nefarius.ViGEm.Client.Targets.DualShock4;
+using Nefarius.ViGEm.Client.Targets.Xbox360;
 
 [assembly: AssemblyTitle("InputStitch")]
 [assembly: AssemblyProduct("InputStitch")]
-[assembly: AssemblyDescription("Lightweight visual keyboard and mouse macro tool for Windows")]
+[assembly: AssemblyDescription("Visual keyboard, mouse and virtual gamepad macro tool for Windows")]
 [assembly: AssemblyCompany("InputStitch Project")]
 [assembly: AssemblyCopyright("Copyright © 2026")]
 [assembly: AssemblyVersion("1.0.0.0")]
@@ -29,11 +34,12 @@ namespace InputStitch
     {
         public const string ProductName = "InputStitch";
         public const string Version = "1.0.0";
-        public const string ConfigFormatVersion = "2";
-        public const string MacroPackageFormatVersion = "2";
-        public const string ProfileFormatVersion = "2";
+        public const string ConfigFormatVersion = "3";
+        public const string MacroPackageFormatVersion = "3";
+        public const string ProfileFormatVersion = "3";
         public const string UpdateManifestUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml";
         public const string LatestReleaseUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest";
+        public const string ViGEmBusReleaseUrl = "https://github.com/nefarius/ViGEmBus/releases/latest";
     }
 
     public static class UpdateModes
@@ -41,6 +47,17 @@ namespace InputStitch
         public const string Automatic = "Automatic";
         public const string Manual = "Manual";
         public const string Disabled = "Disabled";
+    }
+
+    public static class VirtualGamepadTypes
+    {
+        public const string Xbox360 = "Xbox360";
+        public const string DualShock4 = "DualShock4";
+
+        public static string Normalize(string value)
+        {
+            return string.Equals(value, DualShock4, StringComparison.OrdinalIgnoreCase) ? DualShock4 : Xbox360;
+        }
     }
 
 
@@ -52,7 +69,7 @@ namespace InputStitch
 
         private static readonly Dictionary<string, string> En = new Dictionary<string, string>()
         {
-            { "键鼠宏工具", "Keyboard & Mouse Macro Tool" },
+            { "键鼠与手柄宏工具", "Keyboard, Mouse & Gamepad Macro Tool" },
             { "宏列表", "Macros" },
             { "导入宏", "Import Macros" },
             { "导出宏", "Export Macros" },
@@ -64,12 +81,28 @@ namespace InputStitch
             { "设置", "Settings" },
             { "常规", "General" },
             { "输入与安全", "Input & Safety" },
+            { "虚拟手柄输出", "Virtual Gamepad Output" },
             { "目标窗口与方案", "Target Window & Profiles" },
             { "软件更新", "Software Updates" },
             { "这些选项通常保持默认即可。修改会在点击确定后生效。", "These options normally work best at their defaults. Changes apply after you click OK." },
             { "界面语言：", "Interface language:" },
             { "使用扫描码发送键盘输入（推荐游戏）", "Send keyboard input using scan codes (game-friendly)" },
             { "在编辑界面时暂停宏输出（推荐）", "Pause macro output while editing the UI (recommended)" },
+            { "手柄类型：", "Controller type:" },
+            { "Xbox 360（推荐，Windows 游戏兼容性最好）", "Xbox 360 (recommended, broadest Windows game support)" },
+            { "PS4 / DualShock 4", "PS4 / DualShock 4" },
+            { "检测驱动并连接", "Check Driver & Connect" },
+            { "未连接。首次使用前请先连接；启动游戏前连接可避免游戏忽略热插拔设备。", "Not connected. Connect before first use; connecting before launching a game avoids games that ignore hot-plugged devices." },
+            { "已连接：", "Connected: " },
+            { "虚拟手柄需要 ViGEmBus 驱动。该上游项目已停止维护；InputStitch 不会静默安装驱动，只会打开原作者的官方 GitHub 下载页。", "Virtual gamepad output requires the ViGEmBus driver. The upstream project is retired; InputStitch never installs it silently and only opens the original author's official GitHub download page." },
+            { "打开官方驱动下载页", "Open Official Driver Download" },
+            { "驱动检测失败", "Driver Check Failed" },
+            { "虚拟手柄驱动未安装或未运行。", "The virtual gamepad driver is not installed or is not running." },
+            { "已安装的 ViGEmBus 与客户端不兼容。", "The installed ViGEmBus version is incompatible with the client." },
+            { "无法访问 ViGEmBus。请尝试重新安装官方驱动。", "ViGEmBus could not be accessed. Try reinstalling the official driver." },
+            { "没有可用的虚拟手柄槽位。请关闭其他虚拟手柄工具后重试。", "No virtual controller slot is available. Close other virtual gamepad tools and try again." },
+            { "虚拟手柄客户端未能加载，可能被安全软件拦截或文件架构不匹配。", "The virtual gamepad client could not load; security software may have blocked it or the binary architecture may not match." },
+            { "安装完成后请重启 InputStitch。是否打开官方下载页？", "Restart InputStitch after installation. Open the official download page now?" },
             { "保持主窗口置顶", "Keep the main window always on top" },
             { "从界面运行时先切换到目标窗口", "Switch to the target window before UI-started runs" },
             { "切换后等待：", "Wait after switching:" },
@@ -124,6 +157,7 @@ namespace InputStitch
             { "■ 停止录制", "■ Stop Recording" },
             { "操作", "Action" },
             { "按键 / 鼠标", "Key / Mouse" },
+            { "按键 / 鼠标 / 手柄", "Key / Mouse / Gamepad" },
             { "按住时长 (ms)", "Hold time (ms)" },
             { "步骤后间隔 (ms)", "Post-step delay (ms)" },
             { "添加", "Add" },
@@ -175,6 +209,32 @@ namespace InputStitch
             { "按住 / KeyDown", "Hold / KeyDown" },
             { "松开 / KeyUp", "Release / KeyUp" },
             { "按键/鼠标：", "Key/Mouse:" },
+            { "输入类型：", "Input type:" },
+            { "键盘 / 鼠标", "Keyboard / Mouse" },
+            { "虚拟手柄", "Virtual Gamepad" },
+            { "手柄控制：", "Gamepad control:" },
+            { "摇杆 X：", "Stick X:" },
+            { "摇杆 Y：", "Stick Y:" },
+            { "扳机力度：", "Trigger level:" },
+            { "左摇杆", "Left Stick" },
+            { "右摇杆", "Right Stick" },
+            { "左扳机", "Left Trigger" },
+            { "右扳机", "Right Trigger" },
+            { "方向键上", "D-pad Up" },
+            { "方向键下", "D-pad Down" },
+            { "方向键左", "D-pad Left" },
+            { "方向键右", "D-pad Right" },
+            { "左肩键", "Left Shoulder" },
+            { "右肩键", "Right Shoulder" },
+            { "返回 / 分享", "Back / Share" },
+            { "开始 / 选项", "Start / Options" },
+            { "按下左摇杆", "Left Stick Click" },
+            { "按下右摇杆", "Right Stick Click" },
+            { "主页键", "Guide / PS Button" },
+            { "下方按键 (A / ×)", "South Button (A / Cross)" },
+            { "右侧按键 (B / ○)", "East Button (B / Circle)" },
+            { "左侧按键 (X / □)", "West Button (X / Square)" },
+            { "上方按键 (Y / △)", "North Button (Y / Triangle)" },
             { "捕获输入", "Capture Input" },
             { "按住时长：", "Hold time:" },
             { "随机步骤间隔", "Random post-step delay" },
@@ -196,7 +256,7 @@ namespace InputStitch
             { " - 诊断信息", " - Diagnostics" },
             { "关闭", "Close" },
             { "关于 ", "About " },
-            { "轻量级 Windows 可视化键鼠宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标侧键、滚轮、扫描码、按住运行、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n", "Lightweight visual keyboard and mouse macro tool for Windows.\r\nFocused on precise timing, reliable game-friendly control, and safe stopping.\r\n\r\nSupports keyboard input, mouse side buttons, wheel input, scan codes, hold-to-run, macro recording, macro packages, and profiles.\r\n\r\nConfig folder:\r\n" },
+            { "轻量级 Windows 可视化键鼠与虚拟手柄宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标、Xbox 360 / PS4 虚拟手柄、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n", "Lightweight visual keyboard, mouse and virtual gamepad macro tool for Windows.\r\nFocused on precise timing, reliable game-friendly control, and safe stopping.\r\n\r\nSupports keyboard, mouse, Xbox 360 / PS4 virtual gamepad output, macro recording, macro packages, and profiles.\r\n\r\nConfig folder:\r\n" },
             { "打开配置目录", "Open Config Folder" },
 
             { "暂停全局宏触发", "Pause Global Macro Triggers" },
@@ -259,7 +319,7 @@ namespace InputStitch
             { "绑定方案到目标进程", "Bind Profile to Target Process" },
             { "载入配置方案", "Load Profile" },
             { "录制宏", "Record Macro" },
-            { "请先选择一个按键或鼠标输入。", "Please select a keyboard or mouse input first." },
+            { "请先选择一个按键、鼠标或手柄输入。", "Please select a keyboard, mouse, or gamepad input first." },
             { "滚轮只支持“按一下”动作，因为滚轮没有持续按下/松开的状态。", "Mouse wheel input only supports Press because a wheel direction has no persistent down/up state." },
             { "随机间隔的最小值不能大于最大值。", "The minimum random delay cannot be greater than the maximum." },
             { "请至少选择一个宏。", "Please select at least one macro." },
@@ -389,6 +449,8 @@ namespace InputStitch
             new KeyValuePair<string,string>("提示：", "Notice: "),
             new KeyValuePair<string,string>("状态：", "Status: "),
             new KeyValuePair<string,string>("紧急停止：", "Emergency Stop: "),
+            new KeyValuePair<string,string>("虚拟手柄已连接：", "Virtual gamepad connected: "),
+            new KeyValuePair<string,string>("虚拟手柄不可用：", "Virtual gamepad unavailable: "),
             new KeyValuePair<string,string>("（UI编辑保护：", " (UI edit protection: "),
             new KeyValuePair<string,string>("（UI编辑保护已恢复）", " (UI edit protection resumed)"),
             new KeyValuePair<string,string>("（等待手动修饰键松开）", " (waiting for physical modifier release)"),
@@ -413,7 +475,7 @@ namespace InputStitch
             new KeyValuePair<string,string>("录制完成，已生成 ", "Recording complete; generated "),
             new KeyValuePair<string,string>("请先切到目标程序，再切回 InputStitch。", "Switch to the target app first, then return to InputStitch."),
             new KeyValuePair<string,string>("当前没有正在执行的宏。", "No macro is currently running."),
-            new KeyValuePair<string,string>("轻量级 Windows 可视化键鼠宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标侧键、滚轮、扫描码、按住运行、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n", "Lightweight visual keyboard and mouse macro tool for Windows.\r\nFocused on precise timing, reliable game-friendly control, and safe stopping.\r\n\r\nSupports keyboard input, mouse side buttons, wheel input, scan codes, hold-to-run, macro recording, macro packages, and profiles.\r\n\r\nConfig folder:\r\n"),
+            new KeyValuePair<string,string>("轻量级 Windows 可视化键鼠与虚拟手柄宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标、Xbox 360 / PS4 虚拟手柄、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n", "Lightweight visual keyboard, mouse and virtual gamepad macro tool for Windows.\r\nFocused on precise timing, reliable game-friendly control, and safe stopping.\r\n\r\nSupports keyboard, mouse, Xbox 360 / PS4 virtual gamepad output, macro recording, macro packages, and profiles.\r\n\r\nConfig folder:\r\n"),
             new KeyValuePair<string,string>("状态：已导入 ", "Status: imported "),
             new KeyValuePair<string,string>(" 个宏；发现 ", " macro(s); found "),
             new KeyValuePair<string,string>(" 组重复的已启用触发键，请检查。", " duplicate enabled trigger group(s); please review them."),
@@ -850,7 +912,31 @@ namespace InputStitch
         MouseX1,
         MouseX2,
         WheelUp,
-        WheelDown
+        WheelDown,
+        Gamepad
+    }
+
+    public enum GamepadControl
+    {
+        South,
+        East,
+        West,
+        North,
+        DPadUp,
+        DPadDown,
+        DPadLeft,
+        DPadRight,
+        LeftShoulder,
+        RightShoulder,
+        Back,
+        Start,
+        LeftThumb,
+        RightThumb,
+        Guide,
+        LeftStick,
+        RightStick,
+        LeftTrigger,
+        RightTrigger
     }
 
     public enum MacroAction
@@ -874,6 +960,11 @@ namespace InputStitch
         // Captured hardware scan code. 0 means "derive from VirtualKey when sending".
         public int ScanCode = 0;
         public bool Extended = false;
+        public GamepadControl GamepadControl = GamepadControl.South;
+        // Sticks use -100..100 with positive Y meaning up. Triggers use 0..100.
+        public int GamepadX = 0;
+        public int GamepadY = 100;
+        public int GamepadValue = 100;
 
         public InputSpec Clone()
         {
@@ -882,6 +973,10 @@ namespace InputStitch
             x.VirtualKey = VirtualKey;
             x.ScanCode = ScanCode;
             x.Extended = Extended;
+            x.GamepadControl = GamepadControl;
+            x.GamepadX = GamepadX;
+            x.GamepadY = GamepadY;
+            x.GamepadValue = GamepadValue;
             return x;
         }
     }
@@ -917,6 +1012,10 @@ namespace InputStitch
         public int VirtualKey = (int)Keys.A;
         public int ScanCode = 0;
         public bool Extended = false;
+        public GamepadControl GamepadControl = GamepadControl.South;
+        public int GamepadX = 0;
+        public int GamepadY = 100;
+        public int GamepadValue = 100;
         public int HoldMs = 30;
         // Fixed post-step delay retained for compatibility with existing configuration files.
         public int DelayMs = 50;
@@ -933,6 +1032,10 @@ namespace InputStitch
             x.VirtualKey = VirtualKey;
             x.ScanCode = ScanCode;
             x.Extended = Extended;
+            x.GamepadControl = GamepadControl;
+            x.GamepadX = GamepadX;
+            x.GamepadY = GamepadY;
+            x.GamepadValue = GamepadValue;
             x.HoldMs = HoldMs;
             x.DelayMs = DelayMs;
             x.RandomDelay = RandomDelay;
@@ -999,6 +1102,8 @@ namespace InputStitch
         public string Language = Localizer.Chinese;
         // Update preference is global and is intentionally preserved when loading a profile.
         public string UpdateMode = UpdateModes.Automatic;
+        // Virtual controller type is a global preference and is not replaced by profile loading.
+        public string GamepadDeviceType = VirtualGamepadTypes.Xbox360;
         public bool HasSeenWelcome = false;
 
         private static TriggerSpec CreateDefaultPanicTrigger()
@@ -1175,6 +1280,7 @@ namespace InputStitch
                 case InputKind.MouseX2: return Localizer.T("鼠标侧键2 (X2)");
                 case InputKind.WheelUp: return Localizer.T("滚轮向上");
                 case InputKind.WheelDown: return Localizer.T("滚轮向下");
+                case InputKind.Gamepad: return Localizer.T("虚拟手柄");
             }
 
             Keys key = (Keys)vk;
@@ -1235,6 +1341,60 @@ namespace InputStitch
             }
 
             return key.ToString();
+        }
+
+        public static string FormatInput(InputSpec input)
+        {
+            if (input == null) return Localizer.T("未设置");
+            if (input.Kind != InputKind.Gamepad) return FormatInput(input.Kind, input.VirtualKey);
+            string name = FormatGamepadControl(input.GamepadControl);
+            if (input.GamepadControl == GamepadControl.LeftStick || input.GamepadControl == GamepadControl.RightStick)
+                return name + "  X=" + input.GamepadX.ToString() + "%  Y=" + input.GamepadY.ToString() + "%";
+            if (input.GamepadControl == GamepadControl.LeftTrigger || input.GamepadControl == GamepadControl.RightTrigger)
+                return name + "  " + input.GamepadValue.ToString() + "%";
+            return name;
+        }
+
+        public static string FormatInput(MacroStep step)
+        {
+            if (step == null) return Localizer.T("未设置");
+            InputSpec input = new InputSpec();
+            input.Kind = step.Kind;
+            input.VirtualKey = step.VirtualKey;
+            input.ScanCode = step.ScanCode;
+            input.Extended = step.Extended;
+            input.GamepadControl = step.GamepadControl;
+            input.GamepadX = step.GamepadX;
+            input.GamepadY = step.GamepadY;
+            input.GamepadValue = step.GamepadValue;
+            return FormatInput(input);
+        }
+
+        public static string FormatGamepadControl(GamepadControl control)
+        {
+            switch (control)
+            {
+                case GamepadControl.South: return Localizer.T("下方按键 (A / ×)");
+                case GamepadControl.East: return Localizer.T("右侧按键 (B / ○)");
+                case GamepadControl.West: return Localizer.T("左侧按键 (X / □)");
+                case GamepadControl.North: return Localizer.T("上方按键 (Y / △)");
+                case GamepadControl.DPadUp: return Localizer.T("方向键上");
+                case GamepadControl.DPadDown: return Localizer.T("方向键下");
+                case GamepadControl.DPadLeft: return Localizer.T("方向键左");
+                case GamepadControl.DPadRight: return Localizer.T("方向键右");
+                case GamepadControl.LeftShoulder: return Localizer.T("左肩键");
+                case GamepadControl.RightShoulder: return Localizer.T("右肩键");
+                case GamepadControl.Back: return Localizer.T("返回 / 分享");
+                case GamepadControl.Start: return Localizer.T("开始 / 选项");
+                case GamepadControl.LeftThumb: return Localizer.T("按下左摇杆");
+                case GamepadControl.RightThumb: return Localizer.T("按下右摇杆");
+                case GamepadControl.Guide: return Localizer.T("主页键");
+                case GamepadControl.LeftStick: return Localizer.T("左摇杆");
+                case GamepadControl.RightStick: return Localizer.T("右摇杆");
+                case GamepadControl.LeftTrigger: return Localizer.T("左扳机");
+                case GamepadControl.RightTrigger: return Localizer.T("右扳机");
+                default: return control.ToString();
+            }
         }
 
         public static string FormatTrigger(TriggerSpec t)
@@ -1706,6 +1866,394 @@ namespace InputStitch
         private static extern short GetAsyncKeyState(int vKey);
     }
 
+    internal static class EmbeddedDependencyLoader
+    {
+        private const string ViGEmAssemblyName = "Nefarius.ViGEm.Client";
+        private const string ViGEmResourceName = "InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll";
+        private static bool registered;
+
+        public static void Register()
+        {
+            if (registered) return;
+            registered = true;
+            AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
+        }
+
+        private static Assembly ResolveAssembly(object sender, ResolveEventArgs args)
+        {
+            AssemblyName requested;
+            try { requested = new AssemblyName(args.Name); }
+            catch { return null; }
+            if (!string.Equals(requested.Name, ViGEmAssemblyName, StringComparison.OrdinalIgnoreCase)) return null;
+
+            Assembly host = Assembly.GetExecutingAssembly();
+            using (Stream stream = host.GetManifestResourceStream(ViGEmResourceName))
+            {
+                if (stream == null) return null;
+                byte[] bytes = new byte[stream.Length];
+                int offset = 0;
+                while (offset < bytes.Length)
+                {
+                    int read = stream.Read(bytes, offset, bytes.Length - offset);
+                    if (read <= 0) break;
+                    offset += read;
+                }
+                if (offset != bytes.Length) return null;
+                return Assembly.Load(bytes);
+            }
+        }
+    }
+
+    public enum GamepadFailureKind
+    {
+        DriverMissing,
+        VersionMismatch,
+        AccessFailed,
+        NoFreeSlot,
+        Other
+    }
+
+    public sealed class GamepadOutputException : Exception
+    {
+        public readonly GamepadFailureKind FailureKind;
+
+        public GamepadOutputException(GamepadFailureKind kind, string message, Exception inner)
+            : base(message, inner)
+        {
+            FailureKind = kind;
+        }
+    }
+
+    public static class GamepadOutput
+    {
+        private static readonly object Sync = new object();
+        private static readonly HashSet<GamepadControl> DPadHeld = new HashSet<GamepadControl>();
+        private static ViGEmClient client;
+        private static IVirtualGamepad controller;
+        private static IXbox360Controller xbox;
+        private static IDualShock4Controller ds4;
+        private static string connectedType = "";
+        private static string preferredType = VirtualGamepadTypes.Xbox360;
+
+        public static string PreferredType
+        {
+            get { lock (Sync) return preferredType; }
+        }
+
+        public static string ConnectedType
+        {
+            get { lock (Sync) return controller == null ? "" : connectedType; }
+        }
+
+        public static bool IsConnected
+        {
+            get { lock (Sync) return controller != null; }
+        }
+
+        public static void Configure(string type)
+        {
+            string normalized = VirtualGamepadTypes.Normalize(type);
+            lock (Sync) preferredType = normalized;
+        }
+
+        public static void EnsureConnected()
+        {
+            EnsureConnected(PreferredType);
+        }
+
+        public static void EnsureConnected(string requestedType)
+        {
+            string normalized = VirtualGamepadTypes.Normalize(requestedType);
+            lock (Sync)
+            {
+                preferredType = normalized;
+                if (controller != null && string.Equals(connectedType, normalized, StringComparison.OrdinalIgnoreCase)) return;
+                DisconnectLocked();
+                try
+                {
+                    client = new ViGEmClient();
+                    if (string.Equals(normalized, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ds4 = client.CreateDualShock4Controller();
+                        controller = ds4;
+                    }
+                    else
+                    {
+                        xbox = client.CreateXbox360Controller();
+                        controller = xbox;
+                    }
+                    controller.AutoSubmitReport = false;
+                    controller.Connect();
+                    connectedType = normalized;
+                    SetNeutralReportLocked();
+                }
+                catch (Exception ex)
+                {
+                    DisconnectLocked();
+                    throw Wrap(ex);
+                }
+            }
+        }
+
+        public static void Send(InputSpec input, bool down)
+        {
+            if (input == null || input.Kind != InputKind.Gamepad) return;
+            lock (Sync)
+            {
+                if (controller == null) EnsureConnected(preferredType);
+                try
+                {
+                    ApplyLocked(input, down);
+                    controller.SubmitReport();
+                }
+                catch (Exception ex)
+                {
+                    GamepadOutputException failure = ex as GamepadOutputException ?? Wrap(ex);
+                    AppLog.Write("Virtual gamepad send failed; clearing the connection", failure);
+                    DisconnectLocked();
+                    throw failure;
+                }
+            }
+        }
+
+        public static void NeutralizeAll()
+        {
+            lock (Sync)
+            {
+                if (controller == null) return;
+                try { SetNeutralReportLocked(); }
+                catch (Exception ex)
+                {
+                    AppLog.Write("Virtual gamepad neutralize failed; clearing the connection", ex);
+                    DisconnectLocked();
+                }
+            }
+        }
+
+        public static void Disconnect()
+        {
+            lock (Sync) DisconnectLocked();
+        }
+
+        private static void ApplyLocked(InputSpec input, bool down)
+        {
+            GamepadControl control = input.GamepadControl;
+            if (control == GamepadControl.LeftStick || control == GamepadControl.RightStick)
+            {
+                int x = down ? Clamp(input.GamepadX, -100, 100) : 0;
+                int y = down ? Clamp(input.GamepadY, -100, 100) : 0;
+                if (xbox != null)
+                {
+                    Xbox360Axis xAxis = control == GamepadControl.LeftStick ? Xbox360Axis.LeftThumbX : Xbox360Axis.RightThumbX;
+                    Xbox360Axis yAxis = control == GamepadControl.LeftStick ? Xbox360Axis.LeftThumbY : Xbox360Axis.RightThumbY;
+                    xbox.SetAxisValue(xAxis, PercentToSignedAxis(x));
+                    xbox.SetAxisValue(yAxis, PercentToSignedAxis(y));
+                }
+                else if (ds4 != null)
+                {
+                    DualShock4Axis xAxis = control == GamepadControl.LeftStick ? DualShock4Axis.LeftThumbX : DualShock4Axis.RightThumbX;
+                    DualShock4Axis yAxis = control == GamepadControl.LeftStick ? DualShock4Axis.LeftThumbY : DualShock4Axis.RightThumbY;
+                    ds4.SetAxisValue(xAxis, PercentToDs4Axis(x, false));
+                    ds4.SetAxisValue(yAxis, PercentToDs4Axis(y, true));
+                }
+                return;
+            }
+
+            if (control == GamepadControl.LeftTrigger || control == GamepadControl.RightTrigger)
+            {
+                byte value = down ? PercentToByte(Clamp(input.GamepadValue, 0, 100)) : (byte)0;
+                if (xbox != null)
+                    xbox.SetSliderValue(control == GamepadControl.LeftTrigger ? Xbox360Slider.LeftTrigger : Xbox360Slider.RightTrigger, value);
+                else if (ds4 != null)
+                {
+                    ds4.SetSliderValue(control == GamepadControl.LeftTrigger ? DualShock4Slider.LeftTrigger : DualShock4Slider.RightTrigger, value);
+                    ds4.SetButtonState(control == GamepadControl.LeftTrigger ? DualShock4Button.TriggerLeft : DualShock4Button.TriggerRight, down && value > 0);
+                }
+                return;
+            }
+
+            if (IsDPad(control))
+            {
+                if (down) DPadHeld.Add(control); else DPadHeld.Remove(control);
+                if (xbox != null)
+                {
+                    xbox.SetButtonState(ToXboxButton(control), down);
+                }
+                else if (ds4 != null)
+                {
+                    ds4.SetDPadDirection(CurrentDs4DPadDirection());
+                }
+                return;
+            }
+
+            if (xbox != null) xbox.SetButtonState(ToXboxButton(control), down);
+            else if (ds4 != null) ds4.SetButtonState(ToDs4Button(control), down);
+        }
+
+        private static void SetNeutralReportLocked()
+        {
+            if (controller == null) return;
+            DPadHeld.Clear();
+            controller.ResetReport();
+            if (ds4 != null)
+            {
+                ds4.SetAxisValue(DualShock4Axis.LeftThumbX, 128);
+                ds4.SetAxisValue(DualShock4Axis.LeftThumbY, 128);
+                ds4.SetAxisValue(DualShock4Axis.RightThumbX, 128);
+                ds4.SetAxisValue(DualShock4Axis.RightThumbY, 128);
+                ds4.SetDPadDirection(DualShock4DPadDirection.None);
+            }
+            controller.SubmitReport();
+        }
+
+        private static void DisconnectLocked()
+        {
+            if (controller != null)
+            {
+                try { SetNeutralReportLocked(); } catch { }
+                try { controller.Disconnect(); } catch { }
+            }
+            if (ds4 != null) { try { ds4.Dispose(); } catch { } }
+            if (client != null) { try { client.Dispose(); } catch { } }
+            controller = null;
+            xbox = null;
+            ds4 = null;
+            client = null;
+            connectedType = "";
+            DPadHeld.Clear();
+        }
+
+        private static GamepadOutputException Wrap(Exception ex)
+        {
+            Exception current = ex;
+            while ((current is TargetInvocationException || current is TypeInitializationException || current is AggregateException) && current.InnerException != null)
+                current = current.InnerException;
+            if (current is VigemBusNotFoundException)
+                return new GamepadOutputException(GamepadFailureKind.DriverMissing, Localizer.T("虚拟手柄驱动未安装或未运行。"), current);
+            if (current is VigemBusVersionMismatchException)
+                return new GamepadOutputException(GamepadFailureKind.VersionMismatch, Localizer.T("已安装的 ViGEmBus 与客户端不兼容。"), current);
+            if (current is VigemBusAccessFailedException)
+                return new GamepadOutputException(GamepadFailureKind.AccessFailed, Localizer.T("无法访问 ViGEmBus。请尝试重新安装官方驱动。"), current);
+            if (current is VigemNoFreeSlotException)
+                return new GamepadOutputException(GamepadFailureKind.NoFreeSlot, Localizer.T("没有可用的虚拟手柄槽位。请关闭其他虚拟手柄工具后重试。"), current);
+            if (current is DllNotFoundException || current is BadImageFormatException || current is FileLoadException)
+                return new GamepadOutputException(GamepadFailureKind.AccessFailed, Localizer.T("虚拟手柄客户端未能加载，可能被安全软件拦截或文件架构不匹配。"), current);
+            return new GamepadOutputException(GamepadFailureKind.Other, current == null ? Localizer.T("驱动检测失败") : current.Message, current);
+        }
+
+        private static bool IsDPad(GamepadControl control)
+        {
+            return control == GamepadControl.DPadUp || control == GamepadControl.DPadDown ||
+                   control == GamepadControl.DPadLeft || control == GamepadControl.DPadRight;
+        }
+
+        private static Xbox360Button ToXboxButton(GamepadControl control)
+        {
+            switch (control)
+            {
+                case GamepadControl.South: return Xbox360Button.A;
+                case GamepadControl.East: return Xbox360Button.B;
+                case GamepadControl.West: return Xbox360Button.X;
+                case GamepadControl.North: return Xbox360Button.Y;
+                case GamepadControl.DPadUp: return Xbox360Button.Up;
+                case GamepadControl.DPadDown: return Xbox360Button.Down;
+                case GamepadControl.DPadLeft: return Xbox360Button.Left;
+                case GamepadControl.DPadRight: return Xbox360Button.Right;
+                case GamepadControl.LeftShoulder: return Xbox360Button.LeftShoulder;
+                case GamepadControl.RightShoulder: return Xbox360Button.RightShoulder;
+                case GamepadControl.Back: return Xbox360Button.Back;
+                case GamepadControl.Start: return Xbox360Button.Start;
+                case GamepadControl.LeftThumb: return Xbox360Button.LeftThumb;
+                case GamepadControl.RightThumb: return Xbox360Button.RightThumb;
+                case GamepadControl.Guide: return Xbox360Button.Guide;
+                default: throw new ArgumentOutOfRangeException("control");
+            }
+        }
+
+        private static DualShock4Button ToDs4Button(GamepadControl control)
+        {
+            switch (control)
+            {
+                case GamepadControl.South: return DualShock4Button.Cross;
+                case GamepadControl.East: return DualShock4Button.Circle;
+                case GamepadControl.West: return DualShock4Button.Square;
+                case GamepadControl.North: return DualShock4Button.Triangle;
+                case GamepadControl.LeftShoulder: return DualShock4Button.ShoulderLeft;
+                case GamepadControl.RightShoulder: return DualShock4Button.ShoulderRight;
+                case GamepadControl.Back: return DualShock4Button.Share;
+                case GamepadControl.Start: return DualShock4Button.Options;
+                case GamepadControl.LeftThumb: return DualShock4Button.ThumbLeft;
+                case GamepadControl.RightThumb: return DualShock4Button.ThumbRight;
+                case GamepadControl.Guide: return DualShock4SpecialButton.Ps;
+                default: throw new ArgumentOutOfRangeException("control");
+            }
+        }
+
+        private static DualShock4DPadDirection CurrentDs4DPadDirection()
+        {
+            bool up = DPadHeld.Contains(GamepadControl.DPadUp);
+            bool down = DPadHeld.Contains(GamepadControl.DPadDown);
+            bool left = DPadHeld.Contains(GamepadControl.DPadLeft);
+            bool right = DPadHeld.Contains(GamepadControl.DPadRight);
+            if (up && left) return DualShock4DPadDirection.Northwest;
+            if (up && right) return DualShock4DPadDirection.Northeast;
+            if (down && left) return DualShock4DPadDirection.Southwest;
+            if (down && right) return DualShock4DPadDirection.Southeast;
+            if (up) return DualShock4DPadDirection.North;
+            if (down) return DualShock4DPadDirection.South;
+            if (left) return DualShock4DPadDirection.West;
+            if (right) return DualShock4DPadDirection.East;
+            return DualShock4DPadDirection.None;
+        }
+
+        private static short PercentToSignedAxis(int percent)
+        {
+            if (percent <= -100) return short.MinValue;
+            if (percent >= 100) return short.MaxValue;
+            return (short)Math.Round(percent * 327.67);
+        }
+
+        private static byte PercentToDs4Axis(int percent, bool invert)
+        {
+            int p = invert ? -percent : percent;
+            int value = p < 0
+                ? (int)Math.Round(128.0 + p * 128.0 / 100.0)
+                : (int)Math.Round(128.0 + p * 127.0 / 100.0);
+            return (byte)Clamp(value, 0, 255);
+        }
+
+        private static byte PercentToByte(int percent)
+        {
+            return (byte)Clamp((int)Math.Round(percent * 255.0 / 100.0), 0, 255);
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            return value < min ? min : (value > max ? max : value);
+        }
+    }
+
+    public static class GamepadDriverGuidance
+    {
+        public static void Show(IWin32Window owner, GamepadOutputException error)
+        {
+            string reason = error == null ? Localizer.T("驱动检测失败") : error.Message;
+            string text = reason + "\r\n\r\n" +
+                Localizer.T("虚拟手柄需要 ViGEmBus 驱动。该上游项目已停止维护；InputStitch 不会静默安装驱动，只会打开原作者的官方 GitHub 下载页。") + "\r\n\r\n" +
+                Localizer.T("安装完成后请重启 InputStitch。是否打开官方下载页？");
+            DialogResult result = LocalizedMessageBox.Show(owner, text, Localizer.T("驱动检测失败"),
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (result != DialogResult.Yes) return;
+            try { Process.Start(new ProcessStartInfo(AppInfo.ViGEmBusReleaseUrl) { UseShellExecute = true }); }
+            catch (Exception ex)
+            {
+                AppLog.Write("Could not open official ViGEmBus release page", ex);
+                LocalizedMessageBox.Show(owner, AppInfo.ViGEmBusReleaseUrl, AppInfo.ProductName,
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+    }
+
     public static class InputSender
     {
         private const uint INPUT_MOUSE = 0;
@@ -1733,7 +2281,8 @@ namespace InputStitch
 
         public static void SendDown(InputSpec input)
         {
-            if (input.Kind == InputKind.Keyboard) SendKeyboard(input, false);
+            if (input.Kind == InputKind.Gamepad) GamepadOutput.Send(input, true);
+            else if (input.Kind == InputKind.Keyboard) SendKeyboard(input, false);
             else if (input.Kind == InputKind.WheelUp) SendWheel(WHEEL_DELTA);
             else if (input.Kind == InputKind.WheelDown) SendWheel(-WHEEL_DELTA);
             else SendMouseButton(input.Kind, false);
@@ -1741,7 +2290,8 @@ namespace InputStitch
 
         public static void SendUp(InputSpec input)
         {
-            if (input.Kind == InputKind.Keyboard) SendKeyboard(input, true);
+            if (input.Kind == InputKind.Gamepad) GamepadOutput.Send(input, false);
+            else if (input.Kind == InputKind.Keyboard) SendKeyboard(input, true);
             else if (input.Kind != InputKind.WheelUp && input.Kind != InputKind.WheelDown) SendMouseButton(input.Kind, true);
         }
 
@@ -2100,8 +2650,19 @@ namespace InputStitch
     public class StepEditDialog : Form
     {
         private ComboBox actionBox;
+        private ComboBox inputTypeBox;
         private TextBox inputText;
         private Button captureButton;
+        private Label physicalInputLabel;
+        private Label gamepadLabel;
+        private FlowLayoutPanel gamepadPanel;
+        private ComboBox gamepadControlBox;
+        private Label stickXLabel;
+        private Label stickYLabel;
+        private Label triggerValueLabel;
+        private NumericUpDown stickXBox;
+        private NumericUpDown stickYBox;
+        private NumericUpDown triggerValueBox;
         private NumericUpDown holdBox;
         private NumericUpDown delayBox;
         private CheckBox randomDelayBox;
@@ -2125,8 +2686,8 @@ namespace InputStitch
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(560, 390);
-            ClientSize = new Size(650, 410);
+            MinimumSize = new Size(650, 520);
+            ClientSize = new Size(760, 550);
             Font = new Font("Microsoft YaHei UI", 9F);
             BackColor = Color.FromArgb(247, 249, 252);
 
@@ -2134,11 +2695,11 @@ namespace InputStitch
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(20);
             root.ColumnCount = 3;
-            root.RowCount = 6;
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
+            root.RowCount = 8;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145F));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            for (int i = 0; i < 5; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            for (int i = 0; i < 7; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             Controls.Add(root);
 
@@ -2158,32 +2719,85 @@ namespace InputStitch
             root.Controls.Add(actionBox, 1, 0);
             root.SetColumnSpan(actionBox, 2);
 
-            Label kLabel = new Label();
-            kLabel.Text = "按键/鼠标：";
-            kLabel.Dock = DockStyle.Fill;
-            kLabel.MinimumSize = new Size(0, 34);
-            kLabel.TextAlign = ContentAlignment.MiddleLeft;
-            root.Controls.Add(kLabel, 0, 1);
+            Label typeLabel = new Label();
+            typeLabel.Text = "输入类型：";
+            typeLabel.Dock = DockStyle.Fill;
+            typeLabel.MinimumSize = new Size(0, 34);
+            typeLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(typeLabel, 0, 1);
+
+            inputTypeBox = new ComboBox();
+            inputTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            inputTypeBox.Items.Add(Localizer.T("键盘 / 鼠标"));
+            inputTypeBox.Items.Add(Localizer.T("虚拟手柄"));
+            inputTypeBox.Dock = DockStyle.Fill;
+            inputTypeBox.Margin = new Padding(3, 4, 3, 6);
+            inputTypeBox.SelectedIndexChanged += delegate { UpdateInputMode(); };
+            root.Controls.Add(inputTypeBox, 1, 1);
+            root.SetColumnSpan(inputTypeBox, 2);
+
+            physicalInputLabel = new Label();
+            physicalInputLabel.Text = "按键/鼠标：";
+            physicalInputLabel.Dock = DockStyle.Fill;
+            physicalInputLabel.MinimumSize = new Size(0, 34);
+            physicalInputLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(physicalInputLabel, 0, 2);
 
             inputText = new TextBox();
             inputText.Dock = DockStyle.Fill;
             inputText.Margin = new Padding(3, 4, 8, 6);
             inputText.ReadOnly = true;
-            root.Controls.Add(inputText, 1, 1);
+            root.Controls.Add(inputText, 1, 2);
 
             captureButton = new Button();
             captureButton.Text = Localizer.T("捕获输入");
             captureButton.AutoSize = true;
             captureButton.MinimumSize = new Size(122, 32);
             captureButton.Click += CaptureButton_Click;
-            root.Controls.Add(captureButton, 2, 1);
+            root.Controls.Add(captureButton, 2, 2);
+
+            gamepadLabel = new Label();
+            gamepadLabel.Text = "手柄控制：";
+            gamepadLabel.Dock = DockStyle.Fill;
+            gamepadLabel.MinimumSize = new Size(0, 38);
+            gamepadLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(gamepadLabel, 0, 3);
+
+            gamepadPanel = new FlowLayoutPanel();
+            gamepadPanel.Dock = DockStyle.Fill;
+            gamepadPanel.AutoSize = true;
+            gamepadPanel.WrapContents = true;
+            gamepadPanel.Margin = new Padding(0);
+            gamepadControlBox = new ComboBox();
+            gamepadControlBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            gamepadControlBox.Width = 250;
+            gamepadControlBox.Margin = new Padding(3, 4, 14, 6);
+            foreach (GamepadControl control in Enum.GetValues(typeof(GamepadControl)))
+                gamepadControlBox.Items.Add(InputNames.FormatGamepadControl(control));
+            gamepadControlBox.SelectedIndexChanged += delegate { UpdateGamepadControl(); };
+            gamepadPanel.Controls.Add(gamepadControlBox);
+
+            stickXLabel = MakeInlineLabel(Localizer.T("摇杆 X："));
+            gamepadPanel.Controls.Add(stickXLabel);
+            stickXBox = MakePercentBox(-100, 100, 0);
+            gamepadPanel.Controls.Add(stickXBox);
+            stickYLabel = MakeInlineLabel(Localizer.T("摇杆 Y："));
+            gamepadPanel.Controls.Add(stickYLabel);
+            stickYBox = MakePercentBox(-100, 100, 100);
+            gamepadPanel.Controls.Add(stickYBox);
+            triggerValueLabel = MakeInlineLabel(Localizer.T("扳机力度："));
+            gamepadPanel.Controls.Add(triggerValueLabel);
+            triggerValueBox = MakePercentBox(0, 100, 100);
+            gamepadPanel.Controls.Add(triggerValueBox);
+            root.Controls.Add(gamepadPanel, 1, 3);
+            root.SetColumnSpan(gamepadPanel, 2);
 
             holdLabel = new Label();
             holdLabel.Text = "按住时长：";
             holdLabel.Dock = DockStyle.Fill;
             holdLabel.MinimumSize = new Size(0, 36);
             holdLabel.TextAlign = ContentAlignment.MiddleLeft;
-            root.Controls.Add(holdLabel, 0, 2);
+            root.Controls.Add(holdLabel, 0, 4);
 
             FlowLayoutPanel holdRow = new FlowLayoutPanel();
             holdRow.Dock = DockStyle.Fill;
@@ -2211,7 +2825,7 @@ namespace InputStitch
             randomDelayBox.Margin = new Padding(0, 6, 0, 0);
             randomDelayBox.CheckedChanged += delegate { UpdateDelayControls(); };
             holdRow.Controls.Add(randomDelayBox);
-            root.Controls.Add(holdRow, 1, 2);
+            root.Controls.Add(holdRow, 1, 4);
             root.SetColumnSpan(holdRow, 2);
 
             fixedDelayLabel = new Label();
@@ -2219,7 +2833,7 @@ namespace InputStitch
             fixedDelayLabel.Dock = DockStyle.Fill;
             fixedDelayLabel.MinimumSize = new Size(0, 36);
             fixedDelayLabel.TextAlign = ContentAlignment.MiddleLeft;
-            root.Controls.Add(fixedDelayLabel, 0, 3);
+            root.Controls.Add(fixedDelayLabel, 0, 5);
 
             FlowLayoutPanel delayRow = new FlowLayoutPanel();
             delayRow.Dock = DockStyle.Fill;
@@ -2240,7 +2854,7 @@ namespace InputStitch
             ms2.AutoSize = true;
             ms2.Margin = new Padding(0, 7, 0, 0);
             delayRow.Controls.Add(ms2);
-            root.Controls.Add(delayRow, 1, 3);
+            root.Controls.Add(delayRow, 1, 5);
             root.SetColumnSpan(delayRow, 2);
 
             randomDelayLabel = new Label();
@@ -2248,7 +2862,7 @@ namespace InputStitch
             randomDelayLabel.Dock = DockStyle.Fill;
             randomDelayLabel.MinimumSize = new Size(0, 36);
             randomDelayLabel.TextAlign = ContentAlignment.MiddleLeft;
-            root.Controls.Add(randomDelayLabel, 0, 4);
+            root.Controls.Add(randomDelayLabel, 0, 6);
 
             FlowLayoutPanel randomRow = new FlowLayoutPanel();
             randomRow.Dock = DockStyle.Fill;
@@ -2283,7 +2897,7 @@ namespace InputStitch
             ms3.AutoSize = true;
             ms3.Margin = new Padding(0, 7, 0, 0);
             randomRow.Controls.Add(ms3);
-            root.Controls.Add(randomRow, 1, 4);
+            root.Controls.Add(randomRow, 1, 6);
             root.SetColumnSpan(randomRow, 2);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel();
@@ -2307,7 +2921,7 @@ namespace InputStitch
             cancel.MinimumSize = new Size(96, 34);
             cancel.DialogResult = DialogResult.Cancel;
             buttons.Controls.Add(cancel);
-            root.Controls.Add(buttons, 0, 5);
+            root.Controls.Add(buttons, 0, 7);
             root.SetColumnSpan(buttons, 3);
             CancelButton = cancel;
 
@@ -2326,12 +2940,22 @@ namespace InputStitch
                 selectedInput.VirtualKey = source.VirtualKey;
                 selectedInput.ScanCode = source.ScanCode;
                 selectedInput.Extended = source.Extended;
+                selectedInput.GamepadControl = source.GamepadControl;
+                selectedInput.GamepadX = source.GamepadX;
+                selectedInput.GamepadY = source.GamepadY;
+                selectedInput.GamepadValue = source.GamepadValue;
                 holdBox.Value = ClampDecimal(source.HoldMs, holdBox.Minimum, holdBox.Maximum);
                 delayBox.Value = ClampDecimal(source.DelayMs, delayBox.Minimum, delayBox.Maximum);
                 randomDelayBox.Checked = source.RandomDelay;
                 randomMinBox.Value = ClampDecimal(source.RandomDelayMinMs, randomMinBox.Minimum, randomMinBox.Maximum);
                 randomMaxBox.Value = ClampDecimal(source.RandomDelayMaxMs, randomMaxBox.Minimum, randomMaxBox.Maximum);
             }
+            inputTypeBox.SelectedIndex = selectedInput.Kind == InputKind.Gamepad ? 1 : 0;
+            gamepadControlBox.SelectedIndex = Math.Max(0, Math.Min(gamepadControlBox.Items.Count - 1, (int)selectedInput.GamepadControl));
+            stickXBox.Value = ClampDecimal(selectedInput.GamepadX, stickXBox.Minimum, stickXBox.Maximum);
+            stickYBox.Value = ClampDecimal(selectedInput.GamepadY, stickYBox.Minimum, stickYBox.Maximum);
+            triggerValueBox.Value = ClampDecimal(selectedInput.GamepadValue, triggerValueBox.Minimum, triggerValueBox.Maximum);
+            UpdateInputMode();
             RefreshInputText();
             UpdateHoldEnabled();
             UpdateDelayControls();
@@ -2343,6 +2967,73 @@ namespace InputStitch
             if (x < min) return min;
             if (x > max) return max;
             return x;
+        }
+
+        private static Label MakeInlineLabel(string text)
+        {
+            Label label = new Label();
+            label.Text = text;
+            label.AutoSize = true;
+            label.Margin = new Padding(0, 8, 5, 0);
+            return label;
+        }
+
+        private static NumericUpDown MakePercentBox(int min, int max, int value)
+        {
+            NumericUpDown box = new NumericUpDown();
+            box.Minimum = min;
+            box.Maximum = max;
+            box.Value = value;
+            box.Width = 72;
+            box.Margin = new Padding(0, 4, 12, 6);
+            box.ValueChanged += delegate { };
+            return box;
+        }
+
+        private void UpdateInputMode()
+        {
+            if (selectedInput == null) return;
+            bool gamepad = inputTypeBox.SelectedIndex == 1;
+            if (gamepad && selectedInput.Kind != InputKind.Gamepad)
+            {
+                selectedInput = new InputSpec();
+                selectedInput.Kind = InputKind.Gamepad;
+                selectedInput.GamepadControl = GamepadControl.South;
+            }
+            else if (!gamepad && selectedInput.Kind == InputKind.Gamepad)
+            {
+                selectedInput = new InputSpec();
+                selectedInput.Kind = InputKind.Keyboard;
+                selectedInput.VirtualKey = (int)Keys.A;
+            }
+            physicalInputLabel.Visible = !gamepad;
+            inputText.Visible = !gamepad;
+            captureButton.Visible = !gamepad;
+            gamepadLabel.Visible = gamepad;
+            gamepadPanel.Visible = gamepad;
+            if (gamepad)
+            {
+                gamepadControlBox.SelectedIndex = Math.Max(0, Math.Min(gamepadControlBox.Items.Count - 1, (int)selectedInput.GamepadControl));
+                UpdateGamepadControl();
+            }
+            RefreshInputText();
+            UpdateHoldEnabled();
+        }
+
+        private void UpdateGamepadControl()
+        {
+            if (selectedInput == null || inputTypeBox.SelectedIndex != 1 || gamepadControlBox.SelectedIndex < 0) return;
+            selectedInput.Kind = InputKind.Gamepad;
+            selectedInput.GamepadControl = (GamepadControl)gamepadControlBox.SelectedIndex;
+            bool stick = selectedInput.GamepadControl == GamepadControl.LeftStick || selectedInput.GamepadControl == GamepadControl.RightStick;
+            bool trigger = selectedInput.GamepadControl == GamepadControl.LeftTrigger || selectedInput.GamepadControl == GamepadControl.RightTrigger;
+            stickXLabel.Visible = stick;
+            stickXBox.Visible = stick;
+            stickYLabel.Visible = stick;
+            stickYBox.Visible = stick;
+            triggerValueLabel.Visible = trigger;
+            triggerValueBox.Visible = trigger;
+            RefreshInputText();
         }
 
         private void CaptureButton_Click(object sender, EventArgs e)
@@ -2365,7 +3056,14 @@ namespace InputStitch
 
         private void RefreshInputText()
         {
-            inputText.Text = InputNames.FormatInput(selectedInput.Kind, selectedInput.VirtualKey);
+            if (selectedInput == null) return;
+            if (selectedInput.Kind == InputKind.Gamepad)
+            {
+                selectedInput.GamepadX = (int)stickXBox.Value;
+                selectedInput.GamepadY = (int)stickYBox.Value;
+                selectedInput.GamepadValue = (int)triggerValueBox.Value;
+            }
+            inputText.Text = InputNames.FormatInput(selectedInput);
         }
 
         private void UpdateHoldEnabled()
@@ -2390,7 +3088,7 @@ namespace InputStitch
         {
             if (selectedInput == null)
             {
-                LocalizedMessageBox.Show(this, "请先选择一个按键或鼠标输入。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LocalizedMessageBox.Show(this, "请先选择一个按键、鼠标或手柄输入。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if ((selectedInput.Kind == InputKind.WheelUp || selectedInput.Kind == InputKind.WheelDown) && actionBox.SelectedIndex != 0)
@@ -2403,6 +3101,11 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, "随机间隔的最小值不能大于最大值。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            if (selectedInput.Kind == InputKind.Gamepad)
+            {
+                try { GamepadOutput.EnsureConnected(); }
+                catch (GamepadOutputException ex) { GamepadDriverGuidance.Show(this, ex); }
+            }
 
             MacroStep s = new MacroStep();
             s.Action = actionBox.SelectedIndex == 0 ? MacroAction.Press : (actionBox.SelectedIndex == 1 ? MacroAction.Down : MacroAction.Up);
@@ -2410,6 +3113,10 @@ namespace InputStitch
             s.VirtualKey = selectedInput.VirtualKey;
             s.ScanCode = selectedInput.ScanCode;
             s.Extended = selectedInput.Extended;
+            s.GamepadControl = selectedInput.GamepadControl;
+            s.GamepadX = (int)stickXBox.Value;
+            s.GamepadY = (int)stickYBox.Value;
+            s.GamepadValue = (int)triggerValueBox.Value;
             s.HoldMs = (int)holdBox.Value;
             s.DelayMs = (int)delayBox.Value;
             s.RandomDelay = randomDelayBox.Checked;
@@ -2751,7 +3458,7 @@ namespace InputStitch
             Controls.Add(title);
 
             Label body = new Label();
-            body.Text = "轻量级 Windows 可视化键鼠宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标侧键、滚轮、扫描码、按住运行、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n" + AppPaths.Root;
+            body.Text = "轻量级 Windows 可视化键鼠与虚拟手柄宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标、Xbox 360 / PS4 虚拟手柄、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n" + AppPaths.Root;
             body.Location = new Point(26, 72);
             body.Size = new Size(465, 170);
             Controls.Add(body);
@@ -2816,6 +3523,8 @@ namespace InputStitch
         private readonly CheckBox autoProfileBox;
         private readonly ComboBox languageBox;
         private readonly ComboBox updateModeBox;
+        private readonly ComboBox gamepadTypeBox;
+        private readonly Label gamepadStatusLabel;
 
         public event EventHandler CheckForUpdatesRequested;
 
@@ -2827,6 +3536,7 @@ namespace InputStitch
         public int UiRunStartDelayMs { get { return (int)delayBox.Value; } }
         public bool AutoSwitchProfiles { get { return autoProfileBox.Checked; } }
         public string SelectedLanguage { get { return languageBox.SelectedIndex == 1 ? Localizer.English : Localizer.Chinese; } }
+        public string SelectedGamepadType { get { return gamepadTypeBox.SelectedIndex == 1 ? VirtualGamepadTypes.DualShock4 : VirtualGamepadTypes.Xbox360; } }
         public string SelectedUpdateMode
         {
             get
@@ -2847,16 +3557,18 @@ namespace InputStitch
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimizeBox = false;
             MaximizeBox = false;
-            MinimumSize = new Size(560, 700);
-            ClientSize = new Size(660, 760);
+            MinimumSize = new Size(580, 720);
+            ClientSize = new Size(700, 880);
             BackColor = Color.FromArgb(247, 249, 252);
+            AutoScroll = true;
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(18);
             root.ColumnCount = 1;
-            root.RowCount = 6;
+            root.RowCount = 7;
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -2912,6 +3624,73 @@ namespace InputStitch
             inputLayout.Controls.Add(uiSafetyBox);
             root.Controls.Add(input, 0, 2);
 
+            GroupBox gamepad = MakeGroup(Localizer.T("虚拟手柄输出"));
+            TableLayoutPanel gamepadLayout = MakeStack();
+            gamepad.Controls.Add(gamepadLayout);
+            TableLayoutPanel gamepadTypeRow = new TableLayoutPanel();
+            gamepadTypeRow.AutoSize = true;
+            gamepadTypeRow.Dock = DockStyle.Top;
+            gamepadTypeRow.ColumnCount = 2;
+            gamepadTypeRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            gamepadTypeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            Label gamepadTypeLabel = new Label();
+            gamepadTypeLabel.Text = Localizer.T("手柄类型：");
+            gamepadTypeLabel.AutoSize = true;
+            gamepadTypeLabel.Anchor = AnchorStyles.Left;
+            gamepadTypeLabel.Margin = new Padding(0, 5, 12, 5);
+            gamepadTypeBox = new ComboBox();
+            gamepadTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            gamepadTypeBox.Dock = DockStyle.Fill;
+            gamepadTypeBox.Items.Add(Localizer.T("Xbox 360（推荐，Windows 游戏兼容性最好）"));
+            gamepadTypeBox.Items.Add(Localizer.T("PS4 / DualShock 4"));
+            gamepadTypeBox.SelectedIndex = string.Equals(config.GamepadDeviceType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            gamepadTypeRow.Controls.Add(gamepadTypeLabel, 0, 0);
+            gamepadTypeRow.Controls.Add(gamepadTypeBox, 1, 0);
+            gamepadLayout.Controls.Add(gamepadTypeRow);
+
+            gamepadStatusLabel = new Label();
+            gamepadStatusLabel.AutoSize = true;
+            gamepadStatusLabel.MaximumSize = new Size(610, 0);
+            gamepadStatusLabel.Margin = new Padding(0, 5, 0, 8);
+            gamepadLayout.Controls.Add(gamepadStatusLabel);
+            Button connectGamepad = MakeDialogButton(Localizer.T("检测驱动并连接"));
+            connectGamepad.Margin = new Padding(0, 2, 0, 6);
+            connectGamepad.Click += delegate
+            {
+                try
+                {
+                    GamepadOutput.EnsureConnected(SelectedGamepadType);
+                    RefreshGamepadStatus();
+                }
+                catch (GamepadOutputException ex)
+                {
+                    RefreshGamepadStatus();
+                    GamepadDriverGuidance.Show(this, ex);
+                }
+            };
+            gamepadLayout.Controls.Add(connectGamepad);
+            Button openDriverPage = MakeDialogButton(Localizer.T("打开官方驱动下载页"));
+            openDriverPage.Margin = new Padding(0, 0, 0, 6);
+            openDriverPage.Click += delegate
+            {
+                try { Process.Start(new ProcessStartInfo(AppInfo.ViGEmBusReleaseUrl) { UseShellExecute = true }); }
+                catch (Exception ex)
+                {
+                    AppLog.Write("Could not open official ViGEmBus release page", ex);
+                    LocalizedMessageBox.Show(this, AppInfo.ViGEmBusReleaseUrl, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            };
+            gamepadLayout.Controls.Add(openDriverPage);
+            Label gamepadHint = new Label();
+            gamepadHint.Text = Localizer.T("虚拟手柄需要 ViGEmBus 驱动。该上游项目已停止维护；InputStitch 不会静默安装驱动，只会打开原作者的官方 GitHub 下载页。");
+            gamepadHint.AutoSize = true;
+            gamepadHint.MaximumSize = new Size(610, 0);
+            gamepadHint.ForeColor = Color.FromArgb(120, 92, 44);
+            gamepadHint.Margin = new Padding(0, 3, 0, 3);
+            gamepadLayout.Controls.Add(gamepadHint);
+            root.Controls.Add(gamepad, 0, 3);
+            RefreshGamepadStatus();
+
             GroupBox target = MakeGroup(Localizer.T("目标窗口与方案"));
             TableLayoutPanel targetLayout = MakeStack();
             target.Controls.Add(targetLayout);
@@ -2947,7 +3726,7 @@ namespace InputStitch
             targetLayout.Controls.Add(delayRow);
             autoProfileBox = MakeCheck(Localizer.T("按前台程序自动切换已绑定方案"), config.AutoSwitchProfiles);
             targetLayout.Controls.Add(autoProfileBox);
-            root.Controls.Add(target, 0, 3);
+            root.Controls.Add(target, 0, 4);
 
             GroupBox updates = MakeGroup(Localizer.T("软件更新"));
             TableLayoutPanel updatesLayout = MakeStack();
@@ -2989,7 +3768,7 @@ namespace InputStitch
                 if (handler != null) handler(this, EventArgs.Empty);
             };
             updatesLayout.Controls.Add(checkNow);
-            root.Controls.Add(updates, 0, 4);
+            root.Controls.Add(updates, 0, 5);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.AutoSize = true;
@@ -3011,13 +3790,30 @@ namespace InputStitch
                 delayBox.Value = 300;
                 autoProfileBox.Checked = false;
                 updateModeBox.SelectedIndex = 0;
+                gamepadTypeBox.SelectedIndex = 0;
             };
             buttons.Controls.Add(ok);
             buttons.Controls.Add(cancel);
             buttons.Controls.Add(defaults);
-            root.Controls.Add(buttons, 0, 5);
+            root.Controls.Add(buttons, 0, 6);
             AcceptButton = ok;
             CancelButton = cancel;
+        }
+
+        private void RefreshGamepadStatus()
+        {
+            if (GamepadOutput.IsConnected)
+            {
+                string type = string.Equals(GamepadOutput.ConnectedType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase)
+                    ? "PS4 / DualShock 4" : "Xbox 360";
+                gamepadStatusLabel.Text = Localizer.T("已连接：") + type;
+                gamepadStatusLabel.ForeColor = Color.ForestGreen;
+            }
+            else
+            {
+                gamepadStatusLabel.Text = Localizer.T("未连接。首次使用前请先连接；启动游戏前连接可避免游戏忽略热插拔设备。");
+                gamepadStatusLabel.ForeColor = Color.FromArgb(86, 96, 112);
+            }
         }
 
         private static GroupBox MakeGroup(string text)
@@ -3192,7 +3988,8 @@ namespace InputStitch
             configPath = AppPaths.Config;
             config = LoadConfig();
             Localizer.SetLanguage(config.Language);
-            Text = AppInfo.ProductName + " " + AppInfo.Version + " - " + Localizer.T("键鼠宏工具");
+            GamepadOutput.Configure(config.GamepadDeviceType);
+            Text = AppInfo.ProductName + " " + AppInfo.Version + " - " + Localizer.T("键鼠与手柄宏工具");
             EnsureDefaultMacro();
 
             BuildUi();
@@ -3247,6 +4044,8 @@ namespace InputStitch
                 }
                 if (string.Equals(config.UpdateMode, UpdateModes.Automatic, StringComparison.OrdinalIgnoreCase))
                     BeginInvoke((MethodInvoker)delegate { CheckForUpdatesAsync(this, true); });
+                if (HasAnyGamepadSteps())
+                    BeginInvoke((MethodInvoker)delegate { EnsureGamepadReady(null, true); });
             };
         }
 
@@ -3623,7 +4422,7 @@ namespace InputStitch
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             grid.Columns.Add("Index", "#");
             grid.Columns.Add("Action", "操作");
-            grid.Columns.Add("Input", "按键 / 鼠标");
+            grid.Columns.Add("Input", "按键 / 鼠标 / 手柄");
             grid.Columns.Add("Hold", "按住时长 (ms)");
             grid.Columns.Add("Delay", "步骤后间隔 (ms)");
             grid.Columns[0].Width = 45;
@@ -3791,7 +4590,7 @@ namespace InputStitch
 
         private void ApplyLanguageToMainUi(bool userInitiated)
         {
-            Text = AppInfo.ProductName + " " + AppInfo.Version + " - " + Localizer.T("键鼠宏工具");
+            Text = AppInfo.ProductName + " " + AppInfo.Version + " - " + Localizer.T("键鼠与手柄宏工具");
             if (toolsButton != null) toolsButton.AccessibleName = Localizer.T("设置");
 
             foreach (KeyValuePair<Control, string> pair in localizableControlTexts)
@@ -3815,7 +4614,7 @@ namespace InputStitch
             {
                 grid.Columns[0].HeaderText = "#";
                 grid.Columns[1].HeaderText = Localizer.T("操作");
-                grid.Columns[2].HeaderText = Localizer.T("按键 / 鼠标");
+                grid.Columns[2].HeaderText = Localizer.T("按键 / 鼠标 / 手柄");
                 grid.Columns[3].HeaderText = Localizer.T("按住时长 (ms)");
                 grid.Columns[4].HeaderText = Localizer.T("步骤后间隔 (ms)");
             }
@@ -4038,8 +4837,17 @@ namespace InputStitch
                 using (SettingsDialog dialog = new SettingsDialog(config))
                 {
                     dialog.CheckForUpdatesRequested += delegate { CheckForUpdatesAsync(dialog, false); };
-                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                    {
+                        GamepadOutput.Configure(config.GamepadDeviceType);
+                        if (GamepadOutput.IsConnected && !string.Equals(GamepadOutput.ConnectedType, config.GamepadDeviceType, StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { GamepadOutput.EnsureConnected(config.GamepadDeviceType); } catch { }
+                        }
+                        return;
+                    }
                     bool autoProfilesWasEnabled = config.AutoSwitchProfiles;
+                    bool gamepadWasConnected = GamepadOutput.IsConnected;
                     config.UseScanCodeInput = dialog.UseScanCodeInput;
                     config.PauseMacroInRiskyUi = dialog.PauseMacroInRiskyUi;
                     config.MinimizeToTray = dialog.MinimizeToTray;
@@ -4048,7 +4856,11 @@ namespace InputStitch
                     config.UiRunStartDelayMs = dialog.UiRunStartDelayMs;
                     config.AutoSwitchProfiles = dialog.AutoSwitchProfiles;
                     config.UpdateMode = dialog.SelectedUpdateMode;
+                    config.GamepadDeviceType = dialog.SelectedGamepadType;
                     InputSender.UseScanCodeInput = config.UseScanCodeInput;
+                    GamepadOutput.Configure(config.GamepadDeviceType);
+                    if (gamepadWasConnected && !string.Equals(GamepadOutput.ConnectedType, config.GamepadDeviceType, StringComparison.OrdinalIgnoreCase))
+                        EnsureGamepadReady(null, false);
                     TopMost = config.KeepWindowTopMost;
                     if (autoProfilesWasEnabled && !config.AutoSwitchProfiles) lastAutoProfileProcess = "";
                     UpdateTargetSectionVisibility();
@@ -4254,6 +5066,7 @@ namespace InputStitch
                     t = workerThread;
                 }
                 ForceReleaseActiveHeldInputs();
+                GamepadOutput.NeutralizeAll();
                 ReconcileHookState("emergency-stop");
                 if (t != null && t.IsAlive)
                     statusLabel.Text = "紧急停止：已发送停止信号并释放宏按住的输入。";
@@ -4293,6 +5106,8 @@ namespace InputStitch
             sb.AppendLine("LogPath: " + AppLog.LogPath);
             sb.AppendLine("Hooks: " + (hooks == null ? Localizer.T("未安装") : Localizer.T("已安装")));
             sb.AppendLine("ScanCodeInput: " + (config != null && config.UseScanCodeInput ? Localizer.T("开启") : (Localizer.IsEnglish ? "Off" : "关闭")));
+            sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
+            sb.AppendLine("VirtualGamepadConnected: " + (GamepadOutput.IsConnected ? GamepadOutput.ConnectedType : Localizer.T("否")));
             sb.AppendLine("PanicTrigger: " + InputNames.FormatTrigger(config == null ? null : config.PanicTrigger));
             sb.AppendLine("GlobalTriggersSuspended: " + (manualTriggerSuspend ? Localizer.T("是") : Localizer.T("否")));
             sb.AppendLine("UIProtectionPause: " + (uiSafetyPauseRequested ? Localizer.T("是") + " - " + Localizer.Dynamic(uiSafetyPauseReason) : Localizer.T("否")));
@@ -4898,7 +5713,7 @@ namespace InputStitch
                 string delay = step.RandomDelay
                     ? Math.Min(step.RandomDelayMinMs, step.RandomDelayMaxMs).ToString() + "～" + Math.Max(step.RandomDelayMinMs, step.RandomDelayMaxMs).ToString()
                     : step.DelayMs.ToString();
-                grid.Rows.Add(i.ToString(), InputNames.FormatAction(step.Action), InputNames.FormatInput(step.Kind, step.VirtualKey), hold, delay);
+                grid.Rows.Add(i.ToString(), InputNames.FormatAction(step.Action), InputNames.FormatInput(step), hold, delay);
                 i++;
             }
         }
@@ -5432,6 +6247,7 @@ namespace InputStitch
             bool minimize = config.MinimizeToTray;
             string language = config.Language;
             string updateMode = config.UpdateMode;
+            string gamepadType = config.GamepadDeviceType;
             bool welcome = config.HasSeenWelcome;
             try
             {
@@ -5441,7 +6257,9 @@ namespace InputStitch
                 config.MinimizeToTray = minimize;
                 config.Language = language;
                 config.UpdateMode = updateMode;
+                config.GamepadDeviceType = gamepadType;
                 Localizer.SetLanguage(config.Language);
+                GamepadOutput.Configure(config.GamepadDeviceType);
                 config.HasSeenWelcome = welcome;
                 EnsureDefaultMacro();
                 InputSender.UseScanCodeInput = config.UseScanCodeInput;
@@ -5460,6 +6278,7 @@ namespace InputStitch
             {
                 config = previous;
                 Localizer.SetLanguage(config.Language);
+                GamepadOutput.Configure(config.GamepadDeviceType);
                 InputSender.UseScanCodeInput = config.UseScanCodeInput;
                 targetWindowHandle = IntPtr.Zero;
                 ResolveTargetWindowFromConfig();
@@ -5592,12 +6411,23 @@ namespace InputStitch
                 if (string.IsNullOrWhiteSpace(m.Name)) m.Name = "未命名宏";
                 if (m.Description == null) m.Description = "";
                 if (m.Trigger == null) m.Trigger = new TriggerSpec();
+                if (m.Trigger.Kind == InputKind.Gamepad)
+                {
+                    m.Trigger.Kind = InputKind.Keyboard;
+                    m.Trigger.VirtualKey = (int)Keys.F8;
+                }
                 if (m.RepeatCount < 1) m.RepeatCount = 1;
                 if (m.RepeatCount > 100000000) m.RepeatCount = 100000000;
                 if (m.Steps == null) m.Steps = new List<MacroStep>();
                 m.Steps.RemoveAll(delegate(MacroStep item) { return item == null; });
                 foreach (MacroStep step in m.Steps)
                 {
+                    if (step.GamepadX < -100) step.GamepadX = -100;
+                    if (step.GamepadX > 100) step.GamepadX = 100;
+                    if (step.GamepadY < -100) step.GamepadY = -100;
+                    if (step.GamepadY > 100) step.GamepadY = 100;
+                    if (step.GamepadValue < 0) step.GamepadValue = 0;
+                    if (step.GamepadValue > 100) step.GamepadValue = 100;
                     if (step.HoldMs < 0) step.HoldMs = 0;
                     if (step.HoldMs > 600000) step.HoldMs = 600000;
                     if (step.DelayMs < 0) step.DelayMs = 0;
@@ -5651,10 +6481,12 @@ namespace InputStitch
             if (value.Macros == null) value.Macros = new List<MacroDefinition>();
             NormalizeMacroDefinitions(value.Macros);
             if (value.PanicTrigger == null) value.PanicTrigger = new MacroConfig().PanicTrigger;
+            if (value.PanicTrigger.Kind == InputKind.Gamepad) value.PanicTrigger = new MacroConfig().PanicTrigger;
             if (!string.Equals(value.Language, Localizer.English, StringComparison.OrdinalIgnoreCase)) value.Language = Localizer.Chinese;
             if (!string.Equals(value.UpdateMode, UpdateModes.Manual, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(value.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase))
                 value.UpdateMode = UpdateModes.Automatic;
+            value.GamepadDeviceType = VirtualGamepadTypes.Normalize(value.GamepadDeviceType);
             if (value.UiRunStartDelayMs < 0) value.UiRunStartDelayMs = 0;
             if (value.UiRunStartDelayMs > 5000) value.UiRunStartDelayMs = 5000;
         }
@@ -6527,6 +7359,47 @@ namespace InputStitch
             }
         }
 
+        private bool HasAnyGamepadSteps()
+        {
+            if (config == null || config.Macros == null) return false;
+            foreach (MacroDefinition macro in config.Macros)
+            {
+                if (MacroUsesGamepad(macro)) return true;
+            }
+            return false;
+        }
+
+        private static bool MacroUsesGamepad(MacroDefinition macro)
+        {
+            if (macro == null || macro.Steps == null) return false;
+            foreach (MacroStep step in macro.Steps)
+                if (step != null && step.Kind == InputKind.Gamepad) return true;
+            return false;
+        }
+
+        private bool EnsureGamepadReady(MacroDefinition macro, bool startup)
+        {
+            if (macro != null && !MacroUsesGamepad(macro)) return true;
+            if (macro == null && startup && !HasAnyGamepadSteps()) return true;
+            try
+            {
+                GamepadOutput.Configure(config.GamepadDeviceType);
+                GamepadOutput.EnsureConnected();
+                if (!startup) SetStatusSafe("虚拟手柄已连接：" + (GamepadOutput.ConnectedType == VirtualGamepadTypes.DualShock4 ? "PS4 / DualShock 4" : "Xbox 360"));
+                return true;
+            }
+            catch (GamepadOutputException ex)
+            {
+                AppLog.Write("Virtual gamepad connection failed", ex);
+                SetStatusSafe("虚拟手柄不可用：" + ex.Message);
+                if (InvokeRequired)
+                    BeginInvoke((MethodInvoker)delegate { GamepadDriverGuidance.Show(this, ex); });
+                else
+                    GamepadDriverGuidance.Show(this, ex);
+                return false;
+            }
+        }
+
         private void StartMacro(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled)
         {
             if (m == null) return;
@@ -6535,6 +7408,7 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, "这个宏还没有任何执行步骤。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            if (!EnsureGamepadReady(m, false)) return;
 
             // Never overlap two worker threads. A same-macro restart must not start a new worker
             // before the old worker's finally block completes. Because both workers would own
@@ -6693,6 +7567,10 @@ namespace InputStitch
                         input.VirtualKey = step.VirtualKey;
                         input.ScanCode = step.ScanCode;
                         input.Extended = step.Extended;
+                        input.GamepadControl = step.GamepadControl;
+                        input.GamepadX = step.GamepadX;
+                        input.GamepadY = step.GamepadY;
+                        input.GamepadValue = step.GamepadValue;
                         string key = InputKey(input);
 
                         if (WaitForUiSafetyClear(stop, macroName, held)) break;
@@ -6758,6 +7636,11 @@ namespace InputStitch
                 }
                 held.Clear();
                 SyncActiveHeldInputs(runId, held);
+                // A report can reach the virtual device immediately before a driver or
+                // thread failure prevents the matching held-state bookkeeping. Always
+                // finish a macro with a full neutral report so no stick, trigger, D-pad,
+                // or button state can survive that narrow failure window.
+                GamepadOutput.NeutralizeAll();
 
                 bool ownedActiveState = false;
                 lock (runLock)
@@ -6811,7 +7694,7 @@ namespace InputStitch
                     {
                         if (pair.Value == null) continue;
                         activeHeldInputs[pair.Key] = pair.Value.Clone();
-                        names.Add(InputNames.FormatInput(pair.Value.Kind, pair.Value.VirtualKey));
+                        names.Add(InputNames.FormatInput(pair.Value));
                     }
                 }
                 activeHeldText = names.Count == 0 ? "无" : string.Join(" + ", names.ToArray());
@@ -6916,7 +7799,7 @@ namespace InputStitch
                         observedConflict = true;
                         Interlocked.Increment(ref dangerousShortcutAvoidanceCount);
                         AppLog.Write("Delayed macro step to avoid a physical shortcut: macro=" +
-                            macroName + ", key=" + InputNames.FormatInput(step.Kind, step.VirtualKey) +
+                            macroName + ", key=" + InputNames.FormatInput(step) +
                             ", modifierMask=" + physicalBlockers.ToString());
                         SetStatusSafe("正在执行：" + macroName + "（等待避免特殊快捷键冲突）");
                     }
@@ -6979,6 +7862,8 @@ namespace InputStitch
 
         private static string InputKey(InputSpec input)
         {
+            if (input != null && input.Kind == InputKind.Gamepad)
+                return ((int)input.Kind).ToString() + ":" + ((int)input.GamepadControl).ToString();
             return ((int)input.Kind).ToString() + ":" + input.VirtualKey.ToString() + ":" + input.ScanCode.ToString();
         }
 
@@ -7078,6 +7963,8 @@ namespace InputStitch
                 ForceReleaseActiveHeldInputs();
                 Thread t = workerThread;
                 if (t != null && t.IsAlive) t.Join(800);
+                GamepadOutput.NeutralizeAll();
+                GamepadOutput.Disconnect();
                 SaveConfig();
                 if (hooks != null)
                 {
@@ -7106,6 +7993,7 @@ namespace InputStitch
         [STAThread]
         public static void Main(string[] args)
         {
+            EmbeddedDependencyLoader.Register();
             if (UpdateManager.TryApplyPendingUpdate(args)) return;
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e)
@@ -7130,4 +8018,3 @@ namespace InputStitch
         }
     }
 }
-
