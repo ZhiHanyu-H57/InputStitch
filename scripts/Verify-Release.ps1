@@ -50,7 +50,22 @@ foreach ($entry in $expectedFiles.GetEnumerator()) {
 $checksumPath = Join-Path $DistDirectory 'SHA256SUMS.txt'
 if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) { throw 'SHA256SUMS.txt is missing.' }
 $checksumLines = [IO.File]::ReadAllLines($checksumPath)
-$requiredChecksumFiles = @($expectedFiles.Keys) + "InputStitch-$ExpectedVersion-Source.zip"
+$updateManifestPath = Join-Path $DistDirectory 'InputStitch-update.xml'
+if (-not (Test-Path -LiteralPath $updateManifestPath -PathType Leaf)) { throw 'InputStitch-update.xml is missing.' }
+[xml]$updateManifest = [IO.File]::ReadAllText($updateManifestPath)
+if ($updateManifest.InputStitchUpdate.Version -ne $ExpectedVersion) { throw 'The update manifest version is invalid.' }
+foreach ($architecture in @('x64', 'x86')) {
+    $asset = @($updateManifest.InputStitchUpdate.Asset) | Where-Object { $_.Architecture -eq $architecture } | Select-Object -First 1
+    if (-not $asset) { throw "The update manifest is missing the $architecture asset." }
+    $assetPath = Join-Path $DistDirectory ([string]$asset.FileName)
+    if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) { throw "The update manifest references a missing file: $($asset.FileName)" }
+    $assetHash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ([string]$asset.Sha256 -ne $assetHash) { throw "The update manifest hash is invalid for $architecture." }
+    if ([string]$asset.Url -ne "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/$($asset.FileName)") {
+        throw "The update manifest URL is invalid for $architecture."
+    }
+}
+$requiredChecksumFiles = @($expectedFiles.Keys) + "InputStitch-$ExpectedVersion-Source.zip" + 'InputStitch-update.xml'
 if ($checksumLines.Count -ne $requiredChecksumFiles.Count) {
     throw "SHA256SUMS.txt contains an unexpected number of entries: $($checksumLines.Count)"
 }
@@ -63,3 +78,4 @@ foreach ($fileName in $requiredChecksumFiles) {
 }
 
 Write-Host 'Release verification passed for Windows x64 and Windows x86.' -ForegroundColor Green
+

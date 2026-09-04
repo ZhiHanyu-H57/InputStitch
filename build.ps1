@@ -149,6 +149,29 @@ function New-SourceArchive {
     return $archivePath
 }
 
+function New-UpdateManifest {
+    param(
+        [Parameter(Mandatory = $true)][string]$X64Path,
+        [Parameter(Mandatory = $true)][string]$X86Path
+    )
+    $manifestOutputPath = Join-Path $distDirectory 'InputStitch-update.xml'
+    $x64Name = Split-Path $X64Path -Leaf
+    $x86Name = Split-Path $X86Path -Leaf
+    $x64Hash = (Get-FileHash -LiteralPath $X64Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $x86Hash = (Get-FileHash -LiteralPath $X86Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<InputStitchUpdate>
+  <Version>$releaseVersion</Version>
+  <ReleaseUrl>https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v$releaseVersion</ReleaseUrl>
+  <Asset Architecture="x64" FileName="$x64Name" Url="https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/$x64Name" Sha256="$x64Hash" />
+  <Asset Architecture="x86" FileName="$x86Name" Url="https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/$x86Name" Sha256="$x86Hash" />
+</InputStitchUpdate>
+"@
+    [IO.File]::WriteAllText($manifestOutputPath, $xml.TrimStart(), (New-Object Text.UTF8Encoding($false)))
+    return $manifestOutputPath
+}
+
 Assert-FileExists -LiteralPath $sourcePath
 Assert-FileExists -LiteralPath $manifestPath
 Assert-FileExists -LiteralPath $iconPath
@@ -176,6 +199,8 @@ try {
         (Invoke-ArchitectureBuild -Architecture 'x86' -Compiler $compilerPath -ReferenceDirectory $referencePath -TargetFrameworkSource $targetFrameworkSource)
     )
 
+    $releaseFiles += New-UpdateManifest -X64Path $releaseFiles[0] -X86Path $releaseFiles[1]
+
     if (-not $SkipSourceArchive) {
         $releaseFiles += New-SourceArchive
     }
@@ -200,3 +225,4 @@ try {
         Remove-Item -LiteralPath $targetFrameworkSource -Force
     }
 }
+

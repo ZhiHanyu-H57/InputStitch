@@ -35,6 +35,7 @@ The executable is portable: download it, place it in a folder where you have wri
 - Selective shortcut-conflict protection that allows ordinary gameplay such as holding `W + Shift`, while guarding high-risk unintended combinations
 - Configurable global Emergency Stop, which remains available independently of normal macro triggers
 - Instant Simplified Chinese / English interface switching
+- Built-in update checking with Automatic, Manual, and Disabled modes; official downloads are verified against the release SHA-256 manifest before installation
 - DPI-aware, resizable Windows Forms interface
 
 ## Quick start
@@ -46,7 +47,7 @@ The executable is portable: download it, place it in a folder where you have wri
 5. Run the macro from the main window or enable its global trigger.
 6. Before using a macro in another application, confirm the Emergency Stop hotkey shown in InputStitch.
 
-Use the gear button to open settings, including **Language / 语言**, safety options, target-window behavior, diagnostics, and tray preferences.
+Use the gear button to open settings, including **Language / 语言**, update preferences, safety options, target-window behavior, diagnostics, and tray preferences. Update checking defaults to **Automatic**: InputStitch checks the official GitHub Release at startup and asks before downloading and installing. You can switch to manual checks or disable update checks completely.
 
 ## Safety notes
 
@@ -84,7 +85,7 @@ You can also open `InputStitch.csproj` in Visual Studio. Release artifacts are b
 
 ## Data and privacy
 
-Configuration, profiles, macro packages, backups, and logs are stored locally. InputStitch does not require an online account. Review diagnostics and configuration files before sharing them because they may contain window titles, process names, macro names, or paths from your computer.
+Configuration, profiles, macro packages, backups, and logs are stored locally. InputStitch does not require an online account. By default, it makes an HTTPS request to this repository's latest Release manifest at startup to check for updates; this can be changed to manual or disabled in Settings. No configuration or macro content is uploaded. Review diagnostics and configuration files before sharing them because they may contain window titles, process names, macro names, or paths from your computer.
 
 ## Contributing
 
@@ -93,3 +94,4 @@ Bug reports and focused pull requests are welcome. Please read [CONTRIBUTING.md]
 ## License
 
 This repository currently does **not** declare an open-source license. Public access to the source code does not by itself grant permission to copy, modify, redistribute, or use it beyond rights provided by applicable law. A license may be added by the repository owner later.
+

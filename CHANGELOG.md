@@ -16,6 +16,7 @@ Initial public release. / 首个公开正式版。
 - Added selective protection against unintended high-risk Windows shortcut combinations without blocking ordinary gameplay input such as holding `W + Shift`.
 - Added scan-code keyboard output, target-window activation, profiles, foreground-app profile switching, macro packages, local backups, diagnostics, and tray controls.
 - Added separate x64 and x86 Windows executables and published SHA-256 checksums.
+- Added automatic, manual, and disabled update modes. Automatic checking is the default; installation always requires a user prompt and SHA-256 verification against the official GitHub Release manifest.
 
 ### 简体中文
 
@@ -26,3 +27,5 @@ Initial public release. / 首个公开正式版。
 - 新增针对高风险 Windows 特殊组合键的选择性防护，同时允许按住 `W + Shift` 等正常游戏输入。
 - 新增扫描码键盘输出、目标窗口切换、配置方案、按前台程序自动切换方案、宏包、本地备份、诊断和托盘控制。
 - 提供独立的 Windows x64 与 x86 可执行文件，并发布 SHA-256 校验值。
+- 新增自动、手动和关闭三种更新模式。默认启动时自动检查；安装前始终询问用户，并使用官方 GitHub Release 清单执行 SHA-256 校验。
+

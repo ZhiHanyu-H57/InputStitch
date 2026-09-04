@@ -4,10 +4,13 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 
@@ -29,6 +32,15 @@ namespace InputStitch
         public const string ConfigFormatVersion = "2";
         public const string MacroPackageFormatVersion = "2";
         public const string ProfileFormatVersion = "2";
+        public const string UpdateManifestUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml";
+        public const string LatestReleaseUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest";
+    }
+
+    public static class UpdateModes
+    {
+        public const string Automatic = "Automatic";
+        public const string Manual = "Manual";
+        public const string Disabled = "Disabled";
     }
 
 
@@ -53,6 +65,7 @@ namespace InputStitch
             { "常规", "General" },
             { "输入与安全", "Input & Safety" },
             { "目标窗口与方案", "Target Window & Profiles" },
+            { "软件更新", "Software Updates" },
             { "这些选项通常保持默认即可。修改会在点击确定后生效。", "These options normally work best at their defaults. Changes apply after you click OK." },
             { "界面语言：", "Interface language:" },
             { "使用扫描码发送键盘输入（推荐游戏）", "Send keyboard input using scan codes (game-friendly)" },
@@ -61,6 +74,22 @@ namespace InputStitch
             { "从界面运行时先切换到目标窗口", "Switch to the target window before UI-started runs" },
             { "切换后等待：", "Wait after switching:" },
             { "按前台程序自动切换已绑定方案", "Automatically switch bound profiles by foreground app" },
+            { "更新方式：", "Update mode:" },
+            { "启动时自动检查并提示安装", "Check automatically at startup and offer installation" },
+            { "仅手动检查（推荐）", "Check only when requested (recommended)" },
+            { "不检查更新", "Do not check for updates" },
+            { "立即检查更新", "Check Now" },
+            { "正在检查更新…", "Checking for updates…" },
+            { "正在下载并验证更新…", "Downloading and verifying the update…" },
+            { "已是最新版本。", "You already have the latest build." },
+            { "检查更新失败。", "Update check failed." },
+            { "发现可用更新", "Update Available" },
+            { "安装更新", "Install Update" },
+            { "稍后", "Later" },
+            { "当前公开版本仍为 1.0.0，但 GitHub 上已有更新的安全构建。是否下载并安装？", "The public version is still 1.0.0, but a newer secured build is available on GitHub. Download and install it?" },
+            { "更新已下载并通过 SHA-256 校验。InputStitch 将关闭、替换程序文件并重新启动。是否现在安装？", "The update was downloaded and passed SHA-256 verification. InputStitch will close, replace the program file, and restart. Install now?" },
+            { "无法安装更新。", "The update could not be installed." },
+            { "网络访问仅用于从官方 GitHub Release 检查和下载更新；下载后必须通过 SHA-256 校验。", "Network access is used only to check and download updates from the official GitHub Release; every download must pass SHA-256 verification." },
             { "恢复默认", "Restore Defaults" },
             { "宏信息", "Macro Details" },
             { "触发与循环", "Trigger and Repetition" },
@@ -532,6 +561,286 @@ namespace InputStitch
         }
     }
 
+    [Serializable]
+    [XmlRoot("InputStitchUpdate")]
+    public class UpdateManifest
+    {
+        public string Version = "";
+        public string ReleaseUrl = "";
+        [XmlElement("Asset")]
+        public List<UpdateAsset> Assets = new List<UpdateAsset>();
+    }
+
+    [Serializable]
+    public class UpdateAsset
+    {
+        [XmlAttribute]
+        public string Architecture = "";
+        [XmlAttribute]
+        public string FileName = "";
+        [XmlAttribute]
+        public string Url = "";
+        [XmlAttribute]
+        public string Sha256 = "";
+    }
+
+    [Serializable]
+    public class PendingUpdate
+    {
+        public string Token = "";
+        public string SourcePath = "";
+        public string TargetPath = "";
+        public string Sha256 = "";
+        public string CreatedUtc = "";
+    }
+
+    public sealed class UpdateCheckResult
+    {
+        public UpdateManifest Manifest;
+        public UpdateAsset Asset;
+        public bool IsAvailable;
+        public bool IsSameVersionReplacement;
+        public string CurrentSha256 = "";
+    }
+
+    public static class UpdateManager
+    {
+        private static readonly string UpdatesDirectory = Path.Combine(AppPaths.Root, "updates");
+        private static readonly string PendingPath = Path.Combine(UpdatesDirectory, "pending-update.xml");
+
+        public static async Task<UpdateCheckResult> CheckAsync()
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            string xml;
+            using (WebClient client = CreateClient())
+            {
+                Uri uri = new Uri(AppInfo.UpdateManifestUrl + "?cache=" + DateTime.UtcNow.Ticks.ToString());
+                xml = await client.DownloadStringTaskAsync(uri);
+            }
+
+            UpdateManifest manifest;
+            XmlSerializer serializer = new XmlSerializer(typeof(UpdateManifest));
+            using (StringReader reader = new StringReader(xml))
+                manifest = serializer.Deserialize(reader) as UpdateManifest;
+            if (manifest == null) throw new InvalidDataException("The update manifest is invalid.");
+
+            Version remoteVersion;
+            Version currentVersion;
+            if (!System.Version.TryParse(manifest.Version, out remoteVersion) ||
+                !System.Version.TryParse(AppInfo.Version, out currentVersion))
+                throw new InvalidDataException("The update manifest contains an invalid version.");
+
+            string architecture = Environment.Is64BitProcess ? "x64" : "x86";
+            UpdateAsset asset = null;
+            if (manifest.Assets != null)
+            {
+                foreach (UpdateAsset candidate in manifest.Assets)
+                {
+                    if (candidate != null && string.Equals(candidate.Architecture, architecture, StringComparison.OrdinalIgnoreCase))
+                    {
+                        asset = candidate;
+                        break;
+                    }
+                }
+            }
+            ValidateAsset(asset, architecture);
+
+            string currentHash = ComputeSha256(Application.ExecutablePath);
+            bool newerVersion = remoteVersion > currentVersion;
+            bool sameVersionReplacement = remoteVersion == currentVersion &&
+                !string.Equals(currentHash, asset.Sha256, StringComparison.OrdinalIgnoreCase);
+            UpdateCheckResult result = new UpdateCheckResult();
+            result.Manifest = manifest;
+            result.Asset = asset;
+            result.IsAvailable = newerVersion || sameVersionReplacement;
+            result.IsSameVersionReplacement = sameVersionReplacement;
+            result.CurrentSha256 = currentHash;
+            return result;
+        }
+
+        public static async Task<string> DownloadAsync(UpdateCheckResult update)
+        {
+            if (update == null || update.Asset == null || !update.IsAvailable)
+                throw new InvalidOperationException("No update is available.");
+            ValidateAsset(update.Asset, Environment.Is64BitProcess ? "x64" : "x86");
+            Directory.CreateDirectory(UpdatesDirectory);
+            string destination = Path.Combine(UpdatesDirectory, Guid.NewGuid().ToString("N") + ".exe");
+            try
+            {
+                using (WebClient client = CreateClient())
+                    await client.DownloadFileTaskAsync(new Uri(update.Asset.Url), destination);
+                string hash = ComputeSha256(destination);
+                if (!string.Equals(hash, update.Asset.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("The downloaded update failed SHA-256 verification.");
+                FileVersionInfo version = FileVersionInfo.GetVersionInfo(destination);
+                if (!string.Equals(version.ProductName, AppInfo.ProductName, StringComparison.Ordinal) ||
+                    !string.Equals(version.ProductVersion, update.Manifest.Version, StringComparison.Ordinal))
+                    throw new InvalidDataException("The downloaded file is not the expected InputStitch build.");
+                return destination;
+            }
+            catch
+            {
+                try { if (File.Exists(destination)) File.Delete(destination); } catch { }
+                throw;
+            }
+        }
+
+        public static void BeginInstall(string downloadedPath, string expectedSha256)
+        {
+            if (string.IsNullOrWhiteSpace(downloadedPath) || !File.Exists(downloadedPath))
+                throw new FileNotFoundException("The downloaded update was not found.", downloadedPath);
+            string source = Path.GetFullPath(downloadedPath);
+            string target = Path.GetFullPath(Application.ExecutablePath);
+            if (!IsUnderDirectory(source, UpdatesDirectory)) throw new InvalidDataException("Invalid update source path.");
+            if (!string.Equals(ComputeSha256(source), expectedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The update hash changed before installation.");
+
+            byte[] tokenBytes = new byte[32];
+            using (RandomNumberGenerator random = RandomNumberGenerator.Create()) random.GetBytes(tokenBytes);
+            string token = BitConverter.ToString(tokenBytes).Replace("-", "").ToLowerInvariant();
+            PendingUpdate pending = new PendingUpdate();
+            pending.Token = token;
+            pending.SourcePath = source;
+            pending.TargetPath = target;
+            pending.Sha256 = expectedSha256.ToLowerInvariant();
+            pending.CreatedUtc = DateTime.UtcNow.ToString("o");
+            Directory.CreateDirectory(UpdatesDirectory);
+            XmlSerializer serializer = new XmlSerializer(typeof(PendingUpdate));
+            using (FileStream stream = File.Create(PendingPath)) serializer.Serialize(stream, pending);
+
+            ProcessStartInfo start = new ProcessStartInfo();
+            start.FileName = source;
+            start.Arguments = "--apply-update " + QuoteArgument(token) + " " + Process.GetCurrentProcess().Id.ToString();
+            start.UseShellExecute = true;
+            start.WorkingDirectory = Path.GetDirectoryName(target);
+            Process.Start(start);
+        }
+
+        public static bool TryApplyPendingUpdate(string[] args)
+        {
+            if (args == null || args.Length == 0 || !string.Equals(args[0], "--apply-update", StringComparison.Ordinal)) return false;
+            try
+            {
+                if (args.Length != 3 || !File.Exists(PendingPath)) throw new InvalidDataException("Invalid update request.");
+                PendingUpdate pending;
+                XmlSerializer serializer = new XmlSerializer(typeof(PendingUpdate));
+                using (FileStream stream = File.OpenRead(PendingPath)) pending = serializer.Deserialize(stream) as PendingUpdate;
+                if (pending == null || !string.Equals(pending.Token, args[1], StringComparison.Ordinal))
+                    throw new InvalidDataException("The update authorization token is invalid.");
+                DateTime created;
+                if (!DateTime.TryParse(pending.CreatedUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out created) ||
+                    DateTime.UtcNow - created.ToUniversalTime() > TimeSpan.FromHours(2))
+                    throw new InvalidDataException("The update request has expired.");
+
+                string source = Path.GetFullPath(pending.SourcePath);
+                string target = Path.GetFullPath(pending.TargetPath);
+                if (!string.Equals(source, Path.GetFullPath(Application.ExecutablePath), StringComparison.OrdinalIgnoreCase) ||
+                    !IsUnderDirectory(source, UpdatesDirectory) || !File.Exists(target))
+                    throw new InvalidDataException("The update paths are invalid.");
+                FileVersionInfo targetInfo = FileVersionInfo.GetVersionInfo(target);
+                if (!string.Equals(targetInfo.ProductName, AppInfo.ProductName, StringComparison.Ordinal))
+                    throw new InvalidDataException("The update target is not InputStitch.");
+                if (!string.Equals(ComputeSha256(source), pending.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("The pending update failed SHA-256 verification.");
+
+                int oldProcessId;
+                if (!int.TryParse(args[2], out oldProcessId)) throw new InvalidDataException("Invalid process identifier.");
+                try
+                {
+                    Process oldProcess = Process.GetProcessById(oldProcessId);
+                    oldProcess.WaitForExit(15000);
+                    oldProcess.Dispose();
+                }
+                catch (ArgumentException) { }
+
+                Exception copyError = null;
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    try
+                    {
+                        File.Copy(source, target, true);
+                        copyError = null;
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        copyError = ex;
+                        Thread.Sleep(250);
+                    }
+                }
+                if (copyError != null) throw copyError;
+                try { File.Delete(PendingPath); } catch { }
+                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(target) });
+            }
+            catch (Exception ex)
+            {
+                try { AppLog.Write("Update installation failed", ex); } catch { }
+                try { MessageBox.Show("InputStitch 更新安装失败。\r\n\r\n" + ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error); } catch { }
+            }
+            return true;
+        }
+
+        public static void CleanupDownloads()
+        {
+            try
+            {
+                if (!Directory.Exists(UpdatesDirectory)) return;
+                string current = Path.GetFullPath(Application.ExecutablePath);
+                foreach (string file in Directory.GetFiles(UpdatesDirectory, "*.exe"))
+                    if (!string.Equals(Path.GetFullPath(file), current, StringComparison.OrdinalIgnoreCase)) File.Delete(file);
+            }
+            catch (Exception ex) { AppLog.Write("Update download cleanup failed", ex); }
+        }
+
+        public static string ComputeSha256(string path)
+        {
+            using (SHA256 sha = SHA256.Create())
+            using (FileStream stream = File.OpenRead(path))
+            {
+                byte[] hash = sha.ComputeHash(stream);
+                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+            }
+        }
+
+        private static WebClient CreateClient()
+        {
+            WebClient client = new WebClient();
+            client.Encoding = Encoding.UTF8;
+            client.Headers[HttpRequestHeader.UserAgent] = AppInfo.ProductName + "/" + AppInfo.Version;
+            client.Headers[HttpRequestHeader.Accept] = "application/xml, text/xml, */*";
+            return client;
+        }
+
+        private static void ValidateAsset(UpdateAsset asset, string architecture)
+        {
+            if (asset == null || string.IsNullOrWhiteSpace(asset.Url) || string.IsNullOrWhiteSpace(asset.Sha256))
+                throw new InvalidDataException("The update manifest does not contain an asset for " + architecture + ".");
+            Uri uri;
+            if (!Uri.TryCreate(asset.Url, UriKind.Absolute, out uri) || uri.Scheme != Uri.UriSchemeHttps ||
+                !string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+                !uri.AbsolutePath.StartsWith("/ZhiHanyu-H57/InputStitch/releases/", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The update asset URL is not an official InputStitch GitHub Release URL.");
+            string hash = asset.Sha256.Trim();
+            if (hash.Length != 64)
+                throw new InvalidDataException("The update manifest contains an invalid SHA-256 value.");
+            for (int i = 0; i < hash.Length; i++)
+                if (!Uri.IsHexDigit(hash[i])) throw new InvalidDataException("The update manifest contains an invalid SHA-256 value.");
+            asset.Sha256 = hash.ToLowerInvariant();
+        }
+
+        private static bool IsUnderDirectory(string path, string directory)
+        {
+            string fullPath = Path.GetFullPath(path);
+            string fullDirectory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return fullPath.StartsWith(fullDirectory, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string QuoteArgument(string value)
+        {
+            return "\"" + (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        }
+    }
+
     public enum InputKind
     {
         Keyboard,
@@ -688,6 +997,8 @@ namespace InputStitch
         public bool MinimizeToTray = true;
         // UI language is global and is intentionally preserved when loading a profile.
         public string Language = Localizer.Chinese;
+        // Update preference is global and is intentionally preserved when loading a profile.
+        public string UpdateMode = UpdateModes.Automatic;
         public bool HasSeenWelcome = false;
 
         private static TriggerSpec CreateDefaultPanicTrigger()
@@ -2504,6 +2815,9 @@ namespace InputStitch
         private readonly NumericUpDown delayBox;
         private readonly CheckBox autoProfileBox;
         private readonly ComboBox languageBox;
+        private readonly ComboBox updateModeBox;
+
+        public event EventHandler CheckForUpdatesRequested;
 
         public bool UseScanCodeInput { get { return scanCodeBox.Checked; } }
         public bool PauseMacroInRiskyUi { get { return uiSafetyBox.Checked; } }
@@ -2513,6 +2827,15 @@ namespace InputStitch
         public int UiRunStartDelayMs { get { return (int)delayBox.Value; } }
         public bool AutoSwitchProfiles { get { return autoProfileBox.Checked; } }
         public string SelectedLanguage { get { return languageBox.SelectedIndex == 1 ? Localizer.English : Localizer.Chinese; } }
+        public string SelectedUpdateMode
+        {
+            get
+            {
+                if (updateModeBox.SelectedIndex == 1) return UpdateModes.Manual;
+                if (updateModeBox.SelectedIndex == 2) return UpdateModes.Disabled;
+                return UpdateModes.Automatic;
+            }
+        }
 
         public SettingsDialog(MacroConfig config)
         {
@@ -2524,16 +2847,17 @@ namespace InputStitch
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimizeBox = false;
             MaximizeBox = false;
-            MinimumSize = new Size(520, 500);
-            ClientSize = new Size(610, 550);
+            MinimumSize = new Size(560, 700);
+            ClientSize = new Size(660, 760);
             BackColor = Color.FromArgb(247, 249, 252);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(18);
             root.ColumnCount = 1;
-            root.RowCount = 5;
+            root.RowCount = 6;
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -2625,6 +2949,48 @@ namespace InputStitch
             targetLayout.Controls.Add(autoProfileBox);
             root.Controls.Add(target, 0, 3);
 
+            GroupBox updates = MakeGroup(Localizer.T("软件更新"));
+            TableLayoutPanel updatesLayout = MakeStack();
+            updates.Controls.Add(updatesLayout);
+            TableLayoutPanel updateRow = new TableLayoutPanel();
+            updateRow.AutoSize = true;
+            updateRow.Dock = DockStyle.Top;
+            updateRow.ColumnCount = 2;
+            updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            Label updateLabel = new Label();
+            updateLabel.Text = Localizer.T("更新方式：");
+            updateLabel.AutoSize = true;
+            updateLabel.Anchor = AnchorStyles.Left;
+            updateLabel.Margin = new Padding(0, 5, 12, 5);
+            updateModeBox = new ComboBox();
+            updateModeBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            updateModeBox.Dock = DockStyle.Fill;
+            updateModeBox.Items.Add(Localizer.T("启动时自动检查并提示安装"));
+            updateModeBox.Items.Add(Localizer.T("仅手动检查（推荐）"));
+            updateModeBox.Items.Add(Localizer.T("不检查更新"));
+            updateModeBox.SelectedIndex = string.Equals(config.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase) ? 2 :
+                (string.Equals(config.UpdateMode, UpdateModes.Manual, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+            updateRow.Controls.Add(updateLabel, 0, 0);
+            updateRow.Controls.Add(updateModeBox, 1, 0);
+            updatesLayout.Controls.Add(updateRow);
+            Label updateHint = new Label();
+            updateHint.Text = Localizer.T("网络访问仅用于从官方 GitHub Release 检查和下载更新；下载后必须通过 SHA-256 校验。");
+            updateHint.AutoSize = true;
+            updateHint.MaximumSize = new Size(570, 0);
+            updateHint.ForeColor = Color.FromArgb(86, 96, 112);
+            updateHint.Margin = new Padding(0, 5, 0, 8);
+            updatesLayout.Controls.Add(updateHint);
+            Button checkNow = MakeDialogButton(Localizer.T("立即检查更新"));
+            checkNow.Margin = new Padding(0, 2, 0, 2);
+            checkNow.Click += delegate
+            {
+                EventHandler handler = CheckForUpdatesRequested;
+                if (handler != null) handler(this, EventArgs.Empty);
+            };
+            updatesLayout.Controls.Add(checkNow);
+            root.Controls.Add(updates, 0, 4);
+
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.AutoSize = true;
             buttons.Dock = DockStyle.Fill;
@@ -2644,11 +3010,12 @@ namespace InputStitch
                 activateTargetBox.Checked = false;
                 delayBox.Value = 300;
                 autoProfileBox.Checked = false;
+                updateModeBox.SelectedIndex = 0;
             };
             buttons.Controls.Add(ok);
             buttons.Controls.Add(cancel);
             buttons.Controls.Add(defaults);
-            root.Controls.Add(buttons, 0, 4);
+            root.Controls.Add(buttons, 0, 5);
             AcceptButton = ok;
             CancelButton = cancel;
         }
@@ -2707,6 +3074,7 @@ namespace InputStitch
         private string profilesDir;
         private HookManager hooks;
         private string startupWarning = "";
+        private bool updateCheckBusy;
 
         private ListBox macroList;
         private TextBox nameBox;
@@ -2817,6 +3185,7 @@ namespace InputStitch
             catch { }
 
             AppPaths.EnsureDirectories();
+            UpdateManager.CleanupDownloads();
             appDir = AppPaths.Root;
             packagesDir = AppPaths.MacroPackages;
             profilesDir = AppPaths.Profiles;
@@ -2876,6 +3245,8 @@ namespace InputStitch
                     LocalizedMessageBox.Show(this, startupWarning, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     startupWarning = "";
                 }
+                if (string.Equals(config.UpdateMode, UpdateModes.Automatic, StringComparison.OrdinalIgnoreCase))
+                    BeginInvoke((MethodInvoker)delegate { CheckForUpdatesAsync(this, true); });
             };
         }
 
@@ -3659,6 +4030,7 @@ namespace InputStitch
             {
                 using (SettingsDialog dialog = new SettingsDialog(config))
                 {
+                    dialog.CheckForUpdatesRequested += delegate { CheckForUpdatesAsync(dialog, false); };
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
                     bool autoProfilesWasEnabled = config.AutoSwitchProfiles;
                     config.UseScanCodeInput = dialog.UseScanCodeInput;
@@ -3668,6 +4040,7 @@ namespace InputStitch
                     config.ActivateTargetWindowOnUiRun = dialog.ActivateTargetWindowOnUiRun;
                     config.UiRunStartDelayMs = dialog.UiRunStartDelayMs;
                     config.AutoSwitchProfiles = dialog.AutoSwitchProfiles;
+                    config.UpdateMode = dialog.SelectedUpdateMode;
                     InputSender.UseScanCodeInput = config.UseScanCodeInput;
                     TopMost = config.KeepWindowTopMost;
                     if (autoProfilesWasEnabled && !config.AutoSwitchProfiles) lastAutoProfileProcess = "";
@@ -3692,6 +4065,53 @@ namespace InputStitch
             {
                 uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
                 UpdateUiSafetyPauseState();
+            }
+        }
+
+        private async void CheckForUpdatesAsync(IWin32Window owner, bool automatic)
+        {
+            if (updateCheckBusy) return;
+            updateCheckBusy = true;
+            string previousStatus = statusLabel == null ? "" : statusLabel.Text;
+            try
+            {
+                if (statusLabel != null) statusLabel.Text = Localizer.T("正在检查更新…");
+                UpdateCheckResult update = await UpdateManager.CheckAsync();
+                if (!update.IsAvailable)
+                {
+                    if (!automatic)
+                        LocalizedMessageBox.Show(owner, Localizer.T("已是最新版本。"), AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                string prompt = Localizer.T("当前公开版本仍为 1.0.0，但 GitHub 上已有更新的安全构建。是否下载并安装？") +
+                    "\r\n\r\n" + (Localizer.IsEnglish ? "Architecture: " : "架构：") + update.Asset.Architecture +
+                    "\r\n" + (Localizer.IsEnglish ? "Release: " : "发布版本：") + update.Manifest.Version;
+                DialogResult choice = LocalizedMessageBox.Show(owner, prompt, Localizer.T("发现可用更新"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                if (choice != DialogResult.Yes) return;
+
+                if (statusLabel != null) statusLabel.Text = Localizer.T("正在下载并验证更新…");
+                string downloaded = await UpdateManager.DownloadAsync(update);
+                EmergencyStop("software-update");
+                SaveConfig();
+                UpdateManager.BeginInstall(downloaded, update.Asset.Sha256);
+                Form ownerForm = owner as Form;
+                if (ownerForm != null && ownerForm != this && !ownerForm.IsDisposed) ownerForm.Close();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                AppLog.Write("Update check or installation preparation failed", ex);
+                if (!automatic)
+                    LocalizedMessageBox.Show(owner, Localizer.T("检查更新失败。") + "\r\n\r\n" + ex.Message,
+                        AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                updateCheckBusy = false;
+                if (statusLabel != null && !statusLabel.IsDisposed && !IsDisposed && !Disposing)
+                    statusLabel.Text = previousStatus;
             }
         }
 
@@ -5004,6 +5424,7 @@ namespace InputStitch
             bool autoSwitch = config.AutoSwitchProfiles;
             bool minimize = config.MinimizeToTray;
             string language = config.Language;
+            string updateMode = config.UpdateMode;
             bool welcome = config.HasSeenWelcome;
             try
             {
@@ -5012,6 +5433,7 @@ namespace InputStitch
                 config.AutoSwitchProfiles = autoSwitch;
                 config.MinimizeToTray = minimize;
                 config.Language = language;
+                config.UpdateMode = updateMode;
                 Localizer.SetLanguage(config.Language);
                 config.HasSeenWelcome = welcome;
                 EnsureDefaultMacro();
@@ -5223,6 +5645,9 @@ namespace InputStitch
             NormalizeMacroDefinitions(value.Macros);
             if (value.PanicTrigger == null) value.PanicTrigger = new MacroConfig().PanicTrigger;
             if (!string.Equals(value.Language, Localizer.English, StringComparison.OrdinalIgnoreCase)) value.Language = Localizer.Chinese;
+            if (!string.Equals(value.UpdateMode, UpdateModes.Manual, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(value.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase))
+                value.UpdateMode = UpdateModes.Automatic;
             if (value.UiRunStartDelayMs < 0) value.UiRunStartDelayMs = 0;
             if (value.UiRunStartDelayMs > 5000) value.UiRunStartDelayMs = 5000;
         }
@@ -6672,8 +7097,9 @@ namespace InputStitch
     public static class Program
     {
         [STAThread]
-        public static void Main()
+        public static void Main(string[] args)
         {
+            if (UpdateManager.TryApplyPendingUpdate(args)) return;
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e)
             {
@@ -6697,3 +7123,4 @@ namespace InputStitch
         }
     }
 }
+
