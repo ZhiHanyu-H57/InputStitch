@@ -1,0 +1,62 @@
+name: Refresh InputStitch 1.0.0 once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-release:
+    runs-on: windows-2022
+    steps:
+      - name: Check out validated source
+        uses: actions/checkout@v4
+        with:
+          ref: a16e224b6176d248c61da90ffb90ffe253e2c33d
+          fetch-depth: 0
+
+      - name: Build and verify release files
+        shell: powershell
+        run: .\build.ps1
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InputStitch-1.0.0-gamepad-refresh
+          path: |
+            dist/InputStitch-1.0.0-Windows-x64.exe
+            dist/InputStitch-1.0.0-Windows-x86.exe
+            dist/InputStitch-1.0.0-Source.zip
+            dist/InputStitch-update.xml
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Replace existing v1.0.0 release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            "dist/InputStitch-1.0.0-Windows-x64.exe",
+            "dist/InputStitch-1.0.0-Windows-x86.exe",
+            "dist/InputStitch-1.0.0-Source.zip",
+            "dist/InputStitch-update.xml",
+            "dist/SHA256SUMS.txt"
+          )
+          gh release upload "v1.0.0" $assets --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to replace release assets." }
+          gh release edit "v1.0.0" --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md" --target "a16e224b6176d248c61da90ffb90ffe253e2c33d"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to update release notes." }
+
+      - name: Move v1.0.0 tag to validated source
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "v1.0.0" "a16e224b6176d248c61da90ffb90ffe253e2c33d"
+          git push origin "refs/tags/v1.0.0" --force
