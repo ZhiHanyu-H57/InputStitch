@@ -1,0 +1,49 @@
+name: Refresh InputStitch 1.0.0 release once
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-release:
+    if: github.repository == 'ZhiHanyu-H57/InputStitch'
+    runs-on: windows-2022
+    steps:
+      - name: Check out audited update source
+        uses: actions/checkout@v4
+        with:
+          ref: 07907513fca1f6727aa1260fb2ad9807e08903f4
+          fetch-depth: 0
+
+      - name: Build and verify release files
+        shell: powershell
+        run: .\build.ps1
+
+      - name: Move v1.0.0 tag to refreshed source
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --force "v1.0.0" "07907513fca1f6727aa1260fb2ad9807e08903f4"
+          git push origin "refs/tags/v1.0.0" --force
+
+      - name: Replace v1.0.0 release assets and notes
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            "dist/InputStitch-1.0.0-Windows-x64.exe",
+            "dist/InputStitch-1.0.0-Windows-x86.exe",
+            "dist/InputStitch-1.0.0-Source.zip",
+            "dist/InputStitch-update.xml",
+            "dist/SHA256SUMS.txt"
+          )
+          gh release upload "v1.0.0" $assets --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to replace release assets." }
+          gh release edit "v1.0.0" --title "InputStitch 1.0.0" --notes-file "RELEASE_NOTES.md"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to update release notes." }
