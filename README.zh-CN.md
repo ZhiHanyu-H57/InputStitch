@@ -12,9 +12,9 @@ InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄�
 
 | Windows 架构 | 直接下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.0.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.0.0-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.0.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.0.0-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.0.0-Source.zip](../../releases/latest/download/InputStitch-1.0.0-Source.zip) |
+| 64 位 Windows（x64） | [InputStitch-1.1.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.1.0-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.1.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.1.0-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.1.0-Source.zip](../../releases/latest/download/InputStitch-1.1.0-Source.zip) |
 | 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 InputStitch 仅支持 Windows，没有 macOS 或 Linux 版 EXE。如果不确定应该下载哪个版本，现代 64 位 Windows 通常请选择 x64。
@@ -52,6 +52,14 @@ EXE 为便携式程序：下载后放入有写入权限的文件夹即可运行�
 点击齿轮按钮可以进入设置，其中包含“语言 / Language”、虚拟手柄类型、更新方式、安全选项、目标窗口行为、诊断和托盘偏好。虚拟手柄默认选择 Xbox 360，因为它对 Windows/XInput 游戏的兼容性通常最好；原生支持 PlayStation 手柄的游戏可选择 PS4 / DualShock 4。更新方式默认是“启动时自动检查并提示安装”：程序只检查官方 GitHub Release，并会在下载和安装前询问；也可以改为仅手动检查或完全不检查。
 
 手柄摇杆在编辑器中采用更直观的方向与力度：`0°` 表示向前、`90°` 表示向右、`-90°` 表示向左、`±180°` 表示向后。旧配置中的 X/Y 数值仍会兼容读取并保持原值；只有实际修改方向或力度时才换算为新的摇杆状态。要做“按住一个键就持续保持某个手柄状态”的映射，请使用“按住运行 + 无限循环 + 保持到宏停止 / KeyDown”；程序会跳过相同状态的重复手柄报告，并在停止时只归零一次。
+
+## 虚拟键盘与闲置输入
+
+“录制触发键”与“捕获输入”旁的下拉箭头可打开全尺寸虚拟键盘。点击按键选择，再点一次取消选择；支持单键与多键模式，确认后应用。小键盘、导航键和功能键无需实体键盘具备；左右 Shift、Ctrl、Alt、Win 和 Esc 均可单独选择。组合触发键采用“修饰键＋一个主键”；多个步骤按键会插入配有对应释放动作的组合。
+
+手柄预览会按 Xbox 360 / PS4 类型显示相应布局。摇杆 0° 为向前，+90° 为向右，-90° 为向左，±180° 为向后；力度控制偏移幅度。预览不会发送实际输入。
+
+在“设置 → 自动化 → 闲置自动手柄输入”中，可设置没有用户或宏输入多久后，发送一次短暂的手柄动作。此功能默认关闭；有操作即重新计时，宏运行或编辑弹窗期间暂停。紧急停止会关闭闲置输出，须自行重新开启。它通过既有虚拟手柄发送输入，不切换前台窗口；游戏仍需支持该设备和后台输入，程序无法强制游戏接收。对于只在启动时识别手柄的游戏，请先连接虚拟手柄，再启动游戏。
 
 ## 可选的虚拟手柄驱动
 

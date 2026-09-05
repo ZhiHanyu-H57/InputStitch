@@ -6,7 +6,7 @@ Thank you for helping improve InputStitch. Bug reports, reproducible compatibili
 
 ## Before opening an issue / 提交 Issue 前
 
-1. Use the latest public release, currently **1.0.0**. / 使用最新公开正式版，目前为 **1.0.0**。
+1. Use the latest public release, currently **1.1.0**. / 使用最新公开正式版，目前为 **1.1.0**。
 2. Search existing issues for the same symptom. / 搜索现有 Issue，确认是否已有相同问题。
 3. Test with a minimal macro in a harmless application when possible. / 尽可能在无关紧要的程序中用最小宏进行测试。
 4. Remove private paths, window titles, process names, profile data, and macro content from screenshots and logs. / 从截图和日志中移除私人路径、窗口标题、进程名、方案数据和宏内容。

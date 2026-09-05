@@ -10,7 +10,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>InputStitch.ico</ApplicationIcon>
-    <ApplicationVersion>1.0.0.0</ApplicationVersion>
+    <ApplicationVersion>1.1.0.0</ApplicationVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
@@ -31,6 +31,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="InputStitch.cs" />
+    <Compile Include="VirtualKeyboard.cs" />
+    <Compile Include="IdleGamepad.cs" />
     <None Include="InputStitch.ico" />
     <None Include="app.manifest" />
     <EmbeddedResource Include="third-party\Nefarius.ViGEm.Client\Nefarius.ViGEm.Client.dll">

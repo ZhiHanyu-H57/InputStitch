@@ -12,9 +12,9 @@ Download a ready-to-run executable from the [latest GitHub Release](../../releas
 
 | Windows architecture | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.0.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.0.0-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.0.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.0.0-Windows-x86.exe) |
-| Complete source code | [InputStitch-1.0.0-Source.zip](../../releases/latest/download/InputStitch-1.0.0-Source.zip) |
+| 64-bit Windows (x64) | [InputStitch-1.1.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.1.0-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.1.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.1.0-Windows-x86.exe) |
+| Complete source code | [InputStitch-1.1.0-Source.zip](../../releases/latest/download/InputStitch-1.1.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 InputStitch supports Windows only. There is no macOS or Linux executable. If you are unsure which Windows build to use, choose x64 on a modern 64-bit installation.
@@ -52,6 +52,14 @@ The executable is portable: download it, place it in a folder where you have wri
 Use the gear button to open settings, including **Language / 语言**, virtual controller type, update preferences, safety options, target-window behavior, diagnostics, and tray preferences. Xbox 360 is the default virtual controller because it has the broadest compatibility with Windows/XInput games; choose PS4 / DualShock 4 for games that support that device path. Update checking defaults to **Automatic**: InputStitch checks the official GitHub Release at startup and asks before downloading and installing. You can switch to manual checks or disable update checks completely.
 
 The stick editor uses direction and strength: `0°` is forward, `90°` is right, `-90°` is left, and `±180°` is backward. Existing X/Y values remain backward compatible and are preserved unless the user actually edits direction or strength. For a key-to-controller hold mapping, use Hold trigger + Infinite loop + “Hold until macro stops / KeyDown”; identical controller states are deduplicated and the controller is neutralized once when the macro stops.
+
+## Virtual keyboard and idle input
+
+The arrow next to **Capture Trigger** or **Capture Input** opens a full-size virtual keyboard. Click a key to select it and click again to clear it; choose single-key or multi-key mode, then confirm. This also lets compact-keyboard users choose navigation, numpad and function keys. Left/right Shift, Ctrl, Alt, Win and Esc can be selected individually. Trigger combinations use modifiers plus one main key; multiple step keys are inserted as a chord with matching releases.
+
+The controller preview follows the selected Xbox 360 or PS4 layout. A stick direction of 0° points forward, +90° right, -90° left and ±180° backward; strength controls its travel. Previewing a step does not send input.
+
+**Settings → Automation → Idle gamepad input** can send a short, configurable controller action after the chosen time without user or macro input. It is off by default. Activity resets the countdown; running macros and editing dialogs pause it. Emergency Stop disables idle output until you explicitly enable it again. This uses the existing virtual controller without activating another window. A background game must already accept that controller and background input; InputStitch cannot force a game to do so. Connect before launching games that only detect controllers at startup.
 
 ## Optional virtual gamepad driver
 

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$DistDirectory,
-    [string]$ExpectedVersion = '1.0.0'
+    [string]$ExpectedVersion = '1.1.0'
 )
 
 Set-StrictMode -Version Latest

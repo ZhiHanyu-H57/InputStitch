@@ -25,16 +25,16 @@ using Nefarius.ViGEm.Client.Targets.Xbox360;
 [assembly: AssemblyDescription("Visual keyboard, mouse and virtual gamepad macro tool for Windows")]
 [assembly: AssemblyCompany("InputStitch Project")]
 [assembly: AssemblyCopyright("Copyright © 2026")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyInformationalVersion("1.1.0")]
 
 namespace InputStitch
 {
     public static class AppInfo
     {
         public const string ProductName = "InputStitch";
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
         public const string ConfigFormatVersion = "3";
         public const string MacroPackageFormatVersion = "3";
         public const string ProfileFormatVersion = "3";
@@ -90,7 +90,7 @@ namespace InputStitch
             { "使用扫描码发送键盘输入（推荐游戏）", "Send keyboard input using scan codes (game-friendly)" },
             { "在编辑界面时暂停宏输出（推荐）", "Pause macro output while editing the UI (recommended)" },
             { "手柄类型：", "Controller type:" },
-            { "Xbox 360（推荐，Windows 游戏兼容性最好）", "Xbox 360 (recommended, broadest Windows game support)" },
+            { "Xbox 360（推荐，Windows 游戏兼容性最好）", "Xbox 360 (recommended)" },
             { "PS4 / DualShock 4", "PS4 / DualShock 4" },
             { "检测驱动并连接", "Check Driver & Connect" },
             { "未连接。首次使用前请先连接；启动游戏前连接可避免游戏忽略热插拔设备。", "Not connected. Connect before first use; connecting before launching a game avoids games that ignore hot-plugged devices." },
@@ -120,7 +120,7 @@ namespace InputStitch
             { "发现可用更新", "Update Available" },
             { "安装更新", "Install Update" },
             { "稍后", "Later" },
-            { "当前公开版本仍为 1.0.0，但 GitHub 上已有更新的安全构建。是否下载并安装？", "The public version is still 1.0.0, but a newer secured build is available on GitHub. Download and install it?" },
+            { "GitHub 上发现可用更新。是否下载并安装？", "An update is available on GitHub. Download and install it?" },
             { "更新已下载并通过 SHA-256 校验。InputStitch 将关闭、替换程序文件并重新启动。是否现在安装？", "The update was downloaded and passed SHA-256 verification. InputStitch will close, replace the program file, and restart. Install now?" },
             { "无法安装更新。", "The update could not be installed." },
             { "网络访问仅用于从官方 GitHub Release 检查和下载更新；下载后必须通过 SHA-256 校验。", "Network access is used only to check and download updates from the official GitHub Release; every download must pass SHA-256 verification." },
@@ -1040,6 +1040,9 @@ namespace InputStitch
         public bool Win;
         public InputKind Kind = InputKind.Keyboard;
         public int VirtualKey = (int)Keys.F8;
+        // Optional distinction for the main Enter and the extended numpad Enter key.
+        public bool Extended;
+        public bool MatchExtended;
 
         public TriggerSpec Clone()
         {
@@ -1050,6 +1053,8 @@ namespace InputStitch
             x.Win = Win;
             x.Kind = Kind;
             x.VirtualKey = VirtualKey;
+            x.Extended = Extended;
+            x.MatchExtended = MatchExtended;
             return x;
         }
     }
@@ -1154,6 +1159,7 @@ namespace InputStitch
         public string UpdateMode = UpdateModes.Automatic;
         // Virtual controller type is a global preference and is not replaced by profile loading.
         public string GamepadDeviceType = VirtualGamepadTypes.Xbox360;
+        public IdleGamepadOptions IdleGamepad = new IdleGamepadOptions();
         public bool HasSeenWelcome = false;
 
         private static TriggerSpec CreateDefaultPanicTrigger()
@@ -1238,20 +1244,46 @@ namespace InputStitch
         public static bool TriggerTerminalMatches(TriggerSpec trigger, InputEventInfo inputEvent)
         {
             return trigger != null && inputEvent != null && inputEvent.Input != null &&
-                   trigger.Kind == inputEvent.Input.Kind && trigger.VirtualKey == inputEvent.Input.VirtualKey;
+                   trigger.Kind == inputEvent.Input.Kind && VirtualKeysMatch(trigger.VirtualKey, inputEvent.Input.VirtualKey) &&
+                   (!trigger.MatchExtended || trigger.Extended == inputEvent.Input.Extended);
+        }
+
+        public static bool VirtualKeysMatch(int expected, int actual)
+        {
+            if (expected == actual) return true;
+            return (expected == (int)Keys.ShiftKey && (actual == (int)Keys.LShiftKey || actual == (int)Keys.RShiftKey)) ||
+                (expected == (int)Keys.ControlKey && (actual == (int)Keys.LControlKey || actual == (int)Keys.RControlKey)) ||
+                (expected == (int)Keys.Menu && (actual == (int)Keys.LMenu || actual == (int)Keys.RMenu));
+        }
+
+        public static int ModifierMaskForKey(int vk)
+        {
+            if (vk == (int)Keys.ControlKey || vk == (int)Keys.LControlKey || vk == (int)Keys.RControlKey) return Ctrl;
+            if (vk == (int)Keys.ShiftKey || vk == (int)Keys.LShiftKey || vk == (int)Keys.RShiftKey) return Shift;
+            if (vk == (int)Keys.Menu || vk == (int)Keys.LMenu || vk == (int)Keys.RMenu) return Alt;
+            if (vk == (int)Keys.LWin || vk == (int)Keys.RWin) return Win;
+            return 0;
+        }
+
+        private static int EventModifiersForTrigger(TriggerSpec trigger, InputEventInfo inputEvent)
+        {
+            // A modifier used as the terminal key is already down in the hook snapshot;
+            // it must not be counted a second time as an extra chord modifier.
+            int terminalMask = trigger.Kind == InputKind.Keyboard ? ModifierMaskForKey(trigger.VirtualKey) : 0;
+            return GetEventModifierMask(inputEvent) & ~terminalMask;
         }
 
         public static bool TriggerMatchesExactly(TriggerSpec trigger, InputEventInfo inputEvent)
         {
             return TriggerTerminalMatches(trigger, inputEvent) &&
-                   GetTriggerModifierMask(trigger) == GetEventModifierMask(inputEvent);
+                   GetTriggerModifierMask(trigger) == EventModifiersForTrigger(trigger, inputEvent);
         }
 
         public static bool TriggerRequiredModifiersMatch(TriggerSpec trigger, InputEventInfo inputEvent)
         {
             if (!TriggerTerminalMatches(trigger, inputEvent)) return false;
             int required = GetTriggerModifierMask(trigger);
-            return (GetEventModifierMask(inputEvent) & required) == required;
+            return (EventModifiersForTrigger(trigger, inputEvent) & required) == required;
         }
 
         public static int TriggerSpecificity(TriggerSpec trigger)
@@ -1396,6 +1428,7 @@ namespace InputStitch
         public static string FormatInput(InputSpec input)
         {
             if (input == null) return Localizer.T("未设置");
+            if (input.Kind == InputKind.Keyboard && input.VirtualKey == (int)Keys.Enter && input.Extended) return "Num Enter";
             if (input.Kind != InputKind.Gamepad) return FormatInput(input.Kind, input.VirtualKey);
             string name = FormatGamepadControl(input.GamepadControl);
             if (input.GamepadControl == GamepadControl.LeftStick || input.GamepadControl == GamepadControl.RightStick)
@@ -1460,7 +1493,8 @@ namespace InputStitch
             if (t.Shift) p.Add("Shift");
             if (t.Alt) p.Add("Alt");
             if (t.Win) p.Add("Win");
-            p.Add(FormatInput(t.Kind, t.VirtualKey));
+            p.Add(t.Kind == InputKind.Keyboard && t.VirtualKey == (int)Keys.Enter && t.MatchExtended && t.Extended
+                ? "Num Enter" : FormatInput(t.Kind, t.VirtualKey));
             return string.Join(" + ", p.ToArray());
         }
 
@@ -2005,6 +2039,19 @@ namespace InputStitch
             get { lock (Sync) return controller != null; }
         }
 
+        public static int OwnXboxUserIndex
+        {
+            get
+            {
+                lock (Sync)
+                {
+                    if (xbox == null) return -1;
+                    try { return (int)xbox.UserIndex; }
+                    catch { return -1; }
+                }
+            }
+        }
+
         public static void Configure(string type)
         {
             string normalized = VirtualGamepadTypes.Normalize(type);
@@ -2357,6 +2404,11 @@ namespace InputStitch
 
         private static void SendKeyboard(InputSpec spec, bool keyUp)
         {
+            SendOne(BuildKeyboardInput(spec, keyUp), "键盘输入");
+        }
+
+        private static INPUT BuildKeyboardInput(InputSpec spec, bool keyUp)
+        {
             INPUT input = new INPUT();
             input.type = INPUT_KEYBOARD;
             uint flags = keyUp ? KEYEVENTF_KEYUP : 0;
@@ -2379,20 +2431,20 @@ namespace InputStitch
                 {
                     input.U.ki.wVk = (ushort)spec.VirtualKey;
                     input.U.ki.wScan = 0;
-                    if (IsExtendedKey(spec.VirtualKey)) flags |= KEYEVENTF_EXTENDEDKEY;
+                    if (spec.Extended || IsExtendedKey(spec.VirtualKey)) flags |= KEYEVENTF_EXTENDEDKEY;
                 }
             }
             else
             {
                 input.U.ki.wVk = (ushort)spec.VirtualKey;
                 input.U.ki.wScan = 0;
-                if (IsExtendedKey(spec.VirtualKey)) flags |= KEYEVENTF_EXTENDEDKEY;
+                if (spec.Extended || IsExtendedKey(spec.VirtualKey)) flags |= KEYEVENTF_EXTENDEDKEY;
             }
 
             input.U.ki.dwFlags = flags;
             input.U.ki.time = 0;
             input.U.ki.dwExtraInfo = IntPtr.Zero;
-            SendOne(input, "键盘输入");
+            return input;
         }
 
         private static bool IsExtendedKey(int vk)
@@ -2708,6 +2760,8 @@ namespace InputStitch
         private ComboBox inputTypeBox;
         private TextBox inputText;
         private Button captureButton;
+        private FlowLayoutPanel captureInputControls;
+        private List<InputSpec> selectedKeyboardChord;
         private Label physicalInputLabel;
         private Label gamepadLabel;
         private FlowLayoutPanel gamepadPanel;
@@ -2732,6 +2786,7 @@ namespace InputStitch
         private bool loadingControls = true;
 
         public MacroStep ResultStep;
+        public List<MacroStep> ResultSteps;
 
         public StepEditDialog(MainForm owner, MacroStep source)
         {
@@ -2813,7 +2868,8 @@ namespace InputStitch
             captureButton.AutoSize = true;
             captureButton.MinimumSize = new Size(122, 32);
             captureButton.Click += CaptureButton_Click;
-            root.Controls.Add(captureButton, 2, 2);
+            captureInputControls = VirtualKeyboardDialog.WithDropDown(captureButton, CaptureButton_Click, SelectVirtualKeyboardInput);
+            root.Controls.Add(captureInputControls, 2, 2);
 
             gamepadLabel = new Label();
             gamepadLabel.Text = "手柄控制：";
@@ -3068,6 +3124,7 @@ namespace InputStitch
             bool gamepad = inputTypeBox.SelectedIndex == 1;
             if (gamepad && selectedInput.Kind != InputKind.Gamepad)
             {
+                selectedKeyboardChord = null;
                 selectedInput = new InputSpec();
                 selectedInput.Kind = InputKind.Gamepad;
                 selectedInput.GamepadControl = GamepadControl.South;
@@ -3086,7 +3143,7 @@ namespace InputStitch
             }
             physicalInputLabel.Visible = !gamepad;
             inputText.Visible = !gamepad;
-            captureButton.Visible = !gamepad;
+            captureInputControls.Visible = !gamepad;
             gamepadLabel.Visible = gamepad;
             gamepadPanel.Visible = gamepad;
             if (gamepad)
@@ -3144,6 +3201,7 @@ namespace InputStitch
                 if (IsDisposed) return;
                 if (input != null)
                 {
+                    selectedKeyboardChord = null;
                     selectedInput = input.Clone();
                     RefreshInputText();
                 }
@@ -3156,7 +3214,13 @@ namespace InputStitch
         private void RefreshInputText()
         {
             if (selectedInput == null) return;
-            inputText.Text = InputNames.FormatInput(selectedInput);
+            if (selectedKeyboardChord != null && selectedKeyboardChord.Count > 1)
+            {
+                List<string> names = new List<string>();
+                foreach (InputSpec input in selectedKeyboardChord) names.Add(VirtualKeyboardDialog.FormatKeyboardInput(input));
+                inputText.Text = string.Join(" + ", names.ToArray());
+            }
+            else inputText.Text = VirtualKeyboardDialog.FormatKeyboardInput(selectedInput);
             if (gamepadPreview != null)
             {
                 gamepadPreview.SetState(selectedInput.Kind == InputKind.Gamepad,
@@ -3171,6 +3235,22 @@ namespace InputStitch
             bool holdable = selectedInput == null || InputSender.IsHoldable(selectedInput);
             holdBox.Enabled = press && holdable;
             holdLabel.Enabled = press && holdable;
+        }
+
+        private void SelectVirtualKeyboardInput(object sender, EventArgs e)
+        {
+            ownerMain.CancelCapture();
+            IList<InputSpec> initial = selectedKeyboardChord;
+            if (initial == null && selectedInput != null && selectedInput.Kind == InputKind.Keyboard)
+                initial = new List<InputSpec>(new InputSpec[] { selectedInput });
+            using (VirtualKeyboardDialog dialog = new VirtualKeyboardDialog(false, initial))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                selectedKeyboardChord = dialog.SelectedInputs;
+                selectedInput = selectedKeyboardChord[0].Clone();
+                RefreshInputText();
+                UpdateHoldEnabled();
+            }
         }
 
         private void UpdateDelayControls()
@@ -3222,6 +3302,9 @@ namespace InputStitch
             s.RandomDelayMinMs = (int)randomMinBox.Value;
             s.RandomDelayMaxMs = (int)randomMaxBox.Value;
             ResultStep = s;
+            ResultSteps = selectedKeyboardChord != null && selectedKeyboardChord.Count > 1
+                ? VirtualKeyboardDialog.BuildChordSteps(selectedKeyboardChord, s)
+                : new List<MacroStep>(new MacroStep[] { s });
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -3246,7 +3329,9 @@ namespace InputStitch
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             BackColor = Color.White;
-            MinimumSize = new Size(230, 230);
+            MinimumSize = new Size(230, 210);
+            TabStop = false;
+            AccessibleRole = AccessibleRole.Graphic;
         }
 
         public void SetState(bool isActive, GamepadControl control, int angle, int strength, int trigger)
@@ -3263,183 +3348,288 @@ namespace InputStitch
         {
             base.OnPaint(e);
             Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(BackColor);
-
-            const float designWidth = 260F;
-            const float designHeight = 220F;
-            float scale = Math.Min(ClientSize.Width / designWidth, ClientSize.Height / designHeight);
+            float scale = Math.Min(ClientSize.Width / 300F, ClientSize.Height / 250F);
             if (scale <= 0F) return;
-            float offsetX = (ClientSize.Width - designWidth * scale) / 2F;
-            float offsetY = (ClientSize.Height - designHeight * scale) / 2F;
-            g.TranslateTransform(offsetX, offsetY);
-            g.ScaleTransform(scale, scale);
-
-            Color accent = Color.FromArgb(0, 120, 215);
-            Color accentSoft = Color.FromArgb(190, 222, 247);
-            Color outline = Color.FromArgb(75, 88, 104);
-            Color inactive = Color.FromArgb(218, 225, 233);
-            Color body = Color.FromArgb(242, 246, 250);
-
-            using (GraphicsPath shell = new GraphicsPath())
-            using (Brush bodyBrush = new SolidBrush(body))
-            using (Pen outlinePen = new Pen(outline, 2F))
+            GraphicsState saved = g.Save();
+            try
             {
-                shell.AddClosedCurve(new PointF[]
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                g.TranslateTransform((ClientSize.Width - 300F * scale) / 2F,
+                    (ClientSize.Height - 250F * scale) / 2F);
+                g.ScaleTransform(scale, scale);
+                bool ps4 = string.Equals(GamepadOutput.PreferredType, VirtualGamepadTypes.DualShock4,
+                    StringComparison.OrdinalIgnoreCase);
+
+                DrawTrigger(g, new RectangleF(60, 5, 44, 18), GamepadControl.LeftTrigger, ps4 ? "L2" : "LT");
+                DrawTrigger(g, new RectangleF(196, 5, 44, 18), GamepadControl.RightTrigger, ps4 ? "R2" : "RT");
+                DrawPill(g, new RectangleF(44, 30, 73, 17), Selected(GamepadControl.LeftShoulder), ps4 ? "L1" : "LB");
+                DrawPill(g, new RectangleF(183, 30, 73, 17), Selected(GamepadControl.RightShoulder), ps4 ? "R1" : "RB");
+                DrawShell(g, ps4);
+
+                if (ps4)
                 {
-                    new PointF(48, 50), new PointF(20, 58), new PointF(14, 124),
-                    new PointF(25, 188), new PointF(48, 199), new PointF(88, 154),
-                    new PointF(130, 146), new PointF(172, 154), new PointF(212, 199),
-                    new PointF(235, 188), new PointF(246, 124), new PointF(240, 58),
-                    new PointF(212, 50), new PointF(130, 58)
-                }, 0.35F);
-                g.FillPath(bodyBrush, shell);
-                g.DrawPath(outlinePen, shell);
+                    using (GraphicsPath touch = RoundRect(new RectangleF(121, 66, 58, 41), 7))
+                    using (Brush fill = new SolidBrush(Color.FromArgb(64, 72, 82)))
+                    using (Pen border = new Pen(Color.FromArgb(42, 50, 60), 1F))
+                    {
+                        g.FillPath(fill, touch);
+                        g.DrawPath(border, touch);
+                    }
+                    using (Brush dots = new SolidBrush(Color.FromArgb(88, 97, 107)))
+                        for (int y = 73; y < 102; y += 5)
+                            for (int x = 128; x < 174; x += 5) g.FillEllipse(dots, x, y, 1F, 1F);
+                    DrawUtility(g, 106, 80, GamepadControl.Back, false, true);
+                    DrawUtility(g, 194, 80, GamepadControl.Start, true, true);
+                    DrawGuide(g, 150, 132);
+                    DrawDPad(g, 65, 97);
+                    DrawStick(g, 106, 148, GamepadControl.LeftStick, GamepadControl.LeftThumb);
+                    DrawStick(g, 194, 148, GamepadControl.RightStick, GamepadControl.RightThumb);
+                }
+                else
+                {
+                    DrawGuide(g, 150, 77);
+                    DrawUtility(g, 125, 104, GamepadControl.Back, false, false);
+                    DrawUtility(g, 175, 104, GamepadControl.Start, true, false);
+                    DrawStick(g, 66, 96, GamepadControl.LeftStick, GamepadControl.LeftThumb);
+                    DrawDPad(g, 110, 148);
+                    DrawStick(g, 194, 148, GamepadControl.RightStick, GamepadControl.RightThumb);
+                }
+                DrawFaceButton(g, 236, 76, GamepadControl.North, ps4);
+                DrawFaceButton(g, 257, 97, GamepadControl.East, ps4);
+                DrawFaceButton(g, 215, 97, GamepadControl.West, ps4);
+                DrawFaceButton(g, 236, 118, GamepadControl.South, ps4);
+
+                string detail = active ? InputNames.FormatGamepadControl(selectedControl) : Localizer.T("虚拟手柄");
+                if (active && (selectedControl == GamepadControl.LeftStick || selectedControl == GamepadControl.RightStick))
+                    detail += "  ·  " + stickAngle + "° / " + stickStrength + "%";
+                else if (active && (selectedControl == GamepadControl.LeftTrigger || selectedControl == GamepadControl.RightTrigger))
+                    detail += "  ·  " + triggerStrength + "%";
+                DrawText(g, ps4 ? "DUALSHOCK 4" : "XBOX 360", new RectangleF(12, 214, 276, 15), 10F,
+                    Color.FromArgb(126, 137, 150), false);
+                DrawText(g, detail, new RectangleF(4, 232, 292, 16), 10.5F, active ? Accent : Ink, true);
+                AccessibleName = detail;
             }
-
-            DrawBar(g, new RectangleF(48, 38, 62, 14), Selected(GamepadControl.LeftShoulder), accent, inactive, outline, "LB / L1");
-            DrawBar(g, new RectangleF(150, 38, 62, 14), Selected(GamepadControl.RightShoulder), accent, inactive, outline, "RB / R1");
-            DrawTrigger(g, new RectangleF(58, 18, 42, 13), Selected(GamepadControl.LeftTrigger), triggerStrength, accent, inactive, outline, "LT / L2");
-            DrawTrigger(g, new RectangleF(160, 18, 42, 13), Selected(GamepadControl.RightTrigger), triggerStrength, accent, inactive, outline, "RT / R2");
-
-            DrawDPad(g, 64, 91, accent, inactive, outline);
-            DrawFaceButton(g, 207, 79, GamepadControl.North, "Y / △", accent, inactive, outline);
-            DrawFaceButton(g, 225, 97, GamepadControl.East, "B / ○", accent, inactive, outline);
-            DrawFaceButton(g, 189, 97, GamepadControl.West, "X / □", accent, inactive, outline);
-            DrawFaceButton(g, 207, 115, GamepadControl.South, "A / ×", accent, inactive, outline);
-
-            DrawSmallButton(g, new RectangleF(109, 80, 18, 9), GamepadControl.Back, "−", accent, inactive, outline);
-            DrawSmallButton(g, new RectangleF(133, 80, 18, 9), GamepadControl.Start, "+", accent, inactive, outline);
-            DrawFaceButton(g, 130, 107, GamepadControl.Guide, "●", accent, inactive, outline);
-            DrawStick(g, 94, 141, GamepadControl.LeftStick, GamepadControl.LeftThumb, accent, accentSoft, inactive, outline);
-            DrawStick(g, 166, 141, GamepadControl.RightStick, GamepadControl.RightThumb, accent, accentSoft, inactive, outline);
-
-            string title = active ? InputNames.FormatGamepadControl(selectedControl) : Localizer.T("虚拟手柄");
-            using (Font titleFont = new Font("Microsoft YaHei UI", 8.5F, FontStyle.Bold))
-            using (Brush titleBrush = new SolidBrush(active ? accent : outline))
-            {
-                SizeF size = g.MeasureString(title, titleFont);
-                g.DrawString(title, titleFont, titleBrush, Math.Max(4F, (designWidth - size.Width) / 2F), 203F);
-            }
+            finally { g.Restore(saved); }
         }
+
+        private static readonly Color Accent = Color.FromArgb(38, 114, 211);
+        private static readonly Color Ink = Color.FromArgb(65, 77, 94);
+        private static readonly Color ControlTop = Color.FromArgb(85, 95, 111);
+        private static readonly Color ControlBottom = Color.FromArgb(49, 59, 75);
 
         private bool Selected(GamepadControl control)
         {
             return active && selectedControl == control;
         }
 
-        private void DrawStick(Graphics g, float cx, float cy, GamepadControl vectorControl, GamepadControl clickControl,
-            Color accent, Color accentSoft, Color inactive, Color outline)
+        private static GraphicsPath RoundRect(RectangleF r, float radius)
         {
-            bool vectorSelected = Selected(vectorControl);
-            bool clickSelected = Selected(clickControl);
-            using (Brush baseBrush = new SolidBrush(vectorSelected ? accentSoft : inactive))
-            using (Pen pen = new Pen(outline, 1.4F))
+            float d = Math.Min(radius * 2F, Math.Min(r.Width, r.Height));
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(r.Left, r.Top, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Top, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.Left, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private static void DrawShell(Graphics g, bool ps4)
+        {
+            using (GraphicsPath shell = new GraphicsPath())
             {
-                g.FillEllipse(baseBrush, cx - 21, cy - 21, 42, 42);
-                g.DrawEllipse(pen, cx - 21, cy - 21, 42, 42);
+                shell.StartFigure();
+                shell.AddBezier(62, 47, 87, 44, 111, ps4 ? 52 : 61, 150, ps4 ? 52 : 61);
+                shell.AddBezier(150, ps4 ? 52 : 61, 189, ps4 ? 52 : 61, 213, 44, 238, 47);
+                shell.AddBezier(238, 47, 267, 50, 275, 72, 280, 99);
+                shell.AddBezier(280, 99, 286, 129, 292, 175, 277, 194);
+                shell.AddBezier(277, 194, 264, 210, 249, 200, 235, 181);
+                shell.AddBezier(235, 181, 218, 159, 207, 174, 184, 176);
+                shell.AddBezier(184, 176, 160, 177, 140, 177, 116, 176);
+                shell.AddBezier(116, 176, 93, 174, 82, 159, 65, 181);
+                shell.AddBezier(65, 181, 51, 200, 36, 210, 23, 194);
+                shell.AddBezier(23, 194, 8, 175, 14, 129, 20, 99);
+                shell.AddBezier(20, 99, 25, 72, 33, 50, 62, 47);
+                shell.CloseFigure();
+                GraphicsState shadowState = g.Save();
+                g.TranslateTransform(0, 4);
+                using (Pen shadow = new Pen(Color.FromArgb(13, 40, 57, 79), 7F)) g.DrawPath(shadow, shell);
+                using (Brush shadow = new SolidBrush(Color.FromArgb(18, 40, 57, 79))) g.FillPath(shadow, shell);
+                g.Restore(shadowState);
+                using (Brush fill = new LinearGradientBrush(new RectangleF(12, 45, 276, 158),
+                    Color.FromArgb(250, 251, 253), Color.FromArgb(217, 224, 234), LinearGradientMode.Vertical))
+                using (Pen border = new Pen(Color.FromArgb(174, 185, 200), 1F))
+                {
+                    g.FillPath(fill, shell);
+                    g.DrawPath(border, shell);
+                }
+                using (Pen seam = new Pen(Color.FromArgb(196, 205, 217), 1F))
+                {
+                    g.DrawBezier(seam, 29, 132, 32, 161, 34, 185, 44, 189);
+                    g.DrawBezier(seam, 271, 132, 268, 161, 266, 185, 256, 189);
+                }
             }
-            float dx = 0F;
-            float dy = 0F;
-            if (vectorSelected)
+        }
+
+        private void DrawStick(Graphics g, float cx, float cy, GamepadControl vectorControl, GamepadControl clickControl)
+        {
+            bool vector = Selected(vectorControl);
+            bool selected = vector || Selected(clickControl);
+            using (Brush well = new SolidBrush(Color.FromArgb(186, 198, 215))) g.FillEllipse(well, cx - 25, cy - 25, 50, 50);
+            using (Brush well = new SolidBrush(Color.FromArgb(55, 67, 85))) g.FillEllipse(well, cx - 22, cy - 22, 44, 44);
+            using (Pen ring = new Pen(selected ? Color.FromArgb(124, 180, 245) : Color.FromArgb(233, 238, 245), selected ? 2F : 1F))
+                g.DrawEllipse(ring, cx - 24, cy - 24, 48, 48);
+            float dx = 0, dy = 0;
+            if (vector)
             {
                 double radians = stickAngle * Math.PI / 180.0;
-                float distance = 13F * stickStrength / 100F;
-                dx = (float)Math.Sin(radians) * distance;
-                dy = -(float)Math.Cos(radians) * distance;
+                dx = (float)Math.Sin(radians) * 10F * stickStrength / 100F;
+                dy = -(float)Math.Cos(radians) * 10F * stickStrength / 100F;
+                if (stickStrength > 0)
+                    using (Pen direction = new Pen(Color.FromArgb(143, 199, 255), 3F))
+                    {
+                        direction.StartCap = LineCap.Round;
+                        direction.EndCap = LineCap.Round;
+                        g.DrawLine(direction, cx, cy, cx + dx * 1.9F, cy + dy * 1.9F);
+                    }
             }
-            using (Brush capBrush = new SolidBrush(vectorSelected || clickSelected ? accent : Color.FromArgb(126, 139, 154)))
-            using (Pen capPen = new Pen(outline, 1.2F))
-            {
-                g.FillEllipse(capBrush, cx + dx - 11, cy + dy - 11, 22, 22);
-                g.DrawEllipse(capPen, cx + dx - 11, cy + dy - 11, 22, 22);
-            }
+            using (Brush shadow = new SolidBrush(Color.FromArgb(58, 12, 24, 42))) g.FillEllipse(shadow, cx + dx - 15, cy + dy - 12, 30, 30);
+            DrawDisc(g, cx + dx, cy + dy, 15, selected);
+            using (Pen edge = new Pen(selected ? Color.FromArgb(119, 182, 255) : Color.FromArgb(128, 141, 158), 0.8F))
+                g.DrawEllipse(edge, cx + dx - 11, cy + dy - 11, 22, 22);
+            DrawText(g, vectorControl == GamepadControl.LeftStick ? "L" : "R",
+                new RectangleF(cx + dx - 8, cy + dy - 7, 16, 14), 9F, Color.FromArgb(232, 239, 248), true);
         }
 
-        private void DrawDPad(Graphics g, float cx, float cy, Color accent, Color inactive, Color outline)
+        private void DrawDPad(Graphics g, float cx, float cy)
         {
-            RectangleF up = new RectangleF(cx - 6, cy - 24, 12, 18);
-            RectangleF down = new RectangleF(cx - 6, cy + 6, 12, 18);
-            RectangleF left = new RectangleF(cx - 24, cy - 6, 18, 12);
-            RectangleF right = new RectangleF(cx + 6, cy - 6, 18, 12);
-            DrawPadPart(g, up, Selected(GamepadControl.DPadUp), accent, inactive, outline);
-            DrawPadPart(g, down, Selected(GamepadControl.DPadDown), accent, inactive, outline);
-            DrawPadPart(g, left, Selected(GamepadControl.DPadLeft), accent, inactive, outline);
-            DrawPadPart(g, right, Selected(GamepadControl.DPadRight), accent, inactive, outline);
-            DrawPadPart(g, new RectangleF(cx - 7, cy - 7, 14, 14), false, accent, inactive, outline);
+            using (Brush well = new SolidBrush(Color.FromArgb(201, 212, 226))) g.FillEllipse(well, cx - 24, cy - 24, 48, 48);
+            using (GraphicsPath cross = new GraphicsPath())
+            using (Brush fill = new LinearGradientBrush(new RectangleF(cx - 21, cy - 21, 42, 42), ControlTop, ControlBottom, LinearGradientMode.Vertical))
+            {
+                cross.AddPolygon(new PointF[] {
+                    new PointF(cx-7,cy-21), new PointF(cx+7,cy-21), new PointF(cx+7,cy-7), new PointF(cx+21,cy-7),
+                    new PointF(cx+21,cy+7), new PointF(cx+7,cy+7), new PointF(cx+7,cy+21), new PointF(cx-7,cy+21),
+                    new PointF(cx-7,cy+7), new PointF(cx-21,cy+7), new PointF(cx-21,cy-7), new PointF(cx-7,cy-7) });
+                g.FillPath(fill, cross);
+            }
+            DrawPadArrow(g, cx, cy, 0, GamepadControl.DPadUp);
+            DrawPadArrow(g, cx, cy, 90, GamepadControl.DPadRight);
+            DrawPadArrow(g, cx, cy, 180, GamepadControl.DPadDown);
+            DrawPadArrow(g, cx, cy, 270, GamepadControl.DPadLeft);
         }
 
-        private static void DrawPadPart(Graphics g, RectangleF rect, bool selected, Color accent, Color inactive, Color outline)
+        private void DrawPadArrow(Graphics g, float cx, float cy, float angle, GamepadControl control)
         {
-            using (Brush brush = new SolidBrush(selected ? accent : inactive))
-            using (Pen pen = new Pen(outline, 1F))
+            GraphicsState saved = g.Save();
+            g.TranslateTransform(cx, cy);
+            g.RotateTransform(angle);
+            if (Selected(control))
+                using (Brush fill = new SolidBrush(Accent)) g.FillRectangle(fill, -7, -21, 14, 16);
+            using (Brush arrow = new SolidBrush(Selected(control) ? Color.White : Color.FromArgb(176, 190, 210)))
+                g.FillPolygon(arrow, new PointF[] { new PointF(0,-17), new PointF(-3,-12), new PointF(3,-12) });
+            g.Restore(saved);
+        }
+
+        private static void DrawDisc(Graphics g, float cx, float cy, float radius, bool selected)
+        {
+            RectangleF rect = new RectangleF(cx - radius, cy - radius, radius * 2, radius * 2);
+            using (Brush fill = new LinearGradientBrush(rect,
+                selected ? Color.FromArgb(74, 150, 239) : ControlTop,
+                selected ? Accent : ControlBottom, LinearGradientMode.Vertical))
+            using (Pen edge = new Pen(selected ? Color.FromArgb(29, 96, 186) : Color.FromArgb(38, 48, 65), 0.8F))
             {
-                g.FillRectangle(brush, rect);
-                g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+                g.FillEllipse(fill, rect);
+                g.DrawEllipse(edge, rect);
             }
         }
 
-        private void DrawFaceButton(Graphics g, float cx, float cy, GamepadControl control, string text,
-            Color accent, Color inactive, Color outline)
+        private void DrawFaceButton(Graphics g, float cx, float cy, GamepadControl control, bool ps4)
         {
             bool selected = Selected(control);
-            using (Brush brush = new SolidBrush(selected ? accent : inactive))
-            using (Pen pen = new Pen(outline, 1F))
-            using (Font font = new Font("Microsoft YaHei UI", 5.8F, FontStyle.Bold))
-            using (Brush textBrush = new SolidBrush(selected ? Color.White : outline))
+            using (Brush seat = new SolidBrush(Color.FromArgb(187, 199, 215))) g.FillEllipse(seat, cx-12, cy-11, 24, 24);
+            DrawDisc(g, cx, cy, 10.5F, selected);
+            Color symbol = selected ? Color.White :
+                control == GamepadControl.South ? (ps4 ? Color.FromArgb(121, 190, 251) : Color.FromArgb(138, 219, 145)) :
+                control == GamepadControl.East ? Color.FromArgb(248, 150, 157) :
+                control == GamepadControl.West ? (ps4 ? Color.FromArgb(239, 160, 217) : Color.FromArgb(120, 185, 255)) :
+                (ps4 ? Color.FromArgb(123, 222, 197) : Color.FromArgb(252, 218, 115));
+            if (!ps4)
             {
-                g.FillEllipse(brush, cx - 10, cy - 10, 20, 20);
-                g.DrawEllipse(pen, cx - 10, cy - 10, 20, 20);
-                SizeF size = g.MeasureString(text, font);
-                g.DrawString(text, font, textBrush, cx - size.Width / 2F, cy - size.Height / 2F);
+                string label = control == GamepadControl.South ? "A" : control == GamepadControl.East ? "B" : control == GamepadControl.West ? "X" : "Y";
+                DrawText(g, label, new RectangleF(cx - 10, cy - 8, 20, 16), 11F, symbol, true);
+                return;
+            }
+            using (Pen pen = new Pen(symbol, 1.4F))
+            {
+                pen.LineJoin = LineJoin.Round;
+                if (control == GamepadControl.North)
+                    g.DrawPolygon(pen, new PointF[] { new PointF(cx,cy-5), new PointF(cx-5,cy+4), new PointF(cx+5,cy+4) });
+                else if (control == GamepadControl.East) g.DrawEllipse(pen, cx-4.5F, cy-4.5F, 9, 9);
+                else if (control == GamepadControl.West) g.DrawRectangle(pen, cx-4, cy-4, 8, 8);
+                else { g.DrawLine(pen, cx-4, cy-4, cx+4, cy+4); g.DrawLine(pen, cx-4, cy+4, cx+4, cy-4); }
             }
         }
 
-        private void DrawSmallButton(Graphics g, RectangleF rect, GamepadControl control, string text,
-            Color accent, Color inactive, Color outline)
+        private static void DrawPill(Graphics g, RectangleF rect, bool selected, string text)
+        {
+            using (GraphicsPath pill = RoundRect(rect, 6))
+            using (Brush fill = new LinearGradientBrush(rect, selected ? Color.FromArgb(74, 150, 239) : ControlTop,
+                selected ? Accent : ControlBottom, LinearGradientMode.Vertical))
+                g.FillPath(fill, pill);
+            DrawText(g, text, rect, 10F, Color.White, true);
+        }
+
+        private void DrawTrigger(Graphics g, RectangleF rect, GamepadControl control, string text)
         {
             bool selected = Selected(control);
-            using (Brush brush = new SolidBrush(selected ? accent : inactive))
-            using (Pen pen = new Pen(outline, 1F))
-            using (Font font = new Font("Microsoft YaHei UI", 6F, FontStyle.Bold))
-            using (Brush textBrush = new SolidBrush(selected ? Color.White : outline))
+            DrawPill(g, rect, selected, text);
+            RectangleF track = new RectangleF(rect.X + 4, rect.Bottom + 1, rect.Width - 8, 2);
+            using (Brush empty = new SolidBrush(Color.FromArgb(221, 229, 239))) g.FillRectangle(empty, track);
+            if (selected && triggerStrength > 0)
+                using (Brush fill = new SolidBrush(Accent))
+                    g.FillRectangle(fill, track.X, track.Y, track.Width * triggerStrength / 100F, track.Height);
+        }
+
+        private void DrawUtility(Graphics g, float cx, float cy, GamepadControl control, bool menu, bool ps4)
+        {
+            DrawDisc(g, cx, cy, ps4 ? 7F : 8.5F, Selected(control));
+            using (Pen pen = new Pen(Color.FromArgb(229, 237, 247), 1F))
             {
-                g.FillEllipse(brush, rect);
-                g.DrawEllipse(pen, rect);
-                SizeF size = g.MeasureString(text, font);
-                g.DrawString(text, font, textBrush, rect.X + (rect.Width - size.Width) / 2F, rect.Y + (rect.Height - size.Height) / 2F);
+                if (menu)
+                    for (int i = -1; i <= 1; i++) g.DrawLine(pen, cx - 3, cy + i * 2.5F, cx + 3, cy + i * 2.5F);
+                else
+                {
+                    g.DrawRectangle(pen, cx - 3, cy - 3, 4.5F, 4.5F);
+                    g.DrawLines(pen, new PointF[] { new PointF(cx+3,cy-1), new PointF(cx+3,cy+3), new PointF(cx-1,cy+3) });
+                }
             }
         }
 
-        private static void DrawBar(Graphics g, RectangleF rect, bool selected, Color accent, Color inactive, Color outline, string text)
+        private void DrawGuide(Graphics g, float cx, float cy)
         {
-            using (Brush brush = new SolidBrush(selected ? accent : inactive))
-            using (Pen pen = new Pen(outline, 1F))
-            using (Font font = new Font("Microsoft YaHei UI", 5.8F, FontStyle.Bold))
-            using (Brush textBrush = new SolidBrush(selected ? Color.White : outline))
+            DrawDisc(g, cx, cy, 9, Selected(GamepadControl.Guide));
+            using (Pen pen = new Pen(Color.FromArgb(226, 236, 249), 1.3F))
             {
-                g.FillRectangle(brush, rect);
-                g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
-                SizeF size = g.MeasureString(text, font);
-                g.DrawString(text, font, textBrush, rect.X + (rect.Width - size.Width) / 2F, rect.Y + (rect.Height - size.Height) / 2F);
+                g.DrawArc(pen, cx-4, cy-4, 8, 8, -55, 290);
+                g.DrawLine(pen, cx, cy-5, cx, cy);
             }
         }
 
-        private static void DrawTrigger(Graphics g, RectangleF rect, bool selected, int strength,
-            Color accent, Color inactive, Color outline, string text)
+        private static void DrawText(Graphics g, string text, RectangleF rect, float size, Color color, bool bold)
         {
-            using (Brush baseBrush = new SolidBrush(inactive))
-            using (Brush fillBrush = new SolidBrush(accent))
-            using (Pen pen = new Pen(outline, 1F))
-            using (Font font = new Font("Microsoft YaHei UI", 5.5F, FontStyle.Bold))
-            using (Brush textBrush = new SolidBrush(selected && strength >= 45 ? Color.White : outline))
+            using (Font font = new Font("Microsoft YaHei UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel))
+            using (Brush brush = new SolidBrush(color))
+            using (StringFormat format = new StringFormat())
             {
-                g.FillRectangle(baseBrush, rect);
-                if (selected && strength > 0)
-                    g.FillRectangle(fillBrush, rect.X, rect.Y, rect.Width * strength / 100F, rect.Height);
-                g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
-                SizeF size = g.MeasureString(text, font);
-                g.DrawString(text, font, textBrush, rect.X + (rect.Width - size.Width) / 2F, rect.Y + (rect.Height - size.Height) / 2F);
+                format.Alignment = StringAlignment.Center;
+                format.LineAlignment = StringAlignment.Center;
+                format.FormatFlags = StringFormatFlags.NoWrap;
+                format.Trimming = StringTrimming.EllipsisCharacter;
+                g.DrawString(text, font, brush, rect, format);
             }
         }
     }
@@ -3835,6 +4025,7 @@ namespace InputStitch
         private readonly ComboBox updateModeBox;
         private readonly ComboBox gamepadTypeBox;
         private readonly Label gamepadStatusLabel;
+        private readonly IdleGamepadSettingsPanel idleSettings;
 
         public event EventHandler CheckForUpdatesRequested;
 
@@ -3845,6 +4036,7 @@ namespace InputStitch
         public bool ActivateTargetWindowOnUiRun { get { return activateTargetBox.Checked; } }
         public int UiRunStartDelayMs { get { return (int)delayBox.Value; } }
         public bool AutoSwitchProfiles { get { return autoProfileBox.Checked; } }
+        public IdleGamepadOptions SelectedIdleOptions { get { return idleSettings.ReadOptions(); } }
         public string SelectedLanguage { get { return languageBox.SelectedIndex == 1 ? Localizer.English : Localizer.Chinese; } }
         public string SelectedGamepadType { get { return gamepadTypeBox.SelectedIndex == 1 ? VirtualGamepadTypes.DualShock4 : VirtualGamepadTypes.Xbox360; } }
         public string SelectedUpdateMode
@@ -3867,8 +4059,8 @@ namespace InputStitch
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimizeBox = false;
             MaximizeBox = false;
-            MinimumSize = new Size(580, 720);
-            ClientSize = new Size(700, 880);
+            MinimumSize = new Size(620, 480);
+            ClientSize = new Size(700, 660);
             BackColor = Color.FromArgb(247, 249, 252);
             AutoScroll = true;
 
@@ -3923,7 +4115,6 @@ namespace InputStitch
             topMostBox = MakeCheck(Localizer.T("保持主窗口置顶"), config.KeepWindowTopMost);
             generalLayout.Controls.Add(trayBox);
             generalLayout.Controls.Add(topMostBox);
-            root.Controls.Add(general, 0, 1);
 
             GroupBox input = MakeGroup(Localizer.T("输入与安全"));
             TableLayoutPanel inputLayout = MakeStack();
@@ -3932,7 +4123,6 @@ namespace InputStitch
             uiSafetyBox = MakeCheck(Localizer.T("在编辑界面时暂停宏输出（推荐）"), config.PauseMacroInRiskyUi);
             inputLayout.Controls.Add(scanCodeBox);
             inputLayout.Controls.Add(uiSafetyBox);
-            root.Controls.Add(input, 0, 2);
 
             GroupBox gamepad = MakeGroup(Localizer.T("虚拟手柄输出"));
             TableLayoutPanel gamepadLayout = MakeStack();
@@ -3998,7 +4188,6 @@ namespace InputStitch
             gamepadHint.ForeColor = Color.FromArgb(120, 92, 44);
             gamepadHint.Margin = new Padding(0, 3, 0, 3);
             gamepadLayout.Controls.Add(gamepadHint);
-            root.Controls.Add(gamepad, 0, 3);
             RefreshGamepadStatus();
 
             GroupBox target = MakeGroup(Localizer.T("目标窗口与方案"));
@@ -4036,7 +4225,6 @@ namespace InputStitch
             targetLayout.Controls.Add(delayRow);
             autoProfileBox = MakeCheck(Localizer.T("按前台程序自动切换已绑定方案"), config.AutoSwitchProfiles);
             targetLayout.Controls.Add(autoProfileBox);
-            root.Controls.Add(target, 0, 4);
 
             GroupBox updates = MakeGroup(Localizer.T("软件更新"));
             TableLayoutPanel updatesLayout = MakeStack();
@@ -4078,7 +4266,21 @@ namespace InputStitch
                 if (handler != null) handler(this, EventArgs.Empty);
             };
             updatesLayout.Controls.Add(checkNow);
-            root.Controls.Add(updates, 0, 5);
+
+            idleSettings = new IdleGamepadSettingsPanel(config.IdleGamepad ?? new IdleGamepadOptions());
+            GroupBox idleGroup = MakeGroup(Localizer.IsEnglish ? "Idle gamepad input" : "闲置自动手柄输入");
+            idleGroup.Controls.Add(idleSettings);
+            TabControl tabs = new TabControl();
+            tabs.Dock = DockStyle.Fill;
+            AddSettingsTab(tabs, Localizer.T("常规"), general, updates);
+            AddSettingsTab(tabs, Localizer.T("输入与安全"), input, gamepad);
+            AddSettingsTab(tabs, Localizer.IsEnglish ? "Automation" : "自动化", idleGroup, target);
+            root.RowStyles.Clear();
+            root.RowCount = 3;
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.Controls.Add(tabs, 0, 1);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.AutoSize = true;
@@ -4101,13 +4303,36 @@ namespace InputStitch
                 autoProfileBox.Checked = false;
                 updateModeBox.SelectedIndex = 0;
                 gamepadTypeBox.SelectedIndex = 0;
+                idleSettings.LoadOptions(new IdleGamepadOptions());
             };
             buttons.Controls.Add(ok);
             buttons.Controls.Add(cancel);
             buttons.Controls.Add(defaults);
-            root.Controls.Add(buttons, 0, 6);
+            root.Controls.Add(buttons, 0, 2);
             AcceptButton = ok;
             CancelButton = cancel;
+        }
+
+        private static void AddSettingsTab(TabControl tabs, string title, params Control[] groups)
+        {
+            TabPage page = new TabPage(title);
+            page.BackColor = Color.FromArgb(247, 249, 252);
+            page.AutoScroll = true;
+            page.Padding = new Padding(10);
+            TableLayoutPanel stack = new TableLayoutPanel();
+            stack.AutoSize = true;
+            stack.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            stack.Dock = DockStyle.Top;
+            stack.ColumnCount = 1;
+            stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            foreach (Control group in groups)
+            {
+                group.Dock = DockStyle.Fill;
+                group.Margin = new Padding(0, 0, 0, 10);
+                stack.Controls.Add(group);
+            }
+            page.Controls.Add(stack);
+            tabs.TabPages.Add(page);
         }
 
         private void RefreshGamepadStatus()
@@ -4235,6 +4460,7 @@ namespace InputStitch
         private bool manualTriggerSuspend;
         private enum CaptureMode { None, Trigger, StepInput, PanicTrigger }
         private CaptureMode captureMode = CaptureMode.None;
+        private InputEventInfo pendingModifierCapture;
         private Action<InputSpec> stepCaptureCallback;
         private MacroDefinition nameEditingMacro;
         private System.Windows.Forms.Timer foregroundTimer;
@@ -4251,6 +4477,8 @@ namespace InputStitch
         private string activeProfilePath = "";
         private string lastAutoProfileProcess = "";
         private bool autoProfileSwitchBusy;
+        private IdleGamepadService idleGamepad;
+        private long lastIdleHookEventCount;
 
         // Macro recorder. It records physical keyboard/mouse button/wheel events only while an
         // external application owns foreground focus; InputStitch UI clicks are intentionally ignored.
@@ -4328,7 +4556,7 @@ namespace InputStitch
                 hooks = new HookManager();
                 hooks.OnTerminalInput = HandleTerminalInput;
                 hooks.OnTerminalInputReleased = HandleTerminalInputReleased;
-                hooks.ShouldReportModifierInput = delegate { return captureMode == CaptureMode.StepInput || recordingActive; };
+                hooks.ShouldReportModifierInput = delegate { return true; };
             }
             catch (Exception ex)
             {
@@ -4336,9 +4564,20 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
+            idleGamepad = new IdleGamepadService(delegate { return GamepadOutput.OwnXboxUserIndex; });
+            idleGamepad.Failed += delegate(Exception ex)
+            {
+                config.IdleGamepad.Enabled = false;
+                SaveConfig();
+                SetStatusSafe(Localizer.IsEnglish ? "Idle gamepad input stopped: " + ex.Message : "闲置手柄输入已停止：" + ex.Message);
+                GamepadOutputException driverError = ex as GamepadOutputException;
+                if (driverError != null) GamepadDriverGuidance.Show(this, driverError);
+            };
+            idleGamepad.Configure(config.IdleGamepad, false);
             FormClosing += MainForm_FormClosing;
             Shown += delegate
             {
+                if (idleGamepad != null) idleGamepad.AttachWindow(Handle);
                 if (!config.HasSeenWelcome)
                 {
                     LocalizedMessageBox.Show(this,
@@ -4359,6 +4598,12 @@ namespace InputStitch
                 if (HasAnyGamepadSteps())
                     BeginInvoke((MethodInvoker)delegate { EnsureGamepadReady(null, true); });
             };
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (idleGamepad != null) idleGamepad.ProcessWindowMessage(m.Msg, m.WParam, m.LParam);
+            base.WndProc(ref m);
         }
 
         private void BuildUi()
@@ -4559,7 +4804,8 @@ namespace InputStitch
             captureTriggerButton.Click += CaptureTriggerButton_Click;
             triggerKeyLine.Controls.Add(triggerLabel, 0, 0);
             triggerKeyLine.Controls.Add(triggerBox, 1, 0);
-            triggerKeyLine.Controls.Add(captureTriggerButton, 2, 0);
+            triggerKeyLine.Controls.Add(VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
+                CaptureTriggerButton_Click, SelectVirtualKeyboardTrigger), 2, 0);
 
             TableLayoutPanel triggerModeLine = new TableLayoutPanel();
             triggerModeLine.Height = 34;
@@ -5169,8 +5415,10 @@ namespace InputStitch
                     config.AutoSwitchProfiles = dialog.AutoSwitchProfiles;
                     config.UpdateMode = dialog.SelectedUpdateMode;
                     config.GamepadDeviceType = dialog.SelectedGamepadType;
+                    config.IdleGamepad = dialog.SelectedIdleOptions;
                     InputSender.UseScanCodeInput = config.UseScanCodeInput;
                     GamepadOutput.Configure(config.GamepadDeviceType);
+                    if (idleGamepad != null) idleGamepad.Configure(config.IdleGamepad, true);
                     if (gamepadWasConnected && !string.Equals(GamepadOutput.ConnectedType, config.GamepadDeviceType, StringComparison.OrdinalIgnoreCase))
                         EnsureGamepadReady(null, false);
                     TopMost = config.KeepWindowTopMost;
@@ -5215,7 +5463,7 @@ namespace InputStitch
                     return;
                 }
 
-                string prompt = Localizer.T("当前公开版本仍为 1.0.0，但 GitHub 上已有更新的安全构建。是否下载并安装？") +
+                string prompt = Localizer.T("GitHub 上发现可用更新。是否下载并安装？") +
                     "\r\n\r\n" + (Localizer.IsEnglish ? "Architecture: " : "架构：") + update.Asset.Architecture +
                     "\r\n" + (Localizer.IsEnglish ? "Release: " : "发布版本：") + update.Manifest.Version;
                 DialogResult choice = LocalizedMessageBox.Show(owner, prompt, Localizer.T("发现可用更新"),
@@ -5369,6 +5617,12 @@ namespace InputStitch
         {
             try
             {
+                if (idleGamepad != null) idleGamepad.PanicStop();
+                if (config.IdleGamepad != null && config.IdleGamepad.Enabled)
+                {
+                    config.IdleGamepad.Enabled = false;
+                    SaveConfig();
+                }
                 if (recordingActive) StopMacroRecording(false, true);
                 CancelCapture();
                 Thread t = null;
@@ -5676,6 +5930,18 @@ namespace InputStitch
         {
             ReconcileHookState("foreground-timer");
             UpdateUiSafetyPauseState();
+            if (idleGamepad != null)
+            {
+                long eventCount = hooks == null ? 0 : hooks.PhysicalEventCount;
+                if (eventCount != lastIdleHookEventCount)
+                {
+                    lastIdleHookEventCount = eventCount;
+                    idleGamepad.NotifyActivity();
+                }
+                idleGamepad.SetBusy(HasLiveWorker() || recordingActive || captureMode != CaptureMode.None ||
+                    uiSafetyModalDepth > 0 || manualTriggerSuspend || updateCheckBusy);
+                idleGamepad.Tick();
+            }
             IntPtr hwnd = NativeWindowFocus.ForegroundWindow();
             if (hwnd != lastObservedForeground)
             {
@@ -6323,32 +6589,34 @@ namespace InputStitch
 
         private int CountEnabledTriggerConflictGroups()
         {
-            Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            List<List<TriggerSpec>> groups = new List<List<TriggerSpec>>();
             foreach (MacroDefinition m in config.Macros)
             {
                 if (m == null || !m.Enabled || m.Trigger == null) continue;
-                string key = TriggerIdentity(m.Trigger);
-                int count;
-                counts.TryGetValue(key, out count);
-                counts[key] = count + 1;
+                List<TriggerSpec> joined = new List<TriggerSpec>();
+                joined.Add(m.Trigger);
+                for (int i = groups.Count - 1; i >= 0; i--)
+                {
+                    bool overlaps = false;
+                    foreach (TriggerSpec trigger in groups[i])
+                        if (TriggersEqual(m.Trigger, trigger)) { overlaps = true; break; }
+                    if (!overlaps) continue;
+                    joined.AddRange(groups[i]);
+                    groups.RemoveAt(i);
+                }
+                groups.Add(joined);
             }
-            int groups = 0;
-            foreach (KeyValuePair<string, int> pair in counts)
-                if (pair.Value > 1) groups++;
-            return groups;
-        }
-
-        private static string TriggerIdentity(TriggerSpec t)
-        {
-            if (t == null) return "";
-            return (t.Ctrl ? "C" : "-") + (t.Shift ? "S" : "-") + (t.Alt ? "A" : "-") + (t.Win ? "W" : "-") +
-                   "|" + ((int)t.Kind).ToString() + "|" + t.VirtualKey.ToString();
+            int conflicts = 0;
+            foreach (List<TriggerSpec> group in groups) if (group.Count > 1) conflicts++;
+            return conflicts;
         }
 
         private static bool TriggersEqual(TriggerSpec a, TriggerSpec b)
         {
             if (a == null || b == null) return false;
-            return TriggerIdentity(a) == TriggerIdentity(b);
+            return a.Kind == b.Kind && a.Ctrl == b.Ctrl && a.Shift == b.Shift && a.Alt == b.Alt && a.Win == b.Win &&
+                (ModifierSafetyPolicy.VirtualKeysMatch(a.VirtualKey, b.VirtualKey) || ModifierSafetyPolicy.VirtualKeysMatch(b.VirtualKey, a.VirtualKey)) &&
+                (!a.MatchExtended || !b.MatchExtended || a.Extended == b.Extended);
         }
 
         private bool IsMacroTriggerConflicted(MacroDefinition macro)
@@ -6568,6 +6836,7 @@ namespace InputStitch
             string language = config.Language;
             string updateMode = config.UpdateMode;
             string gamepadType = config.GamepadDeviceType;
+            IdleGamepadOptions idleOptions = config.IdleGamepad;
             bool welcome = config.HasSeenWelcome;
             try
             {
@@ -6578,6 +6847,7 @@ namespace InputStitch
                 config.Language = language;
                 config.UpdateMode = updateMode;
                 config.GamepadDeviceType = gamepadType;
+                config.IdleGamepad = idleOptions;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
                 config.HasSeenWelcome = welcome;
@@ -6807,6 +7077,7 @@ namespace InputStitch
                 !string.Equals(value.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase))
                 value.UpdateMode = UpdateModes.Automatic;
             value.GamepadDeviceType = VirtualGamepadTypes.Normalize(value.GamepadDeviceType);
+            if (value.IdleGamepad == null) value.IdleGamepad = new IdleGamepadOptions();
             if (value.UiRunStartDelayMs < 0) value.UiRunStartDelayMs = 0;
             if (value.UiRunStartDelayMs > 5000) value.UiRunStartDelayMs = 5000;
         }
@@ -6923,14 +7194,47 @@ namespace InputStitch
                 return;
             }
             captureMode = CaptureMode.Trigger;
+            pendingModifierCapture = null;
             captureTriggerButton.Text = Localizer.Dynamic("请按触发键…");
             statusLabel.Text = "状态：正在录制触发键（按 Esc 取消）";
             UpdateUiSafetyPauseState();
         }
 
+        private void SelectVirtualKeyboardTrigger(object sender, EventArgs e)
+        {
+            MacroDefinition macro = SelectedMacro;
+            if (macro == null) return;
+            CancelCapture();
+            bool previousPause = pauseHotkeys;
+            pauseHotkeys = true;
+            uiSafetyModalDepth++;
+            UpdateUiSafetyPauseState();
+            try
+            {
+                using (VirtualKeyboardDialog dialog = new VirtualKeyboardDialog(true,
+                    VirtualKeyboardDialog.InputsFromTrigger(macro.Trigger)))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    macro.Trigger = dialog.SelectedTrigger;
+                    triggerBox.Text = InputNames.FormatTrigger(macro.Trigger);
+                    SaveConfig();
+                    RefreshConflictIndicators(true);
+                    if (macro.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(macro.Trigger))
+                        statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮，请改用单个键盘键/鼠标按钮。";
+                }
+            }
+            finally
+            {
+                uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
+                pauseHotkeys = previousPause;
+                UpdateUiSafetyPauseState();
+            }
+        }
+
         public void BeginStepInputCapture(Action<InputSpec> callback)
         {
             captureMode = CaptureMode.StepInput;
+            pendingModifierCapture = null;
             stepCaptureCallback = callback;
             statusLabel.Text = "状态：请按下要使用的键/鼠标按钮/滚轮（Esc 取消）";
             UpdateUiSafetyPauseState();
@@ -6939,6 +7243,7 @@ namespace InputStitch
         public void CancelCapture()
         {
             captureMode = CaptureMode.None;
+            pendingModifierCapture = null;
             stepCaptureCallback = null;
             if (captureTriggerButton != null)
             {
@@ -6959,10 +7264,25 @@ namespace InputStitch
             t.Win = e.Win;
             t.Kind = e.Input.Kind;
             t.VirtualKey = e.Input.VirtualKey;
+            t.Extended = e.Input.Extended;
+            t.MatchExtended = e.Input.Kind == InputKind.Keyboard && e.Input.VirtualKey == (int)Keys.Enter;
+            if (e.Input.Kind == InputKind.Keyboard)
+            {
+                int own = ModifierSafetyPolicy.ModifierMaskForKey(e.Input.VirtualKey);
+                if ((own & ModifierSafetyPolicy.Ctrl) != 0) t.Ctrl = false;
+                if ((own & ModifierSafetyPolicy.Shift) != 0) t.Shift = false;
+                if ((own & ModifierSafetyPolicy.Alt) != 0) t.Alt = false;
+                if ((own & ModifierSafetyPolicy.Win) != 0) t.Win = false;
+            }
             return t;
         }
 
         private bool HandleTerminalInput(InputEventInfo e)
+        {
+            return HandleTerminalInputCore(e, false);
+        }
+
+        private bool HandleTerminalInputCore(InputEventInfo e, bool completingModifierCapture)
         {
             if (e == null || e.Input == null) return false;
 
@@ -6977,6 +7297,16 @@ namespace InputStitch
 
             if (captureMode != CaptureMode.None)
             {
+                // Defer a physical modifier until it is released: Ctrl then K must still
+                // capture Ctrl+K, while pressing and releasing Shift alone captures Shift.
+                if ((captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger) &&
+                    !completingModifierCapture && e.Input.Kind == InputKind.Keyboard &&
+                    ModifierSafetyPolicy.IsModifierVirtualKey(e.Input.VirtualKey))
+                {
+                    pendingModifierCapture = e;
+                    return false;
+                }
+                pendingModifierCapture = null;
                 if (e.Input.Kind == InputKind.Keyboard && e.Input.VirtualKey == (int)Keys.Escape && !e.Ctrl && !e.Shift && !e.Alt && !e.Win)
                 {
                     Action<InputSpec> cancelledStepCapture = captureMode == CaptureMode.StepInput ? stepCaptureCallback : null;
@@ -7113,6 +7443,15 @@ namespace InputStitch
         private void HandleTerminalInputReleased(InputEventInfo e)
         {
             if (e == null || e.Input == null) return;
+            InputEventInfo pending = pendingModifierCapture;
+            if (pending != null && pending.Input != null && e.Input.Kind == InputKind.Keyboard &&
+                pending.Input.VirtualKey == e.Input.VirtualKey &&
+                (captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger))
+            {
+                pendingModifierCapture = null;
+                HandleTerminalInputCore(pending, true);
+                return;
+            }
             if (recordingActive) RecordPhysicalInput(e, false);
 
             MacroDefinition m = holdControlledMacro;
@@ -7149,7 +7488,9 @@ namespace InputStitch
 
         private static bool TerminalInputMatches(TriggerSpec t, InputSpec input)
         {
-            return t != null && input != null && t.Kind == input.Kind && t.VirtualKey == input.VirtualKey;
+            return t != null && input != null && t.Kind == input.Kind &&
+                ModifierSafetyPolicy.VirtualKeysMatch(t.VirtualKey, input.VirtualKey) &&
+                (!t.MatchExtended || t.Extended == input.Extended);
         }
 
         private void RecordButton_Click(object sender, EventArgs e)
@@ -7418,7 +7759,7 @@ namespace InputStitch
                 {
                     if (d.ShowDialog(this) == DialogResult.OK && d.ResultStep != null)
                     {
-                        m.Steps.Add(d.ResultStep);
+                        m.Steps.AddRange(d.ResultSteps);
                         SaveConfig();
                         RefreshSteps();
                         if (grid.Rows.Count > 0) grid.Rows[grid.Rows.Count - 1].Selected = true;
@@ -7455,7 +7796,8 @@ namespace InputStitch
                 {
                     if (d.ShowDialog(this) == DialogResult.OK && d.ResultStep != null)
                     {
-                        m.Steps[idx] = d.ResultStep;
+                        m.Steps.RemoveAt(idx);
+                        m.Steps.InsertRange(idx, d.ResultSteps);
                         SaveConfig();
                         RefreshSteps();
                         SelectStepIndices(new List<int>(new int[] { idx }));
@@ -7728,6 +8070,7 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, "这个宏还没有任何执行步骤。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            if (idleGamepad != null) idleGamepad.SetBusy(true);
             if (!EnsureGamepadReady(m, false)) return;
 
             // Never overlap two worker threads. A same-macro restart must not start a new worker
@@ -8002,6 +8345,7 @@ namespace InputStitch
                 }
                 try { stop.Dispose(); } catch { }
 
+                if (idleGamepad != null) idleGamepad.NotifyActivity();
                 if (ownedActiveState)
                 {
                     if (executionError != null) SetStatusSafe("执行出错：" + executionError);
@@ -8212,7 +8556,7 @@ namespace InputStitch
         {
             if (input != null && input.Kind == InputKind.Gamepad)
                 return ((int)input.Kind).ToString() + ":" + ((int)input.GamepadControl).ToString();
-            return ((int)input.Kind).ToString() + ":" + input.VirtualKey.ToString() + ":" + input.ScanCode.ToString();
+            return ((int)input.Kind).ToString() + ":" + input.VirtualKey.ToString() + ":" + input.ScanCode.ToString() + ":" + input.Extended.ToString();
         }
 
         private static bool WaitOrStop(ManualResetEventSlim stop, int ms)
@@ -8296,6 +8640,7 @@ namespace InputStitch
         {
             try
             {
+                if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
                 CommitNameEdit();
                 if (recordingActive) StopMacroRecording(false, true);
                 CancelCapture();

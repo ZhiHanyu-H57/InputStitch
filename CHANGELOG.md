@@ -3,6 +3,24 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.1.0
+
+### English
+
+- Added a full-size virtual keyboard to trigger and step input menus: single/multiple selection, standalone modifiers and Esc, and distinct main/numpad Enter.
+- Added modifier-plus-key triggers and ordered chord steps from the virtual keyboard.
+- Refined the live controller preview with Xbox 360 and DualShock 4 layouts and clearer highlighting.
+- Added optional idle gamepad input in Settings > Automation, disabled by default. Keyboard/mouse, supported physical controllers, and macros restart the timer; editing and macro execution pause idle output. Emergency Stop disables it until explicitly re-enabled.
+- Organized settings into tabs, retained configuration compatibility, and published a new release while keeping v1.0.0 available for rollback.
+
+### 简体中文
+
+- 在触发键与步骤输入菜单中加入全尺寸虚拟键盘：单键/多键选择、单独的修饰键和 Esc，并区分主键盘与数字小键盘 Enter。
+- 支持虚拟键盘选择“修饰键 + 主键”触发组合，以及按顺序按下、反序释放的组合步骤。
+- 优化 Xbox 360 和 DualShock 4 动态预览布局与编辑项高亮。
+- 在“设置 > 自动化”中加入默认关闭的闲置手柄输入；键鼠、支持的实体手柄与宏活动会重新计时，编辑和宏执行时暂停，紧急停止后需明确重新启用。
+- 设置改为分页、保持配置兼容；独立发布新版，保留 v1.0.0 供回退。
+
 ## 1.0.0
 
 Initial public release. / 首个公开正式版。

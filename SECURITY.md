@@ -2,8 +2,8 @@
 
 ## Supported version / 支持版本
 
-Security fixes are provided for the latest public release, currently **1.0.0**.  
-安全修复面向最新公开正式版，目前为 **1.0.0**。
+Security fixes are provided for the latest public release, currently **1.1.0**.  
+安全修复面向最新公开正式版，目前为 **1.1.0**。
 
 ## Reporting a vulnerability / 报告安全问题
 

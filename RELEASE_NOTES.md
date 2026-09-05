@@ -1,93 +1,51 @@
-# InputStitch 1.0.0
+# InputStitch 1.1.0
 
 [English](#english) | [简体中文](#简体中文)
 
 ## English
 
-InputStitch 1.0.0 is the first public release of the lightweight visual keyboard, mouse, and virtual gamepad macro tool for Windows.
+### What's new
 
-### Download
+- **Full-size virtual keyboard:** open the dropdown beside Record Trigger or Capture Input, then choose Virtual Keyboard. Click keys to select/highlight; click again to deselect. Single/multiple-key modes include modifiers, Esc, function/navigation keys, and the number pad. Triggers support a standalone key or modifiers plus one main key; step chords press in order and release in reverse.
+- **Refined controller preview:** Xbox 360 and PS4 / DualShock 4 layouts, clearer highlighting, and live stick direction/strength. Previewing does not send real input.
+- **Optional idle gamepad input:** Settings > Automation lets you choose inactivity interval, controller input, and hold time. Disabled by default. Keyboard/mouse activity, supported physical controllers, and macros restart the timer. Macro execution and editing pause idle output; Emergency Stop disables it until explicitly re-enabled.
+- **Tabbed settings** and compatibility with existing macro/configuration files.
 
-Choose the executable that matches your Windows architecture:
+Idle input does not switch windows. Background reception depends on the game and its controller settings; background GTA Online support is not guaranteed. Other apps receiving the same controller may respond too. Follow the automation rules of the software/game you use.
 
-- **64-bit Windows:** `InputStitch-1.0.0-Windows-x64.exe`
-- **32-bit Windows:** `InputStitch-1.0.0-Windows-x86.exe`
-- **Complete source:** `InputStitch-1.0.0-Source.zip`
-- **SHA-256 checksums:** `SHA256SUMS.txt`
-- **Updater manifest:** `InputStitch-update.xml`
+### Download and upgrade
 
-InputStitch supports Windows only. There is no macOS or Linux executable. The program requires .NET Framework 4.7.2 or a compatible later release.
+- **64-bit Windows:** `InputStitch-1.1.0-Windows-x64.exe`
+- **32-bit Windows:** `InputStitch-1.1.0-Windows-x86.exe`
+- **Complete source:** `InputStitch-1.1.0-Source.zip`
+- **Checksums:** `SHA256SUMS.txt`; updater manifest: `InputStitch-update.xml`
 
-### Highlights
+This is a new release, not a replacement of v1.0.0. Builds with the updater can detect v1.1.0; older builds without it require manual downloading. Configuration stays in `%APPDATA%\InputStitch`. Back up that folder before upgrading or rolling back.
 
-- DPI-aware, resizable interface with instant Simplified Chinese / English switching
-- Visual keyboard and mouse macro editing and physical-input recording
-- Xbox 360 and PS4 / DualShock 4 virtual-controller output, including sticks, analog triggers, buttons, D-pad, shoulders, and menu controls
-- Direction-and-strength stick editing with a live controller preview that highlights the selected control
-- Xbox 360 compatibility-first default with PS4 as an optional device type
-- Driver detection, clear bilingual guidance, and a direct link to the retired upstream ViGEmBus project's official Release page; no silent driver installation
-- Persistent virtual-device lifecycle: connect before game launch, neutralize on Stop/Emergency Stop, and disconnect only when InputStitch exits
-- Per-step hold duration and delay, finite repetition, infinite looping, and hold-to-run
-- Global triggers and configurable Emergency Stop
-- Selective protection against unintended high-risk Windows shortcut combinations while preserving normal held-modifier gameplay
-- Scan-code keyboard output for game-friendly compatibility
-- Macro packages, profiles, optional target-window activation, and foreground-app profile switching
-- Local configuration, backups, diagnostics, and tray controls
-- Automatic, manual, or disabled update checks; Automatic is the default, installation is always prompted, and downloaded executables must match the official release SHA-256 manifest
-- Update prompts can be dismissed with Cancel, Escape, or the title-bar close button
-- Repeated identical held-controller states are deduplicated, idle loops are throttled, noisy repair logs are aggregated, and logs are rotated to prevent unbounded growth
+Windows only; .NET Framework 4.7.2 or a compatible later release is required. No macOS/Linux executable is provided. EXEs are currently **not code-signed**; SmartScreen may warn about an unknown publisher. Use this repository's official downloads and verify SHA-256.
 
-If you downloaded an earlier build carrying the same `1.0.0` version label, that build cannot update itself because it did not yet contain the updater. Download this refreshed `1.0.0` executable once; subsequent official replacements or newer versions can then be detected automatically.
-
-### Before running
-
-These executables are currently **not code-signed**. Windows Defender SmartScreen may therefore display an “unrecognized app” warning, even when the downloaded file is unchanged. Download only from this repository's official Releases page and compare the file's SHA-256 value with `SHA256SUMS.txt` before running it.
-
-Test a new macro in a harmless application first, confirm that the Emergency Stop hotkey works, and follow the automation rules of the software or game you use.
-
-Virtual gamepad output requires the separately installed [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest). ViGEmBus is retired and no longer maintained; use only the original author's official Release page. Keyboard and mouse features do not require it.
+Virtual gamepad output requires the separately installed [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest). The upstream project is retired; use only the original author's official Release page. InputStitch provides missing-driver guidance, but never silently installs drivers. Keyboard/mouse functions do not require it. Connect the virtual controller before launching the game for best compatibility.
 
 ## 简体中文
 
-InputStitch 1.0.0 是这款轻量级 Windows 可视化键盘、鼠标与虚拟手柄宏工具的首个公开正式版。
+### 本次更新
 
-### 下载
+- **全尺寸虚拟键盘：** 点击“录制触发键”或“捕获输入”旁的下拉按钮，选择虚拟键盘。点击按键高亮选择，再次点击取消；支持单键/多键模式，包含修饰键、Esc、功能键、导航键和数字小键盘。触发键可为单独按键或“修饰键 + 一个主键”；步骤组合键按顺序按下、反序释放。
+- **优化手柄预览：** 区分 Xbox 360 与 PS4 / DualShock 4 布局，更清晰地高亮编辑项，摇杆随方向和力度动态显示。预览不会发送实际输入。
+- **可选闲置手柄输入：** 在“设置 > 自动化”中选择无操作时间、手柄操作和按住时长，默认关闭。键鼠、支持的实体手柄活动和宏运行会重新计时；宏运行和编辑时暂停闲置输出，紧急停止后需明确重新启用。
+- **分页设置界面**，继续兼容已有宏与配置文件。
 
-请根据 Windows 架构选择可执行文件：
+闲置输入不会切换窗口。游戏能否在后台接收取决于游戏及其手柄设置，不保证 GTA Online 后台挂机可用；其他接收同一虚拟手柄的程序也可能响应。请遵守所使用软件或游戏的自动化规则。
 
-- **64 位 Windows：** `InputStitch-1.0.0-Windows-x64.exe`
-- **32 位 Windows：** `InputStitch-1.0.0-Windows-x86.exe`
-- **完整源码：** `InputStitch-1.0.0-Source.zip`
-- **SHA-256 校验值：** `SHA256SUMS.txt`
-- **自动更新清单：** `InputStitch-update.xml`
+### 下载与升级
 
-InputStitch 仅支持 Windows，没有 macOS 或 Linux 版 EXE。程序需要 .NET Framework 4.7.2 或兼容的更高版本。
+- **64 位 Windows：** `InputStitch-1.1.0-Windows-x64.exe`
+- **32 位 Windows：** `InputStitch-1.1.0-Windows-x86.exe`
+- **完整源码：** `InputStitch-1.1.0-Source.zip`
+- **校验值：** `SHA256SUMS.txt`；更新清单：`InputStitch-update.xml`
 
-### 主要功能
+此次独立发布新版，不覆盖 v1.0.0。带更新器的版本可以检测到 v1.1.0；没有更新器的较早构建需手动下载。配置仍保存在 `%APPDATA%\InputStitch`，升级或回退前建议备份该文件夹。
 
-- 适配 DPI、可调整大小的界面，以及简体中文 / English 即时切换
-- 可视化键鼠宏编辑和物理输入录制
-- Xbox 360 与 PS4 / DualShock 4 虚拟手柄输出，包括摇杆、模拟扳机、按键、方向键、肩键和菜单键
-- 采用方向与力度编辑摇杆，并显示会高亮当前控制项的动态虚拟手柄预览
-- 默认采用兼容性更稳妥的 Xbox 360，PS4 作为可选设备类型
-- 缺少驱动时提供清晰的中英文说明，并可直达已停止维护的 ViGEmBus 上游官方 Release 页面；不会静默安装驱动
-- 虚拟设备保持连接：建议在游戏启动前连接；停止宏和紧急停止只归零；退出 InputStitch 才断开
-- 每步按住时长与间隔、固定循环、无限循环和按住运行
-- 全局触发和可自定义的紧急停止
-- 选择性防护意外的高风险 Windows 特殊组合键，同时保留正常的按住修饰键游戏操作
-- 使用扫描码发送键盘输入，提高游戏场景兼容性
-- 宏包、配置方案、可选目标窗口切换，以及按前台程序自动切换方案
-- 本地配置、备份、诊断和托盘控制
-- 自动、手动或关闭三种更新模式；默认自动检查、安装前始终询问，并要求下载的 EXE 通过官方 Release 清单中的 SHA-256 校验
-- 更新提示现在可通过“取消”、Esc 或标题栏关闭按钮安全关闭
-- 跳过重复的相同手柄保持状态、降低空转频率、聚合高频修复日志并轮转日志，避免日志无限膨胀
+仅支持 Windows，需要 .NET Framework 4.7.2 或兼容的更高版本，不提供 macOS/Linux 可执行文件。EXE 目前**未做代码签名**，SmartScreen 可能提示未知发布者；请使用本仓库官方下载并核对 SHA-256。
 
-如果你此前下载过同样标为 `1.0.0` 的较早构建，它本身还没有更新器，因此无法自动更新到这次替换后的构建。请手动下载这次刷新后的 `1.0.0` 一次；此后发布的官方替换构建或更高版本即可被自动检测。
-
-### 运行前须知
-
-目前发布的 EXE **没有代码签名**。因此，即使下载的文件没有被修改，Windows Defender SmartScreen 也可能显示“无法识别的应用”之类的警告。请只从本仓库的官方 Releases 页面下载，并在运行前将文件的 SHA-256 与 `SHA256SUMS.txt` 对照确认。
-
-请先在无关紧要的程序里测试新宏，确认紧急停止键能够正常工作，并遵守所使用软件或游戏的自动化规则。
-
-虚拟手柄输出需要另行安装 [ViGEmBus 驱动](https://github.com/nefarius/ViGEmBus/releases/latest)。ViGEmBus 已停止维护，请只使用原作者的官方 Release 页面；键鼠功能不依赖它。
+手柄输出需要另外安装 [ViGEmBus 驱动](https://github.com/nefarius/ViGEmBus/releases/latest)。上游项目已停止维护，请只使用原作者的官方 Release 页面。缺少驱动时程序会提醒并提供链接，不会静默安装；键鼠功能不依赖此驱动。建议在启动游戏前连接虚拟手柄。

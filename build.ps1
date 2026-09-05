@@ -8,8 +8,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = $PSScriptRoot
-$releaseVersion = '1.0.0'
-$fileVersion = '1.0.0.0'
+$releaseVersion = '1.1.0'
+$fileVersion = '1.1.0.0'
 $distDirectory = Join-Path $projectRoot 'dist'
 $sourcePath = Join-Path $projectRoot 'InputStitch.cs'
 $manifestPath = Join-Path $projectRoot 'app.manifest'
@@ -114,6 +114,8 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += "/resource:$viGEmClientPath,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll"
     $compilerArguments += $TargetFrameworkSource
     $compilerArguments += $sourcePath
+    $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
+    $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
 
     Write-Host "Building $outputName ..."
     & $Compiler @compilerArguments 2>&1 | ForEach-Object { Write-Host $_ }
@@ -139,6 +141,8 @@ function New-SourceArchive {
         'CHANGELOG.md',
         'CONTRIBUTING.md',
         'InputStitch.cs',
+        'VirtualKeyboard.cs',
+        'IdleGamepad.cs',
         'InputStitch.csproj',
         'InputStitch.ico',
         'README.md',
