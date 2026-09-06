@@ -8,7 +8,7 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.1.0.** Development now uses public Beta pre-releases. [Download v1.1.1-beta.2 manually](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.2) only if you want to test changes. Beta is not the Latest stable release, never replaces the stable update manifest, and does not automatically prompt for updates. In the Beta app, Check for Updates opens GitHub Releases after confirmation; downloading/installing is manual. Existing stable apps continue to check stable releases only, even when checking manually.
+**Stable: v1.1.0.** Development now uses public Beta pre-releases. [Download v1.1.1-beta.3 manually](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.3) only if you want to test changes. Beta is not the Latest stable release, never replaces the stable update manifest, and does not automatically prompt for updates. In the Beta app, Check for Updates opens GitHub Releases after confirmation; downloading/installing is manual. Existing stable apps continue to check stable releases only, even when checking manually.
 
 Beta and stable currently share configuration. Exit one before starting the other and back up `%APPDATA%\InputStitch` before testing. Keep the stable EXE separately for rollback. See [development roadmap and release policy](ROADMAP.md).
 
@@ -123,3 +123,7 @@ The embedded `Nefarius.ViGEm.Client` dependency is separately licensed under MIT
 ### Beta Shift compatibility
 
 In beta.2, a standalone Shift trigger in **Hold** mode with **gamepad-only steps** automatically passes the physical Shift through to the game, preserving sprint alongside controller output. The suppression checkbox explains this exception; other macros retain their suppression preference. This fixes a confirmed suppression conflict; real-game acceptance still needs testing. Stable v1.1.0 users can first try unchecking trigger suppression on the affected macro.
+
+### Foreground hotkeys and diagnostics (beta.3)
+
+Hovering alone or selecting a non-editing button/list no longer blocks hotkey starts. Focused name/number/combo editors still pause hotkeys with a visible reason; click an empty area to finish editing. Running mouse macros retain hover protection to avoid clicking controls. Diagnostics include the last 64 macro lifecycle events in memory, not a continuous keyboard log. A submitted output does not prove that a game received it.

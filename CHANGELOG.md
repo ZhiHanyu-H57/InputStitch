@@ -3,6 +3,15 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.1.1-beta.3 (pre-release / 预发布)
+
+- Fixed a deterministic cause of apparently random foreground hotkey failure: idle hover and non-editing button/list focus no longer silently block starts. Refresh protection on each physical trigger and again before dispatch; transfer non-editing focus to the input sink.
+- Keep focused editors/modal protection and running-macro control-focus protection. Pointer-hover protection applies to macros containing mouse/wheel output, including before their first step.
+- Show a bilingual reason instead of Idle while editing blocks hotkeys; empty areas, section labels and footer clicks finish editing.
+- Add a memory-only 64-event runtime trace to diagnostics: matched-trigger decisions, worker start, first submitted output and completion/cancellation/error. No ordinary typing is recorded; output submission does not prove game acceptance.
+- Add 23 UI-safety/trace checks, including bounded storage after 10,000 concurrent events. Stable v1.1.0 and its updater stay unchanged.
+- 修复界面前台悬停/非编辑焦点造成的静默拦截，明确提示真正编辑时的暂停原因，并加入有限的运行诊断。未宣称已排除所有机器上的偶发热键问题。
+
 ## 1.1.1-beta.2 (pre-release / 预发布)
 
 - Held standalone Shift macros with gamepad-only steps pass the native key through to preserve game sprint. The bilingual UI explains this exception; other modes retain the saved suppression preference.

@@ -14,6 +14,15 @@
 
 ## Milestones / 阶段
 
+### 1.1.1-beta.3 — foreground hotkeys and runtime evidence / 前台热键与运行诊断
+
+Completed this slice: remove idle hover/non-editing-focus false blocks; preserve editing and pointer-output safety; refresh protection before dispatch; explain blocked state. Continue the reliability roadmap with a bounded memory-only trace of macro lifecycle events in diagnostics.
+
+本阶段完成前台热键的已知静默拦截路径修复，并继续稳定性路线：加入触发接受/拦截、运行启动、首次输出提交、停止/完成/错误的有限诊断。23 项新增检查覆盖保护策略及并发事件上限。
+
+Limits: tests cover policy/control classification, not full live desktop/game replay. Submitted output is not proof a game accepted it. Direct mapping editor, multi-source ownership, startup health recovery and broader physical-device testing remain pending.
+
+
 ### 1.1.1-beta.2 — Shift and safer replacement / Shift 与更新安全
 
 Implemented: native Shift passthrough for held, standalone Shift gamepad-only macros; clear bilingual UI; staged verification, old-EXE and main config.xml backups, original-process exit checks, recovery on replacement/launch failure. Tests include 30 new Shift checks and 43 updater checks.

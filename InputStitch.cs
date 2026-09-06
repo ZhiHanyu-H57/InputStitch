@@ -4524,6 +4524,8 @@ namespace InputStitch
         private ManualResetEventSlim stopEvent;
         private MacroDefinition runningMacro;
         private volatile MacroDefinition holdControlledMacro;
+        private readonly RuntimeTrace runtimeTrace = new RuntimeTrace();
+        private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
         private long runSequence = 0;
         private long activeRunId = 0;
@@ -5118,16 +5120,11 @@ namespace InputStitch
                 try { inputSink.Focus(); } catch { }
                 UpdateUiSafetyPauseState();
             };
-            split.Panel2.MouseDown += safeBackgroundClick;
-            rightHost.MouseDown += safeBackgroundClick;
-            rightRoot.MouseDown += safeBackgroundClick;
-            split.Panel1.MouseDown += safeBackgroundClick;
 
             Panel bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
             bottom.Height = 62;
             bottom.BackColor = Color.White;
-            bottom.MouseDown += safeBackgroundClick;
             Controls.Add(bottom);
             bottom.SendToBack();
 
@@ -5156,6 +5153,7 @@ namespace InputStitch
             panicHintLabel.TextAlign = ContentAlignment.MiddleLeft;
             panicHintLabel.ForeColor = SystemColors.GrayText;
             statusLayout.Controls.Add(panicHintLabel, 0, 1);
+            RegisterSafeBackgroundClicks(this, safeBackgroundClick);
             RefreshPanicUi();
             UpdateTargetSectionVisibility();
             CaptureLocalizableControlTexts(this);
@@ -5715,6 +5713,7 @@ namespace InputStitch
             sb.AppendLine("ConfigFormat: " + (config == null ? "?" : config.FormatVersion));
             sb.AppendLine("ConfigPath: " + configPath);
             sb.AppendLine("LogPath: " + AppLog.LogPath);
+            sb.AppendLine(runtimeTrace.Snapshot());
             sb.AppendLine("Hooks: " + (hooks == null ? Localizer.T("未安装") : Localizer.T("已安装")));
             sb.AppendLine("ScanCodeInput: " + (config != null && config.UseScanCodeInput ? Localizer.T("开启") : (Localizer.IsEnglish ? "Off" : "关闭")));
             sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
@@ -5865,6 +5864,13 @@ namespace InputStitch
             return string.Join(Environment.NewLine, lines.ToArray());
         }
 
+        private static void RegisterSafeBackgroundClicks(Control root, MouseEventHandler handler)
+        {
+            if (root is Form || root is Panel || root is GroupBox || root is Label)
+                root.MouseDown += handler;
+            foreach (Control child in root.Controls) RegisterSafeBackgroundClicks(child, handler);
+        }
+
         private void RegisterUiSafetyControl(Control control, string reason)
         {
             if (control == null) return;
@@ -5884,10 +5890,12 @@ namespace InputStitch
             };
         }
 
-        private void UpdateUiSafetyPauseState()
+        private void UpdateUiSafetyPauseState(bool pendingStart = false)
         {
             bool shouldPause = false;
             string reason = "";
+            bool running = pendingStart || HasLiveWorker();
+            bool mouseOutput = running && UiSafetyPolicy.HasMouseOutput(runningMacro);
             try
             {
                 if (config != null && config.PauseMacroInRiskyUi && NativeWindowFocus.IsCurrentProcessWindow(NativeWindowFocus.ForegroundWindow()))
@@ -5909,17 +5917,20 @@ namespace InputStitch
                         foreach (KeyValuePair<Control, string> pair in uiSafetyControls)
                         {
                             Control c = pair.Key;
-                            if (c != null && !c.IsDisposed && c.Enabled)
+                            if (c != null && !c.IsDisposed && c.Enabled && c.Visible)
                             {
                                 bool focused = c.Focused || c.ContainsFocus;
                                 bool hovered = false;
                                 try
                                 {
-                                    Rectangle screenRect = c.RectangleToScreen(c.ClientRectangle);
-                                    hovered = screenRect.Contains(Control.MousePosition);
+                                    if (running && mouseOutput)
+                                    {
+                                        Rectangle screenRect = c.RectangleToScreen(c.ClientRectangle);
+                                        hovered = screenRect.Contains(Control.MousePosition);
+                                    }
                                 }
                                 catch { }
-                                if (focused || hovered)
+                                if (UiSafetyPolicy.ShouldPauseControl(focused, hovered, UiSafetyPolicy.IsEditor(c), running, mouseOutput))
                                 {
                                     shouldPause = true;
                                     reason = pair.Value;
@@ -5935,10 +5946,28 @@ namespace InputStitch
                 shouldPause = false;
                 reason = "";
             }
-            bool changed = uiSafetyPauseRequested != shouldPause;
+            bool changed = uiSafetyPauseRequested != shouldPause || uiSafetyPauseReason != reason;
             uiSafetyPauseReason = reason;
             uiSafetyPauseRequested = shouldPause;
-            if (changed && runButton != null && !runButton.IsDisposed) UpdateRunButton();
+            if (changed)
+            {
+                runtimeTrace.Add(shouldPause ? "ui-protection-on" : "ui-protection-off", reason);
+                if (runButton != null && !runButton.IsDisposed) UpdateRunButton();
+            }
+            if (statusLabel != null && !running && !recordingActive && captureMode == CaptureMode.None && !manualTriggerSuspend && !pauseHotkeys)
+            {
+                if (shouldPause)
+                {
+                    lastUiSafetyHint = UiSafetyPolicy.ProtectionHint(reason);
+                    if (statusLabel.Text != lastUiSafetyHint) statusLabel.Text = lastUiSafetyHint;
+                    statusLabel.ForeColor = Color.DarkOrange;
+                }
+                else if (lastUiSafetyHint.Length != 0)
+                {
+                    if (statusLabel.Text == lastUiSafetyHint) statusLabel.Text = Localizer.T("状态：空闲");
+                    lastUiSafetyHint = "";
+                }
+            }
         }
 
         private void ReconcileHookState(string reason)
@@ -7456,8 +7485,9 @@ namespace InputStitch
                 return false;
             }
 
-            if (uiSafetyPauseRequested) return false;
-            if (pauseHotkeys || manualTriggerSuspend) return false;
+            // Refresh synchronously on a physical edge: a queued foreground/focus
+            // notification must not leave the previous UI protection state cached.
+            UpdateUiSafetyPauseState();
 
             MacroDefinition matchedMacro = null;
             foreach (MacroDefinition m in config.Macros)
@@ -7494,15 +7524,40 @@ namespace InputStitch
             if (matchedMacro != null)
             {
                 MacroDefinition m = matchedMacro;
+                // Stopping an existing toggle macro produces no new input. Do not
+                // require leaving an editor just to stop it, and never turn this
+                // queued stop into a new start if the worker finishes first.
+                if (m.RunMode == TriggerRunMode.Toggle && IsMacroActuallyRunning(m))
+                {
+                    runtimeTrace.Add("trigger-stop", "macro-index=" + config.Macros.IndexOf(m).ToString());
+                    try { BeginInvoke((MethodInvoker)delegate { if (IsMacroActuallyRunning(m)) StopCurrentMacro(); }); }
+                    catch { runtimeTrace.Add("trigger-cancelled", "stop dispatch unavailable"); }
+                    return ModifierSafetyPolicy.ShouldSuppressTrigger(m);
+                }
+                if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend)
+                {
+                    runtimeTrace.Add("trigger-blocked", uiSafetyPauseRequested ? "editor: " + uiSafetyPauseReason : (manualTriggerSuspend ? "manual-suspend" : "dialog"));
+                    return false;
+                }
+                runtimeTrace.Add("trigger-accepted", "macro-index=" + config.Macros.IndexOf(m).ToString());
                 bool suppress = ModifierSafetyPolicy.ShouldSuppressTrigger(m);
                 try
                 {
-                    if (m.RunMode == TriggerRunMode.Hold)
-                        BeginInvoke((MethodInvoker)delegate { StartMacroFromHeldTrigger(m); });
-                    else
-                        BeginInvoke((MethodInvoker)delegate { ToggleMacroFromHotkey(m); });
+                    BeginInvoke((MethodInvoker)delegate
+                    {
+                        // Recheck after queuing so a newly opened editor cannot be
+                        // bypassed by an earlier hotkey. Clear non-editing button/list
+                        // focus before any output can activate those controls.
+                        UpdateUiSafetyPauseState();
+                        if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None || recordingActive)
+                        { runtimeTrace.Add("trigger-cancelled", "UI state changed before dispatch"); return; }
+                        if (NativeWindowFocus.ForegroundWindow() == Handle && inputSink != null) inputSink.Focus();
+                        UpdateUiSafetyPauseState();
+                        if (m.RunMode == TriggerRunMode.Hold) StartMacroFromHeldTrigger(m);
+                        else ToggleMacroFromHotkey(m);
+                    });
                 }
-                catch { }
+                catch { runtimeTrace.Add("trigger-cancelled", "UI dispatch unavailable"); }
                 return suppress;
             }
             return false;
@@ -8207,6 +8262,8 @@ namespace InputStitch
                 workerThread = thisThread;
             }
 
+            UpdateUiSafetyPauseState(true);
+            runtimeTrace.Add("worker-start", "run=" + thisRunId.ToString() + "; mode=" + m.RunMode.ToString());
             thisThread.Start();
             UpdateRunButton();
         }
@@ -8219,7 +8276,11 @@ namespace InputStitch
         private void StopCurrentMacro_NoLock()
         {
             // Stop by the actual active stop event, not by UI selection or runningMacro identity.
-            if (stopEvent != null) stopEvent.Set();
+            if (stopEvent != null)
+            {
+                if (!stopEvent.IsSet) runtimeTrace.Add("stop-request", "run=" + activeRunId.ToString());
+                stopEvent.Set();
+            }
         }
 
         private void MacroWorker(MacroDefinition ownerMacro, MacroDefinition snapshot, ManualResetEventSlim stop, int startDelayMs, TriggerSpec waitForReleaseTrigger, long runId)
@@ -8231,6 +8292,7 @@ namespace InputStitch
             bool infinite = snapshot.Infinite;
             int repeatCount = Math.Max(1, snapshot.RepeatCount);
             string executionError = null;
+            bool outputObserved = false;
             Random random = new Random(unchecked(Environment.TickCount * 31 + (int)(runId & 0x7FFFFFFF)));
             int lastStatusTick = unchecked(Environment.TickCount - 100);
 
@@ -8322,11 +8384,13 @@ namespace InputStitch
                             if (InputSender.IsHoldable(input))
                             {
                                 InputSender.SendDown(input);
+                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                                 producedOutput = true;
                                 held[key] = input.Clone();
                                 SyncActiveHeldInputs(runId, held);
                                 if (WaitOrStopWithUiSafety(stop, Math.Max(0, step.HoldMs), macroName, held)) break;
                                 InputSender.SendUp(input);
+                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                                 producedOutput = true;
                                 held.Remove(key);
                                 SyncActiveHeldInputs(runId, held);
@@ -8334,6 +8398,7 @@ namespace InputStitch
                             else
                             {
                                 InputSender.SendDown(input);
+                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                                 producedOutput = true;
                             }
                         }
@@ -8345,6 +8410,7 @@ namespace InputStitch
                             if (!duplicateGamepadState)
                             {
                                 InputSender.SendDown(input);
+                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                                 producedOutput = true;
                                 if (InputSender.IsHoldable(input))
                                 {
@@ -8356,6 +8422,7 @@ namespace InputStitch
                         else
                         {
                             InputSender.SendUp(input);
+                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                             producedOutput = true;
                             held.Remove(key);
                             SyncActiveHeldInputs(runId, held);
@@ -8381,6 +8448,8 @@ namespace InputStitch
             }
             finally
             {
+                runtimeTrace.Add(executionError != null ? "worker-error" : (stop.IsSet ? "worker-cancelled" : "worker-complete"),
+                    "run=" + runId.ToString() + "; output-submitted=" + outputObserved.ToString());
                 foreach (KeyValuePair<string, InputSpec> pair in held)
                 {
                     try { InputSender.SendUp(pair.Value); } catch { }
