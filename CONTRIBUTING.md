@@ -36,6 +36,7 @@ Build on Windows with the .NET Framework 4.7.2 Developer Pack and compatible Vis
 
 ```powershell
 .\build.ps1
+.\tests\Run-Tests.ps1
 ```
 
 Before submitting, verify at least / 提交前至少确认：

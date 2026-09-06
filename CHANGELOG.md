@@ -3,6 +3,13 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.1.1-beta.2 (pre-release / 预发布)
+
+- Held standalone Shift macros with gamepad-only steps pass the native key through to preserve game sprint. The bilingual UI explains this exception; other modes retain the saved suppression preference.
+- Staged update verification, unique old-EXE and main config.xml backups, process-exit checks and recovery on replacement/launch failure.
+- Added 30 Shift-policy checks and 43 updater checks with disposable files and injected faults. Real-game acceptance and post-launch crash recovery are not claimed.
+- 独立 Shift 的按住手柄宏保留游戏奔跑键；更新安装新增校验、备份和失败恢复。Beta 仍手动下载，正式版 v1.1.0 不变。
+
 ## 1.1.1-beta.1 (pre-release / 预发布)
 
 - Added a release-only background deadline for idle gamepad pulses, protected by generation/ownership checks. A stalled UI no longer needs to resume before the owned pulse can be released.

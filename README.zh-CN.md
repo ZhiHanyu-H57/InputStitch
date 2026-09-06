@@ -8,7 +8,7 @@ InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄�
 
 ## 下载
 
-**当前正式版：v1.1.0。** 后续开发采用公开的 Beta 预发布版。[手动下载 v1.1.1-beta.1](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.1) 仅用于自愿测试。Beta 不设为最新正式版、不替换正式版更新清单，也不自动弹出更新提醒。Beta 内点击“检查更新”并确认后会打开 GitHub Releases，由用户手动下载安装；已发布的正式版仍只检查正式更新，手动检查也不会发现 Beta。
+**当前正式版：v1.1.0。** 后续开发采用公开的 Beta 预发布版。[手动下载 v1.1.1-beta.2](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.2) 仅用于自愿测试。Beta 不设为最新正式版、不替换正式版更新清单，也不自动弹出更新提醒。Beta 内点击“检查更新”并确认后会打开 GitHub Releases，由用户手动下载安装；已发布的正式版仍只检查正式更新，手动检查也不会发现 Beta。
 
 Beta 与正式版目前共用配置。测试前请退出另一版本、备份 `%APPDATA%\InputStitch`，并单独保留正式版 EXE 以便回退。详见[开发路线和发布规则](ROADMAP.md)。
 
@@ -119,3 +119,7 @@ build.bat
 本仓库目前**没有声明开源许可证**。源代码可公开访问，并不代表自动授予复制、修改、再发布或其他超出适用法律规定范围的使用权。仓库所有者以后可能会补充许可证。
 
 程序内嵌的 `Nefarius.ViGEm.Client` 依赖另行采用 MIT 许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+### Beta 的 Shift 兼容修复
+
+beta.2 中，**独立 Shift + 按住触发 + 全部为手柄步骤**的宏会自动把原始 Shift 同时传给游戏，保留奔跑键作用。屏蔽复选框会说明此例外，其他宏仍保留原来的屏蔽偏好。这修复了已确认的输入屏蔽冲突，实际游戏接收效果仍需复测。v1.1.0 用户也可以先尝试取消该宏的“屏蔽触发键”。

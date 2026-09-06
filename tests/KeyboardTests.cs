@@ -61,6 +61,29 @@ internal static class KeyboardTests
             TriggerSpec shift = Trigger(K(Keys.LShiftKey));
             Check(!shift.Shift && ModifierSafetyPolicy.TriggerMatchesExactly(shift, E(Keys.LShiftKey, false, true)), "standalone left Shift matches its hook modifier snapshot");
             Check(!ModifierSafetyPolicy.TriggerMatchesExactly(shift, E(Keys.RShiftKey, false, true)), "left Shift keeps side distinction");
+            foreach (Keys shiftKey in new[] { Keys.ShiftKey, Keys.LShiftKey, Keys.RShiftKey })
+            {
+                MacroDefinition map = new MacroDefinition { RunMode = TriggerRunMode.Hold, SuppressTrigger = true,
+                    Trigger = new TriggerSpec { VirtualKey = (int)shiftKey } };
+                map.Steps.Add(new MacroStep { Kind = InputKind.Gamepad, Action = MacroAction.Down, GamepadControl = GamepadControl.LeftStick, GamepadY = 80 });
+                Check(ModifierSafetyPolicy.PreserveNativeShiftForGamepad(map), "held gamepad mapping preserves " + shiftKey);
+                Check(!ModifierSafetyPolicy.ShouldSuppressTrigger(map) && map.SuppressTrigger, "effective passthrough does not rewrite saved preference " + shiftKey);
+                Keys physical = shiftKey == Keys.ShiftKey ? Keys.LShiftKey : shiftKey;
+                Check(ModifierSafetyPolicy.TriggerMatchesExactly(map.Trigger, E(physical, false, true)), "native Shift still triggers mapping " + shiftKey);
+                Check(ModifierSafetyPolicy.GetDangerousPhysicalModifierMask(map.Steps[0], ModifierSafetyPolicy.Shift) == 0, "Shift does not block gamepad output " + shiftKey);
+                map.Steps.Add(new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.Enter });
+                Check(ModifierSafetyPolicy.ShouldSuppressTrigger(map), "mixed keyboard macro retains suppression " + shiftKey);
+                map.Steps.RemoveAt(1); map.RunMode = TriggerRunMode.Toggle;
+                Check(ModifierSafetyPolicy.ShouldSuppressTrigger(map), "toggle macro retains suppression " + shiftKey);
+                map.RunMode = TriggerRunMode.Hold; map.Trigger.Ctrl = true;
+                Check(ModifierSafetyPolicy.ShouldSuppressTrigger(map), "modifier chord retains suppression " + shiftKey);
+                map.Trigger.Ctrl = false; map.Trigger.VirtualKey = (int)Keys.C;
+                Check(ModifierSafetyPolicy.ShouldSuppressTrigger(map), "C mapping retains suppression preference");
+                map.Trigger.Kind = InputKind.MouseX2;
+                Check(ModifierSafetyPolicy.ShouldSuppressTrigger(map), "mouse mapping retains suppression preference");
+                map.SuppressTrigger = false;
+                Check(!ModifierSafetyPolicy.ShouldSuppressTrigger(map), "explicit passthrough remains respected");
+            }
             TriggerSpec esc = Trigger(K(Keys.Escape));
             Check(ModifierSafetyPolicy.TriggerMatchesExactly(esc, E(Keys.Escape, false, false)), "Esc is a usable virtual trigger");
             TriggerSpec chord = Trigger(K(Keys.K), K(Keys.LControlKey), K(Keys.LShiftKey));

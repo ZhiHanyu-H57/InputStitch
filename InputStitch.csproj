@@ -30,6 +30,7 @@
   <ItemGroup>
     <Compile Include="InputStitch.cs" />
     <Compile Include="ReleaseInfo.cs" />
+    <Compile Include="UpdateInstaller.cs" />
     <Compile Include="VirtualKeyboard.cs" />
     <Compile Include="IdleGamepad.cs" />
     <None Include="InputStitch.ico" />

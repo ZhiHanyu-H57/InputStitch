@@ -14,6 +14,15 @@
 
 ## Milestones / 阶段
 
+### 1.1.1-beta.2 — Shift and safer replacement / Shift 与更新安全
+
+Implemented: native Shift passthrough for held, standalone Shift gamepad-only macros; clear bilingual UI; staged verification, old-EXE and main config.xml backups, original-process exit checks, recovery on replacement/launch failure. Tests include 30 new Shift checks and 43 updater checks.
+
+已完成：按住独立 Shift 的纯手柄宏保留原始游戏按键；更新暂存校验、旧 EXE/主配置备份、旧进程退出检查与失败恢复。
+
+Limits: GTA acceptance still needs user testing. Beta manual downloads do not invoke the hardened installer; it prepares a future reviewed stable release. Only main config.xml is snapshotted, not profiles/packages. Post-launch crash rollback, power-loss recovery and signature verification remain future work.
+
+
 ### 1.1.1-beta.1 — first reliability slice / 第一批稳定性改进
 
 Implemented: idle pulse release independent of UI refresh, stale callback protection, 10,000 injected start/cancel cycles, regression tests in CI, centralized release metadata, isolated Beta publishing and manual downloads.

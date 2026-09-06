@@ -674,6 +674,8 @@ namespace InputStitch
         public string TargetPath = "";
         public string Sha256 = "";
         public string CreatedUtc = "";
+        public string OriginalSha256 = "";
+        public string OriginalProcessStartedUtc = "";
     }
 
     public sealed class UpdateCheckResult
@@ -788,6 +790,9 @@ namespace InputStitch
             pending.TargetPath = target;
             pending.Sha256 = expectedSha256.ToLowerInvariant();
             pending.CreatedUtc = DateTime.UtcNow.ToString("o");
+            pending.OriginalSha256 = ComputeSha256(target);
+            using (Process current = Process.GetCurrentProcess())
+                pending.OriginalProcessStartedUtc = current.StartTime.ToUniversalTime().ToString("o");
             Directory.CreateDirectory(UpdatesDirectory);
             XmlSerializer serializer = new XmlSerializer(typeof(PendingUpdate));
             using (FileStream stream = File.Create(PendingPath)) serializer.Serialize(stream, pending);
@@ -813,7 +818,8 @@ namespace InputStitch
                     throw new InvalidDataException("The update authorization token is invalid.");
                 DateTime created;
                 if (!DateTime.TryParse(pending.CreatedUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out created) ||
-                    DateTime.UtcNow - created.ToUniversalTime() > TimeSpan.FromHours(2))
+                    DateTime.UtcNow - created.ToUniversalTime() > TimeSpan.FromHours(2) ||
+                    created.ToUniversalTime() > DateTime.UtcNow.AddMinutes(5))
                     throw new InvalidDataException("The update request has expired.");
 
                 string source = Path.GetFullPath(pending.SourcePath);
@@ -828,38 +834,39 @@ namespace InputStitch
                     throw new InvalidDataException("The pending update failed SHA-256 verification.");
 
                 int oldProcessId;
-                if (!int.TryParse(args[2], out oldProcessId)) throw new InvalidDataException("Invalid process identifier.");
+                if (!int.TryParse(args[2], out oldProcessId) || oldProcessId <= 0 || oldProcessId == Process.GetCurrentProcess().Id)
+                    throw new InvalidDataException("Invalid process identifier.");
                 try
                 {
-                    Process oldProcess = Process.GetProcessById(oldProcessId);
-                    oldProcess.WaitForExit(15000);
-                    oldProcess.Dispose();
+                    using (Process oldProcess = Process.GetProcessById(oldProcessId))
+                    {
+                        DateTime started;
+                        if (!string.IsNullOrEmpty(pending.OriginalProcessStartedUtc) &&
+                            (!DateTime.TryParse(pending.OriginalProcessStartedUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out started) ||
+                            oldProcess.StartTime.ToUniversalTime() != started.ToUniversalTime()))
+                            throw new InvalidDataException("The original process identity changed. Please restart the update manually.");
+                        if (!oldProcess.WaitForExit(15000))
+                            throw new IOException("InputStitch is still running. No files were replaced. / 原程序尚未退出，未替换文件。");
+                    }
                 }
                 catch (ArgumentException) { }
 
-                Exception copyError = null;
-                for (int attempt = 0; attempt < 20; attempt++)
+                // Older stable installers do not include OriginalSha256. Capture
+                // their existing target after exit for backwards-compatible backup.
+                string originalHash = string.IsNullOrEmpty(pending.OriginalSha256) ? ComputeSha256(target) : pending.OriginalSha256;
+                UpdateInstallReceipt receipt = UpdateInstaller.Install(source, target, originalHash, pending.Sha256,
+                    AppPaths.Config, Path.Combine(AppPaths.Root, "backups"), delegate(string installed)
                 {
-                    try
-                    {
-                        File.Copy(source, target, true);
-                        copyError = null;
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        copyError = ex;
-                        Thread.Sleep(250);
-                    }
-                }
-                if (copyError != null) throw copyError;
+                    using (Process launched = Process.Start(new ProcessStartInfo(installed) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(installed) }))
+                        if (launched == null) throw new IOException("The updated application could not be started.");
+                }, new UpdateFiles());
+                try { AppLog.Write("Update installed; executable backup: " + receipt.ExecutableBackup + "; configuration backup: " + receipt.ConfigurationBackup); } catch { }
                 try { File.Delete(PendingPath); } catch { }
-                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(target) });
             }
             catch (Exception ex)
             {
                 try { AppLog.Write("Update installation failed", ex); } catch { }
-                try { MessageBox.Show("InputStitch 更新安装失败。\r\n\r\n" + ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error); } catch { }
+                try { MessageBox.Show("InputStitch 更新安装失败 / Update installation failed.\r\n\r\n" + ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error); } catch { }
             }
             return true;
         }
@@ -1310,6 +1317,22 @@ namespace InputStitch
             if (key >= Keys.F1 && key <= Keys.F24) return true;
             if (key >= Keys.NumPad0 && key <= Keys.Divide) return true;
             return false;
+        }
+
+        public static bool PreserveNativeShiftForGamepad(MacroDefinition macro)
+        {
+            if (macro == null || macro.RunMode != TriggerRunMode.Hold || macro.Trigger == null ||
+                macro.Trigger.Kind != InputKind.Keyboard || GetTriggerModifierMask(macro.Trigger) != 0 ||
+                ModifierMaskForKey(macro.Trigger.VirtualKey) != Shift || macro.Steps == null || macro.Steps.Count == 0)
+                return false;
+            foreach (MacroStep step in macro.Steps)
+                if (step == null || step.Kind != InputKind.Gamepad) return false;
+            return true;
+        }
+
+        public static bool ShouldSuppressTrigger(MacroDefinition macro)
+        {
+            return macro != null && macro.SuppressTrigger && !PreserveNativeShiftForGamepad(macro);
         }
 
         // Return only PHYSICAL modifiers that would turn this single macro step into a
@@ -6310,6 +6333,7 @@ namespace InputStitch
 
         private void RefreshSteps()
         {
+            UpdateTriggerSuppressionUi();
             grid.Rows.Clear();
             MacroDefinition m = SelectedMacro;
             if (m == null || m.Steps == null) return;
@@ -6384,7 +6408,7 @@ namespace InputStitch
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
             m.Enabled = enabledBox.Checked;
-            m.SuppressTrigger = suppressBox.Checked;
+            if (!ModifierSafetyPolicy.PreserveNativeShiftForGamepad(m)) m.SuppressTrigger = suppressBox.Checked;
             m.RepeatCount = (int)repeatBox.Value;
             int idx = macroList.SelectedIndex;
             SaveConfig();
@@ -6412,6 +6436,28 @@ namespace InputStitch
             MacroDefinition m = SelectedMacro;
             bool hold = m != null && m.RunMode == TriggerRunMode.Hold;
             infiniteBox.Text = hold ? Localizer.T("无限循环（松开触发键或点击停止）") : Localizer.T("无限循环（再次触发或点击停止）");
+            UpdateTriggerSuppressionUi();
+        }
+
+        private void UpdateTriggerSuppressionUi()
+        {
+            if (suppressBox == null) return;
+            MacroDefinition macro = SelectedMacro;
+            bool preserve = ModifierSafetyPolicy.PreserveNativeShiftForGamepad(macro);
+            bool previousLoading = loadingUi;
+            loadingUi = true;
+            try
+            {
+                suppressBox.Enabled = macro != null && !preserve;
+                suppressBox.Checked = ModifierSafetyPolicy.ShouldSuppressTrigger(macro);
+                suppressBox.Text = preserve
+                    ? (Localizer.IsEnglish ? "Shift passes through to the game (gamepad hold)" : "Shift 同时传给游戏（按住映射手柄）")
+                    : Localizer.T("触发时屏蔽最后一个触发键/鼠标事件");
+                SetTip(suppressBox, preserve
+                    ? (Localizer.IsEnglish ? "Shift keeps its native sprint function while this held macro outputs gamepad input. The stored suppression preference is preserved for other modes." : "按住 Shift 输出手柄的同时，保留游戏原本的奔跑功能。切换到其他模式后仍使用原先的屏蔽偏好。")
+                    : Localizer.T("触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。"));
+            }
+            finally { loadingUi = previousLoading; }
         }
 
         private static bool IsHoldTriggerSupported(TriggerSpec t)
@@ -7448,7 +7494,7 @@ namespace InputStitch
             if (matchedMacro != null)
             {
                 MacroDefinition m = matchedMacro;
-                bool suppress = m.SuppressTrigger;
+                bool suppress = ModifierSafetyPolicy.ShouldSuppressTrigger(m);
                 try
                 {
                     if (m.RunMode == TriggerRunMode.Hold)
@@ -7989,7 +8035,7 @@ namespace InputStitch
             m.Infinite = infiniteBox.Checked;
             m.RepeatCount = (int)repeatBox.Value;
             m.Enabled = enabledBox.Checked;
-            m.SuppressTrigger = suppressBox.Checked;
+            if (!ModifierSafetyPolicy.PreserveNativeShiftForGamepad(m)) m.SuppressTrigger = suppressBox.Checked;
             m.RunMode = triggerModeBox.SelectedIndex == 1 ? TriggerRunMode.Hold : TriggerRunMode.Toggle;
             SaveConfig();
 

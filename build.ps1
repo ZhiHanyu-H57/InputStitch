@@ -116,6 +116,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += $TargetFrameworkSource
     $compilerArguments += $sourcePath
     $compilerArguments += (Join-Path $projectRoot 'ReleaseInfo.cs')
+    $compilerArguments += (Join-Path $projectRoot 'UpdateInstaller.cs')
     $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
 
@@ -145,6 +146,7 @@ function New-SourceArchive {
         'CONTRIBUTING.md',
         'InputStitch.cs',
         'ReleaseInfo.cs',
+        'UpdateInstaller.cs',
         'VirtualKeyboard.cs',
         'IdleGamepad.cs',
         'InputStitch.csproj',

@@ -8,7 +8,7 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.1.0.** Development now uses public Beta pre-releases. [Download v1.1.1-beta.1 manually](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.1) only if you want to test changes. Beta is not the Latest stable release, never replaces the stable update manifest, and does not automatically prompt for updates. In the Beta app, Check for Updates opens GitHub Releases after confirmation; downloading/installing is manual. Existing stable apps continue to check stable releases only, even when checking manually.
+**Stable: v1.1.0.** Development now uses public Beta pre-releases. [Download v1.1.1-beta.2 manually](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.2) only if you want to test changes. Beta is not the Latest stable release, never replaces the stable update manifest, and does not automatically prompt for updates. In the Beta app, Check for Updates opens GitHub Releases after confirmation; downloading/installing is manual. Existing stable apps continue to check stable releases only, even when checking manually.
 
 Beta and stable currently share configuration. Exit one before starting the other and back up `%APPDATA%\InputStitch` before testing. Keep the stable EXE separately for rollback. See [development roadmap and release policy](ROADMAP.md).
 
@@ -108,7 +108,7 @@ You can also open `InputStitch.csproj` in Visual Studio. Release artifacts are b
 
 ## Data and privacy
 
-Configuration, profiles, macro packages, backups, and logs are stored locally. InputStitch does not require an online account. By default, it makes an HTTPS request to this repository's latest Release manifest at startup to check for updates; this can be changed to manual or disabled in Settings. No configuration or macro content is uploaded. Review diagnostics and configuration files before sharing them because they may contain window titles, process names, macro names, or paths from your computer.
+Configuration, profiles, macro packages, backups, and logs are stored locally. InputStitch does not require an online account. Stable builds, by default, make an HTTPS request to this repository's latest Release manifest at startup to check for updates; this can be changed to manual or disabled in Settings. No configuration or macro content is uploaded. Review diagnostics and configuration files before sharing them because they may contain window titles, process names, macro names, or paths from your computer.
 
 ## Contributing
 
@@ -119,3 +119,7 @@ Bug reports and focused pull requests are welcome. Please read [CONTRIBUTING.md]
 This repository currently does **not** declare an open-source license. Public access to the source code does not by itself grant permission to copy, modify, redistribute, or use it beyond rights provided by applicable law. A license may be added by the repository owner later.
 
 The embedded `Nefarius.ViGEm.Client` dependency is separately licensed under MIT; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Beta Shift compatibility
+
+In beta.2, a standalone Shift trigger in **Hold** mode with **gamepad-only steps** automatically passes the physical Shift through to the game, preserving sprint alongside controller output. The suppression checkbox explains this exception; other macros retain their suppression preference. This fixes a confirmed suppression conflict; real-game acceptance still needs testing. Stable v1.1.0 users can first try unchecking trigger suppression on the affected macro.
