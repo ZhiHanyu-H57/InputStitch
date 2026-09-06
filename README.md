@@ -8,6 +8,10 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
+**Stable: v1.1.0.** Development now uses public Beta pre-releases. [Download v1.1.1-beta.1 manually](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.1) only if you want to test changes. Beta is not the Latest stable release, never replaces the stable update manifest, and does not automatically prompt for updates. In the Beta app, Check for Updates opens GitHub Releases after confirmation; downloading/installing is manual. Existing stable apps continue to check stable releases only, even when checking manually.
+
+Beta and stable currently share configuration. Exit one before starting the other and back up `%APPDATA%\InputStitch` before testing. Keep the stable EXE separately for rollback. See [development roadmap and release policy](ROADMAP.md).
+
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
 | Windows architecture | Direct download |

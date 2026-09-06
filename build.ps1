@@ -8,8 +8,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = $PSScriptRoot
-$releaseVersion = '1.1.0'
-$fileVersion = '1.1.0.0'
+$releaseInfo = & (Join-Path $projectRoot 'scripts/Get-ReleaseInfo.ps1')
+$releaseVersion = $releaseInfo.Version
+$fileVersion = $releaseInfo.FileVersion
 $distDirectory = Join-Path $projectRoot 'dist'
 $sourcePath = Join-Path $projectRoot 'InputStitch.cs'
 $manifestPath = Join-Path $projectRoot 'app.manifest'
@@ -62,10 +63,10 @@ function Get-ReferenceDirectory {
 function Assert-SourceVersion {
     $sourceText = [IO.File]::ReadAllText($sourcePath)
     $requiredPatterns = @(
-        ('AssemblyVersion\("' + [regex]::Escape($fileVersion) + '"\)'),
-        ('AssemblyFileVersion\("' + [regex]::Escape($fileVersion) + '"\)'),
-        ('AssemblyInformationalVersion\("' + [regex]::Escape($releaseVersion) + '"\)'),
-        ('const\s+string\s+Version\s*=\s*"' + [regex]::Escape($releaseVersion) + '"')
+        'AssemblyVersion\(InputStitch.ReleaseInfo.FileVersion\)',
+        'AssemblyFileVersion\(InputStitch.ReleaseInfo.FileVersion\)',
+        'AssemblyInformationalVersion\(InputStitch.ReleaseInfo.Version\)',
+        'const\s+string\s+Version\s*=\s*ReleaseInfo.Version'
     )
 
     foreach ($pattern in $requiredPatterns) {
@@ -114,6 +115,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += "/resource:$viGEmClientPath,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll"
     $compilerArguments += $TargetFrameworkSource
     $compilerArguments += $sourcePath
+    $compilerArguments += (Join-Path $projectRoot 'ReleaseInfo.cs')
     $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
 
@@ -133,6 +135,7 @@ function New-SourceArchive {
         '.github',
         'docs',
         'scripts',
+        'tests',
         'third-party',
         '.gitignore',
         'app.manifest',
@@ -141,6 +144,7 @@ function New-SourceArchive {
         'CHANGELOG.md',
         'CONTRIBUTING.md',
         'InputStitch.cs',
+        'ReleaseInfo.cs',
         'VirtualKeyboard.cs',
         'IdleGamepad.cs',
         'InputStitch.csproj',
@@ -148,6 +152,7 @@ function New-SourceArchive {
         'README.md',
         'README.zh-CN.md',
         'RELEASE_NOTES.md',
+        'ROADMAP.md',
         'SECURITY.md',
         'THIRD_PARTY_NOTICES.md'
     )
@@ -168,7 +173,8 @@ function New-UpdateManifest {
         [Parameter(Mandatory = $true)][string]$X64Path,
         [Parameter(Mandatory = $true)][string]$X86Path
     )
-    $manifestOutputPath = Join-Path $distDirectory 'InputStitch-update.xml'
+    $manifestOutputPath = Join-Path $distDirectory $releaseInfo.ManifestName
+    $downloadBase = if ($releaseInfo.IsPrerelease) { "https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$releaseVersion" } else { 'https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download' }
     $x64Name = Split-Path $X64Path -Leaf
     $x86Name = Split-Path $X86Path -Leaf
     $x64Hash = (Get-FileHash -LiteralPath $X64Path -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -178,8 +184,8 @@ function New-UpdateManifest {
 <InputStitchUpdate>
   <Version>$releaseVersion</Version>
   <ReleaseUrl>https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v$releaseVersion</ReleaseUrl>
-  <Asset Architecture="x64" FileName="$x64Name" Url="https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/$x64Name" Sha256="$x64Hash" />
-  <Asset Architecture="x86" FileName="$x86Name" Url="https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/$x86Name" Sha256="$x86Hash" />
+  <Asset Architecture="x64" FileName="$x64Name" Url="$downloadBase/$x64Name" Sha256="$x64Hash" />
+  <Asset Architecture="x86" FileName="$x86Name" Url="$downloadBase/$x86Name" Sha256="$x86Hash" />
 </InputStitchUpdate>
 "@
     [IO.File]::WriteAllText($manifestOutputPath, $xml.TrimStart(), (New-Object Text.UTF8Encoding($false)))
@@ -205,8 +211,11 @@ if (Test-Path -LiteralPath $distDirectory) {
 $compilerPath = Get-CSharpCompiler
 $referencePath = Get-ReferenceDirectory
 $targetFrameworkSource = Join-Path ([IO.Path]::GetTempPath()) ("InputStitch.TargetFramework.$PID.g.cs")
+$generatedManifest = Join-Path ([IO.Path]::GetTempPath()) ("InputStitch.Manifest.$PID.xml")
 
 try {
+    & (Join-Path $projectRoot 'scripts/Write-AppManifest.ps1') -OutputPath $generatedManifest
+    $manifestPath = $generatedManifest
     [IO.File]::WriteAllText(
         $targetFrameworkSource,
         "using System.Runtime.Versioning;`r`n[assembly: TargetFramework(`".NETFramework,Version=v4.7.2`", FrameworkDisplayName = `".NET Framework 4.7.2`")]`r`n",
@@ -232,7 +241,7 @@ try {
     [IO.File]::WriteAllLines($checksumPath, $checksumLines, (New-Object Text.UTF8Encoding($false)))
 
     Assert-FileExists -LiteralPath $verifyScript
-    & $verifyScript -DistDirectory $distDirectory -ExpectedVersion $releaseVersion
+    & $verifyScript -DistDirectory $distDirectory -ExpectedVersion $releaseVersion -ExpectedFileVersion $fileVersion -SkipSourceArchive:$SkipSourceArchive
 
     Write-Host ''
     Write-Host "Release build succeeded: $distDirectory" -ForegroundColor Green
@@ -240,6 +249,7 @@ try {
         Write-Host ("  {0} ({1:N0} bytes)" -f $_.Name, $_.Length)
     }
 } finally {
+    if (Test-Path -LiteralPath $generatedManifest) { Remove-Item -LiteralPath $generatedManifest -Force }
     if (Test-Path -LiteralPath $targetFrameworkSource) {
         Remove-Item -LiteralPath $targetFrameworkSource -Force
     }

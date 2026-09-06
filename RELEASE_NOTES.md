@@ -1,51 +1,39 @@
-# InputStitch 1.1.0
-
-[English](#english) | [简体中文](#简体中文)
-
-## English
-
-### What's new
-
-- **Full-size virtual keyboard:** open the dropdown beside Record Trigger or Capture Input, then choose Virtual Keyboard. Click keys to select/highlight; click again to deselect. Single/multiple-key modes include modifiers, Esc, function/navigation keys, and the number pad. Triggers support a standalone key or modifiers plus one main key; step chords press in order and release in reverse.
-- **Refined controller preview:** Xbox 360 and PS4 / DualShock 4 layouts, clearer highlighting, and live stick direction/strength. Previewing does not send real input.
-- **Optional idle gamepad input:** Settings > Automation lets you choose inactivity interval, controller input, and hold time. Disabled by default. Keyboard/mouse activity, supported physical controllers, and macros restart the timer. Macro execution and editing pause idle output; Emergency Stop disables it until explicitly re-enabled.
-- **Tabbed settings** and compatibility with existing macro/configuration files.
-
-Idle input does not switch windows. Background reception depends on the game and its controller settings; background GTA Online support is not guaranteed. Other apps receiving the same controller may respond too. Follow the automation rules of the software/game you use.
-
-### Download and upgrade
-
-- **64-bit Windows:** `InputStitch-1.1.0-Windows-x64.exe`
-- **32-bit Windows:** `InputStitch-1.1.0-Windows-x86.exe`
-- **Complete source:** `InputStitch-1.1.0-Source.zip`
-- **Checksums:** `SHA256SUMS.txt`; updater manifest: `InputStitch-update.xml`
-
-This is a new release, not a replacement of v1.0.0. Builds with the updater can detect v1.1.0; older builds without it require manual downloading. Configuration stays in `%APPDATA%\InputStitch`. Back up that folder before upgrading or rolling back.
-
-Windows only; .NET Framework 4.7.2 or a compatible later release is required. No macOS/Linux executable is provided. EXEs are currently **not code-signed**; SmartScreen may warn about an unknown publisher. Use this repository's official downloads and verify SHA-256.
-
-Virtual gamepad output requires the separately installed [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest). The upstream project is retired; use only the original author's official Release page. InputStitch provides missing-driver guidance, but never silently installs drivers. Keyboard/mouse functions do not require it. Connect the virtual controller before launching the game for best compatibility.
+# InputStitch 1.1.1-beta.1
 
 ## 简体中文
 
-### 本次更新
+这是第一批稳定性改进的测试版，**不是推荐所有用户升级的正式版**。v1.1.0 保持为最新正式版，现有自动更新不会提示安装此 Beta。
 
-- **全尺寸虚拟键盘：** 点击“录制触发键”或“捕获输入”旁的下拉按钮，选择虚拟键盘。点击按键高亮选择，再次点击取消；支持单键/多键模式，包含修饰键、Esc、功能键、导航键和数字小键盘。触发键可为单独按键或“修饰键 + 一个主键”；步骤组合键按顺序按下、反序释放。
-- **优化手柄预览：** 区分 Xbox 360 与 PS4 / DualShock 4 布局，更清晰地高亮编辑项，摇杆随方向和力度动态显示。预览不会发送实际输入。
-- **可选闲置手柄输入：** 在“设置 > 自动化”中选择无操作时间、手柄操作和按住时长，默认关闭。键鼠、支持的实体手柄活动和宏运行会重新计时；宏运行和编辑时暂停闲置输出，紧急停止后需明确重新启用。
-- **分页设置界面**，继续兼容已有宏与配置文件。
+- 闲置手柄输入新增仅负责释放的后台定时器：界面不再刷新时，也能释放已经发出的脉冲。
+- 新增回调代次/所有权检查，防止旧定时器误释放新输入；宏启动、紧急停止、退出仍同步清理已有脉冲。
+- 回归测试进入工程和 GitHub Actions，包括 1 万次模拟启停、界面停顿、过期回调、键盘/快捷键和双语设置检查。
+- 版本信息由 ReleaseInfo.cs 集中提供，Beta 使用独立校验清单与指定版本下载链接。
 
-闲置输入不会切换窗口。游戏能否在后台接收取决于游戏及其手柄设置，不保证 GTA Online 后台挂机可用；其他接收同一虚拟手柄的程序也可能响应。请遵守所使用软件或游戏的自动化规则。
+**更新方式：** 本 Beta 不自动联网检查更新。手动点击“检查更新”并确认后打开 GitHub Releases，由用户自行下载和替换。旧正式版的手动检查仍只检查正式更新。
 
-### 下载与升级
+**测试前：** 退出正在运行的 InputStitch，备份 `%APPDATA%\InputStitch`，将 Beta 与正式版 EXE 分开放置。两者目前共用配置，不要同时运行。Beta 是公开可见的预发布版，不是私有发布。
 
-- **64 位 Windows：** `InputStitch-1.1.0-Windows-x64.exe`
-- **32 位 Windows：** `InputStitch-1.1.0-Windows-x86.exe`
-- **完整源码：** `InputStitch-1.1.0-Source.zip`
-- **校验值：** `SHA256SUMS.txt`；更新清单：`InputStitch-update.xml`
+**边界：** 已做注入测试，不代表真实硬件或 GTA Online 后台兼容性实测通过；Windows 调度和底层驱动阻塞仍可能延迟释放。仍需要 ViGEmBus 才能使用手柄功能；不会静默安装驱动。EXE 未签名。请遵守所用软件/游戏的自动化规则。
 
-此次独立发布新版，不覆盖 v1.0.0。带更新器的版本可以检测到 v1.1.0；没有更新器的较早构建需手动下载。配置仍保存在 `%APPDATA%\InputStitch`，升级或回退前建议备份该文件夹。
+## English
 
-仅支持 Windows，需要 .NET Framework 4.7.2 或兼容的更高版本，不提供 macOS/Linux 可执行文件。EXE 目前**未做代码签名**，SmartScreen 可能提示未知发布者；请使用本仓库官方下载并核对 SHA-256。
+This is the first reliability Beta, **not a stable upgrade recommended to all users**. v1.1.0 remains Latest; existing automatic updates will not offer this Beta.
 
-手柄输出需要另外安装 [ViGEmBus 驱动](https://github.com/nefarius/ViGEmBus/releases/latest)。上游项目已停止维护，请只使用原作者的官方 Release 页面。缺少驱动时程序会提醒并提供链接，不会静默安装；键鼠功能不依赖此驱动。建议在启动游戏前连接虚拟手柄。
+- Release-only background deadlines neutralize an owned idle pulse even when UI ticks stop.
+- Generation/ownership checks keep stale callbacks from releasing newer input. Macro handoff, Emergency Stop and shutdown retain synchronous pulse cleanup.
+- Repository/CI tests include 10,000 injected start/cancel cycles, stalled UI ticks, stale callbacks, keyboard/shortcut regression and bilingual settings smoke tests.
+- Release metadata is centralized in ReleaseInfo.cs. Beta uses a separate checksum manifest and version-pinned download URLs.
+
+**Updates:** this Beta performs no automatic update check. Manual Check, after confirmation, opens GitHub Releases for manual downloading/replacement. Old stable versions still check stable updates only, including manual checks.
+
+**Before testing:** close InputStitch, back up `%APPDATA%\InputStitch`, and keep Beta/stable EXEs separately. They currently share configuration; run one at a time. This is a public pre-release, not a private release.
+
+**Limitations:** injected tests are not real hardware/GTA Online background compatibility tests. Windows scheduling and blocked native drivers can still delay release. Gamepad output requires ViGEmBus; no silent driver installation. EXEs are unsigned. Follow the target software/game's automation rules.
+
+## Files / 文件
+
+- `InputStitch-1.1.1-beta.1-Windows-x64.exe`
+- `InputStitch-1.1.1-beta.1-Windows-x86.exe`
+- `InputStitch-1.1.1-beta.1-Source.zip`
+- `InputStitch-beta.xml` — Beta-only manifest, not used by stable updaters / 仅测试版清单
+- `SHA256SUMS.txt`

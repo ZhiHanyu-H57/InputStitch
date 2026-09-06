@@ -8,6 +8,10 @@ InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄�
 
 ## 下载
 
+**当前正式版：v1.1.0。** 后续开发采用公开的 Beta 预发布版。[手动下载 v1.1.1-beta.1](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.1) 仅用于自愿测试。Beta 不设为最新正式版、不替换正式版更新清单，也不自动弹出更新提醒。Beta 内点击“检查更新”并确认后会打开 GitHub Releases，由用户手动下载安装；已发布的正式版仍只检查正式更新，手动检查也不会发现 Beta。
+
+Beta 与正式版目前共用配置。测试前请退出另一版本、备份 `%APPDATA%\InputStitch`，并单独保留正式版 EXE 以便回退。详见[开发路线和发布规则](ROADMAP.md)。
+
 可以从 [GitHub 最新正式版](../../releases/latest) 直接下载可执行文件：
 
 | Windows 架构 | 直接下载 |

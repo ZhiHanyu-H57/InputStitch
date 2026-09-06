@@ -92,8 +92,8 @@ namespace InputStitch
         public IdleGamepadFailureEventArgs(Exception exception) { Exception = exception; }
     }
 
-    // Create/configure/tick/dispose on the UI thread. NotifyActivity and SetBusy may
-    // also be called by hooks/workers. No timer thread can race a macro's output.
+    // New pulses and physical sensing stay on the UI thread. A release-only timer
+    // shares the ownership lock, so a stalled UI cannot keep a pulse held indefinitely.
     public sealed class IdleGamepadService : IDisposable
     {
         private readonly object sync = new object();
@@ -107,6 +107,9 @@ namespace InputStitch
         private long releaseAt;
         private bool disposed;
         private Exception pendingFailure;
+        private readonly bool backgroundRelease;
+        private System.Threading.Timer releaseTimer;
+        private long releaseGeneration;
 
         public event EventHandler<IdleGamepadFailureEventArgs> Failure;
         public event Action<Exception> Failed;
@@ -117,17 +120,22 @@ namespace InputStitch
         public bool IsPulsing { get { lock (sync) return pressed != null; } }
 
         public IdleGamepadService(Func<int> ownXboxSlot)
-            : this(GamepadOutput.EnsureConnected, GamepadOutput.Send, ownXboxSlot, MonotonicMilliseconds, true) { }
+            : this(GamepadOutput.EnsureConnected, GamepadOutput.Send, ownXboxSlot, MonotonicMilliseconds, true, true) { }
 
         // Injectable boundaries let tests prove cancellation and failure behavior
         // without creating a virtual controller or sending real input.
         public IdleGamepadService(Action ensureConnected, Action<InputSpec, bool> send,
             Func<int> ownXboxSlot, Func<long> clock, bool detectManualActivity)
+            : this(ensureConnected, send, ownXboxSlot, clock, detectManualActivity, false) { }
+
+        public IdleGamepadService(Action ensureConnected, Action<InputSpec, bool> send,
+            Func<int> ownXboxSlot, Func<long> clock, bool detectManualActivity, bool backgroundRelease)
         {
             if (ensureConnected == null || send == null || clock == null) throw new ArgumentNullException();
             this.ensureConnected = ensureConnected;
             this.send = send;
             this.clock = clock;
+            this.backgroundRelease = backgroundRelease;
             if (detectManualActivity) sensor = new IdleManualActivitySensor(ownXboxSlot);
         }
 
@@ -220,6 +228,7 @@ namespace InputStitch
                             pressed = options.Pulse.Clone();
                             releaseAt = now + options.HoldMilliseconds;
                             send(pressed, true);
+                            if (backgroundRelease) ArmReleaseTimerLocked();
                         }
                         catch (Exception ex)
                         {
@@ -240,12 +249,40 @@ namespace InputStitch
 
         private void ReleaseLocked(long now)
         {
+            releaseGeneration++;
+            if (releaseTimer != null) { releaseTimer.Dispose(); releaseTimer = null; }
             InputSpec input = pressed;
             pressed = null;
             if (input == null) return;
             try { send(input, false); }
             catch (Exception ex) { FailLocked(ex, now); }
             scheduler.FinishPulse(now);
+        }
+
+        private void ArmReleaseTimerLocked()
+        {
+            long generation = ++releaseGeneration;
+            releaseTimer = new System.Threading.Timer(delegate(object state)
+            {
+                OnReleaseDeadline(generation);
+            }, null, Math.Max(1, (int)Math.Min(2000, releaseAt - clock())), System.Threading.Timeout.Infinite);
+        }
+
+        private void OnReleaseDeadline(long generation)
+        {
+            lock (sync)
+            {
+                if (disposed || pressed == null || generation != releaseGeneration) return;
+                long now = clock();
+                long remaining = releaseAt - now;
+                if (remaining > 0)
+                {
+                    if (releaseTimer != null) releaseTimer.Change((int)Math.Min(2000, remaining), System.Threading.Timeout.Infinite);
+                    return;
+                }
+                // Never start another pulse or invoke UI callbacks from this thread.
+                ReleaseLocked(now);
+            }
         }
 
         private void FailLocked(Exception ex, long now)

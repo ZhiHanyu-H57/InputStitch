@@ -25,16 +25,16 @@ using Nefarius.ViGEm.Client.Targets.Xbox360;
 [assembly: AssemblyDescription("Visual keyboard, mouse and virtual gamepad macro tool for Windows")]
 [assembly: AssemblyCompany("InputStitch Project")]
 [assembly: AssemblyCopyright("Copyright © 2026")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
-[assembly: AssemblyInformationalVersion("1.1.0")]
+[assembly: AssemblyVersion(InputStitch.ReleaseInfo.FileVersion)]
+[assembly: AssemblyFileVersion(InputStitch.ReleaseInfo.FileVersion)]
+[assembly: AssemblyInformationalVersion(InputStitch.ReleaseInfo.Version)]
 
 namespace InputStitch
 {
     public static class AppInfo
     {
         public const string ProductName = "InputStitch";
-        public const string Version = "1.1.0";
+        public const string Version = ReleaseInfo.Version;
         public const string ConfigFormatVersion = "3";
         public const string MacroPackageFormatVersion = "3";
         public const string ProfileFormatVersion = "3";
@@ -692,6 +692,8 @@ namespace InputStitch
 
         public static async Task<UpdateCheckResult> CheckAsync()
         {
+            if (!ReleaseInfo.AutomaticChecksAllowed)
+                throw new InvalidOperationException("Beta builds use manual downloads from the GitHub Releases page.");
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             string xml;
             using (WebClient client = CreateClient())
@@ -4246,6 +4248,7 @@ namespace InputStitch
             updateModeBox.Items.Add(Localizer.T("启动时自动检查并提示安装"));
             updateModeBox.Items.Add(Localizer.T("仅手动检查（推荐）"));
             updateModeBox.Items.Add(Localizer.T("不检查更新"));
+            updateModeBox.Enabled = ReleaseInfo.AutomaticChecksAllowed;
             updateModeBox.SelectedIndex = string.Equals(config.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase) ? 2 :
                 (string.Equals(config.UpdateMode, UpdateModes.Manual, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
             updateRow.Controls.Add(updateLabel, 0, 0);
@@ -4253,6 +4256,10 @@ namespace InputStitch
             updatesLayout.Controls.Add(updateRow);
             Label updateHint = new Label();
             updateHint.Text = Localizer.T("网络访问仅用于从官方 GitHub Release 检查和下载更新；下载后必须通过 SHA-256 校验。");
+            if (!ReleaseInfo.AutomaticChecksAllowed)
+                updateHint.Text = Localizer.IsEnglish
+                    ? "Beta build: automatic update checks are disabled. Check manually to open GitHub Releases and download a test build. Your stable update preference is preserved."
+                    : "测试版不自动检查更新。点击手动检查可打开 GitHub Releases 下载测试版；正式版的更新偏好保持不变。";
             updateHint.AutoSize = true;
             updateHint.MaximumSize = new Size(570, 0);
             updateHint.ForeColor = Color.FromArgb(86, 96, 112);
@@ -4593,7 +4600,7 @@ namespace InputStitch
                     LocalizedMessageBox.Show(this, startupWarning, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     startupWarning = "";
                 }
-                if (string.Equals(config.UpdateMode, UpdateModes.Automatic, StringComparison.OrdinalIgnoreCase))
+                if (ReleaseInfo.AutomaticChecksAllowed && string.Equals(config.UpdateMode, UpdateModes.Automatic, StringComparison.OrdinalIgnoreCase))
                     BeginInvoke((MethodInvoker)delegate { CheckForUpdatesAsync(this, true); });
                 if (HasAnyGamepadSteps())
                     BeginInvoke((MethodInvoker)delegate { EnsureGamepadReady(null, true); });
@@ -5449,6 +5456,21 @@ namespace InputStitch
 
         private async void CheckForUpdatesAsync(IWin32Window owner, bool automatic)
         {
+            if (!ReleaseInfo.AutomaticChecksAllowed)
+            {
+                if (!automatic)
+                {
+                    string message = Localizer.IsEnglish
+                        ? "Beta updates are downloaded manually. Open the official GitHub Releases page? Back up your configuration before testing; stable releases are not replaced."
+                        : "测试版通过手动下载更新。是否打开官方 GitHub Releases 页面？测试前请备份配置；正式版不会被替换。";
+                    if (MessageBox.Show(owner, message, AppInfo.ProductName, MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
+                    {
+                        try { Process.Start(new ProcessStartInfo(ReleaseInfo.ReleasesUrl) { UseShellExecute = true }); }
+                        catch (Exception ex) { MessageBox.Show(owner, ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+                    }
+                }
+                return;
+            }
             if (updateCheckBusy) return;
             updateCheckBusy = true;
             string previousStatus = statusLabel == null ? "" : statusLabel.Text;

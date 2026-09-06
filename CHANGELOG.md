@@ -3,6 +3,17 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.1.1-beta.1 (pre-release / 预发布)
+
+- Added a release-only background deadline for idle gamepad pulses, protected by generation/ownership checks. A stalled UI no longer needs to resume before the owned pulse can be released.
+- Added a no-network automatic-update guard for Beta builds. Manual Beta updates use the GitHub Releases page; stable v1.1.0 and its update manifest remain unchanged.
+- Centralized release metadata in ReleaseInfo.cs; build and publishing scripts derive names and channels from it. Beta has a separate manifest and version-pinned download links.
+- Added repository regression suites, 10,000 simulated start/cancel cycles, UI-stall/stale-callback checks and bilingual settings smoke tests.
+- 闲置手柄输入增加仅负责释放的后台定时器和所有权校验，不再等待界面恢复才释放。
+- Beta 禁止自动联网检查更新，手动更新转到 GitHub 下载；保留 v1.1.0 正式版和更新清单。
+- 将主要版本信息集中到 ReleaseInfo.cs；测试版采用独立清单及指定版本下载链接。
+- 将回归测试纳入工程，增加 1 万次模拟启停、界面停顿、过期回调及双语设置检查。
+
 ## 1.1.0
 
 ### English
