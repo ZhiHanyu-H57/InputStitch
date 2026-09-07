@@ -3,6 +3,29 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.2.0
+
+- Promoted the validated 1.1.1 Beta reliability/productivity work to Stable.
+- Safer configuration persistence: staged write/flush/deserialize verification, protected replacement, visible save-failure state, and five recent valid backups.
+- Added Quick Create for Held Mapping, fixed-count Repeat and Sequence, plus bounded step Undo/Redo.
+- Held Mapping supports normal keyboard keys, mouse buttons and standalone left/right Ctrl/Shift/Alt/Win; duplicate enabled triggers intentionally follow macro-list priority.
+- Improved foreground/background hotkey reliability, modifier passthrough, lost-KeyUp/Alt+Tab release fallback, and bounded runtime diagnostics.
+- Idle Gamepad now uses Raw Input for physical mouse activity, has its own independent Idle target, ignores other-app keyboard/mouse activity for that target, pauses while a configured target is absent, and restarts a full idle interval when it returns. Formal defaults are off / 120 s / left stick down / 150 ms.
+- Added a once-per-version startup summary for existing users after upgrading; fresh installs still show only the normal Welcome dialog.
+- Improved narrow Settings layout for long Idle target names with one-line ellipsis and full-text Tooltip.
+- Stable automatic-update manifest returns to `InputStitch-update.xml`; Beta remains a separate prerelease channel for future development.
+- 将 Beta 1–4 已验证的可靠性与易用性改进晋升为正式版：安全配置保存与 5 份有效备份、快捷创建、步骤撤销/重做、按住映射与前后台释放可靠性、独立挂机目标及真实活动识别、窄窗口布局修复，并新增“升级后每个版本只显示一次”的更新摘要弹窗。
+
+## 1.1.1-beta.4 (pre-release / 预发布)
+
+- Added safer configuration persistence: stage, flush, deserialize-verify, atomically replace, and recover without discarding the last valid main config. Keep the five most recent valid config backups and show an explicit Not saved / 未保存 warning on failure.
+- Added Quick Create with three focused templates while keeping the existing advanced editor: Held mapping, Repeat an action, and Sequence. Held mapping accepts a single keyboard key (including standalone Ctrl/Shift/Alt/Win) or mouse button as the trigger, passes the original trigger through, and creates an ordinary editable macro.
+- Added step Undo/Redo with buttons plus Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z in the step grid. History is limited to 50 operations, clears when switching macros, and restored steps are persisted through the safer config store; text editors keep native undo behavior.
+- Duplicate macro triggers remain enabled and intentionally follow macro-list priority: the first enabled macro wins, and Up/Down immediately changes priority. Only an exact Emergency Stop collision disables a newly quick-created macro. Modifier chords and wheel triggers remain unsupported for Hold mode; simultaneous multi-source mappings remain out of scope until input ownership/merging is designed.
+- Fixed idle-gamepad activity detection for games that recenter/warp the cursor: physical mouse movement now uses Raw Input instead of cursor/global-last-input changes. Idle gamepad input now has its own independent Idle target in Settings > Automation; other-app keyboard/mouse activity does not reset that target's timer, and the main UI/profile target no longer participates after a one-time beta compatibility copy. If a configured Idle target is absent, idle output pauses completely; when the target returns, a fresh full idle interval starts before any pulse. Formal defaults are off, 120 seconds, left stick down, 150 ms.
+- Expanded regression coverage to 323 keyboard checks, 58 idle-gamepad assertions and 342 productivity checks, including standalone left/right Ctrl, Shift, Alt and Win capture/matching, Held Mapping creation, duplicate-trigger list priority, independent Idle target selection/clearing, one-time target migration, target-scoped idle activity, and missing-target pause/resume timing. Updater, UI-safety, release-policy and settings tests also pass. Automated tests do not inject real input or prove game acceptance.
+- 新增安全配置保存与最近 5 份有效备份、快捷创建三种模板、步骤撤销/重做；同触发键按宏列表顺序决定优先级；闲置手柄输入不再把游戏重定位鼠标误判为操作，并在“设置 → 自动化”中拥有完全独立的“挂机目标”，不再依赖主界面目标窗口或方案切换逻辑。已设置的挂机目标不存在时完全暂停输出，目标重新出现后从完整空闲时间重新计时。正式默认值为关闭、120 秒、左摇杆向下、150 ms。自动回归已通过，但真实游戏接收仍需实际验收。
+
 ## 1.1.1-beta.3 (pre-release / 预发布)
 
 - Fixed a deterministic cause of apparently random foreground hotkey failure: idle hover and non-editing button/list focus no longer silently block starts. Refresh protection on each physical trigger and again before dispatch; transfer non-editing focus to the input sink.

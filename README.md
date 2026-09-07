@@ -8,17 +8,17 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.1.0.** Development now uses public Beta pre-releases. [Download v1.1.1-beta.3 manually](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.1.1-beta.3) only if you want to test changes. Beta is not the Latest stable release, never replaces the stable update manifest, and does not automatically prompt for updates. In the Beta app, Check for Updates opens GitHub Releases after confirmation; downloading/installing is manual. Existing stable apps continue to check stable releases only, even when checking manually.
+**Stable: v1.2.0.** This promotes the reliability and productivity work validated through the 1.1.1 Beta 1–4 cycle. Larger future changes will continue through public Beta prereleases before Stable promotion. Beta and Stable remain separate release channels; Beta never replaces the Stable update manifest.
 
-Beta and stable currently share configuration. Exit one before starting the other and back up `%APPDATA%\InputStitch` before testing. Keep the stable EXE separately for rollback. See [development roadmap and release policy](ROADMAP.md).
+Beta and Stable currently share configuration. Before testing a future Beta, exit the other version and back up `%APPDATA%\InputStitch`. See [development roadmap and release policy](ROADMAP.md).
 
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
 | Windows architecture | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.1.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.1.0-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.1.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.1.0-Windows-x86.exe) |
-| Complete source code | [InputStitch-1.1.0-Source.zip](../../releases/latest/download/InputStitch-1.1.0-Source.zip) |
+| 64-bit Windows (x64) | [InputStitch-1.2.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.2.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x86.exe) |
+| Complete source code | [InputStitch-1.2.0-Source.zip](../../releases/latest/download/InputStitch-1.2.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 InputStitch supports Windows only. There is no macOS or Linux executable. If you are unsure which Windows build to use, choose x64 on a modern 64-bit installation.
@@ -31,6 +31,9 @@ The executable is portable: download it, place it in a folder where you have wri
 - Virtual sticks (direction from `-180°..180°` and strength from `0%..100%`), analog triggers (`0%..100%`), face buttons, shoulders, stick clicks, D-pad, and menu buttons
 - A live virtual-controller preview while editing, highlighting the selected button, trigger, or stick direction
 - Per-step key-hold duration and delay controls
+- Quick Create templates for Held Mapping, fixed-count repetition, and ordered sequences; standalone Ctrl/Shift/Alt/Win, normal keys, and mouse buttons can be Held Mapping triggers
+- Step Undo/Redo with a bounded 50-operation history
+- Safer staged configuration saves with verification and five recent valid-config backups
 - Global hotkeys, press-to-toggle, and hold-to-run modes
 - Finite repetition or infinite looping
 - Physical input recording with automatic timing; mouse movement is intentionally not recorded
@@ -47,7 +50,7 @@ The executable is portable: download it, place it in a folder where you have wri
 ## Quick start
 
 1. Download the executable that matches your Windows architecture.
-2. Start InputStitch and create or select a macro.
+2. Start InputStitch and create or select a macro. The **New** menu can also create a Held Mapping, fixed-count repeat, or sequence template.
 3. Add steps manually or use **Record Macro**. Recording captures physical keyboard and mouse input; virtual gamepad steps are added manually.
 4. Capture a trigger key and choose the trigger mode.
 5. Run the macro from the main window or enable its global trigger.
@@ -63,7 +66,7 @@ The arrow next to **Capture Trigger** or **Capture Input** opens a full-size vir
 
 The controller preview follows the selected Xbox 360 or PS4 layout. A stick direction of 0° points forward, +90° right, -90° left and ±180° backward; strength controls its travel. Previewing a step does not send input.
 
-**Settings → Automation → Idle gamepad input** can send a short, configurable controller action after the chosen time without user or macro input. It is off by default. Activity resets the countdown; running macros and editing dialogs pause it. Emergency Stop disables idle output until you explicitly enable it again. This uses the existing virtual controller without activating another window. A background game must already accept that controller and background input; InputStitch cannot force a game to do so. Connect before launching games that only detect controllers at startup.
+**Settings → Automation → Idle gamepad input** can send a short, configurable controller action after inactivity. It is off by default; the formal default pulse is 120 seconds, left stick down for 150 ms. This section now has its own independent **Idle target**: switch to the game, return to Settings, then choose **Use recent window**. The idle target is used only for this timer and does **not** depend on or modify the main target window, UI-run activation, or automatic profile switching. With an idle target configured, keyboard/mouse activity resets that target's countdown only while the target process is foreground, so typing or moving the mouse in another app does not prevent a background-game pulse. If the configured idle target is currently absent, idle output pauses completely and sends no controller pulse; when the target returns, a fresh full idle interval starts. Without an idle target, keyboard/mouse inactivity remains global. Physical controller activity and macros restart the timer; editing dialogs pause it. Emergency Stop disables idle output until you explicitly enable it again. Physical mouse movement is detected with Raw Input so games that recenter/warp the cursor do not falsely keep the timer active. This uses the existing virtual controller without activating another window. A background game must already accept that controller and background input; InputStitch cannot force a game to do so. Connect before launching games that only detect controllers at startup.
 
 ## Optional virtual gamepad driver
 
@@ -127,3 +130,6 @@ In beta.2, a standalone Shift trigger in **Hold** mode with **gamepad-only steps
 ### Foreground hotkeys and diagnostics (beta.3)
 
 Hovering alone or selecting a non-editing button/list no longer blocks hotkey starts. Focused name/number/combo editors still pause hotkeys with a visible reason; click an empty area to finish editing. Running mouse macros retain hover protection to avoid clicking controls. Diagnostics include the last 64 macro lifecycle events in memory, not a continuous keyboard log. A submitted output does not prove that a game received it.
+### Productivity and config safety (beta.4)
+
+Beta.4 adds staged/verified configuration saves with five recent valid backups, three Quick Create templates, and step Undo/Redo. Held Mapping accepts normal keyboard keys, standalone left/right Ctrl/Shift/Alt/Win, and mouse buttons including side buttons; modifier chords and wheel triggers remain unsupported for Hold mode. Duplicate enabled triggers intentionally use macro-list order as priority. Idle gamepad detection now ignores application-driven cursor recentering and uses its own independent Idle target; other-app typing does not block a background-game pulse, a missing configured Idle target pauses output completely, and target return starts a fresh full idle interval. The current automated suite covers these cases but sends no real input, so live game/controller acceptance still needs testing before wider promotion.

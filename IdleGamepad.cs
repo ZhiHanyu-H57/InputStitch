@@ -12,15 +12,23 @@ namespace InputStitch
     public sealed class IdleGamepadOptions
     {
         public bool Enabled = false;
-        public int IdleSeconds = 300;
+        public int IdleSeconds = 120;
         public int HoldMilliseconds = 150;
         public InputSpec Pulse = DefaultPulse();
+        // Independent target identity used only for idle-activity scoping.
+        // It intentionally does not share MacroConfig.TargetWindow* fields.
+        public string TargetProcessName = "";
+        public string TargetWindowTitle = "";
+        public string TargetWindowClass = "";
+        // False only for configurations created before idle input had its own target.
+        // NormalizeConfig may use the legacy main target once, then sets this true.
+        public bool TargetScopeInitialized = false;
 
         public static InputSpec DefaultPulse()
         {
             InputSpec input = new InputSpec();
             input.Kind = InputKind.Gamepad;
-            input.GamepadControl = GamepadControl.DPadDown;
+            input.GamepadControl = GamepadControl.LeftStick;
             input.GamepadX = 0;
             input.GamepadY = -100;
             input.GamepadValue = 100;
@@ -34,8 +42,12 @@ namespace InputStitch
             value.IdleSeconds = Math.Max(10, Math.Min(86400, IdleSeconds));
             value.HoldMilliseconds = Math.Max(50, Math.Min(2000, HoldMilliseconds));
             value.Pulse = Pulse == null ? DefaultPulse() : Pulse.Clone();
+            value.TargetProcessName = TargetProcessName ?? "";
+            value.TargetWindowTitle = TargetWindowTitle ?? "";
+            value.TargetWindowClass = TargetWindowClass ?? "";
+            value.TargetScopeInitialized = TargetScopeInitialized;
             value.Pulse.Kind = InputKind.Gamepad;
-            if (!Enum.IsDefined(typeof(GamepadControl), value.Pulse.GamepadControl)) value.Pulse.GamepadControl = GamepadControl.DPadDown;
+            if (!Enum.IsDefined(typeof(GamepadControl), value.Pulse.GamepadControl)) value.Pulse.GamepadControl = DefaultPulse().GamepadControl;
             value.Pulse.GamepadX = Math.Max(-100, Math.Min(100, value.Pulse.GamepadX));
             value.Pulse.GamepadY = Math.Max(-100, Math.Min(100, value.Pulse.GamepadY));
             value.Pulse.GamepadValue = Math.Max(0, Math.Min(100, value.Pulse.GamepadValue));
@@ -164,10 +176,16 @@ namespace InputStitch
         }
 
         // Forward WM_INPUT (0x00FF) and WM_INPUT_DEVICE_CHANGE (0x00FE) before the
-        // form's base.WndProc. This only observes physical DualShock 4 controls.
+        // form's base.WndProc. Gamepad activity is always observed; physical mouse movement
+        // can be scoped to the configured target process by the caller.
         public void ProcessWindowMessage(int message, IntPtr wParam, IntPtr lParam)
         {
-            if (sensor != null && sensor.ProcessWindowMessage(message, wParam, lParam)) NotifyActivity();
+            ProcessWindowMessage(message, wParam, lParam, true);
+        }
+
+        public void ProcessWindowMessage(int message, IntPtr wParam, IntPtr lParam, bool allowKeyboardMouseActivity)
+        {
+            if (sensor != null && sensor.ProcessWindowMessage(message, wParam, lParam, allowKeyboardMouseActivity)) NotifyActivity();
         }
 
         public void NotifyActivity()
@@ -205,6 +223,11 @@ namespace InputStitch
 
         public void Tick()
         {
+            Tick(true);
+        }
+
+        public void Tick(bool allowKeyboardMouseActivity)
+        {
             Exception report = null;
             lock (sync)
             {
@@ -212,7 +235,7 @@ namespace InputStitch
                 long now = clock();
                 if (scheduler.Enabled && !scheduler.Suspended && !scheduler.Faulted)
                 {
-                    if (sensor != null && sensor.Poll(now))
+                    if (sensor != null && sensor.Poll(now, allowKeyboardMouseActivity))
                     {
                         ReleaseLocked(now);
                         scheduler.NotifyActivity(now);
@@ -315,12 +338,24 @@ namespace InputStitch
         private readonly Label angleLabel;
         private readonly List<GamepadControl> controls = new List<GamepadControl>();
         private readonly TableLayoutPanel fields;
+        private readonly Label targetBox;
+        private readonly Button lockTargetButton;
+        private readonly Button clearTargetButton;
+        private readonly ToolTip targetToolTip = new ToolTip();
+        private readonly Func<TargetWindowIdentity> recentTargetProvider;
+        private string targetProcessName = "";
+        private string targetWindowTitle = "";
+        private string targetWindowClass = "";
 
         private static string T(string chinese, string english) { return Localizer.IsEnglish ? english : chinese; }
 
-        public IdleGamepadSettingsPanel(IdleGamepadOptions value)
+        public IdleGamepadSettingsPanel(IdleGamepadOptions value, Func<TargetWindowIdentity> recentTargetProvider = null)
         {
+            this.recentTargetProvider = recentTargetProvider;
             IdleGamepadOptions current = (value ?? new IdleGamepadOptions()).CloneNormalized();
+            targetProcessName = current.TargetProcessName;
+            targetWindowTitle = current.TargetWindowTitle;
+            targetWindowClass = current.TargetWindowClass;
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             Dock = DockStyle.Top;
@@ -377,10 +412,43 @@ namespace InputStitch
             fields.Controls.Add(analogRow, 0, 2);
             fields.SetColumnSpan(analogRow, 2);
             AddRow(fields, T("按住时间（毫秒）：", "Hold time (ms):"), holdBox, 3);
+
+            TableLayoutPanel targetEditor = new TableLayoutPanel();
+            targetEditor.AutoSize = true;
+            targetEditor.Dock = DockStyle.Top;
+            targetEditor.ColumnCount = 3;
+            targetEditor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            targetEditor.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            targetEditor.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            targetBox = new Label();
+            targetBox.AutoSize = false;
+            targetBox.AutoEllipsis = true;
+            targetBox.BorderStyle = BorderStyle.Fixed3D;
+            targetBox.BackColor = SystemColors.Window;
+            targetBox.TextAlign = ContentAlignment.MiddleLeft;
+            targetBox.Padding = new Padding(3, 0, 3, 0);
+            targetBox.Dock = DockStyle.Fill;
+            targetBox.MinimumSize = new Size(0, 23);
+            targetBox.Margin = new Padding(0, 3, 8, 8);
+            lockTargetButton = new Button();
+            lockTargetButton.AutoSize = true;
+            lockTargetButton.Text = T("锁定刚才的窗口", "Use recent window");
+            lockTargetButton.MinimumSize = lockTargetButton.GetPreferredSize(Size.Empty);
+            lockTargetButton.Margin = new Padding(0, 1, 6, 8);
+            lockTargetButton.Enabled = recentTargetProvider != null;
+            clearTargetButton = new Button();
+            clearTargetButton.AutoSize = true;
+            clearTargetButton.Text = T("清除", "Clear");
+            clearTargetButton.MinimumSize = clearTargetButton.GetPreferredSize(Size.Empty);
+            clearTargetButton.Margin = new Padding(0, 1, 0, 8);
+            targetEditor.Controls.Add(targetBox, 0, 0);
+            targetEditor.Controls.Add(lockTargetButton, 1, 0);
+            targetEditor.Controls.Add(clearTargetButton, 2, 0);
+            AddRow(fields, T("挂机目标：", "Idle target:"), targetEditor, 4);
             root.Controls.Add(fields, 0, 1);
             Label explanation = Label(T(
-                "键鼠或手柄操作、宏运行会重新计时；按住按键或摇杆也视为活动。紧急停止会暂停本功能，需在此重新启用。",
-                "Keyboard, mouse, gamepad activity and macros restart the timer. Held keys/sticks count as activity. Emergency Stop suspends this feature until you enable it again here."));
+                "设置挂机目标后，只有目标程序前台时的键鼠操作会重新计时；在其他程序中打字或移动鼠标不会影响目标程序的挂机计时。若挂机目标当前不存在，本功能暂停且不会发送手柄输入；目标重新出现后会从完整空闲时间重新计时。未设置挂机目标时按全局键鼠活动计时。真实手柄活动和宏运行仍会重新计时；紧急停止会暂停本功能，需在此重新启用。",
+                "With an idle target configured, keyboard/mouse activity restarts the timer only while that target is foreground; typing or moving the mouse in other apps does not affect the target's idle timer. If the idle target is not currently available, this feature pauses and sends no controller pulse; when the target returns, a full new idle interval begins. Without an idle target, keyboard/mouse activity remains global. Physical gamepad activity and macros still restart the timer. Emergency Stop suspends this feature until you enable it again here."));
             explanation.Dock = DockStyle.Top;
             explanation.Margin = new Padding(0, 12, 0, 6);
             explanation.ForeColor = Color.FromArgb(85, 96, 112);
@@ -401,12 +469,62 @@ namespace InputStitch
             Controls.Add(root);
             enabledBox.CheckedChanged += delegate { UpdateFields(); };
             controlBox.SelectedIndexChanged += delegate { UpdateFields(); };
+            lockTargetButton.Click += delegate { CaptureRecentTarget(); };
+            clearTargetButton.Click += delegate
+            {
+                targetProcessName = targetWindowTitle = targetWindowClass = "";
+                UpdateTargetText();
+            };
+            UpdateTargetText();
             UpdateFields();
+        }
+
+        private void CaptureRecentTarget()
+        {
+            TargetWindowIdentity info = recentTargetProvider == null ? null : recentTargetProvider();
+            if (info == null)
+            {
+                LocalizedMessageBox.Show(this,
+                    T("没有找到可锁定的最近外部窗口。请先切到目标程序，再切回此设置窗口后重试。",
+                      "No recent external window is available. Switch to the target program, return to Settings, then try again."),
+                    AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            targetProcessName = info.ProcessName ?? "";
+            targetWindowTitle = info.Title ?? "";
+            targetWindowClass = info.ClassName ?? "";
+            UpdateTargetText();
+        }
+
+        private void UpdateTargetText()
+        {
+            if (targetBox == null) return;
+            if (string.IsNullOrWhiteSpace(targetProcessName) && string.IsNullOrWhiteSpace(targetWindowTitle) && string.IsNullOrWhiteSpace(targetWindowClass))
+            {
+                string empty = T("未设置（按全局键鼠活动计时）", "Not set (global keyboard/mouse activity)");
+                targetBox.Text = empty;
+                targetToolTip.SetToolTip(targetBox, empty);
+                return;
+            }
+            string title = string.IsNullOrWhiteSpace(targetWindowTitle) ? T("（无窗口标题）", "(no window title)") : targetWindowTitle;
+            string display = string.IsNullOrWhiteSpace(targetProcessName) ? title : title + "  [" + targetProcessName + "]";
+            targetBox.Text = display;
+            targetToolTip.SetToolTip(targetBox, display);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) targetToolTip.Dispose();
+            base.Dispose(disposing);
         }
 
         private void UpdateFields()
         {
-            fields.Enabled = enabledBox.Checked;
+            bool enabled = enabledBox.Checked;
+            secondsBox.Enabled = enabled;
+            holdBox.Enabled = enabled;
+            controlBox.Enabled = enabled;
+            analogRow.Enabled = enabled;
             GamepadControl control = controls[Math.Max(0, controlBox.SelectedIndex)];
             bool stick = control == GamepadControl.LeftStick || control == GamepadControl.RightStick;
             bool trigger = control == GamepadControl.LeftTrigger || control == GamepadControl.RightTrigger;
@@ -423,6 +541,10 @@ namespace InputStitch
             value.Pulse.GamepadControl = controls[Math.Max(0, controlBox.SelectedIndex)];
             GamepadVector.ToCartesian((int)angleBox.Value, (int)strengthBox.Value, out value.Pulse.GamepadX, out value.Pulse.GamepadY);
             value.Pulse.GamepadValue = (int)strengthBox.Value;
+            value.TargetProcessName = targetProcessName;
+            value.TargetWindowTitle = targetWindowTitle;
+            value.TargetWindowClass = targetWindowClass;
+            value.TargetScopeInitialized = true;
             return value.CloneNormalized();
         }
 
@@ -443,6 +565,10 @@ namespace InputStitch
             angleBox.Value = angle;
             bool trigger = current.Pulse.GamepadControl == GamepadControl.LeftTrigger || current.Pulse.GamepadControl == GamepadControl.RightTrigger;
             strengthBox.Value = Math.Max(1, trigger ? current.Pulse.GamepadValue : strength);
+            targetProcessName = current.TargetProcessName;
+            targetWindowTitle = current.TargetWindowTitle;
+            targetWindowClass = current.TargetWindowClass;
+            UpdateTargetText();
             UpdateFields();
         }
 
@@ -480,8 +606,6 @@ namespace InputStitch
         private readonly Dictionary<IntPtr, Ds4State> ds4States = new Dictionary<IntPtr, Ds4State>();
         private readonly bool[] xboxConnected = new bool[4];
         private readonly ulong[] xboxSignatures = new ulong[4];
-        private bool haveLastInput;
-        private uint lastInput;
         private long nextPoll;
         private int xinputLibrary;
         private bool rawRegistered;
@@ -503,33 +627,29 @@ namespace InputStitch
 
         public void Reset()
         {
-            LASTINPUTINFO info = new LASTINPUTINFO();
-            info.cbSize = (uint)Marshal.SizeOf(typeof(LASTINPUTINFO));
-            haveLastInput = GetLastInputInfo(ref info);
-            lastInput = info.dwTime;
             nextPoll = 0;
             Array.Clear(xboxConnected, 0, xboxConnected.Length);
             Array.Clear(xboxSignatures, 0, xboxSignatures.Length);
         }
 
-        public bool Poll(long now)
+        public bool Poll(long now, bool allowKeyboardMouseActivity)
         {
             if (now < nextPoll) return false;
             nextPoll = now + 200;
             bool active = false;
-            LASTINPUTINFO info = new LASTINPUTINFO();
-            info.cbSize = (uint)Marshal.SizeOf(typeof(LASTINPUTINFO));
-            if (GetLastInputInfo(ref info))
+            // Keyboard and mouse button/wheel edges are reported by HookManager in production.
+            // Physical mouse movement is observed through Raw Input in ProcessWindowMessage so
+            // application-driven cursor warps/recentering (common in games) do not reset idle time.
+            // When a target process is configured, keyboard/mouse activity in other applications
+            // is intentionally ignored while physical gamepad activity remains global.
+            if (allowKeyboardMouseActivity)
             {
-                active = haveLastInput && lastInput != info.dwTime;
-                lastInput = info.dwTime;
-                haveLastInput = true;
-            }
-            // A held key can stop producing repeated events (mouse buttons and
-            // modifiers, for example), but must never be considered inactivity.
-            for (int key = 1; key < 255; key++)
-            {
-                if ((GetAsyncKeyState(key) & 0x8000) != 0) { active = true; break; }
+                // A held key can stop producing repeated events (mouse buttons and modifiers,
+                // for example), but must never be considered inactivity while the target is active.
+                for (int key = 1; key < 255; key++)
+                {
+                    if ((GetAsyncKeyState(key) & 0x8000) != 0) { active = true; break; }
+                }
             }
             int excluded = -1;
             if (ownXboxSlot != null)
@@ -607,15 +727,16 @@ namespace InputStitch
 
         private static RAWINPUTDEVICE[] NewRegistrations(uint flags, IntPtr handle)
         {
-            RAWINPUTDEVICE[] values = new RAWINPUTDEVICE[2];
-            values[0].UsagePage = values[1].UsagePage = 1;
-            values[0].Usage = 4; values[1].Usage = 5; // Joystick, gamepad
-            values[0].Flags = values[1].Flags = flags;
-            values[0].Target = values[1].Target = handle;
+            RAWINPUTDEVICE[] values = new RAWINPUTDEVICE[3];
+            values[0].UsagePage = values[1].UsagePage = values[2].UsagePage = 1;
+            values[0].Usage = 2; // Mouse: physical movement only; cursor warps do not create Raw Input.
+            values[1].Usage = 4; values[2].Usage = 5; // Joystick, gamepad
+            values[0].Flags = values[1].Flags = values[2].Flags = flags;
+            values[0].Target = values[1].Target = values[2].Target = handle;
             return values;
         }
 
-        public bool ProcessWindowMessage(int message, IntPtr wParam, IntPtr lParam)
+        public bool ProcessWindowMessage(int message, IntPtr wParam, IntPtr lParam, bool allowKeyboardMouseActivity)
         {
             if (!rawRegistered) return false;
             if (message == 0x00FE)
@@ -636,6 +757,7 @@ namespace InputStitch
                 uint copied = GetRawInputData(lParam, 0x10000003, buffer, ref size, headerSize);
                 if (copied != size) return false;
                 RAWINPUTHEADER header = (RAWINPUTHEADER)Marshal.PtrToStructure(buffer, typeof(RAWINPUTHEADER));
+                if (RawInputTypeCountsAsPhysicalMouse(header.Type)) return allowKeyboardMouseActivity;
                 if (header.Type != 2) return false;
                 Ds4State state;
                 if (!ds4States.TryGetValue(header.Device, out state))
@@ -664,6 +786,11 @@ namespace InputStitch
                 return activity;
             }
             finally { Marshal.FreeHGlobal(buffer); }
+        }
+
+        internal static bool RawInputTypeCountsAsPhysicalMouse(uint type)
+        {
+            return type == 0; // RIM_TYPEMOUSE
         }
 
         internal static bool TryDs4Signature(byte[] report, out ulong signature, out bool active)
@@ -739,8 +866,6 @@ namespace InputStitch
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
-        [StructLayout(LayoutKind.Sequential)]
         internal struct XINPUT_GAMEPAD
         {
             public ushort Buttons;
@@ -762,7 +887,6 @@ namespace InputStitch
             [FieldOffset(8)] public uint VendorId;
             [FieldOffset(12)] public uint ProductId;
         }
-        [DllImport("user32.dll")] private static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
         [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")] private static extern uint XInputGetState14(uint index, out XINPUT_STATE state);
         [DllImport("xinput1_3.dll", EntryPoint = "XInputGetState")] private static extern uint XInputGetState13(uint index, out XINPUT_STATE state);

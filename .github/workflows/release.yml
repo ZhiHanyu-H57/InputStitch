@@ -1,15 +1,19 @@
-name: Verify Windows builds and publish opt-in Beta
+name: Verify Windows builds and publish releases
 
 on:
   push:
     branches: [main]
-    tags: ['v*-beta.*']
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       publish_beta:
         description: Publish a new Beta (never overwrite an existing release)
+        type: boolean
+        default: false
+      publish_stable:
+        description: Publish a reviewed Stable release and make it latest
         type: boolean
         default: false
 
@@ -68,3 +72,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/Publish-Beta.ps1
+
+  publish-stable:
+    needs: verify
+    if: >-
+      needs.verify.outputs.prerelease == 'false' &&
+      ( (github.event_name == 'workflow_dispatch' && inputs.publish_stable) ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[publish-stable]')) )
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: InputStitch-${{ needs.verify.outputs.version }}
+          path: dist
+      - name: Publish reviewed Stable release and make it latest
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/Publish-Stable.ps1

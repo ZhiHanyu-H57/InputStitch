@@ -333,9 +333,9 @@ namespace InputStitch
             { "请先停止正在执行的宏。", "Please stop the running macro first." },
             { "这个宏还没有任何执行步骤。", "This macro has no steps yet." },
             { "当前宏未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", "The current macro did not stop in time. This operation was cancelled to avoid configuration and worker state inconsistency." },
-            { "提示：按住运行模式仅支持不含 Ctrl/Shift/Alt/Win 的单个键盘键或鼠标按钮；请重新录制触发键。", "Hold-to-run supports only a single keyboard key or mouse button without Ctrl/Shift/Alt/Win. Please capture the trigger again." },
-            { "提示：按住运行模式不支持修饰键组合或滚轮，请改用单个键盘键/鼠标按钮。", "Hold-to-run does not support modifier combinations or wheel triggers. Use a single keyboard key or mouse button." },
-            { "无法启动：按住运行模式仅支持不含 Ctrl/Shift/Alt/Win 的单个键盘键或鼠标按钮。", "Cannot start: hold-to-run supports only a single keyboard key or mouse button without Ctrl/Shift/Alt/Win." },
+            { "提示：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮；不支持修饰键组合或滚轮，请重新录制触发键。", "Hold-to-run supports one keyboard key (including standalone Ctrl/Shift/Alt/Win) or mouse button; modifier chords and wheel triggers are not supported. Please capture the trigger again." },
+            { "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。", "Hold-to-run does not support modifier chords or wheel triggers; standalone Ctrl/Shift/Alt/Win are valid triggers." },
+            { "无法启动：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮，但不支持修饰键组合或滚轮。", "Cannot start: hold-to-run supports one keyboard key (including standalone Ctrl/Shift/Alt/Win) or mouse button, but not modifier chords or wheel triggers." },
             { "提示：单步编辑一次只能选择一个步骤；批量修改间隔请使用“批量间隔”。", "Single-step editing requires exactly one selected step. Use Batch Delay to modify multiple delays." },
 
             { "载入方案会停止当前宏，并用所选方案替换当前宏列表和大部分程序设置。\r\n\r\n紧急停止键、自动方案切换和托盘设置保持不变；当前配置会先自动备份。是否继续？", "Loading a profile stops the current macro and replaces the current macro list and most app settings.\r\n\r\nEmergency Stop, automatic profile switching, and tray settings are preserved. The current configuration is backed up first. Continue?" },
@@ -1170,6 +1170,9 @@ namespace InputStitch
         public string GamepadDeviceType = VirtualGamepadTypes.Xbox360;
         public IdleGamepadOptions IdleGamepad = new IdleGamepadOptions();
         public bool HasSeenWelcome = false;
+        // Empty on configurations created by older versions. Existing users then see the
+        // current release summary once; fresh installs mark it seen together with Welcome.
+        public string LastShownReleaseSummaryVersion = "";
 
         private static TriggerSpec CreateDefaultPanicTrigger()
         {
@@ -1674,7 +1677,6 @@ namespace InputStitch
                 MSLLHOOKSTRUCT data = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
                 if ((data.flags & LLMHF_INJECTED) == 0)
                 {
-                    Interlocked.Increment(ref physicalEventCount);
                     InputKind? kind = null;
                     bool isButtonUp = false;
                     int msg = wParam.ToInt32();
@@ -1698,6 +1700,7 @@ namespace InputStitch
 
                     if (kind.HasValue)
                     {
+                        Interlocked.Increment(ref physicalEventCount);
                         if (isButtonUp)
                         {
                             if (OnTerminalInputReleased != null)
@@ -4074,7 +4077,7 @@ namespace InputStitch
             }
         }
 
-        public SettingsDialog(MacroConfig config)
+        public SettingsDialog(MacroConfig config, Func<TargetWindowIdentity> recentIdleTargetProvider = null)
         {
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -4297,7 +4300,7 @@ namespace InputStitch
             };
             updatesLayout.Controls.Add(checkNow);
 
-            idleSettings = new IdleGamepadSettingsPanel(config.IdleGamepad ?? new IdleGamepadOptions());
+            idleSettings = new IdleGamepadSettingsPanel(config.IdleGamepad ?? new IdleGamepadOptions(), recentIdleTargetProvider);
             GroupBox idleGroup = MakeGroup(Localizer.IsEnglish ? "Idle gamepad input" : "闲置自动手柄输入");
             idleGroup.Controls.Add(idleSettings);
             TabControl tabs = new TabControl();
@@ -4435,6 +4438,13 @@ namespace InputStitch
         private string profilesDir;
         private HookManager hooks;
         private string startupWarning = "";
+        private readonly ConfigStore configStore = new ConfigStore();
+        private readonly StepHistory stepHistory = new StepHistory();
+        private Button undoStepsButton;
+        private Button redoStepsButton;
+        private LinkLabel saveWarning;
+        private string saveFailure = "";
+        private readonly bool isolatedUiHost;
         private bool updateCheckBusy;
 
         private ListBox macroList;
@@ -4503,12 +4513,15 @@ namespace InputStitch
         private DateTime lastInputStateRepairLogUtc = DateTime.MinValue;
         private int dangerousShortcutAvoidanceCount;
         private IntPtr targetWindowHandle = IntPtr.Zero;
+        private IntPtr idleTargetWindowHandle = IntPtr.Zero;
         private int targetResolveTicks = 0;
+        private int idleTargetResolveTicks = 0;
         private string activeProfilePath = "";
         private string lastAutoProfileProcess = "";
         private bool autoProfileSwitchBusy;
         private IdleGamepadService idleGamepad;
         private long lastIdleHookEventCount;
+        private bool idleKeyboardMouseActivityInScope = true;
 
         // Macro recorder. It records physical keyboard/mouse button/wheel events only while an
         // external application owns foreground focus; InputStitch UI clicks are intentionally ignored.
@@ -4524,6 +4537,8 @@ namespace InputStitch
         private ManualResetEventSlim stopEvent;
         private MacroDefinition runningMacro;
         private volatile MacroDefinition holdControlledMacro;
+        private MacroDefinition holdReleaseProbeMacro;
+        private long holdReleaseProbeSince;
         private readonly RuntimeTrace runtimeTrace = new RuntimeTrace();
         private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
@@ -4535,7 +4550,10 @@ namespace InputStitch
         private volatile string activeHeldText = "无";
         private readonly Dictionary<string, InputSpec> activeHeldInputs = new Dictionary<string, InputSpec>();
 
-        public MainForm()
+        public MainForm() : this(null, null) { }
+
+        // Isolated UI test host: no hooks, timers, tray, user config or output device setup.
+        internal MainForm(MacroConfig isolatedConfig, string isolatedDirectory)
         {
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -4552,6 +4570,20 @@ namespace InputStitch
             }
             catch { }
 
+            if (isolatedConfig != null)
+            {
+                isolatedUiHost = true;
+                config = isolatedConfig;
+                appDir = isolatedDirectory;
+                configPath = Path.Combine(appDir, "config.xml");
+                packagesDir = Path.Combine(appDir, "macro-packages");
+                profilesDir = Path.Combine(appDir, "profiles");
+                Localizer.SetLanguage(config.Language);
+                BuildUi();
+                RefreshMacroList(0);
+                return;
+            }
+
             AppPaths.EnsureDirectories();
             UpdateManager.CleanupDownloads();
             appDir = AppPaths.Root;
@@ -4567,12 +4599,14 @@ namespace InputStitch
             BuildUi();
             BuildTrayIcon();
             ResolveTargetWindowFromConfig();
+            ResolveIdleTargetWindowFromConfig();
             RefreshTargetWindowUi();
             RefreshMacroList(0);
             InputSender.UseScanCodeInput = config.UseScanCodeInput;
 
             IntPtr initialForeground = NativeWindowFocus.ForegroundWindow();
             lastObservedForeground = initialForeground;
+            idleKeyboardMouseActivityInScope = IsIdleKeyboardMouseActivityInScope(initialForeground);
             RememberExternalForeground(initialForeground);
 
             foregroundTimer = new System.Windows.Forms.Timer();
@@ -4618,6 +4652,15 @@ namespace InputStitch
                         Localizer.T("宏录制只记录键盘、鼠标按钮和滚轮，不记录鼠标移动。"),
                         AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                     config.HasSeenWelcome = true;
+                    config.LastShownReleaseSummaryVersion = AppInfo.Version;
+                    SaveConfig();
+                }
+                else if (ShouldShowReleaseSummary(config))
+                {
+                    LocalizedMessageBox.Show(this, BuildReleaseSummaryText(),
+                        Localizer.IsEnglish ? "What's new" : "版本更新",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    config.LastShownReleaseSummaryVersion = AppInfo.Version;
                     SaveConfig();
                 }
                 if (!string.IsNullOrWhiteSpace(startupWarning))
@@ -4632,9 +4675,23 @@ namespace InputStitch
             };
         }
 
+        private static bool ShouldShowReleaseSummary(MacroConfig value)
+        {
+            return value != null && value.HasSeenWelcome &&
+                !string.Equals(value.LastShownReleaseSummaryVersion ?? "", AppInfo.Version, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildReleaseSummaryText()
+        {
+            string summary = Localizer.IsEnglish ? ReleaseInfo.ReleaseSummaryEn : ReleaseInfo.ReleaseSummaryZh;
+            return (Localizer.IsEnglish ? "InputStitch has been updated to " : "InputStitch 已更新到 ") +
+                AppInfo.Version + ".\r\n\r\n" + summary + "\r\n\r\n" +
+                (Localizer.IsEnglish ? "See GitHub Releases for the full notes." : "完整更新说明请查看 GitHub Releases。");
+        }
+
         protected override void WndProc(ref Message m)
         {
-            if (idleGamepad != null) idleGamepad.ProcessWindowMessage(m.Msg, m.WParam, m.LParam);
+            if (idleGamepad != null) idleGamepad.ProcessWindowMessage(m.Msg, m.WParam, m.LParam, idleKeyboardMouseActivityInScope);
             base.WndProc(ref m);
         }
 
@@ -4743,7 +4800,19 @@ namespace InputStitch
             Button downMacro = MakeButton("↓", 0, 0, 0);
             foreach (Button b in new Button[] { addMacro, copyMacro, delMacro }) { b.AutoSize = true; b.MinimumSize = new Size(54, 32); }
             upMacro.Size = downMacro.Size = new Size(34, 32);
-            addMacro.Click += AddMacro_Click;
+            addMacro.Click += delegate
+            {
+                ContextMenuStrip menu = new ContextMenuStrip();
+                foreach (QuickTemplate kind in Enum.GetValues(typeof(QuickTemplate)))
+                {
+                    QuickTemplate selected = kind;
+                    menu.Items.Add(QuickCreateDialog.Title(kind), null, delegate { QuickCreateMacro(selected); });
+                }
+                menu.Items.Add(new ToolStripSeparator());
+                menu.Items.Add(VirtualKeyboardDialog.TextFor("空白宏（高级）", "Blank macro (advanced)"), null, AddMacro_Click);
+                menu.Closed += delegate { BeginInvoke((MethodInvoker)delegate { menu.Dispose(); }); };
+                menu.Show(addMacro, new Point(0, addMacro.Height));
+            };
             copyMacro.Click += CopyMacro_Click;
             delMacro.Click += DeleteMacro_Click;
             upMacro.Click += delegate { MoveSelectedMacro(-1); };
@@ -4773,7 +4842,7 @@ namespace InputStitch
             EventHandler resizeRightContent = delegate
             {
                 int width = Math.Max(560, rightHost.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
-                int height = Math.Max(650, rightHost.ClientSize.Height);
+                int height = Math.Max(0, rightHost.ClientSize.Height);
                 rightRoot.MinimumSize = new Size(width, height);
             };
             rightHost.Resize += resizeRightContent;
@@ -4942,7 +5011,8 @@ namespace InputStitch
             stepsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+            // Leave room for the horizontal scrollbar as well as a full-height button.
+            stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
             stepsGroup.Controls.Add(stepsLayout);
             TableLayoutPanel stepsHeader = new TableLayoutPanel();
             stepsHeader.Dock = DockStyle.Fill;
@@ -4993,7 +5063,18 @@ namespace InputStitch
             primaryActions.Controls.Add(recordButton);
             stepsHeader.Controls.Add(primaryActions, 1, 0);
             stepsLayout.Controls.Add(stepsHeader, 0, 0);
-
+            FlowLayoutPanel historyButtons = new FlowLayoutPanel();
+            historyButtons.AutoSize = true;
+            historyButtons.WrapContents = false;
+            undoStepsButton = MakeButton("撤销", 0, 0, 68);
+            redoStepsButton = MakeButton("重做", 0, 0, 68);
+            undoStepsButton.AutoSize = redoStepsButton.AutoSize = true;
+            undoStepsButton.Click += delegate { RestoreSteps(false); };
+            redoStepsButton.Click += delegate { RestoreSteps(true); };
+            historyButtons.Controls.AddRange(new Control[] { undoStepsButton, redoStepsButton });
+            stepsHeader.Controls.Add(historyButtons, 0, 0);
+            RegisterUiSafetyControl(undoStepsButton, "编辑步骤");
+            RegisterUiSafetyControl(redoStepsButton, "编辑步骤");
             grid = new DataGridView();
             grid.Dock = DockStyle.Fill;
             grid.MinimumSize = new Size(0, 130);
@@ -5026,6 +5107,15 @@ namespace InputStitch
             grid.Columns[4].Width = 150;
             grid.Columns[4].MinimumWidth = 130;
             grid.CellDoubleClick += delegate { EditSelectedStep(); };
+            grid.KeyDown += delegate(object sender, KeyEventArgs e)
+            {
+                if (e.Control && (e.KeyCode == Keys.Z || e.KeyCode == Keys.Y))
+                {
+                    RestoreSteps(e.KeyCode == Keys.Y || e.Shift);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
             stepsLayout.Controls.Add(grid, 0, 1);
 
             FlowLayoutPanel stepFooter = new FlowLayoutPanel();
@@ -5062,8 +5152,8 @@ namespace InputStitch
             SetTip(loadProfileButton, "载入一套完整配置方案。方案会替换当前宏列表和相关设置，载入前自动备份。" );
             SetTip(saveProfileButton, "把当前宏列表和程序设置保存为一套方案；可选择绑定目标进程以供自动切换。" );
             SetTip(toolsButton, "打开安全、诊断、托盘和关于选项。" );
-            SetTip(upMacro, "将当前宏在列表中上移一位。" );
-            SetTip(downMacro, "将当前宏在列表中下移一位。" );
+            SetTip(upMacro, "将当前宏在列表中上移一位；多个已启用宏共用触发键时，列表靠上的宏优先触发。" );
+            SetTip(downMacro, "将当前宏在列表中下移一位；多个已启用宏共用触发键时，列表靠上的宏优先触发。" );
 
             SetTip(enabledBox, "控制这个宏是否响应全局触发键。关闭后仍可用 UI 按钮执行。" );
             SetTip(descriptionBox, "给宏添加简短用途说明。备注会随宏包一起导出。" );
@@ -5153,6 +5243,21 @@ namespace InputStitch
             panicHintLabel.TextAlign = ContentAlignment.MiddleLeft;
             panicHintLabel.ForeColor = SystemColors.GrayText;
             statusLayout.Controls.Add(panicHintLabel, 0, 1);
+            saveWarning = new LinkLabel();
+            saveWarning.Dock = DockStyle.Top;
+            saveWarning.Height = 34;
+            saveWarning.Padding = new Padding(14, 4, 14, 4);
+            saveWarning.BackColor = Color.MistyRose;
+            saveWarning.LinkColor = Color.Firebrick;
+            saveWarning.AutoEllipsis = true;
+            saveWarning.Visible = false;
+            saveWarning.LinkClicked += delegate
+            {
+                if (!SaveConfig()) MessageBox.Show(this, saveFailure + "\r\n\r\n" + configPath,
+                    VirtualKeyboardDialog.TextFor("未保存", "Not saved"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
+            Controls.Add(saveWarning);
+            saveWarning.SendToBack();
             RegisterSafeBackgroundClicks(this, safeBackgroundClick);
             RefreshPanicUi();
             UpdateTargetSectionVisibility();
@@ -5420,7 +5525,7 @@ namespace InputStitch
             UpdateUiSafetyPauseState();
             try
             {
-                using (SettingsDialog dialog = new SettingsDialog(config))
+                using (SettingsDialog dialog = new SettingsDialog(config, GetRecentIdleTargetCandidate))
                 {
                     dialog.CheckForUpdatesRequested += delegate { CheckForUpdatesAsync(dialog, false); };
                     if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -5444,6 +5549,9 @@ namespace InputStitch
                     config.UpdateMode = dialog.SelectedUpdateMode;
                     config.GamepadDeviceType = dialog.SelectedGamepadType;
                     config.IdleGamepad = dialog.SelectedIdleOptions;
+                    idleTargetWindowHandle = IntPtr.Zero;
+                    ResolveIdleTargetWindowFromConfig();
+                    idleKeyboardMouseActivityInScope = IsIdleKeyboardMouseActivityInScope(NativeWindowFocus.ForegroundWindow());
                     InputSender.UseScanCodeInput = config.UseScanCodeInput;
                     GamepadOutput.Configure(config.GamepadDeviceType);
                     if (idleGamepad != null) idleGamepad.Configure(config.IdleGamepad, true);
@@ -5544,6 +5652,13 @@ namespace InputStitch
             // Assign unconditionally: before the form is shown, Control.Visible reports false
             // when an ancestor is hidden even if the control's own visibility flag is still true.
             targetGroup.Visible = shouldShow;
+            TableLayoutPanel parent = targetGroup.Parent as TableLayoutPanel;
+            if (parent != null)
+            {
+                int row = parent.GetRow(targetGroup);
+                parent.RowStyles[row].SizeType = shouldShow ? SizeType.AutoSize : SizeType.Absolute;
+                parent.RowStyles[row].Height = 0;
+            }
         }
 
         private void BuildTrayIcon()
@@ -6000,23 +6115,84 @@ namespace InputStitch
             }
         }
 
+        private bool UpdateHeldReleaseProbe(MacroDefinition macro, bool released, long now)
+        {
+            if (macro == null || !released)
+            {
+                holdReleaseProbeMacro = null;
+                holdReleaseProbeSince = 0;
+                return false;
+            }
+
+            if (holdReleaseProbeMacro != macro || holdReleaseProbeSince == 0)
+            {
+                holdReleaseProbeMacro = macro;
+                holdReleaseProbeSince = now;
+                return false;
+            }
+
+            long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
+            if (now - holdReleaseProbeSince < requiredTicks) return false;
+
+            holdReleaseProbeMacro = null;
+            holdReleaseProbeSince = 0;
+            return true;
+        }
+
+        private void ReconcileHeldTriggerRelease()
+        {
+            MacroDefinition macro = holdControlledMacro;
+            if (macro == null || macro.Trigger == null || macro.RunMode != TriggerRunMode.Hold || runningMacro != macro)
+            {
+                UpdateHeldReleaseProbe(null, false, 0);
+                return;
+            }
+
+            bool released = PhysicalInputState.IsTriggerTerminalReleased(macro.Trigger);
+            if (!UpdateHeldReleaseProbe(macro, released, Stopwatch.GetTimestamp())) return;
+
+            runtimeTrace.Add("hold-release-fallback", "physical release detected without terminal KeyUp/MouseUp callback");
+            StopCurrentMacro();
+        }
+
         private void ForegroundTimer_Tick(object sender, EventArgs e)
         {
             ReconcileHookState("foreground-timer");
+            ReconcileHeldTriggerRelease();
             UpdateUiSafetyPauseState();
+
+            IntPtr hwnd = NativeWindowFocus.ForegroundWindow();
+            bool previousIdleScope = idleKeyboardMouseActivityInScope;
+            bool currentIdleScope = IsIdleKeyboardMouseActivityInScope(hwnd);
+            idleKeyboardMouseActivityInScope = currentIdleScope;
+
             if (idleGamepad != null)
             {
+                bool hasIdleTarget = HasConfiguredIdleTarget();
+                bool idleTargetAvailable = !hasIdleTarget || NativeWindowFocus.IsUsableExternalWindow(idleTargetWindowHandle);
+                bool idleTargetMissing = ShouldPauseIdleForMissingTarget(hasIdleTarget, idleTargetAvailable);
                 long eventCount = hooks == null ? 0 : hooks.PhysicalEventCount;
-                if (eventCount != lastIdleHookEventCount)
+                bool physicalKeyboardMouseEdge = eventCount != lastIdleHookEventCount;
+                // Consume the global hook counter even while another application is foreground,
+                // so typing there cannot be replayed later as target activity when focus returns.
+                lastIdleHookEventCount = eventCount;
+
+                if (HasConfiguredIdleTarget() && previousIdleScope && !currentIdleScope)
                 {
-                    lastIdleHookEventCount = eventCount;
+                    // Leaving the target starts a fresh idle interval. This prevents an almost-expired
+                    // in-game timer from firing immediately after Alt+Tab into another application.
                     idleGamepad.NotifyActivity();
                 }
-                idleGamepad.SetBusy(HasLiveWorker() || recordingActive || captureMode != CaptureMode.None ||
+                else if (physicalKeyboardMouseEdge && currentIdleScope)
+                {
+                    idleGamepad.NotifyActivity();
+                }
+
+                idleGamepad.SetBusy(idleTargetMissing || HasLiveWorker() || recordingActive || captureMode != CaptureMode.None ||
                     uiSafetyModalDepth > 0 || manualTriggerSuspend || updateCheckBusy);
-                idleGamepad.Tick();
+                idleGamepad.Tick(currentIdleScope);
             }
-            IntPtr hwnd = NativeWindowFocus.ForegroundWindow();
+
             if (hwnd != lastObservedForeground)
             {
                 lastObservedForeground = hwnd;
@@ -6056,6 +6232,23 @@ namespace InputStitch
             else
             {
                 targetResolveTicks = 0;
+            }
+
+            // Idle-gamepad target resolution is independent from the main UI/profile target.
+            if (idleTargetWindowHandle != IntPtr.Zero && !NativeWindowFocus.IsUsableExternalWindow(idleTargetWindowHandle))
+                idleTargetWindowHandle = IntPtr.Zero;
+            if (idleTargetWindowHandle == IntPtr.Zero && HasConfiguredIdleTarget())
+            {
+                idleTargetResolveTicks++;
+                if (idleTargetResolveTicks >= 20)
+                {
+                    idleTargetResolveTicks = 0;
+                    ResolveIdleTargetWindowFromConfig();
+                }
+            }
+            else
+            {
+                idleTargetResolveTicks = 0;
             }
         }
 
@@ -6106,6 +6299,13 @@ namespace InputStitch
             return IntPtr.Zero;
         }
 
+        private TargetWindowIdentity GetRecentIdleTargetCandidate()
+        {
+            int skippedInvalid;
+            IntPtr hwnd = GetRecentLockableForeground(out skippedInvalid);
+            return hwnd == IntPtr.Zero ? null : NativeWindowFocus.Describe(hwnd);
+        }
+
         private void LockTargetButton_Click(object sender, EventArgs e)
         {
             int skippedInvalid;
@@ -6150,6 +6350,52 @@ namespace InputStitch
             return !string.IsNullOrWhiteSpace(config.TargetProcessName)
                 || !string.IsNullOrWhiteSpace(config.TargetWindowTitle)
                 || !string.IsNullOrWhiteSpace(config.TargetWindowClass);
+        }
+
+        private static bool IdleKeyboardMouseScopeMatches(bool hasConfiguredTarget, string targetProcessName, string foregroundProcessName, bool exactTargetWindow)
+        {
+            if (!hasConfiguredTarget) return true;
+            if (exactTargetWindow) return true;
+            if (string.IsNullOrWhiteSpace(targetProcessName)) return false;
+            return string.Equals(targetProcessName.Trim(), (foregroundProcessName ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ShouldPauseIdleForMissingTarget(bool hasConfiguredIdleTarget, bool resolvedTargetAvailable)
+        {
+            return hasConfiguredIdleTarget && !resolvedTargetAvailable;
+        }
+
+        private bool HasConfiguredIdleTarget()
+        {
+            IdleGamepadOptions idle = config == null ? null : config.IdleGamepad;
+            return idle != null && (!string.IsNullOrWhiteSpace(idle.TargetProcessName)
+                || !string.IsNullOrWhiteSpace(idle.TargetWindowTitle)
+                || !string.IsNullOrWhiteSpace(idle.TargetWindowClass));
+        }
+
+        private bool IsIdleKeyboardMouseActivityInScope(IntPtr foreground)
+        {
+            IdleGamepadOptions idle = config == null ? null : config.IdleGamepad;
+            bool hasTarget = idle != null && HasConfiguredIdleTarget();
+            bool exactTarget = foreground != IntPtr.Zero && idleTargetWindowHandle != IntPtr.Zero && foreground == idleTargetWindowHandle;
+            string foregroundProcess = "";
+            if (hasTarget && !exactTarget && !string.IsNullOrWhiteSpace(idle.TargetProcessName) && NativeWindowFocus.IsUsableExternalWindow(foreground))
+            {
+                TargetWindowIdentity info = NativeWindowFocus.Describe(foreground);
+                if (info != null) foregroundProcess = info.ProcessName ?? "";
+            }
+            return IdleKeyboardMouseScopeMatches(hasTarget, idle == null ? "" : idle.TargetProcessName, foregroundProcess, exactTarget);
+        }
+
+        private void ResolveIdleTargetWindowFromConfig()
+        {
+            if (NativeWindowFocus.IsUsableExternalWindow(idleTargetWindowHandle)) return;
+            idleTargetWindowHandle = IntPtr.Zero;
+            if (config == null || config.IdleGamepad == null || !HasConfiguredIdleTarget()) return;
+            idleTargetWindowHandle = NativeWindowFocus.ResolveConfiguredTarget(
+                config.IdleGamepad.TargetProcessName,
+                config.IdleGamepad.TargetWindowTitle,
+                config.IdleGamepad.TargetWindowClass);
         }
 
         private void ResolveTargetWindowFromConfig()
@@ -6258,22 +6504,32 @@ namespace InputStitch
             }
         }
 
-        private void SaveConfig()
+        private bool SaveConfig()
         {
             try
             {
                 config.FormatVersion = AppInfo.ConfigFormatVersion;
-                Directory.CreateDirectory(appDir);
-                XmlSerializer xs = new XmlSerializer(typeof(MacroConfig));
-                string temp = configPath + ".tmp";
-                using (FileStream fs = File.Create(temp)) xs.Serialize(fs, config);
-                if (File.Exists(configPath)) File.Delete(configPath);
-                File.Move(temp, configPath);
+                configStore.Save(configPath, config);
+                saveFailure = "";
+                RefreshSaveWarning();
+                return true;
             }
             catch (Exception ex)
             {
-                AppLog.Write("Config save failed", ex);
+                if (!isolatedUiHost) AppLog.Write("Config save failed", ex);
+                saveFailure = ex.Message;
+                RefreshSaveWarning();
+                return false;
             }
+        }
+
+        private void RefreshSaveWarning()
+        {
+            if (saveWarning == null) return;
+            saveWarning.Text = VirtualKeyboardDialog.TextFor(
+                "未保存：修改仅保留在内存中。点击重试保存 / 查看错误。",
+                "NOT SAVED: changes are only in memory. Click to retry / view error.");
+            saveWarning.Visible = saveFailure.Length != 0;
         }
 
         private void RefreshMacroList(int selectedIndex)
@@ -6365,6 +6621,15 @@ namespace InputStitch
             UpdateTriggerSuppressionUi();
             grid.Rows.Clear();
             MacroDefinition m = SelectedMacro;
+            stepHistory.Observe(m);
+            if (undoStepsButton != null)
+            {
+                undoStepsButton.Enabled = stepHistory.CanUndo && !recordingActive;
+                redoStepsButton.Enabled = stepHistory.CanRedo && !recordingActive;
+                undoStepsButton.Text = VirtualKeyboardDialog.TextFor("撤销", "Undo");
+                redoStepsButton.Text = VirtualKeyboardDialog.TextFor("重做", "Redo");
+            }
+            RefreshSaveWarning();
             if (m == null || m.Steps == null) return;
             int i = 1;
             foreach (MacroStep step in m.Steps)
@@ -6456,7 +6721,7 @@ namespace InputStitch
 
             if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
             {
-                statusLabel.Text = "提示：按住运行模式仅支持不含 Ctrl/Shift/Alt/Win 的单个键盘键或鼠标按钮；请重新录制触发键。";
+                statusLabel.Text = "提示：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮；不支持修饰键组合或滚轮，请重新录制触发键。";
             }
         }
 
@@ -6478,12 +6743,12 @@ namespace InputStitch
             try
             {
                 suppressBox.Enabled = macro != null && !preserve;
-                suppressBox.Checked = ModifierSafetyPolicy.ShouldSuppressTrigger(macro);
+                suppressBox.Checked = preserve || ModifierSafetyPolicy.ShouldSuppressTrigger(macro);
                 suppressBox.Text = preserve
-                    ? (Localizer.IsEnglish ? "Shift passes through to the game (gamepad hold)" : "Shift 同时传给游戏（按住映射手柄）")
+                    ? (Localizer.IsEnglish ? "Shift automatically passes through (always on for gamepad hold)" : "Shift 自动传给游戏（按住手柄映射时固定开启）")
                     : Localizer.T("触发时屏蔽最后一个触发键/鼠标事件");
                 SetTip(suppressBox, preserve
-                    ? (Localizer.IsEnglish ? "Shift keeps its native sprint function while this held macro outputs gamepad input. The stored suppression preference is preserved for other modes." : "按住 Shift 输出手柄的同时，保留游戏原本的奔跑功能。切换到其他模式后仍使用原先的屏蔽偏好。")
+                    ? (Localizer.IsEnglish ? "Pass-through is automatically enabled here: Shift keeps its native game function while this held macro outputs gamepad input. The stored suppression preference is preserved for other modes." : "这里已自动开启透传：按住 Shift 输出手柄的同时，Shift 仍会传给游戏并保留原本功能。切换到其他模式后仍使用原先的屏蔽偏好。")
                     : Localizer.T("触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。"));
             }
             finally { loadingUi = previousLoading; }
@@ -6646,7 +6911,7 @@ namespace InputStitch
                     RefreshMacroList(firstNewIndex);
                     int conflictGroups = CountEnabledTriggerConflictGroups();
                     if (conflictGroups > 0)
-                        statusLabel.Text = "状态：已导入 " + incoming.Count.ToString() + " 个宏；发现 " + conflictGroups.ToString() + " 组重复的已启用触发键，请检查。";
+                        statusLabel.Text = "状态：已导入 " + incoming.Count.ToString() + " 个宏；有 " + conflictGroups.ToString() + " 组已启用宏共享触发键，列表靠上的宏优先触发。";
                     else
                         statusLabel.Text = "状态：已导入 " + incoming.Count.ToString() + " 个宏，已追加到列表末尾。";
                 }
@@ -6719,13 +6984,7 @@ namespace InputStitch
         private bool IsMacroTriggerConflicted(MacroDefinition macro)
         {
             if (macro == null || !macro.Enabled || macro.Trigger == null) return false;
-            if (config.PanicTrigger != null && TriggersEqual(macro.Trigger, config.PanicTrigger)) return true;
-            foreach (MacroDefinition other in config.Macros)
-            {
-                if (other == null || other == macro || !other.Enabled || other.Trigger == null) continue;
-                if (TriggersEqual(macro.Trigger, other.Trigger)) return true;
-            }
-            return false;
+            return config.PanicTrigger != null && TriggersEqual(macro.Trigger, config.PanicTrigger);
         }
 
         private string GetTriggerConflictSummary()
@@ -6750,8 +7009,8 @@ namespace InputStitch
                         string a = string.Compare(m.Name, other.Name, StringComparison.OrdinalIgnoreCase) <= 0 ? m.Name : other.Name;
                         string b = a == m.Name ? other.Name : m.Name;
                         string msg = Localizer.IsEnglish
-                            ? "\"" + a + "\" and \"" + b + "\" share " + InputNames.FormatTrigger(m.Trigger)
-                            : "“" + a + "”与“" + b + "”共用 " + InputNames.FormatTrigger(m.Trigger);
+                            ? "\"" + a + "\" and \"" + b + "\" share " + InputNames.FormatTrigger(m.Trigger) + "; the higher enabled macro has priority"
+                            : "“" + a + "”与“" + b + "”共用 " + InputNames.FormatTrigger(m.Trigger) + "；列表靠上的已启用宏优先";
                         if (seen.Add(msg)) messages.Add(msg);
                     }
                 }
@@ -6776,7 +7035,7 @@ namespace InputStitch
             if (showStatus)
             {
                 string summary = GetTriggerConflictSummary();
-                statusLabel.Text = string.Equals(summary, Localizer.T("无"), StringComparison.Ordinal) ? "状态：未发现已启用的触发键冲突。" : "提示：触发键冲突：" + summary;
+                statusLabel.Text = string.Equals(summary, Localizer.T("无"), StringComparison.Ordinal) ? "状态：未发现触发键重叠或紧急停止冲突。" : "提示：触发键关系：" + summary;
             }
         }
 
@@ -6935,6 +7194,7 @@ namespace InputStitch
             string gamepadType = config.GamepadDeviceType;
             IdleGamepadOptions idleOptions = config.IdleGamepad;
             bool welcome = config.HasSeenWelcome;
+            string lastReleaseSummary = config.LastShownReleaseSummaryVersion;
             try
             {
                 config = imported;
@@ -6948,6 +7208,7 @@ namespace InputStitch
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
                 config.HasSeenWelcome = welcome;
+                config.LastShownReleaseSummaryVersion = lastReleaseSummary;
                 EnsureDefaultMacro();
                 InputSender.UseScanCodeInput = config.UseScanCodeInput;
                 targetWindowHandle = IntPtr.Zero;
@@ -7175,6 +7436,25 @@ namespace InputStitch
                 value.UpdateMode = UpdateModes.Automatic;
             value.GamepadDeviceType = VirtualGamepadTypes.Normalize(value.GamepadDeviceType);
             if (value.IdleGamepad == null) value.IdleGamepad = new IdleGamepadOptions();
+            value.LastShownReleaseSummaryVersion = value.LastShownReleaseSummaryVersion ?? "";
+            value.IdleGamepad.TargetProcessName = value.IdleGamepad.TargetProcessName ?? "";
+            value.IdleGamepad.TargetWindowTitle = value.IdleGamepad.TargetWindowTitle ?? "";
+            value.IdleGamepad.TargetWindowClass = value.IdleGamepad.TargetWindowClass ?? "";
+            if (!value.IdleGamepad.TargetScopeInitialized)
+            {
+                // One-time beta compatibility migration. Earlier beta.4 builds scoped idle input
+                // through the main target window. Copy that identity once, then keep both targets independent.
+                bool idleTargetEmpty = string.IsNullOrWhiteSpace(value.IdleGamepad.TargetProcessName)
+                    && string.IsNullOrWhiteSpace(value.IdleGamepad.TargetWindowTitle)
+                    && string.IsNullOrWhiteSpace(value.IdleGamepad.TargetWindowClass);
+                if (value.IdleGamepad.Enabled && idleTargetEmpty)
+                {
+                    value.IdleGamepad.TargetProcessName = value.TargetProcessName ?? "";
+                    value.IdleGamepad.TargetWindowTitle = value.TargetWindowTitle ?? "";
+                    value.IdleGamepad.TargetWindowClass = value.TargetWindowClass ?? "";
+                }
+                value.IdleGamepad.TargetScopeInitialized = true;
+            }
             if (value.UiRunStartDelayMs < 0) value.UiRunStartDelayMs = 0;
             if (value.UiRunStartDelayMs > 5000) value.UiRunStartDelayMs = 5000;
         }
@@ -7283,6 +7563,60 @@ namespace InputStitch
             RefreshMacroList(Math.Min(idx, config.Macros.Count - 1));
         }
 
+        private void QuickCreateMacro(QuickTemplate template)
+        {
+            if (recordingActive) StopMacroRecording(false, false);
+            CancelCapture();
+            bool previousPause = pauseHotkeys;
+            pauseHotkeys = true;
+            uiSafetyModalDepth++;
+            UpdateUiSafetyPauseState();
+            try
+            {
+                using (QuickCreateDialog dialog = new QuickCreateDialog(this, template))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    MacroDefinition macro = dialog.Result;
+                    bool panicConflict = TriggersEqual(macro.Trigger, config.PanicTrigger);
+                    MacroDefinition higherPriorityDuplicate = null;
+                    foreach (MacroDefinition existing in config.Macros)
+                    {
+                        if (existing != null && existing.Enabled && existing.Trigger != null && TriggersEqual(existing.Trigger, macro.Trigger))
+                        {
+                            higherPriorityDuplicate = existing;
+                            break;
+                        }
+                    }
+                    // Emergency Stop always wins. Ordinary duplicate macro triggers are valid:
+                    // the first enabled macro in list order has priority.
+                    if (panicConflict)
+                    {
+                        macro.Enabled = false;
+                    }
+                    config.Macros.Add(macro);
+                    SaveConfig();
+                    RefreshMacroList(config.Macros.Count - 1);
+                    if (panicConflict) MessageBox.Show(this, VirtualKeyboardDialog.TextFor(
+                        "宏已创建，但触发键与紧急停止键冲突，已关闭全局触发。请修改触发键后再启用。",
+                        "Created with global triggering OFF because the trigger conflicts with Emergency Stop. Change the trigger before enabling it."),
+                        AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    else if (higherPriorityDuplicate != null) MessageBox.Show(this, VirtualKeyboardDialog.TextFor(
+                        "宏已创建并启用。它与“" + higherPriorityDuplicate.Name + "”使用相同触发键；列表中靠上的已启用宏优先触发。可用 ↑ / ↓ 调整优先级。",
+                        "Created and enabled. It shares its trigger with \"" + higherPriorityDuplicate.Name + "\"; the first enabled macro in list order has priority. Use Up / Down to change priority."),
+                        AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // Reuse connection/official-driver guidance; failure does not discard the editable definition.
+                    if (MacroUsesGamepad(macro)) EnsureGamepadReady(macro, false);
+                }
+            }
+            finally
+            {
+                CancelCapture();
+                uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
+                pauseHotkeys = previousPause;
+                UpdateUiSafetyPauseState();
+            }
+        }
+
         private void CaptureTriggerButton_Click(object sender, EventArgs e)
         {
             if (captureMode == CaptureMode.Trigger)
@@ -7317,7 +7651,7 @@ namespace InputStitch
                     SaveConfig();
                     RefreshConflictIndicators(true);
                     if (macro.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(macro.Trigger))
-                        statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮，请改用单个键盘键/鼠标按钮。";
+                        statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。";
                 }
             }
             finally
@@ -7372,6 +7706,38 @@ namespace InputStitch
                 if ((own & ModifierSafetyPolicy.Win) != 0) t.Win = false;
             }
             return t;
+        }
+
+        private static MacroDefinition SelectTriggerMacro(IList<MacroDefinition> macros, InputEventInfo e)
+        {
+            if (macros == null || e == null || e.Input == null) return null;
+
+            // Exact duplicates intentionally use list order: the first enabled macro wins.
+            foreach (MacroDefinition m in macros)
+            {
+                if (m == null || !m.Enabled || m.Trigger == null) continue;
+                if (ModifierSafetyPolicy.TriggerMatchesExactly(m.Trigger, e)) return m;
+            }
+
+            // Game-friendly fallback: keep bare printable keys strict, but allow an already-held
+            // gameplay modifier (for example Shift while sprinting) around function keys, numpad,
+            // mouse triggers, or a trigger chord that already declares at least one modifier.
+            // The most specific declared chord wins; configuration order breaks equal ties.
+            MacroDefinition best = null;
+            int bestSpecificity = -1;
+            foreach (MacroDefinition m in macros)
+            {
+                if (m == null || !m.Enabled || m.Trigger == null) continue;
+                if (!ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(m.Trigger)) continue;
+                if (!ModifierSafetyPolicy.TriggerRequiredModifiersMatch(m.Trigger, e)) continue;
+                int specificity = ModifierSafetyPolicy.TriggerSpecificity(m.Trigger);
+                if (specificity > bestSpecificity)
+                {
+                    best = m;
+                    bestSpecificity = specificity;
+                }
+            }
+            return best;
         }
 
         private bool HandleTerminalInput(InputEventInfo e)
@@ -7451,7 +7817,7 @@ namespace InputStitch
                                 CancelCapture();
                                 RefreshConflictIndicators(true);
                                 if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
-                                    statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮，请改用单个键盘键/鼠标按钮。";
+                                    statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。";
                             });
                         }
                         catch { }
@@ -7489,37 +7855,7 @@ namespace InputStitch
             // notification must not leave the previous UI protection state cached.
             UpdateUiSafetyPauseState();
 
-            MacroDefinition matchedMacro = null;
-            foreach (MacroDefinition m in config.Macros)
-            {
-                if (m == null || !m.Enabled || m.Trigger == null) continue;
-                if (ModifierSafetyPolicy.TriggerMatchesExactly(m.Trigger, e))
-                {
-                    matchedMacro = m;
-                    break;
-                }
-            }
-
-            // Game-friendly fallback: keep bare printable keys strict, but allow an already-held
-            // gameplay modifier (for example Shift while sprinting) around function keys, numpad,
-            // mouse triggers, or a trigger chord that already declares at least one modifier.
-            // The most specific declared chord wins; configuration order breaks equal ties.
-            if (matchedMacro == null)
-            {
-                int bestSpecificity = -1;
-                foreach (MacroDefinition m in config.Macros)
-                {
-                    if (m == null || !m.Enabled || m.Trigger == null) continue;
-                    if (!ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(m.Trigger)) continue;
-                    if (!ModifierSafetyPolicy.TriggerRequiredModifiersMatch(m.Trigger, e)) continue;
-                    int specificity = ModifierSafetyPolicy.TriggerSpecificity(m.Trigger);
-                    if (specificity > bestSpecificity)
-                    {
-                        matchedMacro = m;
-                        bestSpecificity = specificity;
-                    }
-                }
-            }
+            MacroDefinition matchedMacro = SelectTriggerMacro(config.Macros, e);
 
             if (matchedMacro != null)
             {
@@ -7566,6 +7902,8 @@ namespace InputStitch
         private void HandleTerminalInputReleased(InputEventInfo e)
         {
             if (e == null || e.Input == null) return;
+            holdReleaseProbeMacro = null;
+            holdReleaseProbeSince = 0;
             InputEventInfo pending = pendingModifierCapture;
             if (pending != null && pending.Input != null && e.Input.Kind == InputKind.Keyboard &&
                 pending.Input.VirtualKey == e.Input.VirtualKey &&
@@ -7595,7 +7933,7 @@ namespace InputStitch
             if (m == null) return;
             if (!IsHoldTriggerSupported(m.Trigger))
             {
-                statusLabel.Text = "无法启动：按住运行模式仅支持不含 Ctrl/Shift/Alt/Win 的单个键盘键或鼠标按钮。";
+                statusLabel.Text = "无法启动：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮，但不支持修饰键组合或滚轮。";
                 return;
             }
             if (runningMacro == m && holdControlledMacro == m) return;
@@ -7867,6 +8205,13 @@ namespace InputStitch
             if (indices == null) return;
             foreach (int index in indices)
                 if (index >= 0 && index < grid.Rows.Count) grid.Rows[index].Selected = true;
+        }
+
+        private void RestoreSteps(bool forward)
+        {
+            if (recordingActive || !stepHistory.Restore(SelectedMacro, forward)) return;
+            SaveConfig();
+            RefreshSteps();
         }
 
         private void AddStep()
@@ -8757,6 +9102,11 @@ namespace InputStitch
 
         private void UpdateRecordButton()
         {
+            if (undoStepsButton != null)
+            {
+                undoStepsButton.Enabled = stepHistory.CanUndo && !recordingActive;
+                redoStepsButton.Enabled = stepHistory.CanRedo && !recordingActive;
+            }
             if (recordButton == null || recordButton.IsDisposed) return;
             if (recordingActive)
             {
@@ -8775,11 +9125,21 @@ namespace InputStitch
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            CommitNameEdit();
+            if (recordingActive) StopMacroRecording(false, true);
+            if (!SaveConfig() && e.CloseReason == CloseReason.UserClosing &&
+                MessageBox.Show(this, VirtualKeyboardDialog.TextFor(
+                    "修改尚未保存。仍要退出并丢弃内存中的修改吗？选择“否”可返回重试。",
+                    "Changes are NOT saved. Exit and discard changes in memory? Choose No to return and retry."),
+                    AppInfo.ProductName, MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
             try
             {
                 if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
-                CommitNameEdit();
-                if (recordingActive) StopMacroRecording(false, true);
                 CancelCapture();
                 uiSafetyPauseRequested = false;
                 uiSafetyPauseReason = "";

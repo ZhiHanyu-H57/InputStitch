@@ -32,6 +32,9 @@
     <Compile Include="ReleaseInfo.cs" />
     <Compile Include="UpdateInstaller.cs" />
     <Compile Include="RuntimeDiagnostics.cs" />
+    <Compile Include="ConfigStore.cs" />
+    <Compile Include="StepHistory.cs" />
+    <Compile Include="QuickCreate.cs" />
     <Compile Include="VirtualKeyboard.cs" />
     <Compile Include="IdleGamepad.cs" />
     <None Include="InputStitch.ico" />

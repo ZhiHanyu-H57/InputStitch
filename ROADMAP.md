@@ -1,63 +1,202 @@
 # Development roadmap / 开发路线
 
+Updated / 更新：2026-09-08
+
+## Product principles / 产品原则
+
+- Keep basic, frequent workflows simple; advanced, infrequent workflows may require learning but must remain explicit and diagnosable.
+- Quick Create and Advanced Edit share one configuration/runtime core.
+- Reliability is non-negotiable: configuration integrity, input release, Emergency Stop, clear failure reporting and rollback boundaries come before feature count.
+- Real usage findings may interrupt feature development; speculative features must not interrupt reliability closeout.
+- Prefer incremental architecture work around the part being changed; avoid whole-application rewrites for aesthetic reasons.
+
+基础高频需求保持低门槛；复杂低频能力可以有学习成本，但必须参数明确、可验证、可诊断。快捷创建与高级编辑共用同一核心。配置安全、输入释放、紧急停止和错误提示优先于功能数量。真实使用发现的问题可以打断功能开发；假想需求不能打断可靠性收尾。
+
 ## Release policy / 发布规则
 
-- Stable v1.1.0 and its existing assets/manifest stay unchanged during this development cycle. All new test releases use `-beta.N`, GitHub `prerelease=true`, and `make_latest=false`.
-- Public Beta releases and source commits are public. A draft release is only visible to users with repository write access; it does not make source commits on a public repository private.
-- Existing stable applications check the stable `releases/latest` manifest only. They cannot discover Beta by manually checking either; use GitHub to download Beta. No forced stable upgrade is needed to introduce this policy.
-- Beta applications never automatically check for updates. Manual Check opens the official Releases page after confirmation, not an unattended installer. A future manual Beta update channel can be added separately after validation.
-- Beta has `InputStitch-beta.xml` with version-specific URLs, never `InputStitch-update.xml`. File/product versions, artifact names and workflow channel come from `ReleaseInfo.cs`.
-- Stable release promotion requires a separate reviewed decision; the current publisher deliberately supports Beta only and refuses stable publication.
-- Beta and stable share `%APPDATA%\InputStitch` for now. Back up configuration and run one version at a time. Keeping an old executable is not a substitute for a configuration backup.
+- Stable releases are explicit reviewed promotions. `releases/latest` and `InputStitch-update.xml` belong to Stable only.
+- Beta releases use `-beta.N`, GitHub `prerelease=true`, `make_latest=false`, and a separate `InputStitch-beta.xml`.
+- Beta builds never perform unattended automatic update checks; manual Beta update opens GitHub Releases.
+- Stable builds may use the stable automatic-check/update path with SHA-256 verification.
+- Beta and Stable currently share `%APPDATA%\InputStitch`; run only one version at a time and keep configuration backups.
+- Every public release must be rebuilt from reviewed source, verified locally, then re-verified after publication: main commit, tag, release state, assets, manifest and hashes.
+- No telemetry is added.
 
-正式版 v1.1.0 暂时冻结；新功能先进入公开 Beta，不进入自动更新提醒。公开仓库中的源码提交仍公开可见；若需要仅维护者查看某次发布附件，可使用 Draft，但不是隐藏源码的机制。旧版手动检查也不会发现 Beta，直接从 GitHub 下载即可，不必先升级正式版。测试前请备份配置，并退出另一版本。
+正式版与 Beta 分离：Stable 独占 `releases/latest` 与 `InputStitch-update.xml`；Beta 使用 prerelease 与独立 beta 清单。每次正式发布都必须经过本地构建/回归/校验，并在 GitHub 发布后再次核对提交、tag、Release、资产、清单和哈希。
 
-## Milestones / 阶段
+## Completed development cycle / 已完成并归档的开发周期
+
+### 1.1.1-beta.1 — idle release reliability / 闲置输入释放可靠性
+
+Completed:
+- idle pulse release independent of UI refresh;
+- stale callback/generation protection;
+- 10,000 simulated start/cancel cycles;
+- centralized release metadata;
+- isolated Beta channel and manual Beta downloads.
+
+### 1.1.1-beta.2 — modifier safety and update replacement / 修饰键与更新替换安全
+
+Completed:
+- standalone Shift passthrough for held gamepad-only mappings;
+- modifier safety policy;
+- staged updater verification;
+- EXE/config backup and rollback paths;
+- updater fault-injection regression coverage.
 
 ### 1.1.1-beta.3 — foreground hotkeys and runtime evidence / 前台热键与运行诊断
 
-Completed this slice: remove idle hover/non-editing-focus false blocks; preserve editing and pointer-output safety; refresh protection before dispatch; explain blocked state. Continue the reliability roadmap with a bounded memory-only trace of macro lifecycle events in diagnostics.
+Completed:
+- removed false hotkey blocks caused by idle hover/non-editing focus;
+- preserved editing and pointer-output safety;
+- visible pause reasons;
+- bounded in-memory runtime trace;
+- UI-safety/diagnostic regression coverage.
 
-本阶段完成前台热键的已知静默拦截路径修复，并继续稳定性路线：加入触发接受/拦截、运行启动、首次输出提交、停止/完成/错误的有限诊断。23 项新增检查覆盖保护策略及并发事件上限。
+### 1.1.1-beta.4 — safer persistence, productivity and live-use fixes / 配置安全、易用性与真实使用修复
 
-Limits: tests cover policy/control classification, not full live desktop/game replay. Submitted output is not proof a game accepted it. Direct mapping editor, multi-source ownership, startup health recovery and broader physical-device testing remain pending.
+Completed:
+- staged/verified main-config replacement, visible save failure and five valid backups;
+- Quick Create: Held Mapping, fixed-count Repeat, Sequence;
+- step Undo/Redo with bounded history;
+- Held Mapping support for normal keys, mouse buttons and standalone left/right Ctrl/Shift/Alt/Win;
+- duplicate enabled triggers follow macro-list priority; Up/Down changes priority immediately;
+- Shift passthrough UI clarified;
+- lost-KeyUp/Alt+Tab hold-release fallback using physical state reconciliation;
+- Idle Gamepad physical mouse movement uses Raw Input so game cursor recentering does not fake activity;
+- independent Idle target in Settings > Automation;
+- typing/mouse use in other apps no longer resets a background target's idle timer;
+- configured Idle target absent => idle output pauses completely; target return => full fresh idle interval;
+- formal idle defaults: off, 120 seconds, left stick down, 150 ms;
+- narrow Settings layout keeps Idle target controls on one line, ellipsizes long target names and exposes full text via Tooltip.
 
+This completes the old near-term plan: **safe persistence / live validation → simple Held Mapping → step Undo/Redo**. Those items are archived, not future work.
 
-### 1.1.1-beta.2 — Shift and safer replacement / Shift 与更新安全
+以上完成原近期计划：**安全保存与真实验收 → 简易按住映射 → 步骤撤销/重做**。这些任务正式归档，不再作为待办。
 
-Implemented: native Shift passthrough for held, standalone Shift gamepad-only macros; clear bilingual UI; staged verification, old-EXE and main config.xml backups, original-process exit checks, recovery on replacement/launch failure. Tests include 30 new Shift checks and 43 updater checks.
+## Current release target / 当前发布目标
 
-已完成：按住独立 Shift 的纯手柄宏保留原始游戏按键；更新暂存校验、旧 EXE/主配置备份、旧进程退出检查与失败恢复。
+### Stable 1.2.0 — reliable single-macro baseline / 可靠单宏基线
 
-Limits: GTA acceptance still needs user testing. Beta manual downloads do not invoke the hardened installer; it prepares a future reviewed stable release. Only main config.xml is snapshotted, not profiles/packages. Post-launch crash rollback, power-loss recovery and signature verification remain future work.
+Purpose: promote the validated Beta 1–4 reliability/productivity work to a clean Stable baseline before changing runtime ownership semantics.
 
+Release-gate work only:
+- add a once-per-version startup popup summarizing what changed after an upgrade;
+- final regression and live sanity checks;
+- build x64/x86 EXEs, Source.zip, `InputStitch-update.xml`, `SHA256SUMS.txt`;
+- verify file/product versions and hashes;
+- publish main commit + `v1.2.0` tag + public Stable Release (`prerelease=false`);
+- re-download/re-check remote assets and stable update manifest.
 
-### 1.1.1-beta.1 — first reliability slice / 第一批稳定性改进
+Do **not** add unrelated new features to the 1.2.0 release candidate. Only release-blocking fixes are accepted: config loss/corruption, stuck input, Emergency Stop failure, core-function breakage, unusable UI, or release/update integrity defects.
 
-Implemented: idle pulse release independent of UI refresh, stale callback protection, 10,000 injected start/cancel cycles, regression tests in CI, centralized release metadata, isolated Beta publishing and manual downloads.
+Stable 1.2.0 的意义是建立清晰、可靠、可回退的单宏基线。发布候选冻结后只接受阻断级 Bug，不再顺手添加普通新功能。
 
-已完成：闲置输入后台释放、过期回调防护、1 万次模拟启停、回归测试纳入 CI、版本集中管理，以及不影响正式版的 Beta 发布流程。
+## Next development cycle / 下一开发周期
 
-Still not claimed: real-time scheduling guarantees, crash/hung-driver recovery, real hardware/game compatibility, a complete updater rollback system, or completion of the entire roadmap.
+### 1.3.0-beta.1 — Input ownership + multi-source Held Mapping
 
-不宣称已解决：Windows 实时调度、进程崩溃/驱动卡死恢复、全部设备和游戏兼容性、完整更新回退，以及整个路线的全部功能。
+The next structural bottleneck is no longer configuration difficulty; it is the one-active-macro runtime model.
 
-### Following reliability Betas / 后续稳定性测试版
+Do **not** solve this by simply running multiple existing MacroWorkers. First introduce explicit source ownership and merged output state.
 
-- Safer update replacement, executable/config backups and verified recovery; dependency/signature strategy.
-- Explicit runtime state and stop reasons; long-running keyboard/mouse/controller tests; sleep/resume and device reconnect matrix.
-- Test matrix covering Windows versions, 100/125/150/200% DPI, Chinese/English, foreground/background modes and cooperating controller tools. Report actual measurements rather than claiming universal support.
+#### Core model / 核心模型
 
-### Direct mappings / 直接映射
+Each persistent contributor gets a source identity, e.g.:
+- Held Mapping W;
+- Held Mapping Shift;
+- ordinary macro runtime snapshot;
+- Idle Gamepad.
 
-- A first-class hold/release mapping editor, not a user-assembled infinite loop.
-- Input ownership and multi-source merging before enabling simultaneous mappings; resolve opposing stick directions and competing macro/idle output.
-- Examples: key held -> stick direction/strength; key released -> only that source releases.
+A central Output State Manager owns the final emitted state. Releasing one source removes only that source's contribution and must not clear other active sources.
 
-### Editing and maintenance / 编辑与维护
+#### Initial merge rules / 第一版合并规则
 
-- Undo/redo, editable chord groups, batch editing, step-by-step testing and clear execution progress.
-- Split UI, runtime, configuration and controller backends incrementally; avoid a wholesale UI rewrite.
-- Decide project licensing with the repository owner. Do not silently choose a license.
+- digital keyboard/mouse/gamepad buttons: reference-count semantics; remain down while any source owns them;
+- triggers: maximum requested value wins;
+- sticks: sum X/Y vectors, then clamp/normalize to the circular stick range; opposing directions naturally cancel;
+- Emergency Stop: bypass normal ownership, clear every source and force all final outputs neutral/up.
 
-No dates or stable promotion are promised by this document. Each Beta should be tested before expanding scope.
+#### Scope limit / 范围控制
+
+The first release enables **multiple Held Mappings**, not arbitrary concurrent timed macros.
+
+Example target:
+- W → left stick forward
+- A → left stick left
+- S → left stick back
+- D → left stick right
+- Shift → RT
+- Ctrl → LT
+- Mouse X1 → LB
+- Mouse X2 → RB
+
+These mappings may be active simultaneously.
+
+Ordinary timed macros remain single-active in the first ownership release. Duplicate physical triggers still use list priority; if one trigger needs multiple outputs, put those outputs in one Held Mapping instead of starting several duplicate-trigger mappings.
+
+### 1.3.0-beta.2 — ownership hardening + lightweight runtime observation
+
+After ownership works, add enough visibility to debug it without building a large debugger:
+- active source list;
+- each source's current contribution;
+- merged stick/trigger/button state;
+- ordinary macro current step/wait state;
+- stop/release reason and ownership conflict evidence.
+
+Step-by-step execution may be added if real debugging cost justifies it. A full breakpoint debugger or scripting environment is not planned here.
+
+## Required ownership regression matrix / Ownership 必测矩阵
+
+At minimum automate and live-check sequences such as:
+
+- `W down → D down → W up → D up` (W release must not neutralize D);
+- two sources owning the same digital output; one releases while the other remains;
+- RT 100% + RT 50% → 100%; release 100% source → 50%; release last source → 0%;
+- W + S → neutral Y; A + D → neutral X; W + D → diagonal with circular normalization;
+- Alt+Tab and lost-KeyUp fallback while multiple sources are held;
+- Emergency Stop clears every source exactly once and leaves no stuck state;
+- Idle Gamepad and Held Mapping competing for controller state must follow the same ownership rules.
+
+## Later capabilities / 后续能力
+
+Only schedule these when repeated real use justifies them:
+
+| Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
+|---|---|---|
+| Modifier-chord Held Mapping | repeated concrete need | after ownership stability |
+| Conditions / groups / layers | clear recurring scenarios | later |
+| Step-by-step execution | macro debugging becomes expensive | medium |
+| More controller backends | ViGEm compatibility issue or mature replacement | on demand |
+| Installer / signing | external-user installation friction grows | on demand |
+| Project license | repository owner decides explicitly | pending |
+
+Not currently committed: cross-platform support, cloud sync, plugin marketplace, scripting language, image recognition, or wholesale UI-framework migration.
+
+## Testing and promotion / 测试与晋升
+
+- Keep and extend automated regression coverage.
+- Replace the old mechanical “30 minutes each” rule with **scenario acceptance + long-running real use**.
+- API/output submission success never substitutes for actual desktop/game acceptance.
+- Each Beta should have one primary value goal: implement → use for real → fix evidenced problems → freeze → publish.
+- Small commits do not require releases.
+- Stable promotion requires a clear rollback baseline and remote post-publish verification.
+
+## Version path / 版本路径
+
+Current / 当前：
+
+`1.1.1-beta.4 → Stable 1.2.0`
+
+Next / 下一轮：
+
+`1.3.0-beta.1 — Input ownership foundation + multi-source Held Mapping`
+
+`1.3.0-beta.2 — merge hardening + lightweight runtime observation`
+
+`real-use reliability closeout → Stable 1.3.0`
+
+Long-term product goal / 长期目标：
+
+> **Common tasks simple, advanced tasks explicit, every task reliable.**  
+> **常用的足够简单，复杂的足够明确，所有功能都足够可靠。**

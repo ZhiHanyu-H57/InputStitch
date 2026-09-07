@@ -17,8 +17,8 @@ internal static class KeyboardTests
         Console.WriteLine("PASS: " + name);
     }
     private static InputSpec K(Keys key) { return new InputSpec { VirtualKey = (int)key }; }
-    private static InputEventInfo E(Keys key, bool ctrl, bool shift)
-    { return new InputEventInfo { Input = K(key), Ctrl = ctrl, Shift = shift }; }
+    private static InputEventInfo E(Keys key, bool ctrl, bool shift, bool alt = false, bool win = false)
+    { return new InputEventInfo { Input = K(key), Ctrl = ctrl, Shift = shift, Alt = alt, Win = win }; }
     private static FieldInfo Field(Type type, string name) { return type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic); }
     private static object Call(object target, string name, params object[] args)
     { return target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, args); }
@@ -61,6 +61,18 @@ internal static class KeyboardTests
             TriggerSpec shift = Trigger(K(Keys.LShiftKey));
             Check(!shift.Shift && ModifierSafetyPolicy.TriggerMatchesExactly(shift, E(Keys.LShiftKey, false, true)), "standalone left Shift matches its hook modifier snapshot");
             Check(!ModifierSafetyPolicy.TriggerMatchesExactly(shift, E(Keys.RShiftKey, false, true)), "left Shift keeps side distinction");
+            foreach (Keys modifierKey in new[] { Keys.LControlKey, Keys.RControlKey, Keys.LShiftKey, Keys.RShiftKey,
+                Keys.LMenu, Keys.RMenu, Keys.LWin, Keys.RWin })
+            {
+                int mask = ModifierSafetyPolicy.ModifierMaskForKey((int)modifierKey);
+                TriggerSpec standalone = Trigger(K(modifierKey));
+                Check(!standalone.Ctrl && !standalone.Shift && !standalone.Alt && !standalone.Win && standalone.VirtualKey == (int)modifierKey,
+                    "standalone modifier stored as terminal key " + modifierKey);
+                Check(ModifierSafetyPolicy.TriggerMatchesExactly(standalone, E(modifierKey,
+                    (mask & ModifierSafetyPolicy.Ctrl) != 0, (mask & ModifierSafetyPolicy.Shift) != 0,
+                    (mask & ModifierSafetyPolicy.Alt) != 0, (mask & ModifierSafetyPolicy.Win) != 0)),
+                    "standalone modifier matches physical hook snapshot " + modifierKey);
+            }
             foreach (Keys shiftKey in new[] { Keys.ShiftKey, Keys.LShiftKey, Keys.RShiftKey })
             {
                 MacroDefinition map = new MacroDefinition { RunMode = TriggerRunMode.Hold, SuppressTrigger = true,
@@ -185,9 +197,17 @@ internal static class KeyboardTests
                 Check(macro.Trigger.VirtualKey == (int)Keys.F8, "physical Ctrl defers capture awaiting main key");
                 Call(main, "HandleTerminalInput", E(Keys.K, true, false));
                 Check(macro.Trigger.Ctrl && macro.Trigger.VirtualKey == (int)Keys.K, "physical Ctrl then K captures traditional chord");
-                Call(main, "HandleTerminalInput", E(Keys.LShiftKey, false, true));
-                Call(main, "HandleTerminalInputReleased", E(Keys.LShiftKey, false, false));
-                Check(macro.Trigger.VirtualKey == (int)Keys.LShiftKey && !macro.Trigger.Shift, "physical standalone Shift captured on release");
+                foreach (Keys modifierKey in new[] { Keys.LControlKey, Keys.RControlKey, Keys.LShiftKey, Keys.RShiftKey,
+                    Keys.LMenu, Keys.RMenu, Keys.LWin, Keys.RWin })
+                {
+                    int mask = ModifierSafetyPolicy.ModifierMaskForKey((int)modifierKey);
+                    Call(main, "HandleTerminalInput", E(modifierKey,
+                        (mask & ModifierSafetyPolicy.Ctrl) != 0, (mask & ModifierSafetyPolicy.Shift) != 0,
+                        (mask & ModifierSafetyPolicy.Alt) != 0, (mask & ModifierSafetyPolicy.Win) != 0));
+                    Call(main, "HandleTerminalInputReleased", E(modifierKey, false, false, false, false));
+                    Check(macro.Trigger.VirtualKey == (int)modifierKey && !macro.Trigger.Ctrl && !macro.Trigger.Shift &&
+                        !macro.Trigger.Alt && !macro.Trigger.Win, "physical standalone modifier captured on release " + modifierKey);
+                }
                 Field(typeof(MainForm), "macroList").SetValue(main, null);
             }
             Console.WriteLine("SUCCESS: " + checks + " keyboard checks; no hooks, physical input, macro workers, or config writes.");

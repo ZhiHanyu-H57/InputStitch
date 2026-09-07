@@ -7,12 +7,13 @@ internal static class ReleasePolicyTests
     {
         try
         {
-            if (ReleaseInfo.IsPrerelease != ReleaseInfo.Version.Contains("-beta.")) throw new Exception("Channel/version mismatch");
-            if (ReleaseInfo.AutomaticChecksAllowed == ReleaseInfo.IsPrerelease) throw new Exception("Beta automatic checks enabled");
+            bool prerelease = ReleaseInfo.Version.IndexOf("-beta.", StringComparison.Ordinal) >= 0;
+            if (ReleaseInfo.IsPrerelease != prerelease) throw new Exception("Channel/version mismatch");
+            if (ReleaseInfo.AutomaticChecksAllowed == prerelease) throw new Exception("Automatic-check policy disagrees with release channel");
             if (AppInfo.UpdateManifestUrl != "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml") throw new Exception("Stable endpoint changed");
             string actual = ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(typeof(AppInfo).Assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion;
             if (actual != ReleaseInfo.Version) throw new Exception("Display/assembly version mismatch");
-            if (ReleaseInfo.IsPrerelease)
+            if (prerelease)
             {
                 bool rejected = false;
                 try { UpdateManager.CheckAsync().GetAwaiter().GetResult(); }

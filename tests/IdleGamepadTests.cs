@@ -99,19 +99,23 @@ internal static class IdleGamepadTests
             }
             Check(r.Events.Count == 20000, "10000 start/cancel cycles have exactly balanced down/up pairs");
             for(int i=0; i<r.Events.Count; i+=2)
-                if(r.Events[i] != "down:DPadDown" || r.Events[i+1] != "up:DPadDown") throw new Exception("Stress ordering failed");
+                if(r.Events[i] != "down:LeftStick" || r.Events[i+1] != "up:LeftStick") throw new Exception("Stress ordering failed");
             Check(true, "10000 cycles preserve ownership and output ordering");
         }
     }
 
     private static void Options()
     {
-        Check(!new IdleGamepadOptions().Enabled, "default disabled");
+        IdleGamepadOptions defaults = new IdleGamepadOptions();
+        Check(!defaults.Enabled && defaults.IdleSeconds == 120 && defaults.HoldMilliseconds == 150,
+            "formal defaults are disabled, 120 seconds, 150 ms");
+        Check(defaults.Pulse.GamepadControl == GamepadControl.LeftStick && defaults.Pulse.GamepadX == 0 && defaults.Pulse.GamepadY == -100,
+            "formal default pulse is left stick down");
         IdleGamepadOptions raw = new IdleGamepadOptions { IdleSeconds = -1, HoldMilliseconds = 9000, Pulse = null };
         IdleGamepadOptions normalized = raw.CloneNormalized();
         Check(normalized.IdleSeconds == 10 && normalized.HoldMilliseconds == 2000 && normalized.Pulse.Kind == InputKind.Gamepad, "normalize limits and null pulse");
         normalized.Pulse.GamepadControl = (GamepadControl)9999;
-        Check(normalized.CloneNormalized().Pulse.GamepadControl == GamepadControl.DPadDown, "invalid control resets");
+        Check(normalized.CloneNormalized().Pulse.GamepadControl == GamepadControl.LeftStick, "invalid control resets to formal default");
     }
 
     private static void Timing()
@@ -125,7 +129,7 @@ internal static class IdleGamepadTests
             r.At(10000); r.At(10149);
             Check(r.Service.IsPulsing && r.Events.Count == 1, "one down and exact minimum hold");
             r.At(10150);
-            Check(!r.Service.IsPulsing && r.Events.Count == 2 && r.Events[1] == "up:DPadDown", "matching release at deadline");
+            Check(!r.Service.IsPulsing && r.Events.Count == 2 && r.Events[1] == "up:LeftStick", "matching release at deadline");
             r.At(20149);
             Check(r.Events.Count == 2, "next cycle timed from release");
             r.At(20150);
@@ -160,9 +164,21 @@ internal static class IdleGamepadTests
         using (Rig r = new Rig())
         {
             IdleGamepadOptions value = new IdleGamepadOptions { Enabled = true, IdleSeconds = 10 };
-            r.Service.Configure(value, true); value.Pulse.GamepadControl = GamepadControl.LeftStick;
+            r.Service.Configure(value, true); value.Pulse.GamepadControl = GamepadControl.South;
             r.At(10000);
-            Check(r.Events[0] == "down:DPadDown", "configured input is cloned and isolated from caller mutations");
+            Check(r.Events[0] == "down:LeftStick", "configured input is cloned and isolated from caller mutations");
+        }
+        using (Rig r = new Rig())
+        {
+            r.Enable();
+            r.Now = 9000; r.Service.SetBusy(true);
+            r.At(60000);
+            Check(r.Events.Count == 0, "missing-target busy state suppresses idle pulses indefinitely");
+            r.Now = 60000; r.Service.SetBusy(false);
+            r.At(69999);
+            Check(r.Events.Count == 0, "target return starts a fresh full idle interval");
+            r.At(70000);
+            Check(r.Events.Count == 1 && r.Events[0] == "down:LeftStick", "target return permits pulse only after the new full interval");
         }
     }
 
@@ -193,7 +209,7 @@ internal static class IdleGamepadTests
         using (Rig r = new Rig())
         {
             r.DownThrows = true; r.Enable(); r.At(10000); r.At(90000);
-            Check(r.Events.Count == 2 && r.Events[1] == "up:DPadDown" && r.Failures == 1, "partial down failure attempts matching release and stops");
+            Check(r.Events.Count == 2 && r.Events[1] == "up:LeftStick" && r.Failures == 1, "partial down failure attempts matching release and stops");
             r.DownThrows = false; r.Enable(); r.At(100000);
             Check(r.Events.Count == 3 && !r.Service.HasFailed, "explicit enable clears failure");
         }
@@ -246,6 +262,19 @@ internal static class IdleGamepadTests
         Check(!IdleManualActivitySensor.TryDs4Signature(new byte[3], out signature, out active), "truncated DS4 report rejected");
         Check(!IdleManualActivitySensor.TryDs4Signature(new byte[64], out signature, out active), "unknown DS4 report rejected");
         Check(IdleManualActivitySensor.IsSupportedDs4Device(0x054C, 0x09CC) && !IdleManualActivitySensor.IsSupportedDs4Device(0x054C, 0x0CE6) && !IdleManualActivitySensor.IsSupportedDs4Device(0x045E, 0x09CC), "numeric Sony DS4 identity permits supported models only");
+        Check(IdleManualActivitySensor.RawInputTypeCountsAsPhysicalMouse(0) &&
+            !IdleManualActivitySensor.RawInputTypeCountsAsPhysicalMouse(1) &&
+            !IdleManualActivitySensor.RawInputTypeCountsAsPhysicalMouse(2),
+            "only Raw Input mouse reports count as physical mouse movement");
+        MethodInfo registrationsMethod = typeof(IdleManualActivitySensor).GetMethod("NewRegistrations", BindingFlags.Static | BindingFlags.NonPublic);
+        Array registrations = (Array)registrationsMethod.Invoke(null, new object[] { (uint)0x2100, IntPtr.Zero });
+        Check(registrations.Length == 3, "raw input registers mouse plus joystick and gamepad");
+        Type registrationType = registrations.GetType().GetElementType();
+        FieldInfo usageField = registrationType.GetField("Usage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Check((ushort)usageField.GetValue(registrations.GetValue(0)) == 2 &&
+            (ushort)usageField.GetValue(registrations.GetValue(1)) == 4 &&
+            (ushort)usageField.GetValue(registrations.GetValue(2)) == 5,
+            "raw input usages are physical mouse, joystick, gamepad");
         Type info = typeof(IdleManualActivitySensor).GetNestedType("RID_DEVICE_INFO", BindingFlags.NonPublic);
         Check(Marshal.SizeOf(info) == 32 && Marshal.OffsetOf(info, "VendorId").ToInt32() == 8 && Marshal.OffsetOf(info, "ProductId").ToInt32() == 12, "native HID info layout is correct");
     }
