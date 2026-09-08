@@ -121,6 +121,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'ConfigStore.cs')
     $compilerArguments += (Join-Path $projectRoot 'StepHistory.cs')
     $compilerArguments += (Join-Path $projectRoot 'QuickCreate.cs')
+    $compilerArguments += (Join-Path $projectRoot 'OutputOwnership.cs')
     $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
 
@@ -155,6 +156,7 @@ function New-SourceArchive {
         'ConfigStore.cs',
         'StepHistory.cs',
         'QuickCreate.cs',
+        'OutputOwnership.cs',
         'VirtualKeyboard.cs',
         'IdleGamepad.cs',
         'InputStitch.csproj',

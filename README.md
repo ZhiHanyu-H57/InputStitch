@@ -8,9 +8,9 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.2.0.** This promotes the reliability and productivity work validated through the 1.1.1 Beta 1–4 cycle. Larger future changes will continue through public Beta prereleases before Stable promotion. Beta and Stable remain separate release channels; Beta never replaces the Stable update manifest.
+**Stable: v1.2.0. Public Beta: v1.3.0-beta.1.** Stable remains the recommended rollback baseline. Beta 1 introduces Input Ownership, simultaneous Held Mappings, lightweight runtime observation, and ordinary-macro single-step execution. Beta remains a GitHub prerelease and never replaces the Stable `releases/latest` or `InputStitch-update.xml` channel.
 
-Beta and Stable currently share configuration. Before testing a future Beta, exit the other version and back up `%APPDATA%\InputStitch`. See [development roadmap and release policy](ROADMAP.md).
+Beta and Stable currently share configuration. Before testing Beta, exit the other version and back up `%APPDATA%\InputStitch`. Do not run both at the same time. See [development roadmap and release policy](ROADMAP.md).
 
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
@@ -20,6 +20,16 @@ Download a ready-to-run executable from the [latest GitHub Release](../../releas
 | 32-bit Windows (x86) | [InputStitch-1.2.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x86.exe) |
 | Complete source code | [InputStitch-1.2.0-Source.zip](../../releases/latest/download/InputStitch-1.2.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
+
+Test the current prerelease from the version-pinned Beta release:
+
+| Beta artifact | Direct download |
+| --- | --- |
+| 64-bit Windows (x64) | [InputStitch-1.3.0-beta.1-Windows-x64.exe](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.3.0-beta.1-Windows-x86.exe](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Windows-x86.exe) |
+| Complete Beta source | [InputStitch-1.3.0-beta.1-Source.zip](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Source.zip) |
+| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.0-beta.1/InputStitch-beta.xml) |
+| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.0-beta.1/SHA256SUMS.txt) |
 
 InputStitch supports Windows only. There is no macOS or Linux executable. If you are unsure which Windows build to use, choose x64 on a modern 64-bit installation.
 
@@ -32,6 +42,10 @@ The executable is portable: download it, place it in a folder where you have wri
 - A live virtual-controller preview while editing, highlighting the selected button, trigger, or stick direction
 - Per-step key-hold duration and delay controls
 - Quick Create templates for Held Mapping, fixed-count repetition, and ordered sequences; standalone Ctrl/Shift/Alt/Win, normal keys, and mouse buttons can be Held Mapping triggers
+- Input Ownership: multiple qualifying Held Mappings can stay active together while one ordinary timed macro also runs
+- Deterministic merged output: digital reference ownership, trigger maximum, circular stick-vector merge, and D-pad opposite-axis cancellation
+- Lightweight Runtime observation for active sources, source contributions, merged state, ordinary macro step/phase, and stop reasons
+- Single-step / Next Step execution for ordinary timed macros
 - Step Undo/Redo with a bounded 50-operation history
 - Safer staged configuration saves with verification and five recent valid-config backups
 - Global hotkeys, press-to-toggle, and hold-to-run modes
@@ -56,9 +70,9 @@ The executable is portable: download it, place it in a folder where you have wri
 5. Run the macro from the main window or enable its global trigger.
 6. Before using a macro in another application, confirm the Emergency Stop hotkey shown in InputStitch.
 
-Use the gear button to open settings, including **Language / 语言**, virtual controller type, update preferences, safety options, target-window behavior, diagnostics, and tray preferences. Xbox 360 is the default virtual controller because it has the broadest compatibility with Windows/XInput games; choose PS4 / DualShock 4 for games that support that device path. Update checking defaults to **Automatic**: InputStitch checks the official GitHub Release at startup and asks before downloading and installing. You can switch to manual checks or disable update checks completely.
+Use the gear button to open settings, including **Language / 语言**, virtual controller type, update preferences, safety options, target-window behavior, runtime observation/diagnostics, and tray preferences. Xbox 360 is the default virtual controller because it has the broadest compatibility with Windows/XInput games; choose PS4 / DualShock 4 for games that support that device path. Stable builds can use the automatic SHA-256-verified Stable update path. Prerelease/Beta builds deliberately disable unattended automatic update checks; a manual Beta update opens GitHub Releases instead of touching the Stable manifest.
 
-The stick editor uses direction and strength: `0°` is forward, `90°` is right, `-90°` is left, and `±180°` is backward. Existing X/Y values remain backward compatible and are preserved unless the user actually edits direction or strength. For a key-to-controller hold mapping, use Hold trigger + Infinite loop + “Hold until macro stops / KeyDown”; identical controller states are deduplicated and the controller is neutralized once when the macro stops.
+The stick editor uses direction and strength: `0°` is forward, `90°` is right, `-90°` is left, and `±180°` is backward. Existing X/Y values remain backward compatible and are preserved unless the user actually edits direction or strength. For a key-to-controller hold mapping, Quick Create → Held Mapping is the easiest path. In 1.3.0-beta.1, qualifying Held Mappings are independent ownership sources: releasing one removes only its contribution, while the remaining stick/trigger/button sources stay active and are re-merged.
 
 ## Virtual keyboard and idle input
 
@@ -72,7 +86,7 @@ The controller preview follows the selected Xbox 360 or PS4 layout. A stick dire
 
 Virtual gamepad output uses [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest). The upstream project is retired and no longer receives updates. InputStitch never silently installs the driver: if it is missing, the app explains the requirement and offers to open the original author's official GitHub Release page. Download it only from that official page, install it yourself, and restart InputStitch.
 
-Connect the virtual controller from **Settings → Virtual Gamepad Output** before launching a game. InputStitch keeps one neutral virtual controller connected until the app exits; stopping a macro or using Emergency Stop resets all virtual controls without unplugging the device. This avoids games that cache controllers at startup and ignore later hot-plugging. Changing between Xbox 360 and PS4 while a game is open may require restarting the game.
+Connect the virtual controller from **Settings → Virtual Gamepad Output** before launching a game. InputStitch keeps one virtual controller connected until the app exits. Ordinary source completion now removes only that source's ownership; other active Held Mapping or Idle sources remain merged. **Emergency Stop** and application shutdown are the global boundaries that clear every source and force the virtual controller neutral without unplugging it. This avoids games that cache controllers at startup and ignore later hot-plugging. Changing between Xbox 360 and PS4 while a game is open may require restarting the game.
 
 ## Safety notes
 
@@ -133,3 +147,9 @@ Hovering alone or selecting a non-editing button/list no longer blocks hotkey st
 ### Productivity and config safety (beta.4)
 
 Beta.4 adds staged/verified configuration saves with five recent valid backups, three Quick Create templates, and step Undo/Redo. Held Mapping accepts normal keyboard keys, standalone left/right Ctrl/Shift/Alt/Win, and mouse buttons including side buttons; modifier chords and wheel triggers remain unsupported for Hold mode. Duplicate enabled triggers intentionally use macro-list order as priority. Idle gamepad detection now ignores application-driven cursor recentering and uses its own independent Idle target; other-app typing does not block a background-game pulse, a missing configured Idle target pauses output completely, and target return starts a fresh full idle interval. The current automated suite covers these cases but sends no real input, so live game/controller acceptance still needs testing before wider promotion.
+
+### Input Ownership and multi-source Held Mapping (1.3.0-beta.1)
+
+Beta 1 replaces the old single-owner output assumption with explicit source ownership. Qualifying Held Mappings can stay active together and one ordinary timed macro may coexist with them. Digital state uses reference ownership, triggers use the maximum requested value, sticks merge vectors with circular normalization, and opposite D-pad directions cancel per axis. Tools → **Runtime observation...** shows active sources and the merged result; ordinary timed macros also gain **Single-step / Next Step**.
+
+Arbitrary timed-macro concurrency is intentionally not enabled. Advanced/complex Hold workers remain exclusive, duplicate physical triggers still use macro-list priority, and Emergency Stop remains the absolute global clear. Layer / Mapping Layer has been designed but is deliberately deferred until this first ownership Beta passes real-game acceptance; see [the Layer design note](docs/LAYER_DESIGN.md).

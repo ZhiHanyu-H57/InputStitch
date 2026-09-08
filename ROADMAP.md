@@ -76,75 +76,51 @@ This completes the old near-term plan: **safe persistence / live validation → 
 
 ## Current release target / 当前发布目标
 
-### Stable 1.2.0 — reliable single-macro baseline / 可靠单宏基线
+### Stable 1.2.0 — published rollback baseline / 已发布稳定回退基线
 
-Purpose: promote the validated Beta 1–4 reliability/productivity work to a clean Stable baseline before changing runtime ownership semantics.
+Stable 1.2.0 has completed promotion and remains the recommended rollback baseline while runtime ownership semantics are tested in public Beta. `releases/latest` and `InputStitch-update.xml` must continue to resolve to Stable 1.2.0 while 1.3.x prereleases are being evaluated.
 
-Release-gate work only:
-- add a once-per-version startup popup summarizing what changed after an upgrade;
-- final regression and live sanity checks;
-- build x64/x86 EXEs, Source.zip, `InputStitch-update.xml`, `SHA256SUMS.txt`;
-- verify file/product versions and hashes;
-- publish main commit + `v1.2.0` tag + public Stable Release (`prerelease=false`);
-- re-download/re-check remote assets and stable update manifest.
+Stable 1.2.0 已完成发布，在 1.3.x 的运行时所有权改造进入真实使用验收期间继续作为稳定回退基线。Beta 不得修改 Stable 的 `releases/latest` 与 `InputStitch-update.xml`。
 
-Do **not** add unrelated new features to the 1.2.0 release candidate. Only release-blocking fixes are accepted: config loss/corruption, stuck input, Emergency Stop failure, core-function breakage, unusable UI, or release/update integrity defects.
+### 1.3.0-beta.1 — Input Ownership + multi-source Held Mapping / 当前 Beta
 
-Stable 1.2.0 的意义是建立清晰、可靠、可回退的单宏基线。发布候选冻结后只接受阻断级 Bug，不再顺手添加普通新功能。
+The ownership foundation is now implemented locally for Beta 1. Persistent output is no longer owned by a single “current macro”; each contributor has an independent source identity and a central merge manager computes the final output.
 
-## Next development cycle / 下一开发周期
+Implemented in Beta 1:
 
-### 1.3.0-beta.1 — Input ownership + multi-source Held Mapping
+- multiple qualifying Held Mappings can remain active simultaneously;
+- at most one ordinary Toggle/timed macro may coexist with those mappings;
+- advanced/complex Hold workers remain exclusive rather than joining arbitrary concurrency;
+- ordinary macro, Held Mapping and Idle Gamepad output share one ownership core;
+- digital outputs use reference ownership;
+- analog triggers use maximum requested value;
+- stick vectors sum and normalize to the circular range;
+- opposing D-pad directions cancel independently per axis while orthogonal directions can remain diagonal;
+- Emergency Stop, backend failure and shutdown have fail-closed global cleanup;
+- live definition changes stop the affected Held Mapping before mutating its trigger/run/step definition;
+- lightweight **Runtime observation** exposes source contributions, merged state, ordinary macro step/phase and stop reason;
+- ordinary timed macros support **Single-step / Next Step** execution;
+- UI safety suspends only the ordinary macro source rather than globally neutralizing unrelated Held Mappings.
 
-The next structural bottleneck is no longer configuration difficulty; it is the one-active-macro runtime model.
+Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplicate physical triggers continue to use macro-list priority, and Emergency Stop remains absolute priority.
 
-Do **not** solve this by simply running multiple existing MacroWorkers. First introduce explicit source ownership and merged output state.
+Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
 
-#### Core model / 核心模型
+### Layer / 映射层 — designed, gated by real-use acceptance / 已设计，等待实测门槛
 
-Each persistent contributor gets a source identity, e.g.:
-- Held Mapping W;
-- Held Mapping Shift;
-- ordinary macro runtime snapshot;
-- Idle Gamepad.
+Layer is **not** enabled in 1.3.0-beta.1. Ownership is the first structural concurrency change and still requires real-game acceptance. Shipping a second structural runtime change in the same first Beta would make failures harder to isolate.
 
-A central Output State Manager owns the final emitted state. Releasing one source removes only that source's contribution and must not clear other active sources.
+The proposed first Layer is `Base + one active Layer`, scoped to Held Mapping only. A layer switch removes old-layer sources, changes eligibility, and does not synthesize activation for keys that were already physically held before the switch; they must be released and pressed again. Full design: [`docs/LAYER_DESIGN.md`](docs/LAYER_DESIGN.md).
 
-#### Initial merge rules / 第一版合并规则
+Layer 已完成设计但不在 beta.1 中启用。第一版拟采用 `Base + 一个活动 Layer`，只筛选 Held Mapping；切层会先移除旧层 Source，不会对切层前已经按住的键自动补触发，必须松开后重新按下。只有 Ownership Beta 经真实游戏验收稳定后才开始实现。
 
-- digital keyboard/mouse/gamepad buttons: reference-count semantics; remain down while any source owns them;
-- triggers: maximum requested value wins;
-- sticks: sum X/Y vectors, then clamp/normalize to the circular stick range; opposing directions naturally cancel;
-- Emergency Stop: bypass normal ownership, clear every source and force all final outputs neutral/up.
+### Expected 1.3.0-beta.2 / 预期下一 Beta
 
-#### Scope limit / 范围控制
+Beta 2 is not a pre-committed feature bundle. It exists only if real-use acceptance finds ownership/release/observation problems that need another public hardening cycle. The priority is evidence-driven fixes, not adding speculative concurrency.
 
-The first release enables **multiple Held Mappings**, not arbitrary concurrent timed macros.
+If Beta 1 passes real-use acceptance cleanly, the next substantial feature work may move directly to the Layer implementation described above. If Beta 1 exposes issues, Beta 2 remains an ownership-hardening release first.
 
-Example target:
-- W → left stick forward
-- A → left stick left
-- S → left stick back
-- D → left stick right
-- Shift → RT
-- Ctrl → LT
-- Mouse X1 → LB
-- Mouse X2 → RB
-
-These mappings may be active simultaneously.
-
-Ordinary timed macros remain single-active in the first ownership release. Duplicate physical triggers still use list priority; if one trigger needs multiple outputs, put those outputs in one Held Mapping instead of starting several duplicate-trigger mappings.
-
-### 1.3.0-beta.2 — ownership hardening + lightweight runtime observation
-
-After ownership works, add enough visibility to debug it without building a large debugger:
-- active source list;
-- each source's current contribution;
-- merged stick/trigger/button state;
-- ordinary macro current step/wait state;
-- stop/release reason and ownership conflict evidence.
-
-Step-by-step execution may be added if real debugging cost justifies it. A full breakpoint debugger or scripting environment is not planned here.
+Beta 2 不预先绑定功能清单：若真实使用暴露 Ownership、释放或观察问题，则先做针对性修复；若 beta.1 实测稳定，再进入 Layer 实现。不会为了版本号而强行添加任意并发或复杂条件系统。
 
 ## Required ownership regression matrix / Ownership 必测矩阵
 
@@ -165,8 +141,9 @@ Only schedule these when repeated real use justifies them:
 | Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
 |---|---|---|
 | Modifier-chord Held Mapping | repeated concrete need | after ownership stability |
-| Conditions / groups / layers | clear recurring scenarios | later |
-| Step-by-step execution | macro debugging becomes expensive | medium |
+| Layer / mapping layer | Beta 1 real-use ownership acceptance | next structural candidate |
+| Conditions / richer groups | clear recurring scenarios after Layer | later |
+| Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
 | More controller backends | ViGEm compatibility issue or mature replacement | on demand |
 | Installer / signing | external-user installation friction grows | on demand |
 | Project license | repository owner decides explicitly | pending |
@@ -186,15 +163,17 @@ Not currently committed: cross-platform support, cloud sync, plugin marketplace,
 
 Current / 当前：
 
-`1.1.1-beta.4 → Stable 1.2.0`
+`1.1.1-beta.4 → Stable 1.2.0 (published rollback baseline)`
+
+`1.3.0-beta.1 — Input Ownership + multi-source Held Mapping + runtime observation + single-step`
 
 Next / 下一轮：
 
-`1.3.0-beta.1 — Input ownership foundation + multi-source Held Mapping`
+`real-use acceptance → ownership hardening beta only if evidence requires it`
 
-`1.3.0-beta.2 — merge hardening + lightweight runtime observation`
+`ownership accepted → Layer / mapping-layer implementation`
 
-`real-use reliability closeout → Stable 1.3.0`
+`reliability closeout → Stable 1.3.0`
 
 Long-term product goal / 长期目标：
 

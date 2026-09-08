@@ -35,6 +35,7 @@
     <Compile Include="ConfigStore.cs" />
     <Compile Include="StepHistory.cs" />
     <Compile Include="QuickCreate.cs" />
+    <Compile Include="OutputOwnership.cs" />
     <Compile Include="VirtualKeyboard.cs" />
     <Compile Include="IdleGamepad.cs" />
     <None Include="InputStitch.ico" />

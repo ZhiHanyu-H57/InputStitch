@@ -3,22 +3,22 @@ namespace InputStitch
     // Build scripts and release workflows read these constants as the release source of truth.
     public static class ReleaseInfo
     {
-        public const string Version = "1.2.0";
-        public const string FileVersion = "1.2.0.0";
-        public const bool IsPrerelease = false;
+        public const string Version = "1.3.0-beta.1";
+        public const string FileVersion = "1.3.0.1";
+        public const bool IsPrerelease = true;
         public static bool AutomaticChecksAllowed { get { return !IsPrerelease; } }
         public const string ReleasesUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases";
         // Keep this deliberately short: it is shown once after an existing user upgrades.
         // Detailed release notes remain in RELEASE_NOTES.md / GitHub Releases.
         public const string ReleaseSummaryZh =
-            "• 配置保存更安全：验证后替换，并保留最近 5 份有效备份。\r\n" +
-            "• 新增快捷创建与步骤撤销/重做，按住映射更容易配置。\r\n" +
-            "• 修复前后台切换、修饰键按住映射与释放可靠性问题。\r\n" +
-            "• 闲置手柄输入新增独立挂机目标，并改进真实活动识别。";
+            "• 多个 Held Mapping 现在可以同时保持，并与最多一个普通时序宏共存。\r\n" +
+            "• 新增 Input Ownership：按钮引用所有权、扳机 max、摇杆向量合并与 D-pad 冲突消解。\r\n" +
+            "• 新增轻量运行观察，可查看来源贡献、合并状态、步骤和停止原因。\r\n" +
+            "• 普通宏新增单步执行；Emergency Stop 与退出清理继续全局释放所有输出。";
         public const string ReleaseSummaryEn =
-            "• Safer verified config replacement with five recent valid backups.\r\n" +
-            "• Quick Create and step Undo/Redo make common mappings easier to edit.\r\n" +
-            "• Improved foreground/background, modifier-held mapping and release reliability.\r\n" +
-            "• Idle gamepad input now has an independent target and better real-activity detection.";
+            "• Multiple Held Mappings can now stay active together and coexist with one ordinary timed macro.\r\n" +
+            "• Added Input Ownership with digital reference ownership, trigger max, stick-vector merging and D-pad conflict resolution.\r\n" +
+            "• Added lightweight runtime observation for source contributions, merged state, steps and stop reasons.\r\n" +
+            "• Ordinary macros gain single-step execution; Emergency Stop and shutdown still release every owned output.";
     }
 }

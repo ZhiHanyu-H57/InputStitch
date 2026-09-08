@@ -148,9 +148,11 @@ namespace InputStitch
                 : T("按一次触发开始；再次触发可停止。创建后可在主界面继续编辑步骤和高级参数。",
                     "Press the trigger to start; press again to stop. After creation, edit steps and advanced options in the main window.") };
             AddRow(fields, "", help);
-            Label limit = new Label { AutoSize = true, Dock = DockStyle.Fill, Text = T(
-                "同时只运行一项。新宏接管会停止旧宏，结束后不自动恢复。此处预览不发送真实输入。",
-                "One macro runs at a time. A new macro stops the previous one; it does not resume afterward. Preview sends no input.") };
+            Label limit = new Label { AutoSize = true, Dock = DockStyle.Fill, Text = kind == QuickTemplate.HeldMapping
+                ? T("多个按住映射可以并行；普通时序宏仍最多运行一个。同触发键继续按宏列表顺序决定优先级。此处预览不发送真实输入。",
+                    "Multiple Held Mappings can run together; ordinary timed macros remain single-active. Shared triggers still use macro-list priority. Preview sends no input.")
+                : T("普通时序宏一次只运行一个，但可以与多个按住映射同时存在。此处预览不发送真实输入。",
+                    "Ordinary timed macros remain single-active, but may coexist with multiple Held Mappings. Preview sends no input.") };
             AddRow(fields, "", limit);
             FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
             Button cancel = ButtonFor(T("取消", "Cancel"), delegate { DialogResult = DialogResult.Cancel; });

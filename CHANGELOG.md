@@ -3,6 +3,21 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.3.0-beta.1 (pre-release / 预发布)
+
+- Introduced a central Input Ownership / merged-output runtime. Persistent output now belongs to explicit sources instead of the old single-current-macro state.
+- Multiple qualifying Held Mappings can stay active simultaneously. One ordinary timed/toggle macro may run alongside them; arbitrary concurrent timed macros and advanced Hold workers remain intentionally out of scope.
+- Digital keyboard/mouse/gamepad buttons use reference ownership, analog triggers use the maximum requested value, stick vectors are summed then normalized to the circular range, and opposing D-pad directions cancel per axis while orthogonal directions remain available for diagonals.
+- Ordinary macro output, Held Mapping and Idle Gamepad now use the same ownership core. Finishing/pausing one source no longer neutralizes unrelated sources.
+- Emergency Stop, ownership backend failure and shutdown use fail-closed global cleanup so all owned keyboard/mouse/gamepad output is released/neutralized.
+- Added lightweight **Runtime observation** with active sources, per-source contributions, merged output, ordinary macro step/phase and last stop reason.
+- Added **Single-step** execution for ordinary timed macros. It executes one step at a time, waits for Next Step, and remains interruptible by normal Stop and Emergency Stop.
+- Live definition changes that could invalidate a running Held Mapping stop that mapping before mutation; duplicate physical triggers still use macro-list priority, while Emergency Stop remains absolute priority.
+- Added deterministic ownership regression for same-output reference ownership, trigger max, stick/D-pad conflict rules, failure cleanup, 10,000 random source operations, exhaustive activation/release ordering for five mixed sources, two-Held + one ordinary runtime composition, single-step/Emergency Stop, and UI-safety suspend/resume through a fake output backend. No real input or virtual controller is created by these tests.
+- Layer / 映射层 has been designed but intentionally deferred until this first ownership Beta receives real-game acceptance; see `docs/LAYER_DESIGN.md`.
+- 新增统一 Input Ownership 与多来源合并：多个 Held Mapping 可同时保持，并与最多一个普通时序宏共存；按钮按来源引用、扳机取 max、摇杆向量相加后按圆形范围归一化，D-pad 对向轴取消。普通宏结束、UI 编辑保护、Idle Gamepad、Emergency Stop 和退出清理都遵循同一所有权边界。
+- 新增轻量“运行观察”和普通宏“单步执行 / 下一步”。当前自动回归包含 303,643 项 ownership checks，但自动测试不替代真实游戏验收；Layer 已完成设计，等本 Beta 实测稳定后再实现。
+
 ## 1.2.0
 
 - Promoted the validated 1.1.1 Beta reliability/productivity work to Stable.
