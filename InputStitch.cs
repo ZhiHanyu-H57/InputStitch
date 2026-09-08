@@ -40,6 +40,7 @@ namespace InputStitch
         public const string ProfileFormatVersion = "3";
         public const string UpdateManifestUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml";
         public const string LatestReleaseUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest";
+        public const string ProjectUrl = "https://github.com/ZhiHanyu-H57/InputStitch";
         public const string ViGEmBusReleaseUrl = "https://github.com/nefarius/ViGEmBus/releases/latest";
     }
 
@@ -77,6 +78,7 @@ namespace InputStitch
             { "载入方案", "Load Profile" },
             { "保存方案", "Save Profile" },
             { "打开配置文件夹", "Open Config Folder" },
+            { "打开项目 GitHub", "Open Project on GitHub" },
             { "工具 ▾", "Tools ▾" },
             { "设置...", "Settings..." },
             { "设置", "Settings" },
@@ -4517,6 +4519,7 @@ namespace InputStitch
         private DiagnosticsForm runtimeObservationForm;
         private ToolStripMenuItem openConfigFolderMenuItem;
         private ToolStripMenuItem openLogMenuItem;
+        private ToolStripMenuItem githubMenuItem;
         private ToolStripMenuItem aboutMenuItem;
         private ToolStripMenuItem languageMenuItem;
         private ToolStripMenuItem chineseLanguageMenuItem;
@@ -5465,6 +5468,7 @@ namespace InputStitch
             if (diagnosticsMenuItem != null) diagnosticsMenuItem.Text = Localizer.T("诊断信息...");
             if (openConfigFolderMenuItem != null) openConfigFolderMenuItem.Text = Localizer.T("打开配置文件夹");
             if (openLogMenuItem != null) openLogMenuItem.Text = Localizer.T("打开日志文件夹");
+            if (githubMenuItem != null) githubMenuItem.Text = Localizer.T("打开项目 GitHub");
             if (aboutMenuItem != null) aboutMenuItem.Text = Localizer.Dynamic("关于 " + AppInfo.ProductName + "...");
             if (trayShowMenuItem != null) trayShowMenuItem.Text = Localizer.Dynamic("显示 " + AppInfo.ProductName);
             if (trayPanicMenuItem != null) trayPanicMenuItem.Text = Localizer.T("紧急停止");
@@ -5602,6 +5606,17 @@ namespace InputStitch
             };
             toolsMenu.Items.Add(openLogMenuItem);
 
+            githubMenuItem = new ToolStripMenuItem();
+            githubMenuItem.Click += delegate
+            {
+                try { Process.Start(new ProcessStartInfo(AppInfo.ProjectUrl) { UseShellExecute = true }); }
+                catch (Exception ex)
+                {
+                    AppLog.Write("Open project GitHub failed", ex);
+                    LocalizedMessageBox.Show(this, AppInfo.ProjectUrl, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            };
+
             aboutMenuItem = new ToolStripMenuItem();
             aboutMenuItem.Click += delegate
             {
@@ -5615,6 +5630,7 @@ namespace InputStitch
                 }
             };
             toolsMenu.Items.Add(new ToolStripSeparator());
+            toolsMenu.Items.Add(githubMenuItem);
             toolsMenu.Items.Add(aboutMenuItem);
             toolsMenu.Opening += delegate { RefreshPanicUi(); RefreshMenuLanguage(); };
             RefreshMenuLanguage();

@@ -204,6 +204,16 @@ internal static class ProductivityTests
         config.Macros.Add(new MacroDefinition());
         using (MainForm form = new MainForm(config, directory))
         {
+            ToolStripMenuItem githubMenuItem = (ToolStripMenuItem)Field(form, "githubMenuItem");
+            Check(githubMenuItem != null && githubMenuItem.Text == "打开项目 GitHub",
+                "Gear menu exposes project GitHub item in Chinese");
+            Check(AppInfo.ProjectUrl == "https://github.com/ZhiHanyu-H57/InputStitch",
+                "Project GitHub item targets canonical repository URL");
+            Call(form, "ChangeLanguage", Localizer.English);
+            Check(githubMenuItem.Text == "Open Project on GitHub",
+                "Project GitHub item follows live English localization");
+            Call(form, "ChangeLanguage", Localizer.Chinese);
+
             DataGridView grid = (DataGridView)Field(form, "grid");
             grid.ClearSelection(); grid.Rows[0].Selected = true;
             Call(form, "CopySelectedSteps"); Check(macro.Steps.Count == 3, "Main copy");

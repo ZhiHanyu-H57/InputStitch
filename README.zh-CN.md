@@ -10,20 +10,20 @@ InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄�
 
 ## 下载
 
-**当前正式版：v1.2.0；公开 Beta：v1.3.0-beta.2。** 正式版仍是推荐的稳定回退基线。Beta 2 延续 beta.1 的 Input Ownership 底座，并发布统一 Concurrent Macro Runtime：普通时序 / Toggle、高级/复杂 Hold 与 Parallel Held Mapping 可以同时运行，分别进行 Source 清理和逐 Hold 松键跟踪。Beta 始终作为 GitHub prerelease 发布，不替换 Stable 的 `releases/latest` 或 `InputStitch-update.xml`。
+**当前正式版：v1.3.0。** 本版本把经过 Beta 验证的 Input Ownership + 统一 Concurrent Macro Runtime 晋升到 Stable：不同的普通时序 / Toggle、高级/复杂 Hold 与 Parallel Held Mapping 可以同时运行，并保持 Source 级清理和逐 Hold 松键跟踪。修饰键组合 Hold 与 Shift 下裸普通键 fallback 也已经进入正式版。
 
-Beta 与正式版目前共用配置。测试 Beta 前请退出另一版本并备份 `%APPDATA%\InputStitch`，不要同时运行两个版本。详见[开发路线和发布规则](ROADMAP.md)。
+此前的 `v1.3.0-beta.2` prerelease 继续保留作为历史测试证据，但 `releases/latest` 与 `InputStitch-update.xml` 现在都指向 Stable 1.3.0。详见[开发路线和发布规则](ROADMAP.md)。
 
 可以从 [GitHub 最新正式版](../../releases/latest) 直接下载可执行文件：
 
 | Windows 架构 | 直接下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.2.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.2.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.2.0-Source.zip](../../releases/latest/download/InputStitch-1.2.0-Source.zip) |
+| 64 位 Windows（x64） | [InputStitch-1.3.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.3.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.3.0-Source.zip](../../releases/latest/download/InputStitch-1.3.0-Source.zip) |
 | 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
-当前 Beta 使用固定版本下载地址：
+历史 `v1.3.0-beta.2` prerelease 继续保留固定版本下载地址，供对比或回退测试：
 
 | Beta 文件 | 直接下载 |
 | --- | --- |
@@ -44,13 +44,14 @@ EXE 为便携式程序：下载后放入有写入权限的文件夹即可运行�
 - 编辑手柄步骤时显示动态虚拟手柄预览，高亮当前按键、扳机或摇杆方向
 - 为每个步骤设置按住时长和执行后间隔
 - 快捷创建“按住映射 / 定次数连按 / 顺序执行”；普通键、单独左右 Ctrl/Shift/Alt/Win 和鼠标按钮都可作为 Held Mapping 触发键
-- Input Ownership + Concurrent Macro Runtime：当前 `main` 可同时保持多个符合条件的 Held Mapping，并并发运行多个不同的普通时序 / Toggle 宏
+- Input Ownership + Concurrent Macro Runtime：Stable 1.3.0 可同时保持多个符合条件的 Held Mapping，并并发运行多个不同的普通时序 / Toggle / 高级 Hold 宏
 - 明确的合并规则：数字输出按来源引用、扳机取最大值、摇杆向量按圆形范围合并、D-pad 对向轴相互取消
 - 轻量“运行观察”，实时查看活动 Source、各来源贡献、合并结果、普通宏步骤/阶段和停止原因
 - 普通时序宏支持“单步执行 / 下一步”
 - 步骤 Undo / Redo，历史最多保留 50 次操作
 - 配置采用暂存/验证后替换，并保留最近 5 份有效主配置备份
-- 全局热键、单次触发启停和按住运行模式
+- 全局热键、单次触发启停和按住运行模式，Hold 支持修饰键组合
+- 齿轮菜单可一键“打开项目 GitHub”
 - 固定执行次数或无限循环
 - 录制物理键盘、鼠标按钮和滚轮操作并自动还原时序；有意不录制鼠标移动
 - 使用扫描码发送键盘输入，提高在许多游戏中的兼容性
@@ -148,7 +149,7 @@ beta.2 中，**独立 Shift + 按住触发 + 全部为手柄步骤**的宏会自
 仅悬停或选中非编辑按钮/列表不再阻止热键启动。焦点仍在名称、数值或下拉编辑控件时继续保护，并显示原因；点击空白处即可结束编辑。运行中的鼠标宏仍防止误点控件。诊断包含内存中最近 64 条宏运行事件，不是持续键盘日志；“已提交输出”不代表游戏已接收。
 ### 易用性与配置安全（beta.4）
 
-beta.4 加入暂存/验证后替换的安全配置保存与最近 5 份有效备份、三种快捷创建模板，以及步骤撤销/重做。按住映射支持普通键盘键、左右单独 Ctrl/Shift/Alt/Win 和鼠标按钮（含侧键）作为触发键；当前 `main` 进一步支持修饰键组合 Hold，滚轮因为没有持续按下状态仍不能作为 Hold 触发键。同触发键的已启用宏按列表顺序决定优先级。闲置自动手柄输入不再把游戏自身的鼠标重定位误判为持续操作，并拥有独立的“挂机目标”；其他程序中的键鼠输入不会阻止后台目标游戏的挂机脉冲，已设置的挂机目标不存在时则完全暂停输出，目标重新出现后从完整空闲时间重新计时。当前自动测试已经覆盖这些情况，但不会发送真实输入，正式推广前仍需完成实际游戏和虚拟手柄接收验收。
+beta.4 加入暂存/验证后替换的安全配置保存与最近 5 份有效备份、三种快捷创建模板，以及步骤撤销/重做。按住映射支持普通键盘键、左右单独 Ctrl/Shift/Alt/Win 和鼠标按钮（含侧键）作为触发键；Stable 1.3.0 进一步支持修饰键组合 Hold，滚轮因为没有持续按下状态仍不能作为物理 Hold 触发键。同触发键的已启用宏按列表顺序决定优先级。闲置自动手柄输入不再把游戏自身的鼠标重定位误判为持续操作，并拥有独立的“挂机目标”；其他程序中的键鼠输入不会阻止后台目标游戏的挂机脉冲，已设置的挂机目标不存在时则完全暂停输出，目标重新出现后从完整空闲时间重新计时。后续继续把实际游戏/手柄反馈作为正常的发布后验证。
 
 ### Input Ownership 与任意宏多并发（1.3.x）
 

@@ -6,11 +6,12 @@ Updated: 2026-09-08
 
 ## Current version
 
-- Public Beta: `v1.3.0-beta.2`
-- Stable rollback baseline: `v1.2.0`
+- Current Stable: `v1.3.0`
+- Previous Stable rollback baseline: `v1.2.0`
+- Historical public Beta: `v1.3.0-beta.2`
 - Branch: `main`
-- Public Beta product/runtime commit: resolve `v1.3.0-beta.2` with `git rev-list -n 1 v1.3.0-beta.2`; the release tag is the source of truth.
-- Beta 2 publishes the unified Concurrent Macro Runtime intended for Stable 1.3.0. The runtime baseline remains the `v1.3.0-beta.2` tag; `main` may move ahead for roadmap/documentation changes before evidence-backed runtime fixes or Stable promotion work begins.
+- Stable product/runtime commit: resolve `v1.3.0` with `git rev-list -n 1 v1.3.0`; the release tag is the source of truth after publication.
+- The 1.3 Beta ownership/concurrency work plus the post-beta trigger/runtime cleanup is promoted into Stable 1.3.0. Historical beta tags/releases must not be moved or overwritten.
 
 For the commit containing this handoff document itself, use:
 
@@ -22,13 +23,11 @@ This avoids a self-referential commit hash inside the file.
 
 ## Working on
 
-**Targeted real-game acceptance for the unified Concurrent Macro Runtime, then Stable 1.3.0 promotion.**
+**Post-1.3.0 development: Physical Gamepad Input + Hybrid Controller Routing.**
 
-The post-Beta runtime now supports concurrency across ordinary timed/Toggle macros, Advanced/complex Hold timelines and state-only Parallel Held Mappings. Automated validation is green. The remaining engineering gate is intentionally narrow: verify this newly expanded universal-concurrency behavior in the actual target game—multiple complex Holds together, source-local Hold release, coexistence with ordinary + Parallel Held output, one Alt+Tab/lost-KeyUp sample, and mixed-state Emergency Stop. Do not mechanically re-test unchanged SendInput/ViGEm recognition. If this targeted real-use gate is clean, prepare Stable 1.3.0.
+Stable 1.3.0 is the completed ownership/concurrency milestone. The next engineering goal is Windows XInput controller buttons/D-pad/trigger thresholds as first-class InputStitch triggers, followed by controller→keyboard/mouse hybrid mapping and only later controlled replacement/device hiding. Layer remains reprioritized behind that track. Full design: `docs/GAMEPAD_INPUT_ROUTING.md`.
 
-**After Stable 1.3.0, the next highest-priority feature is Physical Gamepad Input + Hybrid Controller Routing. Layer has been reprioritized behind that track.** The first goal is Windows XInput controller buttons/D-pad/trigger thresholds as first-class InputStitch triggers; the second is controller→keyboard/mouse hybrid mapping; the third is controlled replacement/routing through one virtual gamepad with device-hiding only after a mature fail-safe approach is chosen. Full design: `docs/GAMEPAD_INPUT_ROUTING.md`.
-
-Current `main` is now ahead of the `v1.3.0-beta.2` runtime tag with the evidence-backed trigger fix plus a stale-code/runtime-contract cleanup. Holding **Shift** no longer disables a separately configured bare ordinary-key trigger such as `E`; exact explicit chords still win, and Ctrl/Alt/Win remain strict for bare keys. Modifier chords are valid Hold triggers. The chord starts on the terminal-key down edge with required modifiers already held; terminal-key release or release of any required modifier stops only the matching Hold source, and lost-KeyUp reconciliation checks the complete chord state. Quick Create now follows the same modifier-chord Hold rule, recording treats Parallel Held sources as active runtime and stops them before capture, and the capability UI distinguishes manual/UI execution from physical Hold-trigger eligibility for wheel-triggered Hold definitions.
+Stable 1.3.0 includes the evidence-backed post-beta.2 trigger fix and stale-code/runtime cleanup: Shift no longer disables a separately configured bare ordinary-key trigger when no more-specific chord exists; modifier chords are valid Hold triggers with whole-chord release/lost-KeyUp semantics; Quick Create follows the same rule; recording treats Parallel Held as active runtime; wheel-Hold UI/manual execution is distinguished from physical-trigger eligibility. The gear menu also contains a localized one-click link to the InputStitch GitHub project.
 
 ## Completed
 
@@ -88,17 +87,17 @@ Current `main` is now ahead of the `v1.3.0-beta.2` runtime tag with the evidence
 
 ### Release and verification
 
-`v1.3.0-beta.2` is the current GitHub prerelease and publishes the unified macro-concurrency runtime. Stable `v1.2.0` remains `Latest`; beta.1 remains historical and must not be overwritten.
+Stable `v1.3.0` is the current release target and is published through the Stable `releases/latest` / `InputStitch-update.xml` channel. `v1.3.0-beta.1` and `v1.3.0-beta.2` remain historical prereleases and must not be moved or overwritten.
 
-Beta releases use the isolated `InputStitch-beta.xml` channel. The beta.2 publication workflow must verify both architectures/assets and confirm the Stable release fingerprint is unchanged before and after publishing.
+The Stable publisher builds/verifies both architectures, creates `v1.3.0`, publishes the five reviewed assets, and must verify the result is public, non-prerelease and `releases/latest`.
 
-Immediately before this handoff, the full regression suite was run again on the **Concurrent Macro Runtime build** and passed:
+Immediately before the Stable release commit, the full regression suite was run on the **exact Stable 1.3.0 source** and passed:
 
 - 323 keyboard checks;
 - 58 Idle Gamepad assertions;
 - 43 updater checks;
 - 23 UI safety / diagnostics checks;
-- 355 productivity checks;
+- 358 productivity/UI checks, including the localized gear-menu GitHub item and canonical repository URL;
 - 303,716 Output Ownership checks, including the universal timed/Toggle/Advanced-Hold + Parallel-Held matrix, modifier-chord Hold classification/release semantics, wheel-Hold trigger-eligibility projection, and recording cleanup when only a Parallel Held source is active;
 - zh-CN/en-US Settings smoke tests at normal and narrow sizes;
 - old XML configuration compatibility;
@@ -131,17 +130,16 @@ The current universal-concurrency source completed fresh x64/x86 release build v
 
 ## Not completed yet
 
-- Targeted real-game acceptance of the new **universal timed/Toggle/Advanced-Hold + Parallel-Held concurrency** and source-local release behavior.
-- Stable 1.3.0 promotion after that real-use gate passes.
-- Physical XInput gamepad as a first-class trigger/input source after Stable 1.3.0.
+- Physical XInput gamepad as a first-class trigger/input source.
 - Controller→keyboard/mouse hybrid mapping, initially as augmentation while original physical controller input still reaches the game.
 - Gamepad Router / controlled replacement with device hiding and one game-visible virtual controller after the simpler input-source stage is accepted.
 - Layer implementation after the gamepad-input/routing core reaches a stable checkpoint, unless explicitly reprioritized.
 - Input Lab target-window message comparison, DS4/DirectInput/HID observation, longer soak scenarios and machine-readable report export.
+- Continue collecting real-game feedback on Stable 1.3.0 concurrency/release behavior; treat any new issue as evidence-backed maintenance rather than an unfinished 1.3.0 structural feature.
 
 ## Known issues / known limitations
 
-There is no currently known automated-regression failure at this breakpoint. The important unresolved risk is **lack of sufficient real-game validation of the new structural concurrency path**.
+There is no currently known automated-regression failure at this breakpoint. Stable 1.3.0 has been authorized for release after the current evidence-backed fixes and automated gates; continue collecting real-game feedback, especially around mixed Hold/release/Alt+Tab behavior, as normal post-release validation.
 
 Input Lab v0.2 is intentionally not a complete game-API simulator yet. It now has low-level Hook + foreground/manual or INPUTSINK/automated Raw Input + XInput lanes, but a pass does not prove target-window message delivery, DirectInput/HID/DS4, GameInput, anti-cheat, privilege-boundary, exclusive-fullscreen or game-specific compatibility. The automated trigger source is an internal simulated physical edge because InputStitch correctly ignores Windows-injected input as a macro trigger; the downstream runtime/output path remains real.
 
@@ -157,25 +155,22 @@ Intentional limitations that must not be mistaken for bugs:
 - physical Hold triggers support single keyboard keys (including standalone modifiers), modifier+terminal-key chords, and mouse buttons. A chord starts when the terminal key goes down with all declared modifiers already held; releasing the terminal key or any required modifier stops only that Hold run/source. Wheel remains outside Hold-trigger semantics because it has no persistent down state;
 - same-output digital pulse/click requests do not force a bounce while another source persistently owns that output; the pulse is masked until the persistent state releases;
 - duplicate physical triggers use list priority;
-- Layer is not enabled in `1.3.0-beta.2`;
-- Beta and Stable share `%APPDATA%\InputStitch`, so they should not run simultaneously;
+- Layer is not enabled in `1.3.0`;
+- Historical Beta and Stable builds share `%APPDATA%\InputStitch`, so they should not run simultaneously;
 - the application still depends on ViGEmBus for virtual-controller output and the EXE is not code-signed.
 
 ## Next step
 
-Unified normal-macro concurrency and option-B eligibility UI are complete locally. **Do not add another structural feature before the Stable 1.3.0 gate.**
+Stable 1.3.0 completes the ownership/concurrency milestone. Begin **Physical Gamepad Input + Hybrid Controller Routing** without reopening the old singleton runtime design.
 
 Next actions:
 
-1. In the real target game, hold two different complex Hold macros at the same time and confirm both outputs remain active.
-2. Release only one complex Hold trigger; confirm the other Hold plus any ordinary/Parallel Held outputs remain active.
-3. Run complex Hold + ordinary timed/Toggle + Parallel Held Mapping together and vary the release/stop order.
-4. Test one finite complex Hold beside an infinite Hold and confirm natural finite completion does not affect the infinite run.
-5. Trigger Emergency Stop while multiple complex Hold + ordinary + Parallel Held sources are active; confirm every output returns neutral.
-6. Do one Alt+Tab/lost-KeyUp sample with at least two physical Hold/Held triggers, release them while backgrounded, and confirm source-local fallback cleanup.
-7. Repeat mixed start/stop/release cycles enough times to catch stale RunId/SourceId/release-probe state or stuck input. Existing SendInput/ViGEm recognition does not need full re-validation.
-8. If no evidence-backed defect appears, prepare and publish **Stable `v1.3.0`** directly. An intermediate beta is optional, not mandatory.
-9. After Stable 1.3.0 is accepted, begin **Physical Gamepad Input + Hybrid Controller Routing**. Start with XInput controller triggers; do not jump directly to device hiding or Layer.
+1. Add Windows XInput controller buttons and D-pad as first-class trigger inputs.
+2. Add LT/RT threshold triggers with hysteresis once digital controller triggers are stable.
+3. Ensure controller input cannot feed back from InputStitch's own ViGEm virtual output.
+4. Reuse the existing trigger selector, per-run Concurrent Macro Runtime and Output Ownership paths.
+5. After trigger-source stability, add controller→keyboard/mouse hybrid mapping as augmentation.
+6. Only after hybrid mapping proves useful, evaluate fail-safe device hiding / controlled replacement and later Layer.
 
 Keep `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` as the automated ownership/concurrency baseline. On this laptop all 18 pre-XInput ordinary + complex-Hold SendInput checks pass; a later `BLOCKED` at ViGEm/XInput preflight is an environment condition, not permission to bypass the preflight.
 

@@ -76,11 +76,11 @@ This completes the old near-term plan: **safe persistence / live validation → 
 
 ## Current release target / 当前发布目标
 
-### Stable 1.2.0 — published rollback baseline / 已发布稳定回退基线
+### Stable 1.3.0 — current Stable / 当前正式版
 
-Stable 1.2.0 has completed promotion and remains the recommended rollback baseline while runtime ownership semantics are tested in public Beta. `releases/latest` and `InputStitch-update.xml` must continue to resolve to Stable 1.2.0 while 1.3.x prereleases are being evaluated.
+Stable 1.3.0 promotes the validated Input Ownership + unified Concurrent Macro Runtime from the 1.3 Beta line. `releases/latest` and `InputStitch-update.xml` now resolve to Stable 1.3.0; Stable 1.2.0 remains the previous rollback point if an older baseline is needed.
 
-Stable 1.2.0 已完成发布，在 1.3.x 的运行时所有权改造进入真实使用验收期间继续作为稳定回退基线。Beta 不得修改 Stable 的 `releases/latest` 与 `InputStitch-update.xml`。
+Stable 1.3.0 已将 1.3 Beta 期间验证的 Input Ownership 与统一 Concurrent Macro Runtime 晋升为正式版；`releases/latest` 与 `InputStitch-update.xml` 现在指向 1.3.0。需要旧基线时，1.2.0 仍可作为上一正式版回退点。
 
 ### 1.3.0-beta.1 — Input Ownership + multi-source Held Mapping / previous Beta
 
@@ -106,7 +106,7 @@ Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplica
 
 Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
 
-### 1.3.0-beta.2 — Unified Concurrent Macro Runtime / 任意宏类型多并发 — current Beta / 当前 Beta
+### 1.3.0-beta.2 — Unified Concurrent Macro Runtime / 任意宏类型多并发 — previous Beta / 历史 Beta
 
 Beta 2 publishes the Stable-1.3.0 candidate runtime with concurrency across every normal macro execution class: multiple distinct ordinary timed/Toggle macros, multiple Advanced/complex Hold timelines, and state-only Parallel Held Mappings may all coexist. Every worker-backed run owns an independent RunId/SourceId, stop/timing/progress state, immutable Hold-trigger snapshot where applicable, and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
 
@@ -118,7 +118,7 @@ Digital overlap semantics remain state-first and deterministic: if one source al
 
 Stable 1.3.0 候选运行时现在已经支持**任意正常宏类型之间的多并发**：多个普通时序 / Toggle、多个高级/复杂 Hold，以及状态型 Parallel Held Mapping 可以同时存在。复杂 Hold 的物理松键与 lost-KeyUp 恢复按 Run 独立跟踪，一个 Hold 的松开不会停止其他运行实例；最终输出继续统一交给 Output Ownership 合并。
 
-Post-beta.2 `main` also contains an evidence-backed trigger-semantic fix: Shift-only physical modifier state no longer blocks an otherwise bare ordinary-key trigger, exact explicit chords remain higher priority, and modifier chords are valid Hold triggers with whole-chord release/lost-KeyUp semantics. Ctrl/Alt/Win remain strict around bare ordinary keys.
+Stable 1.3.0 additionally includes the evidence-backed post-beta.2 trigger-semantic fix: Shift-only physical modifier state no longer blocks an otherwise bare ordinary-key trigger, exact explicit chords remain higher priority, and modifier chords are valid Hold triggers with whole-chord release/lost-KeyUp semantics. Ctrl/Alt/Win remain strict around bare ordinary keys. The final Stable source also aligns Quick Create/recording/status capability paths with the concurrent runtime and adds a gear-menu link to the project GitHub page.
 
 ### Physical Gamepad Input + Hybrid Controller Routing — highest priority after Stable 1.3.0 / 1.3.0 后最高优先级
 
@@ -160,9 +160,9 @@ Layer remains designed, but it is now behind the Physical Gamepad Input / Hybrid
 
 Layer 设计继续保留，但当前顺序改为：先完成 1.3.0 → Physical Gamepad Input → Hybrid Mapping / Router 核心 → 再考虑 Layer。Layer 不应另造一套输入或执行引擎。
 
-### Additional Beta only if needed / 仅在需要时追加 Beta
+### 1.3 Beta line — completed / 1.3 Beta 阶段已完成
 
-`1.3.0-beta.2` is now the published public Beta for universal macro concurrency. Use `beta.3` only if evidence-backed fixes from real-game acceptance benefit from another public validation cycle. If beta.2's targeted real-game gate is clean, promote directly to Stable `1.3.0`.
+`1.3.0-beta.1` and `1.3.0-beta.2` remain historical prereleases. Their ownership/concurrency work has been promoted to Stable `1.3.0`; do not move or overwrite those tags/releases.
 
 ## Required ownership regression matrix / Ownership 必测矩阵
 
@@ -184,12 +184,12 @@ Only schedule these when repeated real use justifies them:
 
 | Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
 |---|---|---|
-| Unified macro concurrency (timed/Toggle/Advanced Hold + Parallel Held) | published in `v1.3.0-beta.2`; targeted real-use acceptance remains before Stable 1.3.0 | **implemented / acceptance gate** |
+| Unified macro concurrency (timed/Toggle/Advanced Hold + Parallel Held) | promoted to Stable `v1.3.0` | **completed** |
 | Physical XInput gamepad as trigger/input source | Stable 1.3.0 accepted | **highest after 1.3.0** |
 | Controller → keyboard/mouse hybrid mapping | physical gamepad trigger source stable | **next** |
 | Gamepad Router / controlled replacement | hybrid mapping proves useful; mature fail-safe device-hiding route identified | **high, after simple input source** |
 | Controller aggregation / broader gamepad backends | single-controller router stable; repeated concrete need | after router core |
-| Modifier-chord Held Mapping | implemented on current `main`; whole-chord release/lost-KeyUp semantics covered by regression | completed |
+| Modifier-chord Held Mapping | included in Stable `v1.3.0`; whole-chord release/lost-KeyUp semantics covered by regression | completed |
 | Layer / mapping layer | gamepad input/routing core reaches stable checkpoint | after gamepad routing core unless reprioritized |
 | Conditions / richer groups | clear recurring scenarios after routing/Layer maturity | later |
 | Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
@@ -222,17 +222,13 @@ Current / 当前：
 
 `1.3.0-beta.2 — unified timed/Toggle/Advanced-Hold concurrency + Parallel Held + live runtime eligibility UI`
 
-Current local / 当前本地：
+Current / 当前正式版：
 
-`runtime baseline = v1.3.0-beta.2; main may move ahead for roadmap/docs before evidence-backed runtime fixes`
+`Stable 1.3.0 — Input Ownership + universal Concurrent Macro Runtime + modifier-chord Hold + trigger/runtime cleanup`
 
 Next / 下一轮：
 
-`targeted real-game universal-concurrency acceptance`
-
-`all 1.3.0 gates pass → Stable 1.3.0`
-
-`Stable 1.3.0 accepted → Physical XInput gamepad input/trigger source`
+`Stable 1.3.0 published → Physical XInput gamepad input/trigger source`
 
 `physical gamepad input stable → Controller → keyboard/mouse hybrid mapping`
 

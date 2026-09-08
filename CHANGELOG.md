@@ -3,13 +3,15 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
-## Unreleased — post-beta.2 trigger/runtime cleanup / 未发布 — beta.2 后触发与运行时清理
+## 1.3.0
 
+- Promoted the validated Input Ownership + universal Concurrent Macro Runtime from the 1.3.0 Beta line to Stable: distinct ordinary timed/Toggle macros, Advanced/complex Hold timelines, and Parallel Held Mappings can run concurrently with source-local cleanup.
 - Bare ordinary keyboard triggers now remain eligible while **Shift alone** is physically held, so a gameplay/sprint Shift macro no longer disables an independent `E`, `Q`, etc. macro. Explicit modifier chords still win first; Ctrl/Alt/Win do not gain this bare-key fallback.
 - Hold mode now supports modifier chords such as `Shift+E`, `Ctrl+F`, or `Ctrl+Shift+K`. The chord starts when its terminal key is pressed while all declared modifiers are already held.
 - Releasing either the terminal key or any required modifier stops only that Hold run/source. Lost-KeyUp fallback now evaluates the whole Hold chord instead of only the terminal key.
 - Modifier-chord Hold works for both the lightweight Parallel Held Mapping path and worker-backed Concurrent Advanced Hold path; wheel input remains unsupported as a physical Hold trigger because it has no persistent down state.
 - Cleaned stale pre-concurrency assumptions around Quick Create, recording, status reporting and runtime capability display. Quick Create now accepts modifier-chord Held Mapping triggers; recording stops any active runtime including state-only Parallel Held sources; wheel-Hold UI/manual execution is explicitly separated from physical-trigger eligibility; dead singleton-era helpers/events/localization were removed without breaking legacy XML import.
+- Added **Open Project on GitHub** to the gear menu for one-click access to the InputStitch repository in the default browser, with logged/fallback handling if Windows cannot launch the URL.
 - 新增 Shift 下裸普通键 fallback：按住 Shift 时，若不存在更具体的 `Shift+E` 等组合触发，单独配置的 `E` 宏仍可触发；Ctrl/Alt/Win 仍保持严格，避免误触系统/软件快捷键。
 - 清理并发重构后的历史遗留：快捷创建不再拒绝组合 Hold，录制前会停止包括 Parallel Held 在内的全部活动运行时，运行资格区分“可手动运行”和“可由物理 Hold 触发”，并删除确认无调用者的旧 singleton helper/事件/文案；旧 XML 兼容测试保持通过。
 - Hold 现支持修饰键组合；组合中的终止键或任意必需修饰键松开都会只停止对应 Hold Run，lost-KeyUp 恢复也按完整组合状态判断。

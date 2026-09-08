@@ -6,25 +6,25 @@ Updated: 2026-09-08
 
 ## Current milestone
 
-**1.3.0 concurrent macro runtime and Stable promotion**
+**Stable 1.3.0 release and transition to Physical Gamepad Input**
 
-Current public Beta: `v1.3.0-beta.2`
-Stable rollback baseline: `v1.2.0`
+Current Stable: `v1.3.0`
+Previous public Beta: `v1.3.0-beta.2` (historical)
+Previous Stable rollback baseline: `v1.2.0`
 
-Beta 2 publishes the **unified Concurrent Macro Runtime** built on Beta 1's Input Ownership foundation. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can all run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and a single authoritative `MacroRuntimeClassifier` drives both execution eligibility and the option-B live UI classification. The remaining 1.3.0 work is targeted real-game acceptance and evidence-backed fixes only.
+Stable 1.3.0 promotes the validated **Input Ownership + unified Concurrent Macro Runtime** built through the 1.3 Beta line. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and one authoritative `MacroRuntimeClassifier` drives execution and live eligibility UI.
 
-Current `main` contains one evidence-backed post-beta.2 trigger fix from real use: a bare ordinary key remains triggerable while **Shift alone** is held (unless a more specific explicit chord such as `Shift+E` exists), while Ctrl/Alt/Win remain strict for bare keys. Hold mode now accepts modifier chords, and the complete chord state—not only the terminal key—controls source-local release/lost-KeyUp cleanup.
+The Stable source also includes the post-beta.2 trigger fixes from real use: bare ordinary keys remain triggerable while **Shift alone** is held unless a more specific explicit chord exists; Hold supports modifier chords with whole-chord release/lost-KeyUp cleanup; Quick Create follows the same rules. The gear menu now includes a one-click link to the InputStitch GitHub project.
 
-After Stable 1.3.0, the next highest-priority product direction is now **Physical Gamepad Input + Hybrid Controller Routing**, not Layer. The goal is to let a Windows controller become a first-class InputStitch trigger/input source, preserve the analog controls that gamepads are good at, and selectively map controller inputs to keyboard/mouse or macros where PC keyboard/mouse bindings are more efficient. Layer remains designed but moves behind this routing track.
+The next highest-priority product direction is **Physical Gamepad Input + Hybrid Controller Routing**, not Layer. The goal is to let a Windows controller become a first-class InputStitch trigger/input source, preserve the analog controls that gamepads are good at, and selectively map controller inputs to keyboard/mouse or macros where PC keyboard/mouse bindings are more efficient. Layer remains designed but moves behind this routing track.
 
 ## Immediate work
 
-The implementation and automated validation phases are complete at the current local breakpoint. Remaining Stable 1.3.0 work is deliberately narrow:
-
-1. Run targeted real-game acceptance for the **newly affected universal-concurrency paths only**: multiple complex Hold macros overlapping, complex Hold + ordinary timed/Toggle + Parallel Held coexistence, releasing one Hold trigger while the others remain active, and Emergency Stop from a mixed active state.
-2. Confirm no stuck keyboard/mouse/controller state after repeated mixed start/stop/release cycles in the target game, including one Alt+Tab/lost-KeyUp sample while multiple Hold/Held sources are active.
-3. Fix only evidence-backed defects found by that real-use acceptance; unchanged low-level SendInput/ViGEm recognition does not need a full re-validation.
-4. If the targeted real-use gate is clean, promote directly to **Stable `v1.3.0`**. Another Beta is optional rather than mandatory.
+1. Begin **Physical XInput gamepad as a first-class trigger/input source** after the Stable 1.3.0 publication checkpoint.
+2. Start with buttons and D-pad, then LT/RT threshold triggers with hysteresis; do not jump directly to stick regions or device hiding.
+3. Reuse the existing trigger selector, Concurrent Macro Runtime and Output Ownership rather than creating a second controller-specific execution engine.
+4. Prevent feedback loops by ensuring InputStitch never consumes its own virtual ViGEm output as physical controller input.
+5. After controller triggers are stable, add controller→keyboard/mouse hybrid mapping as augmentation; only then evaluate controlled replacement/device hiding.
 
 Implemented and automated already:
 
@@ -103,7 +103,7 @@ Full design note: `docs/GAMEPAD_INPUT_ROUTING.md`.
 
 ## Gate for Layer
 
-Concurrent Macro Runtime is implemented and published in beta.2. **Layer is no longer the first post-1.3 structural feature.** Do not begin Layer until Stable 1.3.0 is released and the Physical Gamepad Input / Hybrid Routing core has reached a stable checkpoint, unless the user explicitly reprioritizes Layer again.
+Concurrent Macro Runtime is implemented and promoted to Stable 1.3.0. **Layer is no longer the first post-1.3 structural feature.** Do not begin Layer until the Physical Gamepad Input / Hybrid Routing core has reached a stable checkpoint, unless the user explicitly reprioritizes Layer again.
 
 The planned first Layer scope remains documented for later work:
 
@@ -118,4 +118,4 @@ Layer must remain an eligibility/grouping feature layered on top of the common i
 
 ## Release discipline
 
-Stable `v1.2.0` remains the rollback baseline while 1.3.x is being evaluated. Beta releases remain prereleases and use `InputStitch-beta.xml`; they must not alter the Stable latest/update path.
+Stable `v1.3.0` is the current recommended release; `v1.2.0` remains the previous rollback point. Historical beta.1/beta.2 tags and prereleases remain immutable and must not be overwritten. Future Beta releases, when needed, continue to use the isolated `InputStitch-beta.xml` channel.

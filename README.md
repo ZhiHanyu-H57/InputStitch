@@ -10,20 +10,20 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.2.0. Public Beta: v1.3.0-beta.2.** Stable remains the recommended rollback baseline. Beta 2 keeps beta.1's Input Ownership foundation and adds the unified Concurrent Macro Runtime: ordinary timed/Toggle macros, Advanced/complex Hold macros, and Parallel Held Mappings can run concurrently with source-local cleanup and per-Hold release tracking. Beta remains a GitHub prerelease and never replaces the Stable `releases/latest` or `InputStitch-update.xml` channel.
+**Stable: v1.3.0.** This release promotes the validated Input Ownership + universal Concurrent Macro Runtime to the recommended Stable channel: distinct ordinary timed/Toggle macros, Advanced/complex Hold timelines, and Parallel Held Mappings can run concurrently with source-local cleanup and per-Hold release tracking. Modifier-chord Hold and Shift-friendly bare-key triggering are included in Stable 1.3.0.
 
-Beta and Stable currently share configuration. Before testing Beta, exit the other version and back up `%APPDATA%\InputStitch`. Do not run both at the same time. See [development roadmap and release policy](ROADMAP.md).
+The previous `v1.3.0-beta.2` prerelease remains available as historical test evidence, but `releases/latest` and `InputStitch-update.xml` now refer to Stable 1.3.0. See [development roadmap and release policy](ROADMAP.md).
 
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
 | Windows architecture | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.2.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.2.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.2.0-Windows-x86.exe) |
-| Complete source code | [InputStitch-1.2.0-Source.zip](../../releases/latest/download/InputStitch-1.2.0-Source.zip) |
+| 64-bit Windows (x64) | [InputStitch-1.3.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.3.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x86.exe) |
+| Complete source code | [InputStitch-1.3.0-Source.zip](../../releases/latest/download/InputStitch-1.3.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
-Test the current prerelease from the version-pinned Beta release:
+Historical `v1.3.0-beta.2` prerelease artifacts remain available for comparison/rollback testing:
 
 | Beta artifact | Direct download |
 | --- | --- |
@@ -44,13 +44,14 @@ The executable is portable: download it, place it in a folder where you have wri
 - A live virtual-controller preview while editing, highlighting the selected button, trigger, or stick direction
 - Per-step key-hold duration and delay controls
 - Quick Create templates for Held Mapping, fixed-count repetition, and ordered sequences; standalone Ctrl/Shift/Alt/Win, normal keys, and mouse buttons can be Held Mapping triggers
-- Input Ownership + Concurrent Macro Runtime: multiple qualifying Held Mappings and multiple distinct ordinary timed/Toggle macros can stay active together on current `main`
+- Input Ownership + Concurrent Macro Runtime: multiple qualifying Held Mappings and multiple distinct ordinary timed/Toggle/Advanced-Hold macros can stay active together in Stable 1.3.0
 - Deterministic merged output: digital reference ownership, trigger maximum, circular stick-vector merge, and D-pad opposite-axis cancellation
 - Lightweight Runtime observation for active sources, source contributions, merged state, ordinary macro step/phase, and stop reasons
 - Single-step / Next Step execution for ordinary timed macros
 - Step Undo/Redo with a bounded 50-operation history
 - Safer staged configuration saves with verification and five recent valid-config backups
-- Global hotkeys, press-to-toggle, and hold-to-run modes
+- Global hotkeys, press-to-toggle, and hold-to-run modes, including modifier-chord Hold triggers
+- One-click **Open Project on GitHub** entry in the gear menu
 - Finite repetition or infinite looping
 - Physical input recording with automatic timing; mouse movement is intentionally not recorded
 - Scan-code keyboard output for better compatibility with many games
@@ -148,7 +149,7 @@ In beta.2, a standalone Shift trigger in **Hold** mode with **gamepad-only steps
 Hovering alone or selecting a non-editing button/list no longer blocks hotkey starts. Focused name/number/combo editors still pause hotkeys with a visible reason; click an empty area to finish editing. Running mouse macros retain hover protection to avoid clicking controls. Diagnostics include the last 64 macro lifecycle events in memory, not a continuous keyboard log. A submitted output does not prove that a game received it.
 ### Productivity and config safety (beta.4)
 
-Beta.4 adds staged/verified configuration saves with five recent valid backups, three Quick Create templates, and step Undo/Redo. Held Mapping accepts normal keyboard keys, standalone left/right Ctrl/Shift/Alt/Win, and mouse buttons including side buttons. Current `main` additionally supports modifier-chord Hold triggers; wheel input remains unsupported for Hold because it has no persistent down state. Duplicate enabled triggers intentionally use macro-list order as priority. Idle gamepad detection now ignores application-driven cursor recentering and uses its own independent Idle target; other-app typing does not block a background-game pulse, a missing configured Idle target pauses output completely, and target return starts a fresh full idle interval. The current automated suite covers these cases but sends no real input, so live game/controller acceptance still needs testing before wider promotion.
+Beta.4 added staged/verified configuration saves with five recent valid backups, three Quick Create templates, and step Undo/Redo. Held Mapping accepts normal keyboard keys, standalone left/right Ctrl/Shift/Alt/Win, and mouse buttons including side buttons. Stable 1.3.0 additionally supports modifier-chord Hold triggers; wheel input remains unsupported as a physical Hold trigger because it has no persistent down state. Duplicate enabled triggers intentionally use macro-list order as priority. Idle gamepad detection ignores application-driven cursor recentering and uses its own independent Idle target; other-app typing does not block a background-game pulse, a missing configured Idle target pauses output completely, and target return starts a fresh full idle interval. Continue live game/controller feedback as normal post-release validation.
 
 ### Input Ownership and universal concurrency (1.3.x)
 
