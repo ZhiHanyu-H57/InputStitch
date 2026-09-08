@@ -316,12 +316,17 @@ internal static class ProductivityTests
 
             long settleTicks = 60L * Stopwatch.Frequency / 1000L;
             long t0 = Math.Max(1L, Stopwatch.GetTimestamp());
-            Check(!(bool)Call(form, "UpdateHeldReleaseProbe", second, true, t0), "Hold release fallback starts settle window");
-            Check(!(bool)Call(form, "UpdateHeldReleaseProbe", second, true, t0 + Math.Max(0L, settleTicks - 1)), "Hold release fallback waits for stable release");
-            Check(!(bool)Call(form, "UpdateHeldReleaseProbe", second, false, t0 + settleTicks), "Held trigger becoming pressed again cancels fallback");
+            MacroRunRuntime releaseRunA = new MacroRunRuntime { RunId = 101 };
+            MacroRunRuntime releaseRunB = new MacroRunRuntime { RunId = 102 };
+            Check(!(bool)StaticCall(typeof(MainForm), "UpdateRunReleaseProbe", releaseRunA, true, t0), "Concurrent Hold release fallback starts per-run settle window");
+            Check(!(bool)StaticCall(typeof(MainForm), "UpdateRunReleaseProbe", releaseRunA, true, t0 + Math.Max(0L, settleTicks - 1)), "Concurrent Hold release fallback waits for stable release");
+            Check(releaseRunA.ReleaseProbeSince != 0 && releaseRunB.ReleaseProbeSince == 0, "Release settle state is isolated per Hold run");
+            Check(!(bool)StaticCall(typeof(MainForm), "UpdateRunReleaseProbe", releaseRunB, true, t0 + 10), "Second Hold run starts an independent settle window");
+            Check(!(bool)StaticCall(typeof(MainForm), "UpdateRunReleaseProbe", releaseRunA, false, t0 + settleTicks), "Held trigger becoming pressed again cancels only its own fallback");
+            Check(releaseRunA.ReleaseProbeSince == 0 && releaseRunB.ReleaseProbeSince != 0, "Cancelling one release probe leaves another Hold run's probe intact");
             long t1 = t0 + settleTicks + 100;
-            Check(!(bool)Call(form, "UpdateHeldReleaseProbe", second, true, t1), "Hold release fallback restarts after cancellation");
-            Check((bool)Call(form, "UpdateHeldReleaseProbe", second, true, t1 + settleTicks), "Stable lost-KeyUp fallback requests stop");
+            Check(!(bool)StaticCall(typeof(MainForm), "UpdateRunReleaseProbe", releaseRunA, true, t1), "Concurrent Hold release fallback restarts after cancellation");
+            Check((bool)StaticCall(typeof(MainForm), "UpdateRunReleaseProbe", releaseRunA, true, t1 + settleTicks), "Stable lost-KeyUp fallback requests stop for the matching run");
             string path = Path.Combine(directory, "config.xml");
             byte[] before = File.ReadAllBytes(path);
             using (FileStream locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))

@@ -4562,8 +4562,6 @@ namespace InputStitch
         private readonly Dictionary<MacroDefinition, long> activeMacroRunByMacro = new Dictionary<MacroDefinition, long>();
         private long runSequence = 0;
         private string lastRunStopReason = "none";
-        private MacroDefinition holdReleaseProbeMacro;
-        private long holdReleaseProbeSince;
 
         public MainForm() : this(null, null, null) { }
 
@@ -5863,8 +5861,6 @@ namespace InputStitch
                 {
                     heldMappingCount = activeParallelHeldMappings.Count;
                     activeParallelHeldMappings.Clear();
-                    holdReleaseProbeMacro = null;
-                    holdReleaseProbeSince = 0;
                 }
                 ForceReleaseActiveHeldInputs();
                 outputOwnership.ClearAll("emergency-stop:" + (reason ?? "unknown"));
@@ -5937,7 +5933,7 @@ namespace InputStitch
                 }
             }
 
-            sb.AppendLine((Localizer.IsEnglish ? "Ordinary macro runs: " : "普通时序宏运行实例：") + runLines.Count.ToString());
+            sb.AppendLine((Localizer.IsEnglish ? "Macro runs: " : "宏运行实例：") + runLines.Count.ToString());
             if (runLines.Count == 0) sb.AppendLine("  " + (Localizer.IsEnglish ? "None" : "无"));
             else foreach (string line in runLines) sb.AppendLine("  - " + line);
             sb.AppendLine("  " + (Localizer.IsEnglish ? "Last stop reason: " : "上次停止原因：") + stopReason);
@@ -6166,7 +6162,9 @@ namespace InputStitch
             {
                 foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
                 {
-                    if (runtime != null && UiSafetyPolicy.HasMouseOutput(runtime.OwnerMacro)) return true;
+                    if (runtime == null) continue;
+                    MacroDefinition runningDefinition = runtime.Snapshot ?? runtime.OwnerMacro;
+                    if (UiSafetyPolicy.HasMouseOutput(runningDefinition)) return true;
                 }
             }
             return false;
@@ -6282,27 +6280,22 @@ namespace InputStitch
             }
         }
 
-        private bool UpdateHeldReleaseProbe(MacroDefinition macro, bool released, long now)
+        private static bool UpdateRunReleaseProbe(MacroRunRuntime runtime, bool released, long now)
         {
-            if (macro == null || !released)
+            if (runtime == null) return false;
+            if (!released)
             {
-                holdReleaseProbeMacro = null;
-                holdReleaseProbeSince = 0;
+                runtime.ReleaseProbeSince = 0;
                 return false;
             }
-
-            if (holdReleaseProbeMacro != macro || holdReleaseProbeSince == 0)
+            if (runtime.ReleaseProbeSince == 0)
             {
-                holdReleaseProbeMacro = macro;
-                holdReleaseProbeSince = now;
+                runtime.ReleaseProbeSince = now;
                 return false;
             }
-
             long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
-            if (now - holdReleaseProbeSince < requiredTicks) return false;
-
-            holdReleaseProbeMacro = null;
-            holdReleaseProbeSince = 0;
+            if (now - runtime.ReleaseProbeSince < requiredTicks) return false;
+            runtime.ReleaseProbeSince = 0;
             return true;
         }
 
@@ -6311,6 +6304,7 @@ namespace InputStitch
             long now = Stopwatch.GetTimestamp();
             long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
             List<MacroDefinition> parallelToStop = new List<MacroDefinition>();
+            List<long> holdRunsToStop = new List<long>();
             lock (runLock)
             {
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
@@ -6332,27 +6326,24 @@ namespace InputStitch
                         parallelToStop.Add(pair.Key);
                     }
                 }
+
+                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                {
+                    if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null || runtime.Stop == null || runtime.Stop.IsSet) continue;
+                    bool released = PhysicalInputState.IsTriggerTerminalReleased(runtime.HoldTrigger);
+                    if (UpdateRunReleaseProbe(runtime, released, now)) holdRunsToStop.Add(runtime.RunId);
+                }
             }
             foreach (MacroDefinition parallel in parallelToStop)
             {
                 runtimeTrace.Add("hold-release-fallback", "parallel mapping physical release detected without terminal KeyUp/MouseUp callback");
                 StopParallelHeldMapping(parallel, "physical-release-fallback");
             }
-
-            MacroRunRuntime holdRun;
-            lock (runLock) holdRun = GetExclusiveHoldRun_NoLock();
-            MacroDefinition macro = holdRun == null ? null : holdRun.OwnerMacro;
-            if (holdRun == null || !holdRun.HoldControlled || macro == null || macro.Trigger == null || macro.RunMode != TriggerRunMode.Hold)
+            foreach (long runId in holdRunsToStop)
             {
-                UpdateHeldReleaseProbe(null, false, 0);
-                return;
+                runtimeTrace.Add("hold-release-fallback", "concurrent Hold run=" + runId.ToString() + " physical release detected without terminal KeyUp/MouseUp callback");
+                StopMacroRun(runId, "physical-release-fallback");
             }
-
-            bool legacyReleased = PhysicalInputState.IsTriggerTerminalReleased(macro.Trigger);
-            if (!UpdateHeldReleaseProbe(macro, legacyReleased, now)) return;
-
-            runtimeTrace.Add("hold-release-fallback", "exclusive Hold physical release detected without terminal KeyUp/MouseUp callback");
-            StopMacro(macro, "physical-release-fallback");
         }
 
         private void ForegroundTimer_Tick(object sender, EventArgs e)
@@ -6903,7 +6894,7 @@ namespace InputStitch
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
             if (sender == enabledBox && !enabledBox.Checked)
-                StopParallelHeldMappingForDefinitionChange(m, "disabled");
+                StopMacroForDefinitionChange(m, "disabled");
             m.Enabled = enabledBox.Checked;
             if (!ModifierSafetyPolicy.PreserveNativeShiftForGamepad(m)) m.SuppressTrigger = suppressBox.Checked;
             m.RepeatCount = (int)repeatBox.Value;
@@ -6920,7 +6911,7 @@ namespace InputStitch
             if (loadingUi) return;
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
-            StopParallelHeldMappingForDefinitionChange(m, "run-mode-change");
+            StopMacroForDefinitionChange(m, "run-mode-change");
             m.RunMode = triggerModeBox.SelectedIndex == 1 ? TriggerRunMode.Hold : TriggerRunMode.Toggle;
             UpdateTriggerModeUiText();
             SaveConfig();
@@ -7008,7 +6999,7 @@ namespace InputStitch
             if (loadingUi) return;
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
-            StopParallelHeldMappingForDefinitionChange(m, "repeat-mode-change");
+            StopMacroForDefinitionChange(m, "repeat-mode-change");
             m.Infinite = infiniteBox.Checked;
             repeatBox.Enabled = !m.Infinite;
             SaveConfig();
@@ -7808,7 +7799,7 @@ namespace InputStitch
                 return;
             }
             if (LocalizedMessageBox.Show(this, "确定删除宏“" + m.Name + "”吗？", AppInfo.ProductName, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-            StopParallelHeldMappingForDefinitionChange(m, "delete");
+            StopMacroForDefinitionChange(m, "delete");
             config.Macros.RemoveAt(idx);
             if (config.Macros.Count == 0) config.Macros.Add(new MacroDefinition());
             SaveConfig();
@@ -7898,7 +7889,7 @@ namespace InputStitch
                     VirtualKeyboardDialog.InputsFromTrigger(macro.Trigger)))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                    StopParallelHeldMappingForDefinitionChange(macro, "trigger-change");
+                    StopMacroForDefinitionChange(macro, "trigger-change");
                     macro.Trigger = dialog.SelectedTrigger;
                     triggerBox.Text = InputNames.FormatTrigger(macro.Trigger);
                     SaveConfig();
@@ -8062,7 +8053,7 @@ namespace InputStitch
                     if (m != null)
                     {
                         TriggerSpec t = TriggerFromInputEvent(e);
-                        StopParallelHeldMappingForDefinitionChange(m, "trigger-capture-change");
+                        StopMacroForDefinitionChange(m, "trigger-capture-change");
                         m.Trigger = t;
                         try
                         {
@@ -8160,8 +8151,6 @@ namespace InputStitch
         private void HandleTerminalInputReleased(InputEventInfo e)
         {
             if (e == null || e.Input == null) return;
-            holdReleaseProbeMacro = null;
-            holdReleaseProbeSince = 0;
             InputEventInfo pending = pendingModifierCapture;
             if (pending != null && pending.Input != null && e.Input.Kind == InputKind.Keyboard &&
                 pending.Input.VirtualKey == e.Input.VirtualKey &&
@@ -8174,6 +8163,7 @@ namespace InputStitch
             if (recordingActive) RecordPhysicalInput(e, false);
 
             List<MacroDefinition> parallelReleased = new List<MacroDefinition>();
+            List<long> holdRunsReleased = new List<long>();
             lock (runLock)
             {
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
@@ -8181,29 +8171,19 @@ namespace InputStitch
                     HeldMappingRuntime runtime = pair.Value;
                     if (runtime != null && TerminalInputMatches(runtime.Trigger, e.Input)) parallelReleased.Add(pair.Key);
                 }
-            }
-            if (parallelReleased.Count != 0)
-            {
-                try
+                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
                 {
-                    BeginInvoke((MethodInvoker)delegate
-                    {
-                        foreach (MacroDefinition macro in parallelReleased) StopParallelHeldMapping(macro, "terminal-release");
-                    });
+                    if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null) continue;
+                    if (TerminalInputMatches(runtime.HoldTrigger, e.Input)) holdRunsReleased.Add(runtime.RunId);
                 }
-                catch { }
             }
-
-            MacroRunRuntime holdRun;
-            lock (runLock) holdRun = GetExclusiveHoldRun_NoLock();
-            MacroDefinition m = holdRun == null ? null : holdRun.OwnerMacro;
-            if (holdRun == null || !holdRun.HoldControlled || m == null || m.Trigger == null || m.RunMode != TriggerRunMode.Hold) return;
-            if (!TerminalInputMatches(m.Trigger, e.Input)) return;
+            if (parallelReleased.Count == 0 && holdRunsReleased.Count == 0) return;
             try
             {
                 BeginInvoke((MethodInvoker)delegate
                 {
-                    if (IsMacroActuallyRunning(m)) StopMacro(m, "terminal-release");
+                    foreach (MacroDefinition macro in parallelReleased) StopParallelHeldMapping(macro, "terminal-release");
+                    foreach (long runId in holdRunsReleased) StopMacroRun(runId, "terminal-release");
                 });
             }
             catch { }
@@ -8212,11 +8192,6 @@ namespace InputStitch
         private bool HasActiveParallelHeldMappings()
         {
             lock (runLock) return activeParallelHeldMappings.Count != 0;
-        }
-
-        private bool HasLegacyHoldWorker()
-        {
-            lock (runLock) return GetExclusiveHoldRun_NoLock() != null;
         }
 
         private int ActiveParallelHeldMappingCount()
@@ -8230,8 +8205,6 @@ namespace InputStitch
             lock (runLock)
             {
                 activeParallelHeldMappings.Clear();
-                holdReleaseProbeMacro = null;
-                holdReleaseProbeSince = 0;
             }
             try { outputOwnership.ClearAll("ownership-failure:" + (context ?? "unknown")); } catch { }
             runtimeTrace.Add("ownership-failure", (context ?? "unknown") + "; " + (ex == null ? "unknown error" : ex.Message));
@@ -8243,13 +8216,6 @@ namespace InputStitch
         private void StartParallelHeldMapping(MacroDefinition macro)
         {
             if (macro == null || !IsParallelHeldMapping(macro)) return;
-            if (HasLegacyHoldWorker())
-            {
-                statusLabel.Text = Localizer.IsEnglish
-                    ? "Advanced Hold mode is exclusive. Release/stop it before starting parallel Held Mappings."
-                    : "高级按住宏保持独占运行；请先松开/停止它，再启动并行按住映射。";
-                return;
-            }
             if (!isolatedUiHost && !EnsureGamepadReady(macro, false)) return;
 
             HeldMappingRuntime runtime;
@@ -8311,12 +8277,18 @@ namespace InputStitch
             }
         }
 
-        private void StopParallelHeldMappingForDefinitionChange(MacroDefinition macro, string reason)
+        private void StopMacroForDefinitionChange(MacroDefinition macro, string reason)
         {
             if (macro == null || runLock == null || activeParallelHeldMappings == null) return;
-            bool active;
-            lock (runLock) active = activeParallelHeldMappings.ContainsKey(macro);
-            if (active) StopParallelHeldMapping(macro, reason ?? "definition-change");
+            string resolved = string.IsNullOrWhiteSpace(reason) ? "definition-change" : reason;
+            bool heldActive;
+            lock (runLock)
+            {
+                heldActive = activeParallelHeldMappings.ContainsKey(macro);
+                MacroRunRuntime runtime = GetMacroRun_NoLock(macro);
+                if (runtime != null) RequestStopMacroRun_NoLock(runtime, resolved);
+            }
+            if (heldActive) StopParallelHeldMapping(macro, resolved);
         }
 
         private void StopAllParallelHeldMappings(string reason)
@@ -8624,7 +8596,7 @@ namespace InputStitch
         {
             MacroDefinition macro = SelectedMacro;
             if (recordingActive || macro == null) return;
-            StopParallelHeldMappingForDefinitionChange(macro, forward ? "redo-steps" : "undo-steps");
+            StopMacroForDefinitionChange(macro, forward ? "redo-steps" : "undo-steps");
             if (!stepHistory.Restore(macro, forward)) return;
             SaveConfig();
             RefreshSteps();
@@ -8643,7 +8615,7 @@ namespace InputStitch
                 {
                     if (d.ShowDialog(this) == DialogResult.OK && d.ResultStep != null)
                     {
-                        StopParallelHeldMappingForDefinitionChange(m, "add-step");
+                        StopMacroForDefinitionChange(m, "add-step");
                         m.Steps.AddRange(d.ResultSteps);
                         SaveConfig();
                         RefreshSteps();
@@ -8681,7 +8653,7 @@ namespace InputStitch
                 {
                     if (d.ShowDialog(this) == DialogResult.OK && d.ResultStep != null)
                     {
-                        StopParallelHeldMappingForDefinitionChange(m, "edit-step");
+                        StopMacroForDefinitionChange(m, "edit-step");
                         m.Steps.RemoveAt(idx);
                         m.Steps.InsertRange(idx, d.ResultSteps);
                         SaveConfig();
@@ -8708,7 +8680,7 @@ namespace InputStitch
             foreach (int idx in indices)
                 if (idx >= 0 && idx < m.Steps.Count) copies.Add(m.Steps[idx].Clone());
             if (copies.Count == 0) return;
-            StopParallelHeldMappingForDefinitionChange(m, "copy-steps");
+            StopMacroForDefinitionChange(m, "copy-steps");
             int insertAt = indices[indices.Count - 1] + 1;
             m.Steps.InsertRange(insertAt, copies);
             SaveConfig();
@@ -8723,7 +8695,7 @@ namespace InputStitch
             MacroDefinition m = SelectedMacro;
             List<int> indices = GetSelectedStepIndices();
             if (m == null || indices.Count == 0) return;
-            StopParallelHeldMappingForDefinitionChange(m, "delete-steps");
+            StopMacroForDefinitionChange(m, "delete-steps");
             for (int i = indices.Count - 1; i >= 0; i--)
             {
                 int idx = indices[i];
@@ -8744,7 +8716,7 @@ namespace InputStitch
             MacroDefinition m = SelectedMacro;
             List<int> indices = GetSelectedStepIndices();
             if (m == null || indices.Count == 0 || (delta != -1 && delta != 1)) return;
-            StopParallelHeldMappingForDefinitionChange(m, "move-steps");
+            StopMacroForDefinitionChange(m, "move-steps");
             bool[] selected = new bool[m.Steps.Count];
             foreach (int idx in indices) if (idx >= 0 && idx < selected.Length) selected[idx] = true;
 
@@ -8796,7 +8768,7 @@ namespace InputStitch
                 using (BatchDelayDialog d = new BatchDelayDialog())
                 {
                     if (d.ShowDialog(this) != DialogResult.OK) return;
-                    StopParallelHeldMappingForDefinitionChange(m, "batch-delay");
+                    StopMacroForDefinitionChange(m, "batch-delay");
                     foreach (int idx in indices)
                     {
                         if (idx < 0 || idx >= m.Steps.Count) continue;
@@ -8990,16 +8962,6 @@ namespace InputStitch
             return runtime;
         }
 
-        private MacroRunRuntime GetExclusiveHoldRun_NoLock()
-        {
-            foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
-            {
-                if (runtime == null || runtime.Capability == null) continue;
-                if (runtime.Capability.Category == MacroRuntimeCategory.ExclusiveHold) return runtime;
-            }
-            return null;
-        }
-
         private MacroRunRuntime GetSingleStepRun_NoLock()
         {
             foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
@@ -9100,28 +9062,11 @@ namespace InputStitch
                     SetStatusSafe(Localizer.IsEnglish ? "This macro is already running." : "状态：这个宏已经在运行。" );
                     return;
                 }
-                if (capability.Category == MacroRuntimeCategory.ExclusiveHold)
-                {
-                    if (activeMacroRuns.Count != 0 || activeParallelHeldMappings.Count != 0)
-                    {
-                        SetStatusSafe(Localizer.IsEnglish
-                            ? "Advanced Hold mode is exclusive. Stop other macros and Held Mappings first."
-                            : "高级 Hold 保持独占运行；请先停止其他宏和按住映射。" );
-                        return;
-                    }
-                }
-                else if (GetExclusiveHoldRun_NoLock() != null)
-                {
-                    SetStatusSafe(Localizer.IsEnglish
-                        ? "An advanced Hold macro is active. Stop it before starting concurrent timed macros."
-                        : "当前有高级 Hold 宏正在独占运行；请先停止它再启动普通并发宏。" );
-                    return;
-                }
                 if (singleStep && activeMacroRuns.Count != 0)
                 {
                     SetStatusSafe(Localizer.IsEnglish
-                        ? "Single-step remains exclusive among ordinary macro runs. Stop other timed macros first."
-                        : "单步执行在普通宏之间仍保持独占；请先停止其他时序宏。" );
+                        ? "Single-step remains exclusive among macro runs. Stop other macros first."
+                        : "单步执行仍保持独占；请先停止其他宏。" );
                     return;
                 }
             }
@@ -9140,6 +9085,8 @@ namespace InputStitch
             runtime.Stop = new ManualResetEventSlim(false);
             runtime.StepGate = singleStep ? new System.Threading.AutoResetEvent(false) : null;
             runtime.HoldControlled = holdControlled;
+            runtime.HoldTrigger = holdControlled && snapshot.Trigger != null ? snapshot.Trigger.Clone() : null;
+            runtime.ReleaseProbeSince = 0;
             runtime.SingleStep = singleStep;
             runtime.SingleStepWaiting = false;
             runtime.Phase = singleStep ? "single-step-start" : "starting";
@@ -9149,10 +9096,9 @@ namespace InputStitch
             lock (runLock)
             {
                 // Re-check under the same lock that installs the run so UI/hotkey requests can never
-                // create two instances of the same MacroDefinition or overlap an exclusive Hold.
+                // create two instances of the same MacroDefinition. Single-step intentionally remains
+                // the only execution mode that excludes other macro workers.
                 if (GetMacroRun_NoLock(m) != null ||
-                    (capability.Category == MacroRuntimeCategory.ExclusiveHold && (activeMacroRuns.Count != 0 || activeParallelHeldMappings.Count != 0)) ||
-                    (capability.Category != MacroRuntimeCategory.ExclusiveHold && GetExclusiveHoldRun_NoLock() != null) ||
                     (singleStep && activeMacroRuns.Count != 0))
                 {
                     try { runtime.Stop.Dispose(); } catch { }
@@ -9214,6 +9160,16 @@ namespace InputStitch
             {
                 MacroRunRuntime runtime = GetMacroRun_NoLock(macro);
                 if (runtime != null) RequestStopMacroRun_NoLock(runtime, reason);
+            }
+        }
+
+        private void StopMacroRun(long runId, string reason)
+        {
+            lock (runLock)
+            {
+                MacroRunRuntime runtime;
+                if (activeMacroRuns.TryGetValue(runId, out runtime) && runtime != null)
+                    RequestStopMacroRun_NoLock(runtime, reason);
             }
         }
 
@@ -9412,6 +9368,7 @@ namespace InputStitch
                         if (WaitOrStopWithUiSafety(stop, producedOutput ? 1 : 15, macroName, held, sourceId)) break;
                     }
                 }
+
             }
             catch (Exception ex)
             {
@@ -9743,18 +9700,14 @@ namespace InputStitch
             MacroDefinition selected = SelectedMacro;
             MacroRunRuntime selectedRun;
             MacroRunRuntime singleStepRun;
-            MacroRunRuntime exclusiveRun;
             bool selectedHeldActive;
             int runCount;
-            int heldCount;
             lock (runLock)
             {
                 selectedRun = GetMacroRun_NoLock(selected);
                 singleStepRun = GetSingleStepRun_NoLock();
-                exclusiveRun = GetExclusiveHoldRun_NoLock();
                 selectedHeldActive = selected != null && activeParallelHeldMappings.ContainsKey(selected);
                 runCount = activeMacroRuns.Count;
-                heldCount = activeParallelHeldMappings.Count;
             }
 
             bool selectedStopping = selectedRun != null && selectedRun.Stop != null && selectedRun.Stop.IsSet;
@@ -9777,10 +9730,6 @@ namespace InputStitch
                 {
                     MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(selected);
                     canStart = capability.CanStart;
-                    if (capability.Category == MacroRuntimeCategory.ExclusiveHold)
-                        canStart = canStart && runCount == 0 && heldCount == 0;
-                    else if (exclusiveRun != null)
-                        canStart = false;
                 }
                 runButton.Text = Localizer.T("▶ 执行所选宏");
                 runButton.Enabled = canStart;

@@ -154,4 +154,4 @@ beta.4 加入暂存/验证后替换的安全配置保存与最近 5 份有效备
 
 beta.1 将旧的“单一当前宏拥有全部输出”改成显式 Source ownership。多个符合条件的 Held Mapping 可以同时保持，并与最多一个普通时序宏共存。数字输出按来源引用，扳机取最大值，摇杆向量相加后按圆形范围归一化，D-pad 同轴相反方向相互取消。“工具 → 运行观察…”可以查看活动 Source、各来源贡献和合并结果；普通时序宏新增“单步执行 / 下一步”。
 
-公开发布的 `v1.3.0-beta.1` 本身仍未开放任意普通宏并发；但当前 `main` 已实现面向 Stable 1.3.0 的 Concurrent Macro Runtime：多个不同普通时序 / Toggle 宏可以同时运行，分别拥有独立 RunId/SourceId/停止与时序状态，并可与并行 Held Mapping 共存。编辑器里的“运行资格 / 并发能力”实时提示直接来自执行时使用的同一个 classifier。Stable 1.3.0 范围内，高级/复杂 Hold worker 仍保持独占，同触发键继续按宏列表顺序决定优先级，Emergency Stop 始终是全局最高优先级。Layer / 映射层明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。
+公开发布的 `v1.3.0-beta.1` 本身仍未开放任意宏多并发；但当前 `main` 已实现面向 Stable 1.3.0 的**统一 Concurrent Macro Runtime**：多个不同普通时序 / Toggle 宏、多个高级/复杂 Hold 宏可以同时运行，并与 Parallel Held Mapping 共存；每个 worker 运行实例拥有独立 RunId/SourceId/停止/时序状态，复杂 Hold 还按 Run 独立保存物理触发键与 lost-KeyUp 松键恢复状态，松开一个 Hold 只停止它自己。编辑器里的“运行资格 / 并发能力”实时提示直接来自执行时使用的同一个 classifier。同触发键继续按宏列表顺序决定优先级；Single-step 仍是刻意保持独占的诊断模式；Emergency Stop 始终是全局最高优先级。Layer / 映射层明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。

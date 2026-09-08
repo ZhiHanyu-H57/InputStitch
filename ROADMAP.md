@@ -106,15 +106,17 @@ Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplica
 
 Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
 
-### Concurrent Macro Runtime / 普通宏多并发 — implemented locally for Stable 1.3.0 / 已本地实现
+### Unified Concurrent Macro Runtime / 任意宏类型多并发 — implemented locally for Stable 1.3.0 / 已本地实现
 
-The Stable 1.3.0 Concurrent Macro Runtime is now implemented on `main` pending final real-use acceptance. Multiple distinct ordinary timed/Toggle macros can execute concurrently while existing Held Mapping sources remain active. Every ordinary run has an independent RunId/SourceId, stop/timing/progress state and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
+The Stable 1.3.0 runtime on `main` now supports concurrency across every normal macro execution class: multiple distinct ordinary timed/Toggle macros, multiple Advanced/complex Hold timelines, and state-only Parallel Held Mappings may all coexist. Every worker-backed run owns an independent RunId/SourceId, stop/timing/progress state, immutable Hold-trigger snapshot where applicable, and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
 
-The current implementation covers keyboard, mouse and virtual-gamepad steps, non-zero delays, infinite or finite ordinary runs, and exact finite repeat counts. Runtime Observation lists all active ordinary runs. The primary Run/Stop control targets the selected macro; Emergency Stop remains global. A single `MacroRuntimeClassifier` is the authority for execution category and the option-B live concurrency/eligibility UI.
+Advanced Hold is no longer an exclusive runtime class. Hold macros containing keyboard/mouse output, gamepad Press/Up sequencing, non-zero or random delays, or finite repeat counts are classified as **Concurrent Advanced Hold** and run beside ordinary macros and other Hold runs. Simple infinite gamepad-only Down/no-delay Held Mappings keep the lightweight state-only fast path. Physical terminal release and lost-KeyUp reconciliation are tracked per Hold run, so releasing one trigger cannot stop another Hold timeline. Finite Hold keeps its historical semantics: it may complete naturally before the physical trigger is released.
 
-Digital overlap semantics are deliberately state-first and deterministic: if one source already owns a digital key/button, another source's pulse/click on that same control does not force a release/repress bounce. The pulse run still completes independently, while the persistent owner keeps the merged control down until the last owner releases.
+Runtime Observation lists all active worker runs plus Parallel Held sources. The primary Run/Stop control targets the selected macro; Emergency Stop remains global. A single `MacroRuntimeClassifier` is the authority for execution category and the option-B live concurrency/eligibility UI. One active run per `MacroDefinition` remains intentional, and Single-step stays an exclusive diagnostic mode rather than a normal macro category.
 
-普通宏多并发已经在 `main` 上本地实现，等待最终真实使用验收。多个不同普通时序 / Toggle 宏可同时执行，并继续与 Held Mapping Source 共存；每个运行实例拥有独立 RunId/SourceId、停止/时序/进度状态和局部清理，最终输出继续统一交给 Output Ownership 合并。
+Digital overlap semantics remain state-first and deterministic: if one source already owns a digital key/button, another source's pulse/click on that same control does not force a release/repress bounce. The pulse run still completes independently, while the persistent owner keeps the merged control down until the last owner releases.
+
+Stable 1.3.0 候选运行时现在已经支持**任意正常宏类型之间的多并发**：多个普通时序 / Toggle、多个高级/复杂 Hold，以及状态型 Parallel Held Mapping 可以同时存在。复杂 Hold 的物理松键与 lost-KeyUp 恢复按 Run 独立跟踪，一个 Hold 的松开不会停止其他运行实例；最终输出继续统一交给 Output Ownership 合并。
 
 ### Layer / 映射层 — designed, deferred until after Stable 1.3.0 / 已设计，延后到 1.3.0 正式版之后
 
@@ -146,7 +148,7 @@ Only schedule these when repeated real use justifies them:
 
 | Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
 |---|---|---|
-| Concurrent ordinary timed macros | implemented locally; targeted real-use acceptance remains before Stable 1.3.0 | **implemented / acceptance gate** |
+| Unified macro concurrency (timed/Toggle/Advanced Hold + Parallel Held) | implemented locally; targeted real-use acceptance remains before Stable 1.3.0 | **implemented / acceptance gate** |
 | Modifier-chord Held Mapping | repeated concrete need | after 1.3.0 unless reprioritized |
 | Layer / mapping layer | Stable 1.3.0 concurrent runtime complete and accepted | after Stable 1.3.0 |
 | Conditions / richer groups | clear recurring scenarios after Layer/runtime maturity | later |
@@ -163,7 +165,7 @@ Not currently committed: cross-platform support, cloud sync, plugin marketplace,
 - Keep and extend automated regression coverage.
 - Use `tools/InputLab/` v0.2 for routine black-box keyboard, mouse, foreground/manual Raw Input and XInput acceptance of InputStitch output. It compares low-level hook/Raw Input lanes, visualizes XInput buttons/triggers/sticks and ordered timing, and includes an isolated expected-vs-observed ownership acceptance runner.
 - Automated mode is non-activating: Raw Input uses background `INPUTSINK`, and acceptance-only injected `K`/mouse-X2 events are observed then swallowed before reaching the user's current foreground application.
-- The automated acceptance runner uses the real InputStitch ownership/runtime plus real `SendInput` and ViGEm/XInput output while isolating user configuration. The Concurrent Runtime build adds a pre-XInput keyboard+mouse overlap lane: two ordinary timed macros must overlap, Runtime Observation must list both, stopping one must leave the other active, and both injected output paths must be observed. This lane currently passes all 11 checks. A real ViGEm/XInput preflight still distinguishes the laptop's intermittent controller-stack blocker (`SUMMARY: BLOCKED`, exit code 2, `failures=0`) from an InputStitch assertion failure.
+- The automated acceptance runner uses the real InputStitch ownership/runtime plus real `SendInput` and ViGEm/XInput output while isolating user configuration. Before XInput preflight it now validates both ordinary timed overlap and **two delayed Advanced Hold timelines** (F9→K, F10→X2): both Hold runs overlap, Runtime Observation classifies them as Concurrent Advanced Hold, releasing F9 removes only K while X2 remains, and both injected paths are observed. All **18 pre-XInput checks pass**. A controller-backed universal-mix scenario is compiled for healthy XInput environments. The laptop's intermittent controller-stack blocker remains `SUMMARY: BLOCKED` / exit code 2 with `failures=0`, distinct from an InputStitch assertion failure.
 - Future test-tool extensions may add target-window message comparison, DS4/DirectInput/HID observation, longer soak/repeated-cycle scenarios and machine-readable report export.
 - Replace the old mechanical “30 minutes each” rule with **scenario acceptance + long-running real use**.
 - API/output submission success never substitutes for actual desktop/game acceptance.
@@ -181,11 +183,11 @@ Current / 当前：
 
 Current local / 当前本地：
 
-`1.3.0-beta.1 base + implemented Concurrent Macro Runtime + live runtime eligibility UI`
+`1.3.0-beta.1 base + unified timed/Toggle/Advanced-Hold concurrency + Parallel Held + live runtime eligibility UI`
 
 Next / 下一轮：
 
-`targeted real-game multi-run acceptance`
+`targeted real-game universal-concurrency acceptance`
 
 `all 1.3.0 gates pass → Stable 1.3.0`
 

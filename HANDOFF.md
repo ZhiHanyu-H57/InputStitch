@@ -22,9 +22,9 @@ This avoids a self-referential commit hash inside the file.
 
 ## Working on
 
-**Targeted real-game acceptance for the completed Concurrent Macro Runtime, then Stable 1.3.0 promotion.**
+**Targeted real-game acceptance for the unified Concurrent Macro Runtime, then Stable 1.3.0 promotion.**
 
-The post-Beta multi-run architecture is implemented and automated validation is green. The remaining engineering gate is intentionally narrow: verify the newly affected multi-run behavior in the actual target game—overlapping ordinary timed macros, stopping one while another stays active, coexistence with Held Mapping output, and mixed-state Emergency Stop. Do not mechanically re-test unchanged SendInput/ViGEm recognition. If this targeted real-use gate is clean, prepare Stable 1.3.0; Layer remains deferred until after that release.
+The post-Beta runtime now supports concurrency across ordinary timed/Toggle macros, Advanced/complex Hold timelines and state-only Parallel Held Mappings. Automated validation is green. The remaining engineering gate is intentionally narrow: verify this newly expanded universal-concurrency behavior in the actual target game—multiple complex Holds together, source-local Hold release, coexistence with ordinary + Parallel Held output, one Alt+Tab/lost-KeyUp sample, and mixed-state Emergency Stop. Do not mechanically re-test unchanged SendInput/ViGEm recognition. If this targeted real-use gate is clean, prepare Stable 1.3.0; Layer remains deferred until after that release.
 
 ## Completed
 
@@ -41,24 +41,26 @@ The post-Beta multi-run architecture is implemented and automated validation is 
 
 ### Concurrency boundary
 
-- Multiple qualifying Held Mappings may stay active simultaneously.
-- Multiple **distinct ordinary timed/Toggle macros** may now run concurrently; one active run per `MacroDefinition` is allowed.
-- Each ordinary run has independent `RunId`, `SourceId`, stop event, progress/timing state and source-local held-output bookkeeping.
-- Ordinary timed runs may coexist with active parallel Held Mappings and share the same Output Ownership merger.
-- Advanced/complex Hold workers remain exclusive for Stable 1.3.0; this is a deliberate safety boundary, not a permanent architectural requirement.
+- Multiple qualifying state-only Held Mappings may stay active simultaneously on the dedicated Parallel Held fast path.
+- Multiple **distinct ordinary timed/Toggle macros and Advanced/complex Hold macros** may run concurrently; one active run per `MacroDefinition` remains intentional.
+- Every worker-backed run has independent `RunId`, `SourceId`, stop event, progress/timing state and source-local held-output bookkeeping.
+- Advanced Hold is no longer exclusive. Keyboard/mouse Hold output, gamepad Press/Up sequencing, non-zero/random delays and finite Hold all classify as `ConcurrentHoldMacro` / **Concurrent Advanced Hold**.
+- Physical Hold runs snapshot their trigger per run. Terminal KeyUp/MouseUp and lost-KeyUp settle probes target individual run IDs, so releasing one Hold cannot stop another.
+- Finite Hold preserves historical semantics: it may complete naturally before physical trigger release; release only stops it early while it is still active.
+- All timed/Toggle/Advanced-Hold runs may coexist with active Parallel Held Mappings and share the same Output Ownership merger.
 - Duplicate physical triggers still use macro-list priority rather than launching every duplicate mapping.
 - A digital pulse/click targeting a key/button already held by another source is deterministically masked instead of forcing a release/repress bounce; persistent ownership remains until the last owner releases.
 
 ### Safety and diagnostics
 
-- One ordinary run completing/stopping/failing clears only its own Output Ownership source; unrelated timed runs and Held Mappings remain active.
-- The primary Run/Stop button controls the selected macro; Emergency Stop remains the global escape path and stops every ordinary run + Held Mapping source.
-- UI safety detects mouse output across all active ordinary runs and suspends/resumes each affected source without global neutralization.
-- Editing a live Held Mapping definition stops the affected mapping before mutating critical trigger/run/step state.
+- One worker-backed run completing/stopping/failing clears only its own Output Ownership source; unrelated timed/Toggle/Advanced-Hold runs and Parallel Held Mappings remain active.
+- The primary Run/Stop button controls the selected macro; Emergency Stop remains the global escape path and stops every worker run + Parallel Held source.
+- UI safety evaluates the immutable running snapshot for mouse output across all active runs and suspends/resumes affected sources without global neutralization.
+- Editing a live macro's trigger/run/repeat/step definition signals only that macro's current run/Parallel Held source before mutation; unrelated runs remain active.
 - Shutdown and backend-failure cleanup signal every active run and retain ownership-level fail-closed cleanup.
-- Runtime observation lists every active ordinary run with RunId/Source/category/phase/iteration/step/logical-held state, followed by Held Mappings, active ownership sources and merged output.
+- Runtime observation lists every active worker run with RunId/Source/category/phase/iteration/step/logical-held state, followed by Parallel Held mappings, active ownership sources and merged output.
 - The macro editor shows live runtime category + concurrency eligibility + reason from the same authoritative `MacroRuntimeClassifier` used by execution; there is no duplicate UI rule table.
-- Ordinary timed macros support Single-step / Next Step; single-step remains exclusive among ordinary runs and is interruptible by Stop/Emergency Stop.
+- Single-step / Next Step remains intentionally exclusive as a diagnostic execution mode and is interruptible by Stop/Emergency Stop; it is not a limitation on normal macro concurrency.
 
 ### Layer preparation
 
@@ -78,15 +80,15 @@ Immediately before this handoff, the full regression suite was run again on the 
 - 58 Idle Gamepad assertions;
 - 43 updater checks;
 - 23 UI safety / diagnostics checks;
-- 348 productivity checks;
-- 303,677 Output Ownership checks, including the new multi-run matrix;
+- 351 productivity checks;
+- 303,700 Output Ownership checks, including the universal timed/Toggle/Advanced-Hold + Parallel-Held matrix;
 - zh-CN/en-US Settings smoke tests at normal and narrow sizes;
 - old XML configuration compatibility;
 - saved gamepad vector initialization/editing smoke tests.
 
-The new ownership/runtime coverage verifies three simultaneous ordinary timed runs (keyboard + mouse + gamepad) with a Held Mapping active, one-run Stop preserving the others, duplicate same-macro start rejection, shared-digital reference ownership, deterministic pulse masking on an already-held key, exact finite-repeat overlap, Runtime Observation enumeration, and mixed-state Emergency Stop cleanup. These regression suites use fake/injected backends and do not create real input or virtual devices.
+The new ownership/runtime coverage verifies ordinary timed/Toggle runs and multiple Advanced Hold timelines together with a Parallel Held Mapping, source-local terminal release, independent lost-KeyUp probe state, definition-change isolation, one-run Stop preserving unrelated runs, duplicate same-macro start rejection, shared-digital reference ownership, deterministic pulse masking on an already-held key, exact finite-repeat / finite-Hold completion, Runtime Observation enumeration, and mixed-state Emergency Stop cleanup. These regression suites use fake/injected backends and do not create real input or virtual devices.
 
-The current source also completed x64/x86 release build verification successfully after the multi-run changes.
+The current universal-concurrency source completed fresh x64/x86 release build verification successfully after the final regression run.
 
 ### Input Lab v0.2 developer test target
 
@@ -103,18 +105,17 @@ The current source also completed x64/x86 release build verification successfull
 - Automated mode is non-activating and hidden from the taskbar. Acceptance-only injected keyboard `K` and mouse `X2` events are logged by the low-level hooks and then swallowed, preventing them from being delivered to the user's current foreground application.
 - XInput acceptance binds to the actual InputStitch virtual Xbox by holding a distinctive ViGEm preflight report and observing which XInput slot reflects it. If a local ViGEm/XUSB stack enumerates the controller but does not propagate the report, the run returns `SUMMARY: BLOCKED` / exit code 2 rather than converting an environment problem into product assertion failures.
 - Automated expected-vs-observed coverage includes WASD release order, opposing stick axes, trigger maximum merge, shared digital ownership, D-pad axis conflict, Held/ordinary coexistence, Emergency Stop, keyboard API-lane observation, mouse injected output and final neutral state.
-- The Concurrent Runtime build adds a pre-XInput real-SendInput concurrency lane: F7 holds keyboard `K`, F8 holds mouse `X2`, both must overlap, Runtime Observation must list both active ordinary runs, stopping F7 must leave F8 active, and both paths must be observed as injected SendInput. On the final laptop run this lane passed all 11 checks before the existing ViGEm/XInput environment preflight returned `SUMMARY: BLOCKED | checks=11 | failures=0`.
-- A later full controller-backed concurrency scenario (ordinary gamepad + keyboard + mouse overlap) is compiled into the acceptance runner and will execute when the local ViGEm/XInput report-propagation preflight is healthy; do not bypass that preflight merely to force a green result.
+- The universal-runtime build now has two pre-XInput real-SendInput concurrency lanes: ordinary F7→K + F8→X2 overlap, and delayed **Advanced Hold** F9→K + F10→X2 overlap. For the complex Hold lane, Runtime Observation must classify both as Concurrent Advanced Hold; releasing F9 must remove only K while F10/X2 stays active; releasing F10 then clears X2. On the final laptop run all **18 pre-XInput checks passed** before the existing ViGEm/XInput environment preflight returned `SUMMARY: BLOCKED | checks=18 | failures=0`.
+- A controller-backed universal scenario is compiled into the acceptance runner for a healthy XInput environment: Parallel Held W + complex keyboard Hold + complex mouse Hold + complex RT60 Hold + ordinary A timed macro must coexist, and releasing one complex Hold must preserve the remaining sources. Do not bypass the ViGEm/XInput preflight merely to force this lane green.
 - The final hardened automated black-box suite passed three consecutive monitored runs at this breakpoint: `SUMMARY: PASS | checks=50 | failures=0` on each run. The acceptance process was sampled every 50 ms and never became the foreground process.
 - Across that stability run, `%APPDATA%\InputStitch\config.xml` had identical SHA-256, byte length and UTC modification time before and after acceptance, confirming the isolated host did not alter the user's real configuration.
 - Startup XInput state is recorded as informational rather than a product assertion because Windows can expose stale/other-controller state before the first InputStitch output packet; all scenario release checks and the final neutral state remain hard PASS/FAIL assertions.
 
 ## Not completed yet
 
-- Targeted real-game acceptance of the new multi-run concurrency/release behavior and evidence-driven fixes if needed.
+- Targeted real-game acceptance of the new **universal timed/Toggle/Advanced-Hold + Parallel-Held concurrency** and source-local release behavior.
 - Stable 1.3.0 promotion after that real-use gate passes.
 - Layer implementation after Stable 1.3.0.
-- Optional future expansion of Advanced/complex Hold from exclusive execution into the same multi-run runtime, if repeated real use justifies it.
 - Input Lab target-window message comparison, DS4/DirectInput/HID observation, longer soak scenarios and machine-readable report export.
 
 ## Known issues / known limitations
@@ -129,9 +130,10 @@ A later final combined validation reproduced that local condition again: the key
 
 Intentional limitations that must not be mistaken for bugs:
 
-- only qualifying state-style Held Mappings use the dedicated parallel Held path;
-- multiple distinct ordinary timed/Toggle macros are concurrent, but the same `MacroDefinition` still has at most one active run instance;
-- advanced/complex Hold behavior remains exclusive in Stable 1.3.0 scope;
+- only qualifying state-style Held Mappings use the dedicated lightweight Parallel Held path; complex Hold uses the worker-backed concurrent runtime instead;
+- multiple distinct timed/Toggle/Advanced-Hold macros are concurrent, but the same `MacroDefinition` still has at most one active run instance;
+- Single-step remains exclusive because it is a diagnostic execution mode;
+- physical Hold triggers still use the existing supported terminal forms (single keyboard key, including standalone modifiers, or mouse button); modifier chords/wheel remain outside Hold-trigger semantics even though UI/manual execution can still run the macro definition;
 - same-output digital pulse/click requests do not force a bounce while another source persistently owns that output; the pulse is masked until the persistent state releases;
 - duplicate physical triggers use list priority;
 - Layer is not enabled in `1.3.0-beta.1`;
@@ -140,19 +142,21 @@ Intentional limitations that must not be mistaken for bugs:
 
 ## Next step
 
-Concurrent Macro Runtime and option-B eligibility UI are complete locally. **Do not add another structural feature before the Stable 1.3.0 gate.**
+Unified normal-macro concurrency and option-B eligibility UI are complete locally. **Do not add another structural feature before the Stable 1.3.0 gate.**
 
 Next actions:
 
-1. In the real target game, start two different ordinary timed macros with overlapping lifetimes and confirm both effects occur.
-2. Stop one while the other remains active; confirm the remaining macro's output is not released.
-3. Run at least one ordinary timed macro alongside a parallel Held Mapping and confirm independent cleanup in both directions.
-4. Trigger Emergency Stop while multiple ordinary runs + a Held Mapping are active; confirm all state returns neutral.
-5. Repeat these start/stop patterns enough times to catch stale RunId/Source state or stuck input. Add Alt+Tab/lost-KeyUp only when a Hold/Held source is part of the scenario; unchanged SendInput/ViGEm recognition does not need full re-validation.
-6. If no evidence-backed defect appears, prepare and publish **Stable `v1.3.0`** directly. An intermediate beta is optional, not mandatory.
-7. After Stable 1.3.0 is accepted, resume Layer work unless the user reprioritizes another feature.
+1. In the real target game, hold two different complex Hold macros at the same time and confirm both outputs remain active.
+2. Release only one complex Hold trigger; confirm the other Hold plus any ordinary/Parallel Held outputs remain active.
+3. Run complex Hold + ordinary timed/Toggle + Parallel Held Mapping together and vary the release/stop order.
+4. Test one finite complex Hold beside an infinite Hold and confirm natural finite completion does not affect the infinite run.
+5. Trigger Emergency Stop while multiple complex Hold + ordinary + Parallel Held sources are active; confirm every output returns neutral.
+6. Do one Alt+Tab/lost-KeyUp sample with at least two physical Hold/Held triggers, release them while backgrounded, and confirm source-local fallback cleanup.
+7. Repeat mixed start/stop/release cycles enough times to catch stale RunId/SourceId/release-probe state or stuck input. Existing SendInput/ViGEm recognition does not need full re-validation.
+8. If no evidence-backed defect appears, prepare and publish **Stable `v1.3.0`** directly. An intermediate beta is optional, not mandatory.
+9. After Stable 1.3.0 is accepted, resume Layer work unless the user reprioritizes another feature.
 
-Keep `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` as the automated ownership/concurrency baseline. On this laptop the pre-XInput concurrent SendInput lane passes; a later `BLOCKED` at ViGEm/XInput preflight is an environment condition, not permission to bypass the preflight.
+Keep `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` as the automated ownership/concurrency baseline. On this laptop all 18 pre-XInput ordinary + complex-Hold SendInput checks pass; a later `BLOCKED` at ViGEm/XInput preflight is an environment condition, not permission to bypass the preflight.
 
 ## Important design constraints
 
@@ -162,7 +166,7 @@ Keep `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-a
 - Emergency Stop must remain absolute priority and must be able to clear all source state.
 - Output backend failures must remain fail-closed.
 - UI safety/edit protection must not accidentally clear unrelated parallel Held Mapping sources.
-- Concurrent ordinary timed macros are implemented with dedicated per-run state; do not regress back to singleton worker bookkeeping or bypass Output Ownership with ad-hoc parallel threads.
+- Unified timed/Toggle/Advanced-Hold concurrency is implemented with dedicated per-run state; do not regress back to singleton worker bookkeeping, a global Hold owner, or ad-hoc threads that bypass Output Ownership.
 - Preserve duplicate-trigger macro-list priority unless a new conflict model is explicitly designed.
 - Layer switch must remove old-layer ownership before changing eligibility.
 - Do not synthesize Held Mapping activation for a key that was already physically down before a Layer switch; require release + press.

@@ -98,6 +98,20 @@ internal static class OutputOwnershipTests
         return condition();
     }
 
+    private static bool WaitUntilPumping(Func<bool> condition, int milliseconds)
+    {
+        int elapsed = 0;
+        while (elapsed < milliseconds)
+        {
+            Application.DoEvents();
+            if (condition()) return true;
+            Thread.Sleep(10);
+            elapsed += 10;
+        }
+        Application.DoEvents();
+        return condition();
+    }
+
     private static List<MacroRunRuntime> ActiveRuns(MainForm form)
     {
         return (List<MacroRunRuntime>)Call(form, "SnapshotActiveMacroRuns");
@@ -412,7 +426,10 @@ internal static class OutputOwnershipTests
                 MethodInfo parallelPolicy = typeof(MainForm).GetMethod("IsParallelHeldMapping", BindingFlags.Static | BindingFlags.NonPublic);
                 Check((bool)parallelPolicy.Invoke(null, new object[] { w }), "Immediate gamepad Hold qualifies for parallel Held Mapping");
                 MacroDefinition timedHold = w.Clone(); timedHold.Steps[0].DelayMs = 5;
-                Check(!(bool)parallelPolicy.Invoke(null, new object[] { timedHold }), "Timed Hold stays on legacy single-worker path");
+                Check(!(bool)parallelPolicy.Invoke(null, new object[] { timedHold }), "Timed Hold is not the state-only Parallel Held Mapping fast path");
+                Check(MacroRuntimeClassifier.Classify(timedHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
+                    MacroRuntimeClassifier.Classify(timedHold).SupportsConcurrentExecution,
+                    "Timed Hold is classified for the concurrent Hold runtime");
 
                 Call(form, "StartParallelHeldMapping", w);
                 Call(form, "StartParallelHeldMapping", d);
@@ -456,7 +473,7 @@ internal static class OutputOwnershipTests
 
                 Call(form, "StartParallelHeldMapping", w);
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 1, "Held Mapping can restart after release");
-                Call(form, "StopParallelHeldMappingForDefinitionChange", w, "test-definition-change");
+                Call(form, "StopMacroForDefinitionChange", w, "test-definition-change");
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0 && manager.Snapshot().Merged.Count == 0,
                     "definition change stops the live Held Mapping before mutation");
 
@@ -563,6 +580,54 @@ internal static class OutputOwnershipTests
                 new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.B, Action = MacroAction.Press, HoldMs = 40, DelayMs = 60 }
             }
         };
+        MacroDefinition advancedHoldKey = new MacroDefinition
+        {
+            Name = "Advanced Hold C",
+            RunMode = TriggerRunMode.Hold,
+            Infinite = true,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F9 },
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.C, Action = MacroAction.Down, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.C, Action = MacroAction.Up, DelayMs = 0 }
+            }
+        };
+        MacroDefinition advancedHoldMouse = new MacroDefinition
+        {
+            Name = "Advanced Hold X2",
+            RunMode = TriggerRunMode.Hold,
+            Infinite = true,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F10 },
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.MouseX2, Action = MacroAction.Down, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.MouseX2, Action = MacroAction.Up, DelayMs = 0 }
+            }
+        };
+        MacroDefinition advancedHoldTrigger = new MacroDefinition
+        {
+            Name = "Advanced Hold RT",
+            RunMode = TriggerRunMode.Hold,
+            Infinite = true,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F11 },
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.RightTrigger, GamepadValue = 60, Action = MacroAction.Down, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.RightTrigger, GamepadValue = 60, Action = MacroAction.Up, DelayMs = 0 }
+            }
+        };
+        MacroDefinition finiteHold = new MacroDefinition
+        {
+            Name = "Finite Hold E",
+            RunMode = TriggerRunMode.Hold,
+            Infinite = false,
+            RepeatCount = 2,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F12 },
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.E, Action = MacroAction.Press, HoldMs = 30, DelayMs = 40 }
+            }
+        };
         config.Macros.Add(timedKey);
         config.Macros.Add(timedMouse);
         config.Macros.Add(timedStick);
@@ -570,6 +635,10 @@ internal static class OutputOwnershipTests
         config.Macros.Add(secondA);
         config.Macros.Add(pulseA);
         config.Macros.Add(finite);
+        config.Macros.Add(advancedHoldKey);
+        config.Macros.Add(advancedHoldMouse);
+        config.Macros.Add(advancedHoldTrigger);
+        config.Macros.Add(finiteHold);
 
         try
         {
@@ -582,8 +651,24 @@ internal static class OutputOwnershipTests
                     "simple Hold remains classified as Parallel Held Mapping");
                 MacroDefinition advancedHold = heldUp.Clone();
                 advancedHold.Infinite = false;
-                Check(MacroRuntimeClassifier.Classify(advancedHold).Category == MacroRuntimeCategory.ExclusiveHold,
-                    "finite Hold is classified as exclusive advanced Hold");
+                Check(MacroRuntimeClassifier.Classify(advancedHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
+                    MacroRuntimeClassifier.Classify(advancedHold).SupportsConcurrentExecution,
+                    "finite Hold is classified as concurrent advanced Hold");
+                Check(MacroRuntimeClassifier.Classify(advancedHoldKey).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
+                    MacroRuntimeClassifier.Classify(advancedHoldMouse).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
+                    MacroRuntimeClassifier.Classify(advancedHoldTrigger).Category == MacroRuntimeCategory.ConcurrentHoldMacro,
+                    "keyboard, mouse and delayed gamepad Hold timelines share the concurrent Hold category");
+                MacroDefinition pressHold = heldUp.Clone();
+                pressHold.Steps[0].Action = MacroAction.Press;
+                pressHold.Steps[0].HoldMs = 25;
+                Check(MacroRuntimeClassifier.Classify(pressHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro,
+                    "gamepad Press sequencing in Hold mode is concurrent rather than exclusive");
+                MacroDefinition randomDelayHold = heldUp.Clone();
+                randomDelayHold.Steps[0].RandomDelay = true;
+                randomDelayHold.Steps[0].RandomDelayMinMs = 10;
+                randomDelayHold.Steps[0].RandomDelayMaxMs = 25;
+                Check(MacroRuntimeClassifier.Classify(randomDelayHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro,
+                    "random-delay Hold is concurrent rather than exclusive");
 
                 Label capabilityLabel = (Label)Field(form, "runtimeCapabilityLabel");
                 Check(capabilityLabel != null && capabilityLabel.Text.Contains(keyCapability.CategoryText(Localizer.IsEnglish)),
@@ -629,6 +714,95 @@ internal static class OutputOwnershipTests
                 Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "first concurrent group stops cleanly");
                 Call(form, "StopParallelHeldMapping", heldUp, "test-cleanup");
                 Check(manager.Snapshot().Merged.Count == 0, "first concurrent group cleanup returns neutral");
+
+                // Universal concurrency: multiple complex Hold timelines, an ordinary timed macro,
+                // and the state-only Parallel Held fast path all coexist. Each physical terminal
+                // release must target only the matching Hold run.
+                Check(form.Handle != IntPtr.Zero, "test form handle is created for queued terminal-release dispatch");
+                Call(form, "StartParallelHeldMapping", heldUp);
+                start.Invoke(form, new object[] { advancedHoldKey, 0, null, true, false });
+                start.Invoke(form, new object[] { advancedHoldMouse, 0, null, true, false });
+                start.Invoke(form, new object[] { advancedHoldTrigger, 0, null, true, false });
+                start.Invoke(form, new object[] { timedStick, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 4; }, 2000),
+                    "three Advanced Hold timelines and one ordinary timed macro run concurrently");
+                Check(WaitUntil(delegate
+                {
+                    OutputOwnershipSnapshot s = manager.Snapshot();
+                    bool keyC = s.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.C; });
+                    bool mouseX2 = s.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.MouseX2; });
+                    InputSpec rt = s.Merged.FirstOrDefault(delegate(InputSpec x) { return x.Kind == InputKind.Gamepad && x.GamepadControl == GamepadControl.RightTrigger; });
+                    InputSpec stick = s.Merged.FirstOrDefault(delegate(InputSpec x) { return x.Kind == InputKind.Gamepad && x.GamepadControl == GamepadControl.LeftStick; });
+                    return keyC && mouseX2 && rt != null && rt.GamepadValue == 60 && stick != null && stick.GamepadX == 71 && stick.GamepadY == 71;
+                }, 2000), "complex keyboard/mouse/gamepad Hold + timed stick + Parallel Held output all merge");
+                Check(ActiveRuns(form).Count(delegate(MacroRunRuntime r) { return r != null && r.HoldControlled && r.HoldTrigger != null; }) == 3,
+                    "each physical Advanced Hold run owns an independent trigger snapshot");
+                observation = (string)Call(form, "BuildRuntimeObservationText");
+                string concurrentHoldCategory = MacroRuntimeClassifier.Classify(advancedHoldKey).CategoryText(Localizer.IsEnglish);
+                Check(observation.Contains("Advanced Hold C") && observation.Contains("Advanced Hold X2") &&
+                      observation.Contains("Advanced Hold RT") && observation.Contains(concurrentHoldCategory),
+                    "runtime observation exposes every concurrent Advanced Hold and its category");
+
+                Call(form, "HandleTerminalInputReleased", new InputEventInfo
+                {
+                    Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F9 }
+                });
+                Check(WaitUntilPumping(delegate { return !IsRunning(form, advancedHoldKey) && IsRunning(form, advancedHoldMouse) &&
+                    IsRunning(form, advancedHoldTrigger) && IsRunning(form, timedStick); }, 2000),
+                    "F9 release stops only its Advanced Hold while unrelated Hold/timed runs continue");
+                OutputOwnershipSnapshot afterF9 = manager.Snapshot();
+                Check(!afterF9.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.C; }) &&
+                      afterF9.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.MouseX2; }) &&
+                      afterF9.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Gamepad && x.GamepadControl == GamepadControl.RightTrigger; }),
+                    "terminal release clears only the released Hold run's ownership source");
+
+                Call(form, "HandleTerminalInputReleased", new InputEventInfo
+                {
+                    Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F10 }
+                });
+                Check(WaitUntilPumping(delegate { return !IsRunning(form, advancedHoldMouse) && IsRunning(form, advancedHoldTrigger) && IsRunning(form, timedStick); }, 2000),
+                    "second Advanced Hold release is independent of remaining runs");
+                Call(form, "HandleTerminalInputReleased", new InputEventInfo
+                {
+                    Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F11 }
+                });
+                Check(WaitUntilPumping(delegate { return !IsRunning(form, advancedHoldTrigger) && IsRunning(form, timedStick); }, 2000),
+                    "delayed gamepad Advanced Hold releases without stopping ordinary timed run");
+                Call(form, "StopMacro", timedStick, "advanced-hold-mix-cleanup");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "mixed Advanced Hold/timed run group stops cleanly");
+                Call(form, "StopParallelHeldMapping", heldUp, "advanced-hold-mix-cleanup");
+                Check(manager.Snapshot().Merged.Count == 0, "mixed Advanced Hold/Parallel Held cleanup returns neutral");
+
+                // A definition mutation must signal only the affected live timeline; another
+                // Advanced Hold continues on its immutable run snapshot.
+                start.Invoke(form, new object[] { advancedHoldKey, 0, null, true, false });
+                start.Invoke(form, new object[] { advancedHoldMouse, 0, null, true, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 2; }, 2000), "two Advanced Holds active before definition-change test");
+                Call(form, "StopMacroForDefinitionChange", advancedHoldKey, "test-definition-change");
+                Check(WaitUntil(delegate { return !IsRunning(form, advancedHoldKey) && IsRunning(form, advancedHoldMouse); }, 2000),
+                    "definition change stops only the affected Advanced Hold run");
+                Call(form, "HandleTerminalInputReleased", new InputEventInfo
+                {
+                    Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F10 }
+                });
+                Check(WaitUntilPumping(delegate { return ActiveRuns(form).Count == 0; }, 2000), "definition-change Advanced Hold group cleans up");
+                Check(manager.Snapshot().Merged.Count == 0, "definition change plus terminal release leaves neutral output");
+
+                int eDownBefore = backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.E; });
+                int eUpBefore = backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.E; });
+                start.Invoke(form, new object[] { advancedHoldKey, 0, null, true, false });
+                start.Invoke(form, new object[] { finiteHold, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 2; }, 1000), "finite Advanced Hold overlaps an infinite physical Advanced Hold");
+                Check(WaitUntil(delegate { return !IsRunning(form, finiteHold) && IsRunning(form, advancedHoldKey); }, 2500),
+                    "finite Advanced Hold completes independently while another Hold remains active");
+                Check(backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.E; }) == eDownBefore + 2 &&
+                      backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.E; }) == eUpBefore + 2,
+                    "finite Hold repeat count remains exact under universal concurrency");
+                Call(form, "HandleTerminalInputReleased", new InputEventInfo
+                {
+                    Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F9 }
+                });
+                Check(WaitUntilPumping(delegate { return ActiveRuns(form).Count == 0; }, 2000), "finite/infinite Hold overlap cleanup completes");
 
                 start.Invoke(form, new object[] { timedKey, 0, null, false, false });
                 start.Invoke(form, new object[] { timedKey, 0, null, false, false });
@@ -687,11 +861,14 @@ internal static class OutputOwnershipTests
                 Call(form, "StartParallelHeldMapping", heldUp);
                 start.Invoke(form, new object[] { timedKey, 0, null, false, false });
                 start.Invoke(form, new object[] { timedMouse, 0, null, false, false });
-                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 2; }, 2000), "two timed runs active before Emergency Stop");
+                start.Invoke(form, new object[] { advancedHoldKey, 0, null, true, false });
+                start.Invoke(form, new object[] { advancedHoldMouse, 0, null, true, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 4; }, 2000),
+                    "ordinary timed + Advanced Hold runs are active together before Emergency Stop");
                 Call(form, "EmergencyStop", "concurrent-runtime-test");
-                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "Emergency Stop terminates every timed run");
-                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0, "Emergency Stop clears Held Mapping beside timed runs");
-                Check(manager.Snapshot().Merged.Count == 0, "Emergency Stop leaves concurrent runtime fully neutral");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "Emergency Stop terminates every timed/Hold run");
+                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0, "Emergency Stop clears Parallel Held beside arbitrary macro runs");
+                Check(manager.Snapshot().Merged.Count == 0, "Emergency Stop leaves universal concurrent runtime fully neutral");
             }
         }
         finally { try { Directory.Delete(root, true); } catch { } }

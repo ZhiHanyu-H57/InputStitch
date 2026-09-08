@@ -122,6 +122,7 @@ namespace InputStitch.Tools.InputLab
             ScenarioKeyboardRawComparison(lab, product);
             ScenarioMouseRawComparison(lab, product);
             ScenarioConcurrentKeyboardMouseRuns(lab, product);
+            ScenarioConcurrentComplexHolds(lab, product);
 
             BindVirtualXboxObservation(lab, product);
             ObservationSnapshot startup = lab.CaptureObservation();
@@ -136,6 +137,7 @@ namespace InputStitch.Tools.InputLab
             ScenarioSharedDigitalOwnership(lab, product);
             ScenarioDPadAxisMerge(lab, product);
             ScenarioConcurrentOrdinaryRuns(lab, product);
+            ScenarioUniversalMacroConcurrency(lab, product);
             ScenarioFourHeldPlusOrdinary(lab, product);
             ScenarioEmergencyStop(lab, product);
             Neutral(product, lab, "final-neutral");
@@ -387,6 +389,57 @@ namespace InputStitch.Tools.InputLab
                 "injected mouse delta=" + (after.InjectedMouseEvents - before.InjectedMouseEvents).ToString());
         }
 
+        private static void ScenarioConcurrentComplexHolds(InputLabForm lab, MainForm product)
+        {
+            Section("Concurrent complex Hold keyboard + mouse (pre-XInput)");
+            ObservationSnapshot before = lab.CaptureObservation();
+
+            // F9/F10 are real Hold-mode trigger edges inside the isolated InputStitch host.
+            // Their macros contain keyboard/mouse output plus long delays, so they exercise the
+            // Concurrent Advanced Hold runtime rather than the state-only Parallel Held path.
+            Press(product, KeyEvent(Keys.F9));
+            Thread.Sleep(35);
+            Press(product, KeyEvent(Keys.F10));
+
+            ObservationSnapshot overlap;
+            bool bothDown = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                return s.KeysDown.Contains((int)Keys.K) && s.MouseButtonsDown.Contains("X2");
+            }, 1200, out overlap);
+            Check("two complex Hold SendInput timelines overlap", bothDown,
+                "K=" + overlap.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + overlap.MouseButtonsDown.Contains("X2").ToString());
+
+            string observation = GetRuntimeObservation(product);
+            Check("runtime observation lists both complex Hold runs",
+                observation.Contains("F9 -> K complex Hold") && observation.Contains("F10 -> X2 complex Hold") &&
+                (observation.Contains("Concurrent Advanced Hold") || observation.Contains("可并发高级 Hold")),
+                observation.Replace("\r", " ").Replace("\n", " | "));
+
+            Release(product, KeyEvent(Keys.F9));
+            ObservationSnapshot afterKeyboardRelease;
+            bool firstIsolated = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                return !s.KeysDown.Contains((int)Keys.K) && s.MouseButtonsDown.Contains("X2");
+            }, 700, out afterKeyboardRelease);
+            Check("releasing F9 stops only keyboard complex Hold", firstIsolated,
+                "KDown=" + afterKeyboardRelease.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + afterKeyboardRelease.MouseButtonsDown.Contains("X2").ToString());
+
+            observation = GetRuntimeObservation(product);
+            Check("mouse complex Hold remains the only F9/F10 Hold run after F9 release",
+                !observation.Contains("F9 -> K complex Hold") && observation.Contains("F10 -> X2 complex Hold"),
+                observation.Replace("\r", " ").Replace("\n", " | "));
+
+            Release(product, KeyEvent(Keys.F10));
+            CheckWaitMouse(lab, "releasing F10 clears final complex Hold mouse output", "X2", false, 900);
+            ObservationSnapshot after = lab.CaptureObservation();
+            Check("complex Hold keyboard path used injected SendInput", after.InjectedKeyboardEvents > before.InjectedKeyboardEvents,
+                "injected keyboard delta=" + (after.InjectedKeyboardEvents - before.InjectedKeyboardEvents).ToString());
+            Check("complex Hold mouse path used injected SendInput", after.InjectedMouseEvents > before.InjectedMouseEvents,
+                "injected mouse delta=" + (after.InjectedMouseEvents - before.InjectedMouseEvents).ToString());
+        }
+
         private static void ScenarioConcurrentOrdinaryRuns(InputLabForm lab, MainForm product)
         {
             Section("Concurrent ordinary timed macros");
@@ -442,6 +495,76 @@ namespace InputStitch.Tools.InputLab
                 "injected keyboard delta=" + (after.InjectedKeyboardEvents - before.InjectedKeyboardEvents).ToString());
             Check("concurrent mouse macro emitted injected X2 events", after.InjectedMouseEvents > before.InjectedMouseEvents,
                 "injected mouse delta=" + (after.InjectedMouseEvents - before.InjectedMouseEvents).ToString());
+        }
+
+        private static void ScenarioUniversalMacroConcurrency(InputLabForm lab, MainForm product)
+        {
+            Section("Universal mixed macro concurrency");
+
+            // One state-only Held Mapping + three complex Hold timelines + one ordinary timed
+            // macro. This is the final mixed execution shape needed by the universal runtime.
+            Press(product, KeyEvent(Keys.W));
+            Press(product, KeyEvent(Keys.F9));
+            Thread.Sleep(25);
+            Press(product, KeyEvent(Keys.F10));
+            Thread.Sleep(25);
+            Press(product, KeyEvent(Keys.F11));
+            Thread.Sleep(40);
+            Press(product, KeyEvent(Keys.F6));
+            Release(product, KeyEvent(Keys.F6));
+
+            ObservationSnapshot overlap;
+            bool allVisible = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                if (!s.XInputConnected) return false;
+                bool stickUp = Math.Abs(XInputReader.NormalizeStick(s.Gamepad.sThumbLX)) <= 0.03 &&
+                    Math.Abs(XInputReader.NormalizeStick(s.Gamepad.sThumbLY) - 1.0) <= 0.03;
+                bool rt = Math.Abs(XInputReader.NormalizeTrigger(s.Gamepad.bRightTrigger) - 0.60) <= 0.04;
+                bool a = (s.Gamepad.wButtons & XInputReader.A) != 0;
+                bool k = s.KeysDown.Contains((int)Keys.K);
+                bool x2 = s.MouseButtonsDown.Contains("X2");
+                return stickUp && rt && a && k && x2;
+            }, 1400, out overlap);
+            Check("Parallel Held + three complex Holds + ordinary timed macro overlap", allVisible,
+                "LSY=" + XInputReader.NormalizeStick(overlap.Gamepad.sThumbLY).ToString("0.000") +
+                ", RT=" + XInputReader.NormalizeTrigger(overlap.Gamepad.bRightTrigger).ToString("0.000") +
+                ", A=" + ((overlap.Gamepad.wButtons & XInputReader.A) != 0).ToString() +
+                ", K=" + overlap.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + overlap.MouseButtonsDown.Contains("X2").ToString());
+
+            string observation = GetRuntimeObservation(product);
+            Check("mixed runtime observation lists ordinary + complex Hold runs",
+                observation.Contains("F6 -> A timed") && observation.Contains("F9 -> K complex Hold") &&
+                observation.Contains("F10 -> X2 complex Hold") && observation.Contains("F11 -> RT60 complex Hold") &&
+                observation.Contains("W -> LS Up"),
+                observation.Replace("\r", " ").Replace("\n", " | "));
+
+            // Release only F9. K must disappear while X2, RT and W remain. A is deliberately not
+            // required here because its independent 900 ms timed lifetime may already be complete.
+            Release(product, KeyEvent(Keys.F9));
+            ObservationSnapshot afterF9;
+            bool isolated = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                if (!s.XInputConnected) return false;
+                bool kUp = !s.KeysDown.Contains((int)Keys.K);
+                bool x2 = s.MouseButtonsDown.Contains("X2");
+                bool rt = Math.Abs(XInputReader.NormalizeTrigger(s.Gamepad.bRightTrigger) - 0.60) <= 0.04;
+                bool stickUp = Math.Abs(XInputReader.NormalizeStick(s.Gamepad.sThumbLY) - 1.0) <= 0.03;
+                return kUp && x2 && rt && stickUp;
+            }, 900, out afterF9);
+            Check("releasing one complex Hold preserves all unrelated mixed sources", isolated,
+                "KDown=" + afterF9.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + afterF9.MouseButtonsDown.Contains("X2").ToString() +
+                ", RT=" + XInputReader.NormalizeTrigger(afterF9.Gamepad.bRightTrigger).ToString("0.000") +
+                ", LSY=" + XInputReader.NormalizeStick(afterF9.Gamepad.sThumbLY).ToString("0.000"));
+
+            Release(product, KeyEvent(Keys.F10));
+            Release(product, KeyEvent(Keys.F11));
+            Release(product, KeyEvent(Keys.W));
+            CheckWaitMouse(lab, "mixed cleanup releases X2", "X2", false, 1000);
+            CheckWaitTrigger(lab, "mixed cleanup releases RT", false, 0.0, 0.01, 1000);
+            CheckWaitStick(lab, "mixed cleanup releases Held stick", 0.0, 0.0, 0.02, 1000);
+            CheckWaitButton(lab, "mixed ordinary timed A eventually neutral", XInputReader.A, false, 1500);
         }
 
         private static void ScenarioFourHeldPlusOrdinary(InputLabForm lab, MainForm product)
@@ -786,6 +909,9 @@ namespace InputStitch.Tools.InputLab
             config.Macros.Add(TimedGamepadPress("F6 -> A timed", Keys.F6, GamepadControl.South, 900));
             config.Macros.Add(TimedKeyboardPress("F7 -> K timed", Keys.F7, Keys.K, 900));
             config.Macros.Add(TimedMousePress("F8 -> X2 timed", Keys.F8, InputKind.MouseX2, 900));
+            config.Macros.Add(ComplexHoldKeyboard("F9 -> K complex Hold", Keys.F9, Keys.K, 2500));
+            config.Macros.Add(ComplexHoldMouse("F10 -> X2 complex Hold", Keys.F10, InputKind.MouseX2, 2500));
+            config.Macros.Add(ComplexHoldGamepad("F11 -> RT60 complex Hold", Keys.F11, GamepadControl.RightTrigger, 60, 2500));
             return config;
         }
 
@@ -870,6 +996,56 @@ namespace InputStitch.Tools.InputLab
             s.HoldMs = holdMs;
             s.DelayMs = 0;
             m.Steps.Add(s);
+            return m;
+        }
+
+        private static MacroDefinition ComplexHoldKeyboard(string name, Keys trigger, Keys output, int delayMs)
+        {
+            MacroDefinition m = BaseHeld(name);
+            m.Trigger.Kind = InputKind.Keyboard;
+            m.Trigger.VirtualKey = (int)trigger;
+            MacroStep down = new MacroStep();
+            down.Action = MacroAction.Down;
+            down.Kind = InputKind.Keyboard;
+            down.VirtualKey = (int)output;
+            down.DelayMs = delayMs;
+            m.Steps.Add(down);
+            MacroStep up = down.Clone();
+            up.Action = MacroAction.Up;
+            up.DelayMs = 0;
+            m.Steps.Add(up);
+            return m;
+        }
+
+        private static MacroDefinition ComplexHoldMouse(string name, Keys trigger, InputKind output, int delayMs)
+        {
+            MacroDefinition m = BaseHeld(name);
+            m.Trigger.Kind = InputKind.Keyboard;
+            m.Trigger.VirtualKey = (int)trigger;
+            MacroStep down = new MacroStep();
+            down.Action = MacroAction.Down;
+            down.Kind = output;
+            down.DelayMs = delayMs;
+            m.Steps.Add(down);
+            MacroStep up = down.Clone();
+            up.Action = MacroAction.Up;
+            up.DelayMs = 0;
+            m.Steps.Add(up);
+            return m;
+        }
+
+        private static MacroDefinition ComplexHoldGamepad(string name, Keys trigger, GamepadControl control, int value, int delayMs)
+        {
+            MacroDefinition m = BaseHeld(name);
+            m.Trigger.Kind = InputKind.Keyboard;
+            m.Trigger.VirtualKey = (int)trigger;
+            MacroStep down = GamepadDown(control, 0, 0, value);
+            down.DelayMs = delayMs;
+            m.Steps.Add(down);
+            MacroStep up = down.Clone();
+            up.Action = MacroAction.Up;
+            up.DelayMs = 0;
+            m.Steps.Add(up);
             return m;
         }
 

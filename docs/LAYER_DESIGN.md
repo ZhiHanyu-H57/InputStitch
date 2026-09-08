@@ -16,9 +16,9 @@ Beta 1 已经为 Layer 做好底层准备：每个持续输出都有独立 Sourc
 
 ## Proposed first Layer scope / 第一版 Layer 范围
 
-Layer should initially scope **Held Mapping only**. Ordinary timed macros remain outside Layer eligibility in the first Layer version, but by then the runtime is expected to support multiple concurrent ordinary macro runs.
+Layer should initially scope **state-only Parallel Held Mapping only**. Worker-backed ordinary timed/Toggle macros and Advanced/complex Hold timelines remain outside Layer eligibility in the first Layer version; the underlying runtime already supports those macro classes concurrently and Layer must not reintroduce a singleton-worker assumption.
 
-Layer 第一版只管理 **Held Mapping**；普通时序宏第一版不受 Layer 资格筛选，但底层运行时届时应已经支持多个普通宏并发，而不是回到单全局 worker。
+Layer 第一版只管理**纯状态型 Parallel Held Mapping**；普通时序 / Toggle 以及高级/复杂 Hold 的 worker 运行实例第一版都不受 Layer 资格筛选。底层已经支持这些宏类型并发，Layer 不得重新引入单全局 worker 假设。
 
 Proposed model:
 
@@ -92,8 +92,8 @@ Do not persist momentary layer state until the behavior is validated. Configurat
 
 ## Release gate before implementation / 实现前门槛
 
-Layer implementation now starts only **after Stable 1.3.0**. Stable 1.3.0 must first complete and accept the Concurrent Macro Runtime: multiple ordinary timed runs, independent source-local cleanup, coexistence with Held Mapping sources, deterministic overlap semantics, Stop/Emergency Stop, automated regression, Input Lab black-box acceptance and targeted real-game validation.
+Layer implementation now starts only **after Stable 1.3.0**. Stable 1.3.0 must first complete and accept the unified Concurrent Macro Runtime: ordinary timed/Toggle + Advanced/complex Hold concurrency, per-run Hold release/lost-KeyUp isolation, independent source-local cleanup, coexistence with Parallel Held sources, deterministic overlap semantics, Stop/Emergency Stop, automated regression, Input Lab black-box acceptance and targeted real-game validation.
 
 Only after that should Layer be implemented as a thin eligibility/grouping layer on top of the ownership + multi-run runtime, not as a second execution engine.
 
-Layer 当前明确延后到 **Stable 1.3.0 之后**。1.3.0 必须先完成并验收普通宏多并发、独立 Source 清理、与 Held Mapping 共存、确定性的冲突语义、Stop/Emergency Stop 以及自动化/黑盒/真实游戏测试；之后 Layer 才作为现有 Ownership + multi-run runtime 上的“资格筛选/分组层”实现，而不是再造第二套执行引擎。
+Layer 当前明确延后到 **Stable 1.3.0 之后**。1.3.0 必须先完成并验收普通时序 / Toggle + 高级/复杂 Hold 多并发、逐 Run 松键与 lost-KeyUp 隔离、独立 Source 清理、与 Parallel Held 共存、确定性的冲突语义、Stop/Emergency Stop 以及自动化/黑盒/真实游戏测试；之后 Layer 才作为现有 Ownership + multi-run runtime 上的“资格筛选/分组层”实现，而不是再造第二套执行引擎。
