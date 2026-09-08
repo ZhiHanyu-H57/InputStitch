@@ -15,13 +15,14 @@ The Input Ownership foundation, multi-source Held Mapping support, one-ordinary-
 
 ## Immediate work
 
-1. Add the agreed "parallel/concurrency eligibility" UI feedback (option B): keep macros freely editable, but show the runtime category and why a macro is or is not eligible for the parallel Held path.
-2. Design and implement the first Concurrent Macro Runtime: multiple distinct ordinary timed macros may run concurrently, each with its own RunId/SourceId/stop/timing state, while continuing to use the shared Output Ownership merger.
-3. The 1.3.0 concurrency target must support ordinary one-shot/timed macros with keyboard, mouse and virtual-gamepad steps, non-zero delays, press-to-start behavior, and finite repeat counts, while coexisting with existing parallel Held Mappings.
-4. Define deterministic behavior for overlapping digital state vs edge/pulse requests before declaring the feature complete; do not hide ambiguous same-key/same-button interactions behind thread scheduling.
-5. Extend automated regression and Input Lab acceptance for multiple timed workers, independent cleanup, stop/Emergency Stop, release order, mixed keyboard/mouse/gamepad output, and coexistence with Held Mapping sources.
-6. Run targeted real-game acceptance for the newly affected concurrency/release paths and fix evidence-backed defects.
-7. When the complete regression suite, black-box acceptance, and real-use concurrency gate pass, promote directly to **Stable `v1.3.0`**. Publish another Beta only if a public hardening cycle is actually useful.
+1. Design the Concurrent Macro Runtime capability model first: define the runtime categories and the authoritative rules that determine whether a macro is concurrent, state-only Held, advanced/exclusive, or otherwise constrained. UI must not duplicate these rules.
+2. Implement the first Concurrent Macro Runtime: multiple distinct ordinary timed macros may run concurrently, each with its own RunId/SourceId/stop/timing state, while continuing to use the shared Output Ownership merger.
+3. Build the agreed option-B "parallel/concurrency eligibility" UI **on top of that runtime capability model**. Keep macros freely editable, and have the editor display the category/reason returned by the same classifier used by execution rather than a separate hard-coded UI rule set.
+4. The 1.3.0 concurrency target must support ordinary one-shot/timed macros with keyboard, mouse and virtual-gamepad steps, non-zero delays, press-to-start behavior, and finite repeat counts, while coexisting with existing parallel Held Mappings.
+5. Define deterministic behavior for overlapping digital state vs edge/pulse requests before declaring the feature complete; do not hide ambiguous same-key/same-button interactions behind thread scheduling.
+6. Extend automated regression and Input Lab acceptance for multiple timed workers, independent cleanup, stop/Emergency Stop, release order, mixed keyboard/mouse/gamepad output, and coexistence with Held Mapping sources. Add tests proving UI classification and execution classification cannot disagree.
+7. Run targeted real-game acceptance for the newly affected concurrency/release paths and fix evidence-backed defects.
+8. When the complete regression suite, black-box acceptance, and real-use concurrency gate pass, promote directly to **Stable `v1.3.0`**. Publish another Beta only if a public hardening cycle is actually useful.
 
 ## Real-use acceptance matrix
 

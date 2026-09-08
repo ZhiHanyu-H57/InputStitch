@@ -22,6 +22,7 @@ Before changing code in this repository, restore project context in this order:
 - Do not regress existing Held Mapping behavior while changing concurrency or Layer logic.
 - Preserve configuration/import compatibility unless a migration is deliberately designed and tested.
 - Concurrent ordinary timed macros are now an explicit 1.3.0 priority. Implement them through a dedicated multi-run runtime design with independent RunId/SourceId/timing/stop state and deterministic overlap semantics; do not just start extra threads around the current singleton worker fields.
+- Runtime category/concurrency eligibility must have one authoritative classifier shared by execution, diagnostics and UI. Do not duplicate eligibility rules in the editor; option-B live feedback must be a view of the Concurrent Macro Runtime capability model.
 - Treat Stable and Beta release channels as separate. Beta must not replace `releases/latest` or `InputStitch-update.xml`.
 - Beta and Stable currently share `%APPDATA%\InputStitch`; do not design workflows that assume they can safely run simultaneously.
 - Do not commit build artifacts, temporary verification directories, or machine-specific paths.

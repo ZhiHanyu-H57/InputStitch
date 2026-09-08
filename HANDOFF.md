@@ -136,14 +136,15 @@ The user has explicitly reprioritized the roadmap: **multiple concurrent ordinar
 
 Implement in this order:
 
-1. Add option-B runtime-category/parallel-eligibility feedback in the macro editor. Keep free editing, but clearly identify Parallel Held Mapping vs ordinary timed macro vs advanced/exclusive Hold and explain why eligibility changes.
-2. Design the Concurrent Macro Runtime so multiple distinct ordinary timed macros have independent RunId/SourceId, worker/timing state and stop/cleanup state instead of sharing `workerThread`, `stopEvent`, `runningMacro` and related singleton fields.
-3. First stable target: concurrent press-to-start ordinary macros with keyboard, mouse and virtual-gamepad steps, non-zero delays and finite repeat counts, coexisting with any active parallel Held Mapping sources.
-4. Define deterministic same-output semantics, especially persistent digital ownership versus edge/pulse/click requests. Do not let OS thread timing accidentally define behavior.
-5. Extend Runtime Observation and Stop/Emergency Stop semantics for multiple ordinary runs; one run completing or failing must release only its own source.
-6. Extend unit/regression tests and Input Lab black-box acceptance for at least two overlapping timed macros, mixed keyboard/mouse/gamepad output, release-order permutations, one-run failure/stop, Emergency Stop, and Held + timed-worker coexistence.
-7. Run targeted real-game acceptance only for the newly affected concurrency/release behavior. Existing SendInput/ViGEm recognition does not need a full re-validation when the low-level backend is unchanged.
-8. When all existing regression suites plus the new concurrency matrix and real-use gate pass, prepare and publish **Stable `v1.3.0`**. An intermediate beta is optional, not mandatory.
+1. Design a single authoritative Concurrent Macro Runtime capability classifier first. It must determine runtime category, concurrency eligibility, restrictions and human-readable reasons from the actual macro definition; execution and UI must consume the same result.
+2. Design and implement the Concurrent Macro Runtime so multiple distinct ordinary timed macros have independent RunId/SourceId, worker/timing state and stop/cleanup state instead of sharing `workerThread`, `stopEvent`, `runningMacro` and related singleton fields.
+3. Build option-B runtime-category/parallel-eligibility feedback **after/on top of the classifier**. Keep free editing, but never duplicate execution rules in UI code; the editor should display the classifier's category/reason directly.
+4. First stable target: concurrent press-to-start ordinary macros with keyboard, mouse and virtual-gamepad steps, non-zero delays and finite repeat counts, coexisting with any active parallel Held Mapping sources.
+5. Define deterministic same-output semantics, especially persistent digital ownership versus edge/pulse/click requests. Do not let OS thread timing accidentally define behavior.
+6. Extend Runtime Observation and Stop/Emergency Stop semantics for multiple ordinary runs; one run completing or failing must release only its own source.
+7. Extend unit/regression tests and Input Lab black-box acceptance for at least two overlapping timed macros, mixed keyboard/mouse/gamepad output, release-order permutations, one-run failure/stop, Emergency Stop, and Held + timed-worker coexistence. Include a contract test that UI-facing classification and runtime execution classification cannot diverge.
+8. Run targeted real-game acceptance only for the newly affected concurrency/release behavior. Existing SendInput/ViGEm recognition does not need a full re-validation when the low-level backend is unchanged.
+9. When all existing regression suites plus the new concurrency matrix and real-use gate pass, prepare and publish **Stable `v1.3.0`**. An intermediate beta is optional, not mandatory.
 
 Before or after runtime changes, retain `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` as the existing ownership baseline so new multi-worker work cannot silently regress Held Mapping behavior.
 
