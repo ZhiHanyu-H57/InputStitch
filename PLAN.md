@@ -37,9 +37,13 @@ Prioritize:
 
 ## Acceptance tooling
 
-A developer-only `tools/InputLab/` black-box target now covers routine keyboard, mouse and XInput acceptance without launching a real game for every iteration. Use it to inspect injected scan-code keyboard events, mouse buttons/wheel/movement, virtual Xbox buttons/triggers/sticks and exact event ordering. It reduces the cost of the ownership acceptance matrix but does **not** replace final real-game compatibility checks.
+Developer-only `tools/InputLab/` v0.2 now covers routine keyboard, mouse, Raw Input and XInput acceptance without launching a real game for every iteration. It provides low-level hook vs foreground Raw Input comparison, XInput button/trigger/stick observation, ordered event logging, and an isolated automated acceptance host that drives the real InputStitch ownership/runtime path and checks final `SendInput` / ViGEm output with explicit PASS/FAIL assertions.
 
-Next tooling hardening candidates are Raw Input comparison, target-window message comparison, DS4/DirectInput/HID observation and scripted expected-vs-observed assertions.
+The hardened automated core ownership matrix passed three consecutive `50/50` runs at this breakpoint while a 50 ms foreground sampler confirmed that the acceptance process never became the foreground process. The same stability run verified that the user's normal `%APPDATA%\InputStitch\config.xml` SHA-256, size and modification time were unchanged before/after acceptance. Acceptance-only injected keyboard/mouse outputs are swallowed after observation so they do not leak into the user's current foreground application.
+
+The runner now performs a real ViGEm/XInput report preflight before controller assertions. A local XUSB/ViGEm stack that enumerates a controller but fails to propagate state is reported as `SUMMARY: BLOCKED` (exit code 2), not as a product regression. This materially reduces routine manual testing, but does **not** replace final real-game compatibility checks, especially Alt+Tab/lost-KeyUp, privilege boundaries, exclusive-fullscreen and game-specific input stacks.
+
+Next tooling candidates are target-window message comparison, DS4/DirectInput/HID observation, longer soak/repeated-cycle scenarios and machine-readable report export.
 
 ## Gate for Layer
 

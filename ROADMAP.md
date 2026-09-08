@@ -124,6 +124,8 @@ Beta 2 不预先绑定功能清单：若真实使用暴露 Ownership、释放或
 
 ## Required ownership regression matrix / Ownership 必测矩阵
 
+The core black-box ownership matrix below is now automated in Input Lab v0.2. The hardened runner passed three consecutive `50/50` runs at the 2026-09-08 breakpoint, did not become the foreground process during 50 ms sampling, and left the user's real configuration hash/size/mtime unchanged. Continue to live-check the same semantics in the actual target game, and keep Alt+Tab/lost-KeyUp/foreground behavior as a real-use requirement because the automated host does not synthesize true hardware state.
+
 At minimum automate and live-check sequences such as:
 
 - `W down → D down → W up → D up` (W release must not neutralize D);
@@ -153,8 +155,10 @@ Not currently committed: cross-platform support, cloud sync, plugin marketplace,
 ## Testing and promotion / 测试与晋升
 
 - Keep and extend automated regression coverage.
-- Use `tools/InputLab/` for routine black-box keyboard, mouse and XInput acceptance of InputStitch output. The v0.1 tool visualizes injected keyboard/mouse events, XInput buttons/triggers/sticks and ordered event timing without changing the product runtime.
-- Input Lab reduces repeated game launches during development but does not replace final real-game compatibility validation. Future test-tool extensions may add Raw Input/message comparison, DS4/DirectInput/HID observation and scripted expected-vs-observed scenarios.
+- Use `tools/InputLab/` v0.2 for routine black-box keyboard, mouse, foreground/manual Raw Input and XInput acceptance of InputStitch output. It compares low-level hook/Raw Input lanes, visualizes XInput buttons/triggers/sticks and ordered timing, and includes an isolated expected-vs-observed ownership acceptance runner.
+- Automated mode is non-activating: Raw Input uses background `INPUTSINK`, and acceptance-only injected `K`/mouse-X2 events are observed then swallowed before reaching the user's current foreground application.
+- The automated acceptance runner uses the real InputStitch ownership/runtime plus real `SendInput` and ViGEm/XInput output while isolating user configuration. A real ViGEm/XInput preflight distinguishes a local controller-stack blocker (`SUMMARY: BLOCKED`, exit code 2) from an InputStitch assertion failure. It does not substitute for real-game validation of foreground transitions, lost-KeyUp, privilege boundaries, anti-cheat, exclusive fullscreen or game-specific APIs.
+- Future test-tool extensions may add target-window message comparison, DS4/DirectInput/HID observation, longer soak/repeated-cycle scenarios and machine-readable report export.
 - Replace the old mechanical “30 minutes each” rule with **scenario acceptance + long-running real use**.
 - API/output submission success never substitutes for actual desktop/game acceptance.
 - Each Beta should have one primary value goal: implement → use for real → fix evidenced problems → freeze → publish.

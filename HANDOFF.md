@@ -24,7 +24,7 @@ This avoids a self-referential commit hash inside the file.
 
 **Input Ownership real-use acceptance / hardening.**
 
-The architecture work planned for Beta 1 is complete. Do not assume the next task is automatically “add more concurrency.” The current engineering gate is to validate the new ownership runtime under black-box/real-game use conditions, then fix evidence-backed issues before enabling Layer. A developer-only Input Lab was added to make this acceptance much cheaper and more repeatable.
+The architecture work planned for Beta 1 is complete, and the core ownership semantics now have repeatable automated black-box evidence through Input Lab v0.2. The remaining engineering gate is **real target-game acceptance**, especially true foreground transitions/lost-KeyUp behavior and game-specific input APIs. Do not assume the next task is automatically “add more concurrency”; fix evidence-backed ownership/release issues first, then enable Layer only after the real-use gate is satisfied.
 
 ## Completed
 
@@ -68,7 +68,7 @@ The architecture work planned for Beta 1 is complete. Do not assume the next tas
 
 The release was verified locally, rebuilt from the published Source archive in an isolated temporary directory, and re-downloaded from GitHub for hash/manifest verification.
 
-Immediately before this handoff, the full regression suite was run again on the desktop and passed:
+Immediately before this handoff, the full regression suite was run again on the laptop after the Input Lab v0.2 changes and passed:
 
 - 323 keyboard checks;
 - 58 Idle Gamepad assertions;
@@ -78,36 +78,46 @@ Immediately before this handoff, the full regression suite was run again on the 
 - 303,643 Output Ownership checks;
 - zh-CN/en-US Settings smoke tests at normal and narrow sizes;
 - old XML configuration compatibility;
-- saved gamepad vector initialization/editing smoke tests;
-- x64/x86 Release Verification.
+- saved gamepad vector initialization/editing smoke tests.
 
-No real input or virtual device was created by the automated ownership tests.
+These existing regression suites use fake/injected backends and do not create real input or virtual devices. Release-time x64/x86 verification for `v1.3.0-beta.1` had already passed when the Beta was published.
 
-### Input Lab v0.1 developer test target
+### Input Lab v0.2 developer test target
 
 - Added a standalone developer-only tool under `tools/InputLab/`; it does not modify the InputStitch runtime path.
 - Keyboard page uses `WH_KEYBOARD_LL`, highlights key state and distinguishes Windows-injected (`SendInput`) events from non-injected events.
 - Mouse page observes left/right/middle/X1/X2, wheel, position and optional movement logging with injected-event distinction.
+- Manual mode registers foreground Raw Input keyboard/mouse observation as a separate comparison lane; automated mode uses `RIDEV_INPUTSINK` so the acceptance window does not need foreground focus. Low-level Hook and Raw Input may legitimately report synthetic input differently.
 - XInput page polls slots 0-3 and visualizes controller buttons, D-pad, LT/RT and both stick vectors with raw/normalized values.
 - Event Log records ordered keyboard/mouse/XInput transitions with relative millisecond timestamps and useful raw details.
 - UI is split into `Keyboard`, `Mouse + XInput` and `Event log` tabs so it remains usable on the 2160x1440 laptop at 150% scaling. Keyboard rows use fixed compact spacing after live UI review.
 - `--view devices` and `--view log` can open non-default views directly for automated/manual validation.
 - Runtime smoke validation succeeded with real synthetic/virtual output paths: scan-code `SendInput` W DOWN/UP, injected X1 DOWN/UP, and a ViGEm Xbox 360 test state containing A + RB + RT 75% + left stick approximately (+0.5,+0.75).
-- The complete existing InputStitch regression suite was rerun after adding the tool and passed unchanged.
+- Added an isolated automated acceptance host (`build-acceptance.ps1` / `run-acceptance.ps1`). Simulated trigger edges enter InputStitch's real trigger handler, while macro execution, Output Ownership, `SendInput`, ViGEm and XInput remain the real paths.
+- Automated mode is non-activating and hidden from the taskbar. Acceptance-only injected keyboard `K` and mouse `X2` events are logged by the low-level hooks and then swallowed, preventing them from being delivered to the user's current foreground application.
+- XInput acceptance binds to the actual InputStitch virtual Xbox by holding a distinctive ViGEm preflight report and observing which XInput slot reflects it. If a local ViGEm/XUSB stack enumerates the controller but does not propagate the report, the run returns `SUMMARY: BLOCKED` / exit code 2 rather than converting an environment problem into product assertion failures.
+- Automated expected-vs-observed coverage includes WASD release order, opposing stick axes, trigger maximum merge, shared digital ownership, D-pad axis conflict, four Held Mappings + one ordinary timed macro, Emergency Stop, keyboard API-lane observation, mouse injected output and final neutral state.
+- The final hardened automated black-box suite passed three consecutive monitored runs at this breakpoint: `SUMMARY: PASS | checks=50 | failures=0` on each run. The acceptance process was sampled every 50 ms and never became the foreground process.
+- Across that stability run, `%APPDATA%\InputStitch\config.xml` had identical SHA-256, byte length and UTC modification time before and after acceptance, confirming the isolated host did not alter the user's real configuration.
+- Startup XInput state is recorded as informational rather than a product assertion because Windows can expose stale/other-controller state before the first InputStitch output packet; all scenario release checks and the final neutral state remain hard PASS/FAIL assertions.
 
 ## Not completed yet
 
 - Real-game acceptance of the new ownership/concurrency runtime.
 - Evidence-driven fixes, if real testing exposes ownership/release/merge/observation problems.
 - Layer implementation.
-- Input Lab Raw Input/message comparison, DS4/DirectInput/HID observation and automated expected-vs-observed scenario assertions.
+- Input Lab target-window message comparison, DS4/DirectInput/HID observation, longer soak scenarios and machine-readable report export.
 - Arbitrary parallel ordinary timed macros (not currently planned; this is an intentional boundary, not an unfinished Beta-1 task).
 
 ## Known issues / known limitations
 
 There is no currently known automated-regression failure at this breakpoint. The important unresolved risk is **lack of sufficient real-game validation of the new structural concurrency path**.
 
-Input Lab v0.1 is intentionally not a complete game-API simulator yet: its keyboard/mouse lane is based on low-level hooks, and its controller lane is XInput. A pass in Input Lab therefore does not prove Raw Input, DirectInput/HID, GameInput, anti-cheat, privilege-boundary or game-specific compatibility.
+Input Lab v0.2 is intentionally not a complete game-API simulator yet. It now has low-level Hook + foreground/manual or INPUTSINK/automated Raw Input + XInput lanes, but a pass does not prove target-window message delivery, DirectInput/HID/DS4, GameInput, anti-cheat, privilege-boundary, exclusive-fullscreen or game-specific compatibility. The automated trigger source is an internal simulated physical edge because InputStitch correctly ignores Windows-injected input as a macro trigger; the downstream runtime/output path remains real.
+
+During v0.2 hardening on the laptop, the Windows XUSB stack temporarily produced an unusual state in which the ViGEm Xbox enumerated successfully but XInput remained at a neutral `packet=1` despite submitted reports. Direct ViGEm and all three tested XInput DLL variants reproduced that condition, so it was not treated as an InputStitch Ownership failure. The condition later recovered and the hardened report-signature preflight then passed repeatedly. Keep the `BLOCKED` preflight distinction; do not turn environment inability to observe controller reports into fake product failures.
+
+A later final combined validation reproduced that local condition again: the keyboard/mouse acceptance checks passed, then the controller preflight returned `SUMMARY: BLOCKED | checks=5 | failures=0` with XInput slot 0 still at neutral `packet=1`. This confirms the laptop's ViGEm/XUSB observation path remains intermittent even though three consecutive full `50/50` runs succeeded immediately beforehand. Do not reinstall or replace system drivers merely to force the test green without a separate, reviewed driver-troubleshooting decision.
 
 Intentional limitations that must not be mistaken for bugs:
 
@@ -121,7 +131,7 @@ Intentional limitations that must not be mistaken for bugs:
 
 ## Next step
 
-First, test `v1.3.0-beta.1` in real use. Focus on:
+First, test `v1.3.0-beta.1` in the actual target game. The core merge/release semantics below already pass the automated black-box baseline, so the purpose of the real-game pass is to confirm game/API/foreground behavior rather than to repeat unit-test-only evidence. Focus on:
 
 1. WASD held in combinations and released in different orders.
 2. Shift/Ctrl trigger mappings held together with stick mappings.
@@ -132,7 +142,7 @@ First, test `v1.3.0-beta.1` in real use. Focus on:
 7. Single-step waiting interrupted by Stop / Emergency Stop.
 8. Repeated start/stop cycles with no residual input.
 
-Use `tools/InputLab/` first for repeatable black-box checks of output values, ordering and release behavior, then confirm important scenarios in the actual target game. If failures appear, reproduce them with the smallest mapping set possible and harden ownership/release behavior first. If this acceptance is clean, proceed to the Layer implementation described in `docs/LAYER_DESIGN.md`.
+Before or after a runtime change, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` for the repeatable black-box baseline, then confirm important scenarios in the actual target game. If failures appear, reproduce them with the smallest mapping set possible and harden ownership/release behavior first. If this acceptance is clean, proceed to the Layer implementation described in `docs/LAYER_DESIGN.md`.
 
 ## Important design constraints
 

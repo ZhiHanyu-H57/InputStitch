@@ -33,7 +33,7 @@ $arguments = @(
 foreach ($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll')) {
     $arguments += '/reference:' + (Join-Path $references $name)
 }
-foreach ($name in @('Program.cs','NativeInput.cs','XInputReader.cs','StickView.cs','InputLabForm.cs')) {
+foreach ($name in @('Program.cs','NativeInput.cs','XInputReader.cs','ObservationSnapshot.cs','StickView.cs','InputLabForm.cs')) {
     $arguments += Join-Path $toolRoot $name
 }
 

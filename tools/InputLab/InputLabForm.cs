@@ -13,6 +13,9 @@ namespace InputStitch.Tools.InputLab
         private readonly Dictionary<string, Label> mouseLabels = new Dictionary<string, Label>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ushort, Label> gamepadLabels = new Dictionary<ushort, Label>();
         private readonly HashSet<int> keysDown = new HashSet<int>();
+        private readonly HashSet<string> mouseButtonsDown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<int> rawKeysDown = new HashSet<int>();
+        private readonly HashSet<string> rawMouseButtonsDown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private readonly XInputReader xinput = new XInputReader();
 
@@ -46,7 +49,18 @@ namespace InputStitch.Tools.InputLab
         private int horizontalWheelTotal;
         private bool haveXInputState;
         private uint activeXInputSlot = uint.MaxValue;
+        private int preferredXInputSlot = -1;
         private XInputReader.XINPUT_STATE previousXInputState;
+        private int rawKeyboardEventCount;
+        private int rawMouseEventCount;
+        private bool rawInputRegistered;
+        private int injectedKeyboardEventCount;
+        private int injectedMouseEventCount;
+        private int lastHookKeyboardVirtualKey = -1;
+        private bool lastHookKeyboardDown;
+        private int lastRawKeyboardVirtualKey = -1;
+        private bool lastRawKeyboardDown;
+        private readonly bool automationMode;
 
         private static readonly Color IdleColor = Color.FromArgb(242, 244, 247);
         private static readonly Color ActiveColor = Color.FromArgb(197, 236, 205);
@@ -54,8 +68,14 @@ namespace InputStitch.Tools.InputLab
         private static readonly Color TextColor = Color.FromArgb(32, 38, 48);
 
         internal InputLabForm(int initialView)
+            : this(initialView, false)
         {
-            Text = "InputStitch Input Lab v0.1";
+        }
+
+        internal InputLabForm(int initialView, bool automationMode)
+        {
+            this.automationMode = automationMode;
+            Text = "InputStitch Input Lab v0.2";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(980, 700);
             Size = new Size(1220, 840);
@@ -73,8 +93,11 @@ namespace InputStitch.Tools.InputLab
             Shown += delegate
             {
                 InstallHooks();
+                InstallRawInput();
                 refreshTimer.Start();
-                LogEvent("Lab", "Ready", "RUNNING", "Bring this window to foreground, then trigger InputStitch mappings.");
+                LogEvent("Lab", "Ready", "RUNNING", automationMode
+                    ? "Background acceptance observer ready; foreground activation is disabled."
+                    : "Bring this window to foreground, then trigger InputStitch mappings.");
             };
             FormClosed += delegate
             {
@@ -82,6 +105,11 @@ namespace InputStitch.Tools.InputLab
                 if (keyboardHook != IntPtr.Zero) NativeInput.UnhookWindowsHookEx(keyboardHook);
                 if (mouseHook != IntPtr.Zero) NativeInput.UnhookWindowsHookEx(mouseHook);
             };
+        }
+
+        protected override bool ShowWithoutActivation
+        {
+            get { return automationMode; }
         }
 
         private void BuildUi(int initialView)
@@ -460,6 +488,110 @@ namespace InputStitch.Tools.InputLab
             }
         }
 
+        private void InstallRawInput()
+        {
+            NativeInput.RAWINPUTDEVICE[] devices = new NativeInput.RAWINPUTDEVICE[2];
+            devices[0].usUsagePage = 0x01;
+            devices[0].usUsage = 0x02; // mouse
+            devices[0].dwFlags = automationMode ? NativeInput.RIDEV_INPUTSINK : 0;
+            devices[0].hwndTarget = Handle;
+            devices[1].usUsagePage = 0x01;
+            devices[1].usUsage = 0x06; // keyboard
+            devices[1].dwFlags = automationMode ? NativeInput.RIDEV_INPUTSINK : 0;
+            devices[1].hwndTarget = Handle;
+            rawInputRegistered = NativeInput.RegisterRawInputDevices(devices, (uint)devices.Length,
+                (uint)Marshal.SizeOf(typeof(NativeInput.RAWINPUTDEVICE)));
+            UpdateHookStatus();
+            if (!rawInputRegistered)
+                LogEvent("Lab", "Raw Input", "ERROR", "RegisterRawInputDevices failed. Win32 error " + Marshal.GetLastWin32Error().ToString());
+            else
+                LogEvent("Lab", "Raw Input", "READY", automationMode
+                    ? "Background keyboard/mouse Raw Input comparison enabled for acceptance."
+                    : "Foreground keyboard/mouse Raw Input comparison enabled.");
+        }
+
+        private void UpdateHookStatus()
+        {
+            bool keyboardOk = keyboardHook != IntPtr.Zero;
+            bool mouseOk = mouseHook != IntPtr.Zero;
+            hookStatus.Text = "Keyboard hook: " + (keyboardOk ? "OK" : "FAILED") +
+                "   |   Mouse hook: " + (mouseOk ? "OK" : "FAILED") +
+                "   |   Raw Input: " + (rawInputRegistered ? "OK" : "not ready") +
+                " (K " + rawKeyboardEventCount.ToString() + " / M " + rawMouseEventCount.ToString() + ")" +
+                "   |   XInput: active";
+            hookStatus.ForeColor = keyboardOk && mouseOk && rawInputRegistered
+                ? Color.FromArgb(32, 120, 55) : Color.FromArgb(180, 95, 45);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == NativeInput.WM_INPUT) HandleRawInput(m.LParam);
+            base.WndProc(ref m);
+        }
+
+        private void HandleRawInput(IntPtr lParam)
+        {
+            uint size = 0;
+            uint headerSize = (uint)Marshal.SizeOf(typeof(NativeInput.RAWINPUTHEADER));
+            if (NativeInput.GetRawInputData(lParam, NativeInput.RID_INPUT, IntPtr.Zero, ref size, headerSize) != 0 || size < headerSize || size > 65536)
+                return;
+            IntPtr buffer = Marshal.AllocHGlobal((int)size);
+            try
+            {
+                uint copied = NativeInput.GetRawInputData(lParam, NativeInput.RID_INPUT, buffer, ref size, headerSize);
+                if (copied != size) return;
+                NativeInput.RAWINPUTHEADER header = (NativeInput.RAWINPUTHEADER)Marshal.PtrToStructure(buffer, typeof(NativeInput.RAWINPUTHEADER));
+                IntPtr payload = IntPtr.Add(buffer, (int)headerSize);
+                if (header.dwType == NativeInput.RIM_TYPEKEYBOARD)
+                {
+                    NativeInput.RAWKEYBOARD raw = (NativeInput.RAWKEYBOARD)Marshal.PtrToStructure(payload, typeof(NativeInput.RAWKEYBOARD));
+                    rawKeyboardEventCount++;
+                    bool up = (raw.Flags & NativeInput.RI_KEY_BREAK) != 0 || raw.Message == NativeInput.WM_KEYUP || raw.Message == NativeInput.WM_SYSKEYUP;
+                    if (up) rawKeysDown.Remove(raw.VKey); else rawKeysDown.Add(raw.VKey);
+                    lastRawKeyboardVirtualKey = raw.VKey;
+                    lastRawKeyboardDown = !up;
+                    LogEvent("Raw Keyboard", ((Keys)raw.VKey).ToString() + " (VK " + raw.VKey.ToString() + ")", up ? "UP" : "DOWN",
+                        "make=0x" + raw.MakeCode.ToString("X2") + ", flags=0x" + raw.Flags.ToString("X2") + ", device=" + header.hDevice.ToString());
+                }
+                else if (header.dwType == NativeInput.RIM_TYPEMOUSE)
+                {
+                    NativeInput.RAWMOUSE raw = (NativeInput.RAWMOUSE)Marshal.PtrToStructure(payload, typeof(NativeInput.RAWMOUSE));
+                    rawMouseEventCount++;
+                    ushort flags = raw.Buttons.usButtonFlags;
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_LEFT_BUTTON_DOWN, "Left", true, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_LEFT_BUTTON_UP, "Left", false, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_RIGHT_BUTTON_DOWN, "Right", true, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_RIGHT_BUTTON_UP, "Right", false, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_MIDDLE_BUTTON_DOWN, "Middle", true, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_MIDDLE_BUTTON_UP, "Middle", false, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_BUTTON_4_DOWN, "X1", true, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_BUTTON_4_UP, "X1", false, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_BUTTON_5_DOWN, "X2", true, header.hDevice);
+                    LogRawMouseButton(flags, NativeInput.RI_MOUSE_BUTTON_5_UP, "X2", false, header.hDevice);
+                    if ((flags & NativeInput.RI_MOUSE_WHEEL) != 0)
+                    {
+                        short delta = unchecked((short)raw.Buttons.usButtonData);
+                        LogEvent("Raw Mouse", "Wheel V", delta >= 0 ? "UP" : "DOWN", "delta=" + Signed(delta) + ", device=" + header.hDevice.ToString());
+                    }
+                    if ((flags & NativeInput.RI_MOUSE_HWHEEL) != 0)
+                    {
+                        short delta = unchecked((short)raw.Buttons.usButtonData);
+                        LogEvent("Raw Mouse", "Wheel H", delta >= 0 ? "RIGHT" : "LEFT", "delta=" + Signed(delta) + ", device=" + header.hDevice.ToString());
+                    }
+                    if (logMouseMove.Checked && (raw.lLastX != 0 || raw.lLastY != 0))
+                        LogEvent("Raw Mouse", "Move", "MOVE", "dx=" + Signed(raw.lLastX) + ", dy=" + Signed(raw.lLastY) + ", device=" + header.hDevice.ToString());
+                }
+                UpdateHookStatus();
+            }
+            finally { Marshal.FreeHGlobal(buffer); }
+        }
+
+        private void LogRawMouseButton(ushort flags, ushort mask, string name, bool down, IntPtr device)
+        {
+            if ((flags & mask) == 0) return;
+            if (down) rawMouseButtonsDown.Add(name); else rawMouseButtonsDown.Remove(name);
+            LogEvent("Raw Mouse", name, down ? "DOWN" : "UP", "device=" + device.ToString());
+        }
         private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode == NativeInput.HC_ACTION)
@@ -472,6 +604,9 @@ namespace InputStitch.Tools.InputLab
                     NativeInput.KBDLLHOOKSTRUCT data = (NativeInput.KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(NativeInput.KBDLLHOOKSTRUCT));
                     int vk = (int)data.vkCode;
                     bool injected = NativeInput.IsInjectedKeyboard(data.flags);
+                    if (injected) injectedKeyboardEventCount++;
+                    lastHookKeyboardVirtualKey = vk;
+                    lastHookKeyboardDown = down;
                     bool repeat = down && keysDown.Contains(vk);
                     if (down) keysDown.Add(vk); else keysDown.Remove(vk);
                     SetKeyState(vk, down, injected);
@@ -480,6 +615,8 @@ namespace InputStitch.Tools.InputLab
                     if (NativeInput.IsLowerIntegrityKeyboard(data.flags)) detail += ", lower-IL";
                     if (repeat) detail += ", repeat";
                     LogEvent("Keyboard", keyName, down ? "DOWN" : "UP", detail);
+                    if (automationMode && injected && vk == (int)Keys.K)
+                        return new IntPtr(1);
                 }
             }
             return NativeInput.CallNextHookEx(keyboardHook, nCode, wParam, lParam);
@@ -492,6 +629,7 @@ namespace InputStitch.Tools.InputLab
                 int message = wParam.ToInt32();
                 NativeInput.MSLLHOOKSTRUCT data = (NativeInput.MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(NativeInput.MSLLHOOKSTRUCT));
                 bool injected = NativeInput.IsInjectedMouse(data.flags);
+                if (injected && message != NativeInput.WM_MOUSEMOVE) injectedMouseEventCount++;
                 if (message == NativeInput.WM_MOUSEMOVE)
                 {
                     int dx = 0;
@@ -524,6 +662,8 @@ namespace InputStitch.Tools.InputLab
                 {
                     ushort button = NativeInput.HighWordUnsigned(data.mouseData);
                     HandleMouseButton(button == 1 ? "X1" : "X2", message == NativeInput.WM_XBUTTONDOWN, injected, data.flags);
+                    if (automationMode && injected && button == 2)
+                        return new IntPtr(1);
                 }
                 else if (message == NativeInput.WM_MOUSEWHEEL)
                 {
@@ -546,6 +686,7 @@ namespace InputStitch.Tools.InputLab
         private void HandleMouseButton(string name, bool down, bool injected, uint flags)
         {
             Label label;
+            if (down) mouseButtonsDown.Add(name); else mouseButtonsDown.Remove(name);
             if (mouseLabels.TryGetValue(name, out label)) ApplyStateColor(label, down, injected);
             string detail = (injected ? "injected" : "physical/system") + ", flags=0x" + flags.ToString("X2");
             if (NativeInput.IsLowerIntegrityMouse(flags)) detail += ", lower-IL";
@@ -564,9 +705,17 @@ namespace InputStitch.Tools.InputLab
         {
             XInputReader.XINPUT_STATE state = new XInputReader.XINPUT_STATE();
             uint found = uint.MaxValue;
-            for (uint i = 0; i < 4; i++)
+            if (preferredXInputSlot >= 0 && preferredXInputSlot < 4)
             {
-                if (xinput.TryGetState(i, out state)) { found = i; break; }
+                uint preferred = (uint)preferredXInputSlot;
+                if (xinput.TryGetState(preferred, out state)) found = preferred;
+            }
+            else
+            {
+                for (uint i = 0; i < 4; i++)
+                {
+                    if (xinput.TryGetState(i, out state)) { found = i; break; }
+                }
             }
 
             if (found == uint.MaxValue)
@@ -700,6 +849,43 @@ namespace InputStitch.Tools.InputLab
             while (eventLog.Items.Count > 1500) eventLog.Items.RemoveAt(0);
             eventCountStatus.Text = "Events: " + eventLog.Items.Count.ToString();
             if (eventLog.Items.Count > 0) eventLog.EnsureVisible(eventLog.Items.Count - 1);
+        }
+
+        internal void SetPreferredXInputSlot(int slot)
+        {
+            if (InvokeRequired)
+            {
+                Invoke((MethodInvoker)delegate { SetPreferredXInputSlot(slot); });
+                return;
+            }
+            preferredXInputSlot = slot >= 0 && slot < 4 ? slot : -1;
+            haveXInputState = false;
+            activeXInputSlot = uint.MaxValue;
+            previousXInputState = new XInputReader.XINPUT_STATE();
+            PollXInput();
+        }
+
+        internal ObservationSnapshot CaptureObservation()
+        {
+            if (InvokeRequired) return (ObservationSnapshot)Invoke(new System.Func<ObservationSnapshot>(CaptureObservation));
+            ObservationSnapshot snapshot = new ObservationSnapshot();
+            snapshot.XInputConnected = haveXInputState;
+            snapshot.XInputSlot = activeXInputSlot;
+            snapshot.Gamepad = previousXInputState.Gamepad;
+            snapshot.KeysDown.AddRange(keysDown);
+            snapshot.MouseButtonsDown.AddRange(mouseButtonsDown);
+            snapshot.RawKeysDown.AddRange(rawKeysDown);
+            snapshot.RawMouseButtonsDown.AddRange(rawMouseButtonsDown);
+            snapshot.RawInputRegistered = rawInputRegistered;
+            snapshot.RawKeyboardEvents = rawKeyboardEventCount;
+            snapshot.RawMouseEvents = rawMouseEventCount;
+            snapshot.InjectedKeyboardEvents = injectedKeyboardEventCount;
+            snapshot.InjectedMouseEvents = injectedMouseEventCount;
+            snapshot.LastHookKeyboardVirtualKey = lastHookKeyboardVirtualKey;
+            snapshot.LastHookKeyboardDown = lastHookKeyboardDown;
+            snapshot.LastRawKeyboardVirtualKey = lastRawKeyboardVirtualKey;
+            snapshot.LastRawKeyboardDown = lastRawKeyboardDown;
+            return snapshot;
         }
 
         private static string Signed(int value)

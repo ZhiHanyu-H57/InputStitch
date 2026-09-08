@@ -34,6 +34,15 @@ For runtime or UI changes, run the full regression suite:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Tests.ps1
 ```
 
+For ownership, keyboard/mouse output, Held Mapping concurrency, Emergency Stop, or virtual Xbox behavior, also run the Input Lab black-box acceptance when ViGEmBus is available:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1
+```
+
+The Input Lab acceptance host uses isolated configuration and must not modify the user's normal `%APPDATA%\InputStitch\config.xml`.
+Treat `SUMMARY: BLOCKED` / exit code 2 as an environment-preflight result (for example ViGEm/XInput report propagation unavailable), not as an InputStitch assertion failure. Do not bypass the preflight merely to force a green report.
+
 For release-affecting changes, also build and run Release Verification using the repository scripts. Never publish a release only because compilation succeeded.
 
 ## Handoff rule
