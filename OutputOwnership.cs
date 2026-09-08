@@ -78,16 +78,6 @@ namespace InputStitch
             }
         }
 
-        public bool HasSource(string sourceId)
-        {
-            if (string.IsNullOrWhiteSpace(sourceId)) return false;
-            lock (sync)
-            {
-                SourceState state;
-                return sources.TryGetValue(sourceId, out state) && state != null && state.Contributions.Count != 0;
-            }
-        }
-
         public void SetDown(string sourceId, InputSpec input)
         {
             ValidateSourceAndInput(sourceId, input);
@@ -132,7 +122,7 @@ namespace InputStitch
             }
         }
 
-        // Used by UI-safety pause for the ordinary macro worker. The logical source remains intact
+        // Used by UI-safety pause for any worker-backed macro source. The logical source remains intact
         // so ResumeSource can restore only that source without reconstructing or touching others.
         public void SuspendSource(string sourceId)
         {

@@ -55,6 +55,14 @@ internal static class ProductivityTests
         config.Macros.Add(new MacroDefinition { Name = "original", Steps = new List<MacroStep> { new MacroStep() } });
         store.Save(path, config);
         store.Validate(path);
+        string legacyPath = Path.Combine(directory, "legacy-config.xml");
+        string legacyXml = File.ReadAllText(path).Replace("</MacroConfig>",
+            "  <RestorePreviousWindowOnUiRun>false</RestorePreviousWindowOnUiRun>\r\n</MacroConfig>");
+        File.WriteAllText(legacyPath, legacyXml);
+        store.Validate(legacyPath);
+        MacroConfig legacyConfig = (MacroConfig)StaticCall(typeof(MainForm), "DeserializeConfigFromFile", legacyPath);
+        Check(legacyConfig != null && legacyConfig.Macros.Count == 1 && legacyConfig.Macros[0].Name == "original",
+            "Legacy removed RestorePreviousWindowOnUiRun element remains deserializable");
         byte[] original = File.ReadAllBytes(path);
         string backups = Path.Combine(directory, "backups", "config");
         store.Save(path, config);
@@ -151,17 +159,20 @@ internal static class ProductivityTests
         }
         step.GamepadY = 5; trigger.VirtualKey = (int)Keys.A;
         Check(held.Steps[0].GamepadY == 80 && held.Trigger.VirtualKey == (int)Keys.LShiftKey, "Template deep copies");
-        foreach (TriggerSpec invalid in new[] {
+        foreach (TriggerSpec chordTrigger in new[] {
             new TriggerSpec { Ctrl = true, VirtualKey = (int)Keys.F8 },
             new TriggerSpec { Shift = true, VirtualKey = (int)Keys.A },
             new TriggerSpec { Alt = true, Kind = InputKind.MouseX1, VirtualKey = 0 },
-            new TriggerSpec { Win = true, VirtualKey = (int)Keys.F8 },
-            new TriggerSpec { Kind = InputKind.WheelDown } })
+            new TriggerSpec { Win = true, VirtualKey = (int)Keys.F8 } })
         {
-            bool failed = false;
-            try { QuickMacros.Create(QuickTemplate.HeldMapping, "bad", invalid, steps, 1); } catch (ArgumentException) { failed = true; }
-            Check(failed, "Modifier chord/wheel hold trigger rejected");
+            MacroDefinition chordHeld = QuickMacros.Create(QuickTemplate.HeldMapping, "chord", chordTrigger, steps, 1);
+            Check(chordHeld.RunMode == TriggerRunMode.Hold && chordHeld.Infinite,
+                "Modifier chord hold trigger accepted");
         }
+        bool wheelFailed = false;
+        try { QuickMacros.Create(QuickTemplate.HeldMapping, "bad", new TriggerSpec { Kind = InputKind.WheelDown }, steps, 1); }
+        catch (ArgumentException) { wheelFailed = true; }
+        Check(wheelFailed, "Wheel hold trigger rejected");
         MacroDefinition repeat = QuickMacros.Create(QuickTemplate.Repeat, "repeat", trigger, steps, 17);
         Check(repeat.RunMode == TriggerRunMode.Toggle && !repeat.Infinite && repeat.RepeatCount == 17, "Repeat defaults");
         steps.Add(new MacroStep { VirtualKey = (int)Keys.Escape });

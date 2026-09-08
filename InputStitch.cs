@@ -171,7 +171,6 @@ namespace InputStitch
             { "▷ 单步执行", "▷ Single-step" },
             { "▷ 下一步", "▷ Next Step" },
             { "▷ 正在执行…", "▷ Executing…" },
-            { "■ 停止当前宏", "■ Stop Current Macro" },
             { "■ 正在停止…", "■ Stopping…" },
             { "状态：空闲", "Status: Idle" },
             { "宏包用于追加/分享宏；配置方案用于保存或切换整套设置。", "Macro packages append/share macros; profiles save or switch complete setups." },
@@ -203,7 +202,7 @@ namespace InputStitch
             { "录制物理键盘、鼠标按钮和滚轮输入，自动换算为宏步骤；不记录鼠标移动。", "Record physical keyboard, mouse button, and wheel input and convert it into macro steps. Mouse movement is not recorded." },
             { "复制当前选中的一个或多个步骤，并插入到所选步骤之后。", "Copy the selected step(s) and insert the copies after the selection." },
             { "批量设置所选步骤的固定间隔或简单随机间隔范围。", "Set a fixed or simple random delay range for all selected steps." },
-            { "开始执行当前宏；有宏正在运行时用于停止当前宏。", "Run the selected macro; while a macro is running, this button stops it." },
+            { "开始执行所选宏；所选宏正在运行时用于停止所选宏。", "Run the selected macro; if that selected macro is running, this button stops it." },
 
             { "添加宏步骤", "Add Macro Step" },
             { "编辑宏步骤", "Edit Macro Step" },
@@ -335,13 +334,12 @@ namespace InputStitch
             { "所选文件中没有可导入的宏。", "The selected file(s) contain no importable macros." },
             { "请先停止正在执行的宏。", "Please stop the running macro first." },
             { "这个宏还没有任何执行步骤。", "This macro has no steps yet." },
-            { "当前宏未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", "The current macro did not stop in time. This operation was cancelled to avoid configuration and worker state inconsistency." },
+            { "一个或多个宏运行实例未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", "One or more macro runs did not stop in time. This operation was cancelled to avoid configuration and worker state inconsistency." },
             { "提示：按住运行模式支持单键、修饰键组合和鼠标按钮；滚轮没有持续按下状态，不能作为按住触发键，请重新录制触发键。", "Hold-to-run supports single keys, modifier chords, and mouse buttons. Wheel input has no held state and cannot be used as a Hold trigger; please capture another trigger." },
             { "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。", "Hold-to-run supports modifier chords. Wheel input has no held state and cannot be used as a Hold trigger." },
-            { "无法启动：按住运行模式支持单键、修饰键组合和鼠标按钮，但滚轮不能作为按住触发键。", "Cannot start: hold-to-run supports single keys, modifier chords, and mouse buttons, but wheel input cannot be used as a Hold trigger." },
             { "提示：单步编辑一次只能选择一个步骤；批量修改间隔请使用“批量间隔”。", "Single-step editing requires exactly one selected step. Use Batch Delay to modify multiple delays." },
 
-            { "载入方案会停止当前宏，并用所选方案替换当前宏列表和大部分程序设置。\r\n\r\n紧急停止键、自动方案切换和托盘设置保持不变；当前配置会先自动备份。是否继续？", "Loading a profile stops the current macro and replaces the current macro list and most app settings.\r\n\r\nEmergency Stop, automatic profile switching, and tray settings are preserved. The current configuration is backed up first. Continue?" },
+            { "载入方案会停止全部活动宏和按住映射，并用所选方案替换当前宏列表和大部分程序设置。\r\n\r\n紧急停止键、自动方案切换和托盘设置保持不变；当前配置会先自动备份。是否继续？", "Loading a profile stops all active macro runs and Held Mappings, then replaces the current macro list and most app settings.\r\n\r\nEmergency Stop, automatic profile switching, and tray settings are preserved. The current configuration is backed up first. Continue?" },
             { "当前宏已经有执行步骤。\r\n\r\n选择“是”：把录制结果追加到现有步骤末尾。\r\n选择“否”：用录制结果替换现有步骤。\r\n选择“取消”：不开始录制。", "This macro already has steps.\r\n\r\nYes: append the recording to the existing steps.\r\nNo: replace the existing steps with the recording.\r\nCancel: do not start recording." },
             { "导出 InputStitch 宏包", "Export InputStitch Macro Package" },
             { "导入 InputStitch 宏", "Import InputStitch Macros" },
@@ -430,25 +428,20 @@ namespace InputStitch
             new KeyValuePair<string,string>("配置文件无法读取，已使用默认配置。", "The configuration file could not be read; defaults were loaded."),
             new KeyValuePair<string,string>("\r\n原文件已备份到：\r\n", "\r\nThe original file was backed up to:\r\n"),
             new KeyValuePair<string,string>("\r\n\r\n详细错误已写入日志。", "\r\n\r\nDetailed error information was written to the log."),
-            new KeyValuePair<string,string>("状态：正在停止当前宏…", "Status: stopping current macro…"),
             new KeyValuePair<string,string>("状态：全局宏触发已暂停；紧急停止键仍有效。", "Status: global macro triggers paused; Emergency Stop remains active."),
             new KeyValuePair<string,string>("状态：全局宏触发已恢复。", "Status: global macro triggers resumed."),
             new KeyValuePair<string,string>("状态：正在录制紧急停止键（按 Esc 取消）", "Status: capturing Emergency Stop hotkey (Esc to cancel)"),
             new KeyValuePair<string,string>("状态：正在录制触发键（按 Esc 取消）", "Status: capturing macro trigger (Esc to cancel)"),
             new KeyValuePair<string,string>("状态：请按下要使用的键/鼠标按钮/滚轮（Esc 取消）", "Status: press the key, mouse button, or wheel direction to use (Esc to cancel)"),
-            new KeyValuePair<string,string>("紧急停止：已发送停止信号并释放宏按住的输入。", "Emergency Stop: stop requested and macro-held inputs released."),
             new KeyValuePair<string,string>("紧急停止：当前没有正在执行的宏。", "Emergency Stop: no macro is currently running."),
             new KeyValuePair<string,string>("状态：已打开配置文件夹。", "Status: config folder opened."),
             new KeyValuePair<string,string>("状态：打开配置文件夹失败。", "Status: failed to open config folder."),
-            new KeyValuePair<string,string>("状态：未发现已启用的触发键冲突。", "Status: no enabled trigger conflicts found."),
             new KeyValuePair<string,string>("状态：自动切换配置方案失败。", "Status: automatic profile switch failed."),
             new KeyValuePair<string,string>("状态：已调整宏列表顺序。", "Status: macro order updated."),
             new KeyValuePair<string,string>("状态：已取消宏录制。", "Status: macro recording cancelled."),
             new KeyValuePair<string,string>("状态：录制目标宏已不存在，录制结果未保存。", "Status: recording target no longer exists; result was not saved."),
             new KeyValuePair<string,string>("状态：录制结束，没有记录到目标程序中的键鼠操作。", "Status: recording ended with no keyboard/mouse input captured from the target app."),
             new KeyValuePair<string,string>("状态：开始执行（不切换窗口）。", "Status: starting macro without switching windows."),
-            new KeyValuePair<string,string>("状态：上一宏仍在停止中。为避免重复执行，已取消本次启动；请稍后再试。", "Status: previous macro is still stopping. Start cancelled to prevent overlapping workers; try again shortly."),
-            new KeyValuePair<string,string>("状态：已有宏正在运行，未启动新的宏。", "Status: another macro is already running; no new macro was started."),
             new KeyValuePair<string,string>("状态：空闲", "Status: Idle"),
             new KeyValuePair<string,string>("正在执行：", "Running: "),
             new KeyValuePair<string,string>("准备执行：", "Preparing: "),
@@ -461,7 +454,6 @@ namespace InputStitch
             new KeyValuePair<string,string>("虚拟手柄不可用：", "Virtual gamepad unavailable: "),
             new KeyValuePair<string,string>("（UI编辑保护：", " (UI edit protection: "),
             new KeyValuePair<string,string>("（UI编辑保护已恢复）", " (UI edit protection resumed)"),
-            new KeyValuePair<string,string>("（等待手动修饰键松开）", " (waiting for physical modifier release)"),
             new KeyValuePair<string,string>("（等待避免特殊快捷键冲突）", " (waiting to avoid a shortcut conflict)"),
             new KeyValuePair<string,string>("（等待触发键松开）", " (waiting for trigger release)"),
             new KeyValuePair<string,string>("（等待目标窗口稳定 ", " (waiting for target window "),
@@ -482,12 +474,8 @@ namespace InputStitch
             new KeyValuePair<string,string>("已清除目标窗口。", "Target window cleared."),
             new KeyValuePair<string,string>("录制完成，已生成 ", "Recording complete; generated "),
             new KeyValuePair<string,string>("请先切到目标程序，再切回 InputStitch。", "Switch to the target app first, then return to InputStitch."),
-            new KeyValuePair<string,string>("当前没有正在执行的宏。", "No macro is currently running."),
             new KeyValuePair<string,string>("轻量级 Windows 可视化键鼠与虚拟手柄宏工具\r\n专注精确时序、游戏场景下的可靠控制与安全停止。\r\n\r\n支持键盘、鼠标、Xbox 360 / PS4 虚拟手柄、宏录制、宏包与配置方案。\r\n\r\n配置目录：\r\n", "Lightweight visual keyboard, mouse and virtual gamepad macro tool for Windows.\r\nFocused on precise timing, reliable game-friendly control, and safe stopping.\r\n\r\nSupports keyboard, mouse, Xbox 360 / PS4 virtual gamepad output, macro recording, macro packages, and profiles.\r\n\r\nConfig folder:\r\n"),
             new KeyValuePair<string,string>("状态：已导入 ", "Status: imported "),
-            new KeyValuePair<string,string>(" 个宏；发现 ", " macro(s); found "),
-            new KeyValuePair<string,string>(" 组重复的已启用触发键，请检查。", " duplicate enabled trigger group(s); please review them."),
-            new KeyValuePair<string,string>("提示：触发键冲突：", "Notice: trigger conflict: "),
             new KeyValuePair<string,string>("状态：已导出宏包：", "Status: exported macro package: "),
             new KeyValuePair<string,string>("状态：导出宏失败。", "Status: macro export failed."),
             new KeyValuePair<string,string>("状态：导入宏失败。", "Status: macro import failed."),
@@ -496,7 +484,7 @@ namespace InputStitch
             new KeyValuePair<string,string>("状态：保存配置方案失败。", "Status: failed to save profile."),
             new KeyValuePair<string,string>("状态：已载入配置方案：", "Status: loaded profile: "),
             new KeyValuePair<string,string>("状态：载入配置方案失败。", "Status: failed to load profile."),
-            new KeyValuePair<string,string>("状态：操作失败：当前宏仍在停止中。", "Status: operation failed because the current macro is still stopping."),
+            new KeyValuePair<string,string>("状态：操作失败：仍有宏在停止中。", "Status: operation failed because one or more macro runs are still stopping."),
             new KeyValuePair<string,string>("状态：已按前台程序自动切换方案：", "Status: auto-switched profile for foreground app: "),
             new KeyValuePair<string,string>("状态：没有可锁定的最近外部前台窗口。请先切到目标程序，再切回 InputStitch。", "Status: no recent external foreground window is available. Switch to the target app, then return to InputStitch."),
             new KeyValuePair<string,string>("状态：无法读取目标窗口信息。", "Status: unable to read target window information."),
@@ -1152,9 +1140,6 @@ namespace InputStitch
         public List<MacroDefinition> Macros = new List<MacroDefinition>();
         // Scan-code SendInput is substantially more game-friendly than virtual-key SendInput.
         public bool UseScanCodeInput = true;
-        // Legacy option kept only so older config.xml files continue to deserialize cleanly.
-        // Older configuration files may use an explicit optional target-window model alongside the direct UI-run mode.
-        public bool RestorePreviousWindowOnUiRun = true;
         public bool ActivateTargetWindowOnUiRun = false;
         public int UiRunStartDelayMs = 300;
         public bool KeepWindowTopMost = false;
@@ -5258,7 +5243,7 @@ namespace InputStitch
             SetTip(recordButton, "录制物理键盘、鼠标按钮和滚轮输入，自动换算为宏步骤；不记录鼠标移动。" );
             SetTip(copyStep, "复制当前选中的一个或多个步骤，并插入到所选步骤之后。" );
             SetTip(batchDelayStep, "批量设置所选步骤的固定间隔或简单随机间隔范围。" );
-            SetTip(runButton, "开始执行当前宏；有宏正在运行时用于停止当前宏。" );
+            SetTip(runButton, "开始执行所选宏；所选宏正在运行时用于停止所选宏。" );
 
             RegisterUiSafetyControl(importConfigButton, "导入宏");
             RegisterUiSafetyControl(exportConfigButton, "导出宏");
@@ -5431,11 +5416,19 @@ namespace InputStitch
                 return;
             }
             int runCount = ActiveMacroRunCount();
-            if (runCount > 0)
+            int heldCount = ActiveParallelHeldMappingCount();
+            if (runCount > 0 || heldCount > 0)
             {
-                statusLabel.Text = runCount == 1
-                    ? Localizer.Dynamic("正在执行：1 个宏")
-                    : (Localizer.IsEnglish ? "Running macros: " + runCount.ToString() : "正在执行的宏：" + runCount.ToString() + " 个");
+                if (runCount > 0 && heldCount > 0)
+                    statusLabel.Text = Localizer.IsEnglish
+                        ? "Active runtime: " + runCount.ToString() + " macro run(s), " + heldCount.ToString() + " Held Mapping(s)"
+                        : "活动运行：" + runCount.ToString() + " 个宏运行实例，" + heldCount.ToString() + " 个按住映射";
+                else if (runCount > 0)
+                    statusLabel.Text = runCount == 1
+                        ? Localizer.Dynamic("正在执行：1 个宏")
+                        : (Localizer.IsEnglish ? "Running macros: " + runCount.ToString() : "正在执行的宏：" + runCount.ToString() + " 个");
+                else
+                    statusLabel.Text = Localizer.IsEnglish ? "Held mappings active: " + heldCount.ToString() : "按住映射活动：" + heldCount.ToString();
             }
             else if (manualTriggerSuspend)
                 statusLabel.Text = Localizer.Dynamic("状态：全局宏触发已暂停；紧急停止键仍有效。");
@@ -6057,7 +6050,11 @@ namespace InputStitch
                 statusLabel.ForeColor = Color.DarkOrange;
             else if (Localizer.ContainsMeaning(text, "已暂停") || Localizer.ContainsMeaning(text, "等待"))
                 statusLabel.ForeColor = Color.DarkOrange;
-            else if (Localizer.ContainsMeaning(text, "正在执行"))
+            else if (Localizer.ContainsMeaning(text, "正在执行") ||
+                     text.StartsWith("活动运行：", StringComparison.Ordinal) ||
+                     text.StartsWith("Active runtime:", StringComparison.OrdinalIgnoreCase) ||
+                     text.StartsWith("按住映射活动：", StringComparison.Ordinal) ||
+                     text.StartsWith("Held mappings active:", StringComparison.OrdinalIgnoreCase))
                 statusLabel.ForeColor = Color.Firebrick;
             else if (Localizer.ContainsMeaning(text, "正在停止"))
                 statusLabel.ForeColor = Color.OrangeRed;
@@ -6212,7 +6209,7 @@ namespace InputStitch
         {
             bool shouldPause = false;
             string reason = "";
-            bool running = pendingStart || HasLiveWorker();
+            bool running = pendingStart || HasWorkerBackedRuns();
             bool mouseOutput = running && (HasActiveMacroMouseOutput() || (pendingStart && UiSafetyPolicy.HasMouseOutput(SelectedMacro)));
             try
             {
@@ -6417,7 +6414,7 @@ namespace InputStitch
                     idleGamepad.NotifyActivity();
                 }
 
-                idleGamepad.SetBusy(idleTargetMissing || HasLiveWorker() || HasActiveParallelHeldMappings() || recordingActive || captureMode != CaptureMode.None ||
+                idleGamepad.SetBusy(idleTargetMissing || HasAnyActiveRuntime() || recordingActive || captureMode != CaptureMode.None ||
                     uiSafetyModalDepth > 0 || manualTriggerSuspend || updateCheckBusy);
                 idleGamepad.Tick(currentIdleScope);
             }
@@ -6954,7 +6951,7 @@ namespace InputStitch
             UpdateTriggerModeUiText();
             SaveConfig();
 
-            if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
+            if (m.RunMode == TriggerRunMode.Hold && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
             {
                 statusLabel.Text = "提示：按住运行模式支持单键、修饰键组合和鼠标按钮；滚轮没有持续按下状态，不能作为按住触发键，请重新录制触发键。";
             }
@@ -6976,14 +6973,19 @@ namespace InputStitch
                 runtimeCapabilityTitleLabel.Text = Localizer.IsEnglish ? "Runtime:" : "运行资格：";
 
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(SelectedMacro);
-            runtimeCapabilityLabel.Text = capability.CategoryText(Localizer.IsEnglish) + " · " +
+            string triggerEligibility = capability.TriggerEligibilityText(Localizer.IsEnglish);
+            string capabilityText = capability.CategoryText(Localizer.IsEnglish) + " · " +
                 capability.ConcurrencyText(Localizer.IsEnglish) + Environment.NewLine +
                 capability.ReasonText(Localizer.IsEnglish);
-            runtimeCapabilityLabel.ForeColor = !capability.CanStart
-                ? Color.DarkOrange
-                : (capability.SupportsConcurrentExecution ? Color.ForestGreen : Color.DarkOrange);
+            if (!string.IsNullOrWhiteSpace(triggerEligibility))
+                capabilityText += Environment.NewLine + triggerEligibility;
+            runtimeCapabilityLabel.Text = capabilityText;
+            runtimeCapabilityLabel.ForeColor = !capability.CanStart ||
+                (!string.IsNullOrWhiteSpace(triggerEligibility) && !capability.CanStartFromConfiguredTrigger)
+                ? Color.DarkOrange : Color.ForestGreen;
             if (uiToolTip != null)
-                uiToolTip.SetToolTip(runtimeCapabilityLabel, capability.ReasonText(Localizer.IsEnglish));
+                uiToolTip.SetToolTip(runtimeCapabilityLabel, capability.ReasonText(Localizer.IsEnglish) +
+                    (string.IsNullOrWhiteSpace(triggerEligibility) ? "" : Environment.NewLine + triggerEligibility));
         }
 
         private void UpdateTriggerSuppressionUi()
@@ -7005,11 +7007,6 @@ namespace InputStitch
                     : Localizer.T("触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。"));
             }
             finally { loadingUi = previousLoading; }
-        }
-
-        private static bool IsHoldTriggerSupported(TriggerSpec t)
-        {
-            return MacroRuntimeClassifier.IsHoldTriggerSupported(t);
         }
 
         private static bool IsParallelHeldMapping(MacroDefinition macro)
@@ -7392,11 +7389,11 @@ namespace InputStitch
                     if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
                     if (LocalizedMessageBox.Show(this,
-                        "载入方案会停止当前宏，并用所选方案替换当前宏列表和大部分程序设置。\r\n\r\n紧急停止键、自动方案切换和托盘设置保持不变；当前配置会先自动备份。是否继续？",
+                        "载入方案会停止全部活动宏和按住映射，并用所选方案替换当前宏列表和大部分程序设置。\r\n\r\n紧急停止键、自动方案切换和托盘设置保持不变；当前配置会先自动备份。是否继续？",
                         "载入配置方案", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
                     CommitNameEdit();
-                    if (!StopWorkerForConfigChange()) return;
+                    if (!StopRuntimeForConfigChange()) return;
                     try
                     {
                         ProfilePackage package = DeserializeProfilePackageOrLegacy(dlg.FileName);
@@ -7420,7 +7417,7 @@ namespace InputStitch
             }
         }
 
-        private bool StopWorkerForConfigChange()
+        private bool StopRuntimeForConfigChange()
         {
             if (recordingActive) StopMacroRecording(false, true);
             StopAllParallelHeldMappings("config-change");
@@ -7439,7 +7436,7 @@ namespace InputStitch
                 int remaining = Math.Max(0, 1500 - (int)wait.ElapsedMilliseconds);
                 if (remaining == 0 || !t.Join(remaining))
                 {
-                    LocalizedMessageBox.Show(this, "当前宏未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    LocalizedMessageBox.Show(this, "一个或多个宏运行实例未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     statusLabel.Text = "状态：操作失败：仍有宏在停止中。";
                     return false;
                 }
@@ -7678,14 +7675,6 @@ namespace InputStitch
                 throw new InvalidDataException(label + "由更高版本的 InputStitch 创建（格式版本 " + found + "），当前版本无法安全读取。请先更新程序。");
         }
 
-        private static void SerializeConfigToFile(MacroConfig value, string path)
-        {
-            if (value == null) throw new InvalidDataException("配置为空。");
-            value.FormatVersion = AppInfo.ConfigFormatVersion;
-            XmlSerializer xs = new XmlSerializer(typeof(MacroConfig));
-            using (FileStream fs = File.Create(path)) xs.Serialize(fs, value);
-        }
-
         private static MacroConfig DeserializeConfigFromFile(string path)
         {
             FileInfo info = new FileInfo(path);
@@ -7753,7 +7742,7 @@ namespace InputStitch
             autoProfileSwitchBusy = true;
             try
             {
-                if (!StopWorkerForConfigChange()) return;
+                if (!StopRuntimeForConfigChange()) return;
                 ProfilePackage package = DeserializeProfilePackageOrLegacy(match);
                 if (package == null || package.Config == null) return;
                 ApplyProfileConfig(package.Config, match, false);
@@ -7934,7 +7923,7 @@ namespace InputStitch
                     RefreshConflictIndicators(true);
                     RefreshRuntimeCapabilityUi();
                     UpdateRunButton();
-                    if (macro.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(macro.Trigger))
+                    if (macro.RunMode == TriggerRunMode.Hold && !MacroRuntimeClassifier.IsHoldTriggerSupported(macro.Trigger))
                         statusLabel.Text = "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。";
                 }
             }
@@ -7966,7 +7955,7 @@ namespace InputStitch
                 captureTriggerButton.Enabled = SelectedMacro != null;
             }
             RefreshPanicUi();
-            if (!recordingActive && !HasLiveWorker() && statusLabel != null) statusLabel.Text = "状态：空闲";
+            if (!recordingActive && statusLabel != null) RefreshStatusForLanguage();
             UpdateUiSafetyPauseState();
         }
 
@@ -8104,7 +8093,7 @@ namespace InputStitch
                                 RefreshConflictIndicators(true);
                                 RefreshRuntimeCapabilityUi();
                                 UpdateRunButton();
-                                if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
+                                if (m.RunMode == TriggerRunMode.Hold && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
                                     statusLabel.Text = "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。";
                             });
                         }
@@ -8123,7 +8112,7 @@ namespace InputStitch
                     {
                         BeginInvoke((MethodInvoker)delegate
                         {
-                            if (!recordingActive && !HasLiveWorker()) statusLabel.Text = "状态：空闲";
+                            if (!recordingActive) RefreshStatusForLanguage();
                             if (cb != null) cb(e.Input.Clone());
                             UpdateUiSafetyPauseState();
                         });
@@ -8228,11 +8217,6 @@ namespace InputStitch
             catch { }
         }
 
-        private bool HasActiveParallelHeldMappings()
-        {
-            lock (runLock) return activeParallelHeldMappings.Count != 0;
-        }
-
         private int ActiveParallelHeldMappingCount()
         {
             lock (runLock) return activeParallelHeldMappings.Count;
@@ -8279,7 +8263,7 @@ namespace InputStitch
                     if (input != null) outputOwnership.SetDown(runtime.SourceId, input);
                 }
                 runtimeTrace.Add("held-source-start", "source=" + runtime.SourceId + "; macro-index=" + config.Macros.IndexOf(macro).ToString());
-                if (!HasLiveWorker())
+                if (!HasWorkerBackedRuns())
                     statusLabel.Text = Localizer.IsEnglish ? "Held mappings active: " + ActiveParallelHeldMappingCount().ToString() : "按住映射活动：" + ActiveParallelHeldMappingCount().ToString();
             }
             catch (Exception ex)
@@ -8308,7 +8292,7 @@ namespace InputStitch
                 return;
             }
             if (idleGamepad != null) idleGamepad.NotifyActivity();
-            if (!HasLiveWorker())
+            if (!HasWorkerBackedRuns())
             {
                 int remaining = ActiveParallelHeldMappingCount();
                 statusLabel.Text = remaining == 0 ? Localizer.T("状态：空闲") :
@@ -8350,12 +8334,19 @@ namespace InputStitch
         private void StartMacroFromHeldTrigger(MacroDefinition m)
         {
             if (m == null) return;
-            if (!IsHoldTriggerSupported(m.Trigger))
+            MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
+            if (!capability.CanStart)
             {
-                statusLabel.Text = "无法启动：按住运行模式支持单键、修饰键组合和鼠标按钮，但滚轮不能作为按住触发键。";
+                statusLabel.Text = (Localizer.IsEnglish ? "Cannot start: " : "无法启动：") + capability.ReasonText(Localizer.IsEnglish);
                 return;
             }
-            if (IsParallelHeldMapping(m))
+            if (!capability.CanStartFromConfiguredTrigger)
+            {
+                statusLabel.Text = (Localizer.IsEnglish ? "Cannot start from physical Hold trigger: " : "无法通过物理 Hold 触发：") +
+                    capability.ReasonText(Localizer.IsEnglish);
+                return;
+            }
+            if (capability.Category == MacroRuntimeCategory.ParallelHeldMapping)
             {
                 StartParallelHeldMapping(m);
                 return;
@@ -8369,13 +8360,6 @@ namespace InputStitch
             if (m == null) return;
             if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop");
             else StartMacro(m, 0, m.Trigger == null ? null : m.Trigger.Clone(), false);
-        }
-
-        private static bool TerminalInputMatches(TriggerSpec t, InputSpec input)
-        {
-            return t != null && input != null && t.Kind == input.Kind &&
-                ModifierSafetyPolicy.VirtualKeysMatch(t.VirtualKey, input.VirtualKey) &&
-                (!t.MatchExtended || t.Extended == input.Extended);
         }
 
         private void RecordButton_Click(object sender, EventArgs e)
@@ -8392,9 +8376,9 @@ namespace InputStitch
         {
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
-            if (HasLiveWorker())
+            if (HasAnyActiveRuntime())
             {
-                if (!StopWorkerForConfigChange()) return;
+                if (!StopRuntimeForConfigChange()) return;
             }
             CommitNameEdit();
 
@@ -8940,8 +8924,8 @@ namespace InputStitch
             if (activeRunCount != 0)
             {
                 statusLabel.Text = Localizer.IsEnglish
-                    ? "Single-step is exclusive. Stop the other ordinary macro runs first."
-                    : "单步执行保持独占；请先停止其他普通宏运行实例。";
+                    ? "Single-step is exclusive. Stop the other macro runs first."
+                    : "单步执行保持独占；请先停止其他宏运行实例。";
                 return;
             }
 
@@ -8958,8 +8942,8 @@ namespace InputStitch
             if (m.RunMode == TriggerRunMode.Hold)
             {
                 statusLabel.Text = Localizer.IsEnglish
-                    ? "Single-step is for ordinary timed macros. Test Held Mapping with its physical trigger."
-                    : "单步执行用于普通时序宏；按住映射请使用它的物理触发键测试。";
+                    ? "Single-step is for timed/toggle macros. Test Hold macros with their physical trigger."
+                    : "单步执行用于时序 / Toggle 宏；Hold 宏请使用其物理触发键测试。";
                 return;
             }
 
@@ -9026,9 +9010,15 @@ namespace InputStitch
             lock (runLock) return activeMacroRuns.Count;
         }
 
-        private bool HasLiveWorker()
+        private bool HasWorkerBackedRuns()
         {
             return ActiveMacroRunCount() != 0;
+        }
+
+        private bool HasAnyActiveRuntime()
+        {
+            lock (runLock)
+                return activeMacroRuns.Count != 0 || activeParallelHeldMappings.Count != 0;
         }
 
         private bool IsMacroActuallyRunning(MacroDefinition m)
@@ -9092,6 +9082,12 @@ namespace InputStitch
             if (!capability.CanStart)
             {
                 LocalizedMessageBox.Show(this, capability.ReasonText(Localizer.IsEnglish), AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (holdControlled && !capability.CanStartFromConfiguredTrigger)
+            {
+                SetStatusSafe((Localizer.IsEnglish ? "Cannot start from physical Hold trigger: " : "无法通过物理 Hold 触发：") +
+                    capability.ReasonText(Localizer.IsEnglish));
                 return;
             }
             lock (runLock)
@@ -9209,20 +9205,6 @@ namespace InputStitch
                 MacroRunRuntime runtime;
                 if (activeMacroRuns.TryGetValue(runId, out runtime) && runtime != null)
                     RequestStopMacroRun_NoLock(runtime, reason);
-            }
-        }
-
-        private void StopCurrentMacro()
-        {
-            MacroDefinition selected = SelectedMacro;
-            lock (runLock)
-            {
-                MacroRunRuntime runtime = GetMacroRun_NoLock(selected);
-                if (runtime == null && activeMacroRuns.Count == 1)
-                {
-                    foreach (MacroRunRuntime only in activeMacroRuns.Values) { runtime = only; break; }
-                }
-                if (runtime != null) RequestStopMacroRun_NoLock(runtime, "stop-request");
             }
         }
 

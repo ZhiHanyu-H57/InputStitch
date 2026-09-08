@@ -16,7 +16,7 @@ namespace InputStitch
     {
         public MacroRuntimeCategory Category;
         public bool CanStart;
-        public bool SupportsConcurrentExecution;
+        public bool CanStartFromConfiguredTrigger;
         public string ReasonCode = "";
 
         public string CategoryText(bool english)
@@ -32,9 +32,18 @@ namespace InputStitch
 
         public string ConcurrencyText(bool english)
         {
-            if (!CanStart) return english ? "Cannot run" : "不可运行";
-            if (SupportsConcurrentExecution) return english ? "Concurrent" : "可并发";
-            return english ? "Exclusive" : "独占";
+            return CanStart ? (english ? "Concurrent" : "可并发") : (english ? "Cannot run" : "不可运行");
+        }
+
+        public string TriggerEligibilityText(bool english)
+        {
+            if (Category != MacroRuntimeCategory.ConcurrentHoldMacro && Category != MacroRuntimeCategory.ParallelHeldMapping)
+                return "";
+            if (CanStartFromConfiguredTrigger)
+                return english ? "Physical Hold trigger: available" : "物理 Hold 触发：可用";
+            return english
+                ? "Physical Hold trigger: unavailable (wheel input has no held state)"
+                : "物理 Hold 触发：不可用（滚轮没有持续按下状态）";
         }
 
         public string ReasonText(bool english)
@@ -59,8 +68,8 @@ namespace InputStitch
                         : "有限次数 Hold 使用可并发 Hold 运行时，而不是纯状态型并行按住路径。";
                 case "hold-trigger":
                     return english
-                        ? "This Hold trigger is not eligible for the state-only Parallel Held path; UI/manual execution can still use the concurrent Hold runtime."
-                        : "当前 Hold 触发器不符合纯状态型并行按住路径；界面/手动执行仍可进入可并发 Hold 运行时。";
+                        ? "Wheel input has no persistent held state, so this Hold can run manually from the UI but cannot start from its configured physical trigger."
+                        : "滚轮没有持续按下状态，因此这个 Hold 可以从界面手动运行，但不能通过其配置的物理触发器启动。";
                 case "hold-non-gamepad":
                     return english
                         ? "This Hold contains keyboard or mouse output, so it runs as an independent concurrent Hold timeline."
@@ -94,7 +103,7 @@ namespace InputStitch
             {
                 result.Category = MacroRuntimeCategory.Invalid;
                 result.CanStart = false;
-                result.SupportsConcurrentExecution = false;
+                result.CanStartFromConfiguredTrigger = false;
                 result.ReasonCode = "no-macro";
                 return result;
             }
@@ -102,7 +111,7 @@ namespace InputStitch
             {
                 result.Category = MacroRuntimeCategory.Invalid;
                 result.CanStart = false;
-                result.SupportsConcurrentExecution = false;
+                result.CanStartFromConfiguredTrigger = false;
                 result.ReasonCode = "no-steps";
                 return result;
             }
@@ -111,24 +120,29 @@ namespace InputStitch
             {
                 result.Category = MacroRuntimeCategory.ConcurrentTimedMacro;
                 result.CanStart = true;
-                result.SupportsConcurrentExecution = true;
+                result.CanStartFromConfiguredTrigger = macro.Trigger != null;
                 result.ReasonCode = "timed";
                 return result;
             }
 
+            bool holdTriggerSupported = IsHoldTriggerSupported(macro.Trigger);
             result.CanStart = true;
+            result.CanStartFromConfiguredTrigger = holdTriggerSupported;
+
+            // Trigger eligibility is orthogonal to manual/UI execution. A wheel-triggered Hold can
+            // still be run manually, but it cannot be driven by a physical Hold trigger because a
+            // wheel direction has no persistent down state. Check this before finite/infinite shape
+            // so UI classification and physical trigger dispatch can never disagree.
+            if (!holdTriggerSupported)
+            {
+                result.Category = MacroRuntimeCategory.ConcurrentHoldMacro;
+                result.ReasonCode = "hold-trigger";
+                return result;
+            }
             if (!macro.Infinite)
             {
                 result.Category = MacroRuntimeCategory.ConcurrentHoldMacro;
-                result.SupportsConcurrentExecution = true;
                 result.ReasonCode = "hold-finite";
-                return result;
-            }
-            if (!IsHoldTriggerSupported(macro.Trigger))
-            {
-                result.Category = MacroRuntimeCategory.ConcurrentHoldMacro;
-                result.SupportsConcurrentExecution = true;
-                result.ReasonCode = "hold-trigger";
                 return result;
             }
 
@@ -137,28 +151,24 @@ namespace InputStitch
                 if (step == null || step.Kind != InputKind.Gamepad)
                 {
                     result.Category = MacroRuntimeCategory.ConcurrentHoldMacro;
-                    result.SupportsConcurrentExecution = true;
                     result.ReasonCode = "hold-non-gamepad";
                     return result;
                 }
                 if (step.Action != MacroAction.Down)
                 {
                     result.Category = MacroRuntimeCategory.ConcurrentHoldMacro;
-                    result.SupportsConcurrentExecution = true;
                     result.ReasonCode = "hold-action";
                     return result;
                 }
                 if (step.DelayMs != 0 || step.RandomDelay)
                 {
                     result.Category = MacroRuntimeCategory.ConcurrentHoldMacro;
-                    result.SupportsConcurrentExecution = true;
                     result.ReasonCode = "hold-delay";
                     return result;
                 }
             }
 
             result.Category = MacroRuntimeCategory.ParallelHeldMapping;
-            result.SupportsConcurrentExecution = true;
             result.ReasonCode = "parallel-held";
             return result;
         }

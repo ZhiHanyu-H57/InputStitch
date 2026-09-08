@@ -428,7 +428,7 @@ internal static class OutputOwnershipTests
                 MacroDefinition timedHold = w.Clone(); timedHold.Steps[0].DelayMs = 5;
                 Check(!(bool)parallelPolicy.Invoke(null, new object[] { timedHold }), "Timed Hold is not the state-only Parallel Held Mapping fast path");
                 Check(MacroRuntimeClassifier.Classify(timedHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
-                    MacroRuntimeClassifier.Classify(timedHold).SupportsConcurrentExecution,
+                    MacroRuntimeClassifier.Classify(timedHold).CanStart,
                     "Timed Hold is classified for the concurrent Hold runtime");
 
                 Call(form, "StartParallelHeldMapping", w);
@@ -441,7 +441,7 @@ internal static class OutputOwnershipTests
                 MethodInfo start = typeof(MainForm).GetMethod("StartMacro", BindingFlags.Instance | BindingFlags.NonPublic, null,
                     new Type[] { typeof(MacroDefinition), typeof(int), typeof(TriggerSpec), typeof(bool), typeof(bool) }, null);
                 start.Invoke(form, new object[] { ordinary, 0, null, false, false });
-                Check(WaitUntil(delegate { return !(bool)Call(form, "HasLiveWorker"); }, 2000), "ordinary worker completes beside Held Mappings");
+                Check(WaitUntil(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); }, 2000), "ordinary worker completes beside Held Mappings");
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 2, "ordinary worker completion preserves both Held Mappings");
                 diagonal = manager.Snapshot().Merged.First(delegate(InputSpec x) { return x.Kind == InputKind.Gamepad && x.GamepadControl == GamepadControl.LeftStick; });
                 Check(diagonal.GamepadX == 71 && diagonal.GamepadY == 71, "ordinary worker cleanup does not neutralize Held Mapping output");
@@ -457,7 +457,7 @@ internal static class OutputOwnershipTests
                 AutoResetEvent gate = singleStepRun == null ? null : singleStepRun.StepGate;
                 Check(gate != null, "single-step owns an advance gate");
                 gate.Set();
-                Check(WaitUntil(delegate { return !(bool)Call(form, "HasLiveWorker"); }, 2000), "single-step completes after Next");
+                Check(WaitUntil(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); }, 2000), "single-step completes after Next");
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 2, "single-step completion preserves Held Mappings");
 
                 string observation = (string)Call(form, "BuildRuntimeObservationText");
@@ -486,7 +486,7 @@ internal static class OutputOwnershipTests
                     return run != null && run.SingleStepWaiting;
                 }, 2000), "single-step reaches wait state before Emergency Stop test");
                 Call(form, "EmergencyStop", "ownership-runtime-test");
-                Check(WaitUntil(delegate { return !(bool)Call(form, "HasLiveWorker"); }, 2000),
+                Check(WaitUntil(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); }, 2000),
                     "Emergency Stop terminates single-step worker");
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0,
                     "Emergency Stop clears every parallel Held Mapping");
@@ -628,6 +628,9 @@ internal static class OutputOwnershipTests
                 new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.E, Action = MacroAction.Press, HoldMs = 30, DelayMs = 40 }
             }
         };
+        MacroDefinition wheelHold = finiteHold.Clone();
+        wheelHold.Name = "Wheel Hold manual-only";
+        wheelHold.Trigger = new TriggerSpec { Kind = InputKind.WheelDown };
         config.Macros.Add(timedKey);
         config.Macros.Add(timedMouse);
         config.Macros.Add(timedStick);
@@ -639,13 +642,14 @@ internal static class OutputOwnershipTests
         config.Macros.Add(advancedHoldMouse);
         config.Macros.Add(advancedHoldTrigger);
         config.Macros.Add(finiteHold);
+        config.Macros.Add(wheelHold);
 
         try
         {
             using (MainForm form = new MainForm(config, root, backend))
             {
                 MacroRuntimeCapability keyCapability = MacroRuntimeClassifier.Classify(timedKey);
-                Check(keyCapability.Category == MacroRuntimeCategory.ConcurrentTimedMacro && keyCapability.SupportsConcurrentExecution,
+                Check(keyCapability.Category == MacroRuntimeCategory.ConcurrentTimedMacro && keyCapability.CanStart,
                     "ordinary delayed keyboard macro is classified as concurrent timed");
                 Check(MacroRuntimeClassifier.Classify(heldUp).Category == MacroRuntimeCategory.ParallelHeldMapping,
                     "simple Hold remains classified as Parallel Held Mapping");
@@ -658,7 +662,7 @@ internal static class OutputOwnershipTests
                 MacroDefinition advancedHold = heldUp.Clone();
                 advancedHold.Infinite = false;
                 Check(MacroRuntimeClassifier.Classify(advancedHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
-                    MacroRuntimeClassifier.Classify(advancedHold).SupportsConcurrentExecution,
+                    MacroRuntimeClassifier.Classify(advancedHold).CanStart,
                     "finite Hold is classified as concurrent advanced Hold");
                 MacroDefinition chordAdvancedHold = advancedHoldKey.Clone();
                 chordAdvancedHold.Name = "Shift+F9 Advanced Hold";
@@ -681,10 +685,24 @@ internal static class OutputOwnershipTests
                 randomDelayHold.Steps[0].RandomDelayMaxMs = 25;
                 Check(MacroRuntimeClassifier.Classify(randomDelayHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro,
                     "random-delay Hold is concurrent rather than exclusive");
+                MacroRuntimeCapability wheelCapability = MacroRuntimeClassifier.Classify(wheelHold);
+                Check(wheelCapability.Category == MacroRuntimeCategory.ConcurrentHoldMacro && wheelCapability.CanStart &&
+                    !wheelCapability.CanStartFromConfiguredTrigger && wheelCapability.ReasonCode == "hold-trigger",
+                    "wheel Hold remains manually runnable but is ineligible for physical Hold triggering");
+                Check(wheelCapability.TriggerEligibilityText(false).Contains("不可用"),
+                    "wheel Hold trigger eligibility text reports unavailable");
 
                 Label capabilityLabel = (Label)Field(form, "runtimeCapabilityLabel");
                 Check(capabilityLabel != null && capabilityLabel.Text.Contains(keyCapability.CategoryText(Localizer.IsEnglish)),
                     "editor runtime eligibility text is driven by the authoritative classifier");
+                ListBox macroList = (ListBox)Field(form, "macroList");
+                macroList.SelectedIndex = config.Macros.IndexOf(wheelHold);
+                Call(form, "RefreshRuntimeCapabilityUi");
+                Check(capabilityLabel.Text.Contains(wheelCapability.CategoryText(Localizer.IsEnglish)) &&
+                    capabilityLabel.Text.Contains(wheelCapability.TriggerEligibilityText(Localizer.IsEnglish)),
+                    "editor exposes the same wheel Hold trigger eligibility returned by the classifier");
+                macroList.SelectedIndex = config.Macros.IndexOf(timedKey);
+                Call(form, "RefreshRuntimeCapabilityUi");
 
                 MethodInfo start = typeof(MainForm).GetMethod("StartMacro", BindingFlags.Instance | BindingFlags.NonPublic, null,
                     new Type[] { typeof(MacroDefinition), typeof(int), typeof(TriggerSpec), typeof(bool), typeof(bool) }, null);
@@ -996,12 +1014,54 @@ internal static class OutputOwnershipTests
                     }) && s.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; });
                 }, 2000), "leaving UI protection restores ordinary source without disturbing mappings");
 
-                Call(form, "StopCurrentMacro");
-                Check(WaitUntil(delegate { return !(bool)Call(form, "HasLiveWorker"); }, 2000), "UI safety ordinary worker stops cleanly");
+                Call(form, "StopMacro", ordinary, "ui-safety-test-stop");
+                Check(WaitUntil(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); }, 2000), "UI safety ordinary worker stops cleanly");
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 2,
                     "stopping ordinary worker after UI safety leaves Held Mappings active");
                 Call(form, "StopAllParallelHeldMappings", "ui-safety-test-end");
                 Check(manager.Snapshot().Merged.Count == 0, "UI safety composition cleanup returns neutral");
+            }
+        }
+        finally { try { Directory.Delete(root, true); } catch { } }
+    }
+
+    private static void RecordingStopsAllActiveRuntime()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "InputStitch-recording-runtime-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        MacroConfig config = new MacroConfig();
+        MacroDefinition recordTarget = new MacroDefinition { Name = "record target", Steps = new List<MacroStep>() };
+        MacroDefinition held = new MacroDefinition
+        {
+            Name = "held while recording starts",
+            Infinite = true,
+            RunMode = TriggerRunMode.Hold,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.W },
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Gamepad, Action = MacroAction.Down, GamepadControl = GamepadControl.LeftStick, GamepadY = 100, DelayMs = 0 }
+            }
+        };
+        config.Macros.Add(recordTarget);
+        config.Macros.Add(held);
+        FakeBackend backend = new FakeBackend();
+        try
+        {
+            using (MainForm form = new MainForm(config, root, backend))
+            {
+                Call(form, "StartParallelHeldMapping", held);
+                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 1,
+                    "recording precondition has a pure Parallel Held runtime with no worker");
+                Check(!(bool)Call(form, "HasWorkerBackedRuns") && (bool)Call(form, "HasAnyActiveRuntime"),
+                    "active-runtime helper distinguishes Parallel Held from worker-backed runs");
+                Call(form, "StartMacroRecording");
+                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0,
+                    "starting recording stops pure Parallel Held runtime before capture");
+                OutputOwnershipManager manager = (OutputOwnershipManager)Field(form, "outputOwnership");
+                Check(manager.Snapshot().Merged.Count == 0,
+                    "recording start clears the stopped Held source output");
+                Check((bool)Field(form, "recordingActive"), "recording starts after runtime cleanup");
+                Call(form, "StopMacroRecording", false, true);
             }
         }
         finally { try { Directory.Delete(root, true); } catch { } }
@@ -1025,6 +1085,7 @@ internal static class OutputOwnershipTests
             RuntimeCompositionAndSingleStep();
             ConcurrentTimedRuntimeAndOverlapSemantics();
             RuntimeUiSafetyComposition();
+            RecordingStopsAllActiveRuntime();
             Console.WriteLine("PASS output ownership: " + checks + " checks; fake backend only, no real input or virtual device.");
             return 0;
         }

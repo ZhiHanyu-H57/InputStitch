@@ -28,7 +28,7 @@ The post-Beta runtime now supports concurrency across ordinary timed/Toggle macr
 
 **After Stable 1.3.0, the next highest-priority feature is Physical Gamepad Input + Hybrid Controller Routing. Layer has been reprioritized behind that track.** The first goal is Windows XInput controller buttons/D-pad/trigger thresholds as first-class InputStitch triggers; the second is controller→keyboard/mouse hybrid mapping; the third is controlled replacement/routing through one virtual gamepad with device-hiding only after a mature fail-safe approach is chosen. Full design: `docs/GAMEPAD_INPUT_ROUTING.md`.
 
-Current `main` is now one evidence-backed trigger fix ahead of the `v1.3.0-beta.2` runtime tag. Holding **Shift** no longer disables a separately configured bare ordinary-key trigger such as `E`; exact explicit chords still win, and Ctrl/Alt/Win remain strict for bare keys. Modifier chords are now valid Hold triggers. The chord starts on the terminal-key down edge with required modifiers already held; terminal-key release or release of any required modifier stops only the matching Hold source, and lost-KeyUp reconciliation checks the complete chord state.
+Current `main` is now ahead of the `v1.3.0-beta.2` runtime tag with the evidence-backed trigger fix plus a stale-code/runtime-contract cleanup. Holding **Shift** no longer disables a separately configured bare ordinary-key trigger such as `E`; exact explicit chords still win, and Ctrl/Alt/Win remain strict for bare keys. Modifier chords are valid Hold triggers. The chord starts on the terminal-key down edge with required modifiers already held; terminal-key release or release of any required modifier stops only the matching Hold source, and lost-KeyUp reconciliation checks the complete chord state. Quick Create now follows the same modifier-chord Hold rule, recording treats Parallel Held sources as active runtime and stops them before capture, and the capability UI distinguishes manual/UI execution from physical Hold-trigger eligibility for wheel-triggered Hold definitions.
 
 ## Completed
 
@@ -63,7 +63,7 @@ Current `main` is now one evidence-backed trigger fix ahead of the `v1.3.0-beta.
 - Editing a live macro's trigger/run/repeat/step definition signals only that macro's current run/Parallel Held source before mutation; unrelated runs remain active.
 - Shutdown and backend-failure cleanup signal every active run and retain ownership-level fail-closed cleanup.
 - Runtime observation lists every active worker run with RunId/Source/category/phase/iteration/step/logical-held state, followed by Parallel Held mappings, active ownership sources and merged output.
-- The macro editor shows live runtime category + concurrency eligibility + reason from the same authoritative `MacroRuntimeClassifier` used by execution; there is no duplicate UI rule table.
+- The macro editor shows live runtime category, concurrency status, physical Hold-trigger eligibility and reason from the same authoritative `MacroRuntimeClassifier` used by execution; there is no duplicate UI rule table.
 - Single-step / Next Step remains intentionally exclusive as a diagnostic execution mode and is interruptible by Stop/Emergency Stop; it is not a limitation on normal macro concurrency.
 - Bare ordinary-key trigger selection now permits Shift-only fallback after exact matching. Therefore an explicit `Shift+E` trigger wins over bare `E`, while bare `E` still works under Shift if no explicit chord matches. Bare Ctrl/Alt/Win combinations remain strict.
 - Modifier-chord Hold is supported in both Parallel Held Mapping and Concurrent Advanced Hold. Hook release handling recognizes either terminal-key release or required-modifier release; the physical-state fallback evaluates the full chord rather than only the terminal key.
@@ -98,8 +98,8 @@ Immediately before this handoff, the full regression suite was run again on the 
 - 58 Idle Gamepad assertions;
 - 43 updater checks;
 - 23 UI safety / diagnostics checks;
-- 354 productivity checks;
-- 303,708 Output Ownership checks, including the universal timed/Toggle/Advanced-Hold + Parallel-Held matrix and modifier-chord Hold classification/release semantics;
+- 355 productivity checks;
+- 303,716 Output Ownership checks, including the universal timed/Toggle/Advanced-Hold + Parallel-Held matrix, modifier-chord Hold classification/release semantics, wheel-Hold trigger-eligibility projection, and recording cleanup when only a Parallel Held source is active;
 - zh-CN/en-US Settings smoke tests at normal and narrow sizes;
 - old XML configuration compatibility;
 - saved gamepad vector initialization/editing smoke tests.

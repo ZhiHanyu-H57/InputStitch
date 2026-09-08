@@ -18,10 +18,9 @@ namespace InputStitch
             if (steps == null || steps.Count == 0 || steps.Any(s => s == null))
                 throw new ArgumentException(VirtualKeyboardDialog.TextFor("请添加执行操作。", "Add an output action."));
             bool held = template == QuickTemplate.HeldMapping;
-            if (held && (trigger.Ctrl || trigger.Alt || trigger.Shift || trigger.Win ||
-                trigger.Kind == InputKind.WheelUp || trigger.Kind == InputKind.WheelDown))
-                throw new ArgumentException(VirtualKeyboardDialog.TextFor("按住映射需要单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮；不支持组合键和滚轮。",
-                    "Held mapping needs one keyboard key (including standalone Ctrl/Shift/Alt/Win) or mouse button, not a chord or wheel."));
+            if (held && !MacroRuntimeClassifier.IsHoldTriggerSupported(trigger))
+                throw new ArgumentException(VirtualKeyboardDialog.TextFor("按住映射支持单键、修饰键组合和鼠标按钮；滚轮没有持续按下状态，不能作为按住触发键。",
+                    "Held mapping supports keys, modifier chords, and mouse buttons. The wheel has no persistent down state and cannot be used as a Hold trigger."));
             if (held && (steps.Count != 1 || steps[0].Kind != InputKind.Gamepad))
                 throw new ArgumentException("Held mapping requires one gamepad action.");
             if (count < 1 || count > 100000) throw new ArgumentOutOfRangeException("count");
@@ -149,10 +148,10 @@ namespace InputStitch
                     "Press the trigger to start; press again to stop. After creation, edit steps and advanced options in the main window.") };
             AddRow(fields, "", help);
             Label limit = new Label { AutoSize = true, Dock = DockStyle.Fill, Text = kind == QuickTemplate.HeldMapping
-                ? T("多个按住映射可以并行；普通时序宏仍最多运行一个。同触发键继续按宏列表顺序决定优先级。此处预览不发送真实输入。",
-                    "Multiple Held Mappings can run together; ordinary timed macros remain single-active. Shared triggers still use macro-list priority. Preview sends no input.")
-                : T("普通时序宏一次只运行一个，但可以与多个按住映射同时存在。此处预览不发送真实输入。",
-                    "Ordinary timed macros remain single-active, but may coexist with multiple Held Mappings. Preview sends no input.") };
+                ? T("按住映射、普通时序宏和高级 Hold 可以并发运行；同触发键继续按宏列表顺序决定优先级。此处预览不发送真实输入。",
+                    "Held Mappings, ordinary timed macros, and Advanced Hold runs can execute concurrently. Shared triggers still use macro-list priority. Preview sends no input.")
+                : T("不同的普通时序宏可以同时运行，并可与按住映射和高级 Hold 共存。此处预览不发送真实输入。",
+                    "Distinct ordinary timed macros can run concurrently and coexist with Held Mappings and Advanced Hold runs. Preview sends no input.") };
             AddRow(fields, "", limit);
             FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
             Button cancel = ButtonFor(T("取消", "Cancel"), delegate { DialogResult = DialogResult.Cancel; });

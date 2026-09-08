@@ -95,13 +95,6 @@ namespace InputStitch
         public void FinishPulse(long now) { PulseActive = false; lastActivity = now; }
         public void PanicStop(long now) { Suspended = true; FinishPulse(now); }
         public void Fail(long now) { Faulted = true; FinishPulse(now); }
-        public long RemainingMilliseconds(long now) { return Math.Max(0, interval - Math.Max(0, now - lastActivity)); }
-    }
-
-    public sealed class IdleGamepadFailureEventArgs : EventArgs
-    {
-        public readonly Exception Exception;
-        public IdleGamepadFailureEventArgs(Exception exception) { Exception = exception; }
     }
 
     // New pulses and physical sensing stay on the UI thread. A release-only timer
@@ -123,7 +116,6 @@ namespace InputStitch
         private System.Threading.Timer releaseTimer;
         private long releaseGeneration;
 
-        public event EventHandler<IdleGamepadFailureEventArgs> Failure;
         public event Action<Exception> Failed;
         public bool Suspended { get { lock (sync) return scheduler.Suspended; } }
         public bool IsSuspended { get { lock (sync) return scheduler.Suspended; } }
@@ -178,11 +170,6 @@ namespace InputStitch
         // Forward WM_INPUT (0x00FF) and WM_INPUT_DEVICE_CHANGE (0x00FE) before the
         // form's base.WndProc. Gamepad activity is always observed; physical mouse movement
         // can be scoped to the configured target process by the caller.
-        public void ProcessWindowMessage(int message, IntPtr wParam, IntPtr lParam)
-        {
-            ProcessWindowMessage(message, wParam, lParam, true);
-        }
-
         public void ProcessWindowMessage(int message, IntPtr wParam, IntPtr lParam, bool allowKeyboardMouseActivity)
         {
             if (sensor != null && sensor.ProcessWindowMessage(message, wParam, lParam, allowKeyboardMouseActivity)) NotifyActivity();
@@ -264,8 +251,6 @@ namespace InputStitch
                 report = pendingFailure;
                 pendingFailure = null;
             }
-            EventHandler<IdleGamepadFailureEventArgs> handler = Failure;
-            if (report != null && handler != null) handler(this, new IdleGamepadFailureEventArgs(report));
             Action<Exception> failed = Failed;
             if (report != null && failed != null) failed(report);
         }
@@ -546,11 +531,6 @@ namespace InputStitch
             value.TargetWindowClass = targetWindowClass;
             value.TargetScopeInitialized = true;
             return value.CloneNormalized();
-        }
-
-        public void ResetDefaults()
-        {
-            LoadOptions(new IdleGamepadOptions());
         }
 
         public void LoadOptions(IdleGamepadOptions value)

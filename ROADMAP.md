@@ -189,7 +189,7 @@ Only schedule these when repeated real use justifies them:
 | Controller → keyboard/mouse hybrid mapping | physical gamepad trigger source stable | **next** |
 | Gamepad Router / controlled replacement | hybrid mapping proves useful; mature fail-safe device-hiding route identified | **high, after simple input source** |
 | Controller aggregation / broader gamepad backends | single-controller router stable; repeated concrete need | after router core |
-| Modifier-chord Held Mapping | repeated concrete need | after 1.3.0 / fit around gamepad work if small |
+| Modifier-chord Held Mapping | implemented on current `main`; whole-chord release/lost-KeyUp semantics covered by regression | completed |
 | Layer / mapping layer | gamepad input/routing core reaches stable checkpoint | after gamepad routing core unless reprioritized |
 | Conditions / richer groups | clear recurring scenarios after routing/Layer maturity | later |
 | Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
