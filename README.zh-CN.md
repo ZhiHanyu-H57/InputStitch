@@ -10,7 +10,7 @@ InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄�
 
 ## 下载
 
-**当前正式版：v1.2.0；公开 Beta：v1.3.0-beta.1。** 正式版仍是推荐的稳定回退基线。Beta 1 首次加入 Input Ownership、多 Held Mapping 并行、轻量运行观察和普通时序宏单步执行。仓库当前 `main` 已领先于公开 Beta，包含面向 Stable 1.3.0 的 Concurrent Macro Runtime 候选实现；下方下载链接仍只指向已经正式发布的产物。Beta 始终作为 GitHub prerelease 发布，不替换 Stable 的 `releases/latest` 或 `InputStitch-update.xml`。
+**当前正式版：v1.2.0；公开 Beta：v1.3.0-beta.2。** 正式版仍是推荐的稳定回退基线。Beta 2 延续 beta.1 的 Input Ownership 底座，并发布统一 Concurrent Macro Runtime：普通时序 / Toggle、高级/复杂 Hold 与 Parallel Held Mapping 可以同时运行，分别进行 Source 清理和逐 Hold 松键跟踪。Beta 始终作为 GitHub prerelease 发布，不替换 Stable 的 `releases/latest` 或 `InputStitch-update.xml`。
 
 Beta 与正式版目前共用配置。测试 Beta 前请退出另一版本并备份 `%APPDATA%\InputStitch`，不要同时运行两个版本。详见[开发路线和发布规则](ROADMAP.md)。
 
@@ -27,11 +27,11 @@ Beta 与正式版目前共用配置。测试 Beta 前请退出另一版本并备
 
 | Beta 文件 | 直接下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.3.0-beta.1-Windows-x64.exe](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.3.0-beta.1-Windows-x86.exe](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Windows-x86.exe) |
-| Beta 完整源码 | [InputStitch-1.3.0-beta.1-Source.zip](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Source.zip) |
-| Beta 更新清单 | [InputStitch-beta.xml](../../releases/download/v1.3.0-beta.1/InputStitch-beta.xml) |
-| Beta 文件校验值 | [SHA256SUMS.txt](../../releases/download/v1.3.0-beta.1/SHA256SUMS.txt) |
+| 64 位 Windows（x64） | [InputStitch-1.3.0-beta.2-Windows-x64.exe](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.3.0-beta.2-Windows-x86.exe](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Windows-x86.exe) |
+| Beta 完整源码 | [InputStitch-1.3.0-beta.2-Source.zip](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Source.zip) |
+| Beta 更新清单 | [InputStitch-beta.xml](../../releases/download/v1.3.0-beta.2/InputStitch-beta.xml) |
+| Beta 文件校验值 | [SHA256SUMS.txt](../../releases/download/v1.3.0-beta.2/SHA256SUMS.txt) |
 
 InputStitch 仅支持 Windows，没有 macOS 或 Linux 版 EXE。如果不确定应该下载哪个版本，现代 64 位 Windows 通常请选择 x64。
 
@@ -150,8 +150,8 @@ beta.2 中，**独立 Shift + 按住触发 + 全部为手柄步骤**的宏会自
 
 beta.4 加入暂存/验证后替换的安全配置保存与最近 5 份有效备份、三种快捷创建模板，以及步骤撤销/重做。按住映射支持普通键盘键、左右单独 Ctrl/Shift/Alt/Win 和鼠标按钮（含侧键）作为触发键；按住模式仍不支持修饰键组合与滚轮。同触发键的已启用宏按列表顺序决定优先级。闲置自动手柄输入不再把游戏自身的鼠标重定位误判为持续操作，并拥有独立的“挂机目标”；其他程序中的键鼠输入不会阻止后台目标游戏的挂机脉冲，已设置的挂机目标不存在时则完全暂停输出，目标重新出现后从完整空闲时间重新计时。当前自动测试已经覆盖这些情况，但不会发送真实输入，正式推广前仍需完成实际游戏和虚拟手柄接收验收。
 
-### Input Ownership 与多来源 Held Mapping（1.3.0-beta.1）
+### Input Ownership 与任意宏多并发（1.3.x）
 
 beta.1 将旧的“单一当前宏拥有全部输出”改成显式 Source ownership。多个符合条件的 Held Mapping 可以同时保持，并与最多一个普通时序宏共存。数字输出按来源引用，扳机取最大值，摇杆向量相加后按圆形范围归一化，D-pad 同轴相反方向相互取消。“工具 → 运行观察…”可以查看活动 Source、各来源贡献和合并结果；普通时序宏新增“单步执行 / 下一步”。
 
-公开发布的 `v1.3.0-beta.1` 本身仍未开放任意宏多并发；但当前 `main` 已实现面向 Stable 1.3.0 的**统一 Concurrent Macro Runtime**：多个不同普通时序 / Toggle 宏、多个高级/复杂 Hold 宏可以同时运行，并与 Parallel Held Mapping 共存；每个 worker 运行实例拥有独立 RunId/SourceId/停止/时序状态，复杂 Hold 还按 Run 独立保存物理触发键与 lost-KeyUp 松键恢复状态，松开一个 Hold 只停止它自己。编辑器里的“运行资格 / 并发能力”实时提示直接来自执行时使用的同一个 classifier。同触发键继续按宏列表顺序决定优先级；Single-step 仍是刻意保持独占的诊断模式；Emergency Stop 始终是全局最高优先级。Layer / 映射层明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。
+`v1.3.0-beta.2` 正式发布**统一 Concurrent Macro Runtime**：多个不同普通时序 / Toggle 宏、多个高级/复杂 Hold 宏可以同时运行，并与 Parallel Held Mapping 共存；每个 worker 运行实例拥有独立 RunId/SourceId/停止/时序状态，复杂 Hold 还按 Run 独立保存物理触发键与 lost-KeyUp 松键恢复状态，松开一个 Hold 只停止它自己。编辑器里的“运行资格 / 并发能力”实时提示直接来自执行时使用的同一个 classifier。同触发键继续按宏列表顺序决定优先级；Single-step 仍是刻意保持独占的诊断模式；Emergency Stop 始终是全局最高优先级。Layer / 映射层明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。

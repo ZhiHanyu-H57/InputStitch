@@ -3,22 +3,22 @@ namespace InputStitch
     // Build scripts and release workflows read these constants as the release source of truth.
     public static class ReleaseInfo
     {
-        public const string Version = "1.3.0-beta.1";
-        public const string FileVersion = "1.3.0.1";
+        public const string Version = "1.3.0-beta.2";
+        public const string FileVersion = "1.3.0.2";
         public const bool IsPrerelease = true;
         public static bool AutomaticChecksAllowed { get { return !IsPrerelease; } }
         public const string ReleasesUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases";
         // Keep this deliberately short: it is shown once after an existing user upgrades.
         // Detailed release notes remain in RELEASE_NOTES.md / GitHub Releases.
         public const string ReleaseSummaryZh =
-            "• 多个 Held Mapping 现在可以同时保持，并与最多一个普通时序宏共存。\r\n" +
-            "• 新增 Input Ownership：按钮引用所有权、扳机 max、摇杆向量合并与 D-pad 冲突消解。\r\n" +
-            "• 新增轻量运行观察，可查看来源贡献、合并状态、步骤和停止原因。\r\n" +
-            "• 普通宏新增单步执行；Emergency Stop 与退出清理继续全局释放所有输出。";
+            "• 普通时序 / Toggle、高级/复杂 Hold 与 Parallel Held Mapping 现在可同时运行。\r\n" +
+            "• 每个复杂 Hold 独立跟踪物理松键与 lost-KeyUp；停止一个运行实例不会清除其他 Source。\r\n" +
+            "• 编辑器实时显示由统一 classifier 给出的运行类别与并发能力。\r\n" +
+            "• Emergency Stop 与退出清理仍保持全局最高优先级。";
         public const string ReleaseSummaryEn =
-            "• Multiple Held Mappings can now stay active together and coexist with one ordinary timed macro.\r\n" +
-            "• Added Input Ownership with digital reference ownership, trigger max, stick-vector merging and D-pad conflict resolution.\r\n" +
-            "• Added lightweight runtime observation for source contributions, merged state, steps and stop reasons.\r\n" +
-            "• Ordinary macros gain single-step execution; Emergency Stop and shutdown still release every owned output.";
+            "• Ordinary timed/Toggle, Advanced/complex Hold and Parallel Held Mapping can now run concurrently.\r\n" +
+            "• Each complex Hold tracks physical release/lost-KeyUp independently; stopping one run does not clear unrelated sources.\r\n" +
+            "• The editor now shows runtime category and concurrency capability from the same authoritative classifier.\r\n" +
+            "• Emergency Stop and shutdown remain the global highest-priority cleanup paths.";
     }
 }

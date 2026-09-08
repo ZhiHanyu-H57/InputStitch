@@ -10,7 +10,7 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.2.0. Public Beta: v1.3.0-beta.1.** Stable remains the recommended rollback baseline. Beta 1 introduces Input Ownership, simultaneous Held Mappings, lightweight runtime observation, and ordinary-macro single-step execution. The repository's current `main` is ahead of the published Beta and contains the Stable-1.3.0 candidate Concurrent Macro Runtime; released download links below still point only to published artifacts. Beta remains a GitHub prerelease and never replaces the Stable `releases/latest` or `InputStitch-update.xml` channel.
+**Stable: v1.2.0. Public Beta: v1.3.0-beta.2.** Stable remains the recommended rollback baseline. Beta 2 keeps beta.1's Input Ownership foundation and adds the unified Concurrent Macro Runtime: ordinary timed/Toggle macros, Advanced/complex Hold macros, and Parallel Held Mappings can run concurrently with source-local cleanup and per-Hold release tracking. Beta remains a GitHub prerelease and never replaces the Stable `releases/latest` or `InputStitch-update.xml` channel.
 
 Beta and Stable currently share configuration. Before testing Beta, exit the other version and back up `%APPDATA%\InputStitch`. Do not run both at the same time. See [development roadmap and release policy](ROADMAP.md).
 
@@ -27,11 +27,11 @@ Test the current prerelease from the version-pinned Beta release:
 
 | Beta artifact | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.3.0-beta.1-Windows-x64.exe](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.3.0-beta.1-Windows-x86.exe](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Windows-x86.exe) |
-| Complete Beta source | [InputStitch-1.3.0-beta.1-Source.zip](../../releases/download/v1.3.0-beta.1/InputStitch-1.3.0-beta.1-Source.zip) |
-| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.0-beta.1/InputStitch-beta.xml) |
-| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.0-beta.1/SHA256SUMS.txt) |
+| 64-bit Windows (x64) | [InputStitch-1.3.0-beta.2-Windows-x64.exe](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.3.0-beta.2-Windows-x86.exe](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Windows-x86.exe) |
+| Complete Beta source | [InputStitch-1.3.0-beta.2-Source.zip](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Source.zip) |
+| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.0-beta.2/InputStitch-beta.xml) |
+| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.0-beta.2/SHA256SUMS.txt) |
 
 InputStitch supports Windows only. There is no macOS or Linux executable. If you are unsure which Windows build to use, choose x64 on a modern 64-bit installation.
 
@@ -150,8 +150,8 @@ Hovering alone or selecting a non-editing button/list no longer blocks hotkey st
 
 Beta.4 adds staged/verified configuration saves with five recent valid backups, three Quick Create templates, and step Undo/Redo. Held Mapping accepts normal keyboard keys, standalone left/right Ctrl/Shift/Alt/Win, and mouse buttons including side buttons; modifier chords and wheel triggers remain unsupported for Hold mode. Duplicate enabled triggers intentionally use macro-list order as priority. Idle gamepad detection now ignores application-driven cursor recentering and uses its own independent Idle target; other-app typing does not block a background-game pulse, a missing configured Idle target pauses output completely, and target return starts a fresh full idle interval. The current automated suite covers these cases but sends no real input, so live game/controller acceptance still needs testing before wider promotion.
 
-### Input Ownership and multi-source Held Mapping (1.3.0-beta.1)
+### Input Ownership and universal concurrency (1.3.x)
 
 Beta 1 replaces the old single-owner output assumption with explicit source ownership. Qualifying Held Mappings can stay active together and one ordinary timed macro may coexist with them. Digital state uses reference ownership, triggers use the maximum requested value, sticks merge vectors with circular normalization, and opposite D-pad directions cancel per axis. Tools → **Runtime observation...** shows active sources and the merged result; ordinary timed macros also gain **Single-step / Next Step**.
 
-Arbitrary concurrency is not enabled in the published `v1.3.0-beta.1`, but current `main` contains the Stable-1.3.0 candidate **unified Concurrent Macro Runtime**: multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can overlap with independent RunId/SourceId/stop/timing state while Parallel Held Mappings remain active. Complex Hold runs keep per-run physical-trigger/lost-KeyUp release tracking; releasing one Hold stops only that run. The editor's live runtime/concurrency eligibility display comes from the same classifier used by execution. Duplicate physical triggers still use macro-list priority, Single-step remains an intentionally exclusive diagnostic mode, and Emergency Stop remains the absolute global clear. Layer / Mapping Layer remains deferred until after Stable 1.3.0; see [the Layer design note](docs/LAYER_DESIGN.md).
+`v1.3.0-beta.2` publishes the **unified Concurrent Macro Runtime**: multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can overlap with independent RunId/SourceId/stop/timing state while Parallel Held Mappings remain active. Complex Hold runs keep per-run physical-trigger/lost-KeyUp release tracking; releasing one Hold stops only that run. The editor's live runtime/concurrency eligibility display comes from the same classifier used by execution. Duplicate physical triggers still use macro-list priority, Single-step remains an intentionally exclusive diagnostic mode, and Emergency Stop remains the absolute global clear. Layer / Mapping Layer remains deferred until after Stable 1.3.0; see [the Layer design note](docs/LAYER_DESIGN.md).

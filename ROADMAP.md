@@ -82,7 +82,7 @@ Stable 1.2.0 has completed promotion and remains the recommended rollback baseli
 
 Stable 1.2.0 已完成发布，在 1.3.x 的运行时所有权改造进入真实使用验收期间继续作为稳定回退基线。Beta 不得修改 Stable 的 `releases/latest` 与 `InputStitch-update.xml`。
 
-### 1.3.0-beta.1 — Input Ownership + multi-source Held Mapping / 当前 Beta
+### 1.3.0-beta.1 — Input Ownership + multi-source Held Mapping / previous Beta
 
 The ownership foundation is now implemented locally for Beta 1. Persistent output is no longer owned by a single “current macro”; each contributor has an independent source identity and a central merge manager computes the final output.
 
@@ -106,9 +106,9 @@ Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplica
 
 Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
 
-### Unified Concurrent Macro Runtime / 任意宏类型多并发 — implemented locally for Stable 1.3.0 / 已本地实现
+### 1.3.0-beta.2 — Unified Concurrent Macro Runtime / 任意宏类型多并发 — current Beta / 当前 Beta
 
-The Stable 1.3.0 runtime on `main` now supports concurrency across every normal macro execution class: multiple distinct ordinary timed/Toggle macros, multiple Advanced/complex Hold timelines, and state-only Parallel Held Mappings may all coexist. Every worker-backed run owns an independent RunId/SourceId, stop/timing/progress state, immutable Hold-trigger snapshot where applicable, and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
+Beta 2 publishes the Stable-1.3.0 candidate runtime with concurrency across every normal macro execution class: multiple distinct ordinary timed/Toggle macros, multiple Advanced/complex Hold timelines, and state-only Parallel Held Mappings may all coexist. Every worker-backed run owns an independent RunId/SourceId, stop/timing/progress state, immutable Hold-trigger snapshot where applicable, and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
 
 Advanced Hold is no longer an exclusive runtime class. Hold macros containing keyboard/mouse output, gamepad Press/Up sequencing, non-zero or random delays, or finite repeat counts are classified as **Concurrent Advanced Hold** and run beside ordinary macros and other Hold runs. Simple infinite gamepad-only Down/no-delay Held Mappings keep the lightweight state-only fast path. Physical terminal release and lost-KeyUp reconciliation are tracked per Hold run, so releasing one trigger cannot stop another Hold timeline. Finite Hold keeps its historical semantics: it may complete naturally before the physical trigger is released.
 
@@ -181,9 +181,11 @@ Current / 当前：
 
 `1.3.0-beta.1 — Input Ownership + multi-source Held Mapping + runtime observation + single-step`
 
+`1.3.0-beta.2 — unified timed/Toggle/Advanced-Hold concurrency + Parallel Held + live runtime eligibility UI`
+
 Current local / 当前本地：
 
-`1.3.0-beta.1 base + unified timed/Toggle/Advanced-Hold concurrency + Parallel Held + live runtime eligibility UI`
+`main == v1.3.0-beta.2 release source until evidence-backed fixes begin`
 
 Next / 下一轮：
 

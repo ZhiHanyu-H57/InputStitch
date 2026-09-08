@@ -3,7 +3,7 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
-## Unreleased — Stable 1.3.0 candidate / 未发布 — 1.3.0 正式版候选
+## 1.3.0-beta.2 (pre-release / 预发布)
 
 - Replaced the old ordinary-macro singleton worker with a unified Concurrent Macro Runtime. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can now run concurrently, each with its own RunId/SourceId, stop/timing/progress state and source-local cleanup while sharing Output Ownership.
 - Advanced Hold is no longer an exclusive class. Keyboard/mouse Hold output, gamepad Press/Up sequencing, non-zero or random delays, and finite/infinite Hold execution use the concurrent worker runtime; simple infinite gamepad-only Down/no-delay mappings retain the lightweight Parallel Held fast path.

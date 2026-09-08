@@ -1,172 +1,146 @@
-# InputStitch 1.3.0-beta.1
+# InputStitch 1.3.0-beta.2
 
 > **Pre-release / 预发布。** Stable 仍为 **v1.2.0**。本 Beta 使用独立的 `InputStitch-beta.xml`，不会替换 Stable 的 `releases/latest` 或 `InputStitch-update.xml`。
 
 ## 简体中文
 
-### 这一版解决什么
+### 这一版的重点：任意正常宏类型多并发
 
-1.3.0-beta.1 是 InputStitch 第一次引入 **Input Ownership / 输入所有权** 的结构性版本。旧版本的运行时本质上只有一个当前宏；现在持续输出由独立 Source 拥有，再由统一合并器计算最终键鼠/虚拟手柄状态。
+beta.2 在 beta.1 的 **Input Ownership** 基础上完成了统一 **Concurrent Macro Runtime**。现在多个不同宏可以真正同时运行，而不再只允许“多个 Held Mapping + 一个普通宏”。
 
-最直接的结果是：**多个符合 Held Mapping 形态的按住映射可以同时保持，并且还能同时运行最多一个普通时序宏。**
+当前支持同时存在：
 
-例如可以同时使用：
+- 多个普通时序 / Toggle 宏；
+- 多个高级 / 复杂 Hold 宏；
+- 多个纯状态型 Parallel Held Mapping；
+- 键盘、鼠标、虚拟手柄输出混合；
+- `Down / Up / Press`；
+- 固定延迟或随机延迟；
+- 有限循环或无限运行。
 
-- `W → 左摇杆向前`
-- `A → 左摇杆向左`
-- `S → 左摇杆向后`
-- `D → 左摇杆向右`
-- `Shift → RT`
-- `Ctrl → LT`
-- `Mouse X1 → LB`
-- `Mouse X2 → RB`
+每个 worker 运行实例都有独立 `RunId / SourceId / Stop / timing / progress`。复杂 Hold 还会按 Run 独立保存物理触发键与 lost-KeyUp 松键恢复状态，因此松开一个 Hold 只停止它自己，不会误伤其他并发宏。
 
-按住多个触发键时，每个映射只拥有自己的输出贡献；松开其中一个不会再把其他映射的状态一起清零。
+### Held Mapping 与复杂 Hold 的区别
 
-### 合并规则
+简单的无限 Hold、即时手柄 `Down`、零延迟映射继续使用轻量 **Parallel Held Mapping** 快速路径。
 
-统一 Output Ownership 当前采用以下规则：
+一旦 Hold 包含键盘/鼠标输出、`Press/Up` 时序、非零/随机延迟或有限次数执行，就会由统一 classifier 归类为 **可并发高级 Hold / Concurrent Advanced Hold**，进入独立时间线运行时，但仍可与其他宏和 Parallel Held Mapping 同时存在。
 
-- **键盘 / 鼠标按钮 / 手柄数字按钮**：引用所有权。只要还有任意 Source 持有，最终状态就继续保持 Down。
-- **LT / RT 扳机**：取所有来源请求值的 **最大值**。
-- **摇杆**：所有来源的 X/Y 向量先相加，再按圆形摇杆范围归一化；相反方向自然抵消。
-- **D-pad**：上下、左右分别作为两个轴处理；同轴相反方向相互取消，正交方向可以组成斜向。
-- **Emergency Stop**：高于普通合并规则，直接清空所有 Source，并强制释放键鼠与中立化手柄。
+有限 Hold 保留旧语义：达到配置的循环次数后可以自然结束；如果尚未结束，物理触发键松开会提前停止该 Run。
 
-普通宏、并行 Held Mapping 和 Idle Gamepad 已统一使用同一 ownership 核心。普通宏结束、UI 编辑保护暂时释放自身输出、Idle pulse 结束时，都不会再误伤其他仍然有效的 Source。
+### 运行资格实时提示
 
-### 并行范围
+编辑器里的“运行类别 / 并发能力”不再维护单独的 UI 规则，而是直接读取执行时使用的 `MacroRuntimeClassifier`。
 
-本 Beta **没有**开放“任意多个普通宏并行”。边界刻意保持较窄：
+因此取消无限循环、切换 Hold/Toggle、加入键鼠步骤、Press/Up、延迟或随机延迟时，界面会实时显示当前真实运行类别，不会出现“UI 说能并发、Runtime 却不能”的分叉。
 
-- 多个 **Held Mapping** 可以并行；
-- 最多一个普通 **Toggle / 时序宏** 可以与这些 Held Mapping 同时存在；
-- 高级/复杂 Hold 宏仍保持独占，不与并行 Held Mapping 混跑；
-- 同一个物理触发键对应多个已启用宏时，仍按照**宏列表从上到下**决定优先级；不会因为 ownership 自动把同触发键的多个宏一起启动；
-- Emergency Stop 始终拥有绝对优先级。
+### 冲突与安全语义
 
-第一版可并行 Held Mapping 的运行时形态是：Hold + Infinite、单键/单独 Ctrl/Shift/Alt/Win 或鼠标按钮触发、不使用修饰键组合/滚轮，执行内容为即时的手柄 Down 状态。**快捷创建 → 按住映射**生成的就是这种形态。
-
-### 轻量运行观察
-
-工具菜单新增 **运行观察…**。这是一个轻量、实时刷新且非模态的观察窗口，可以看到：
-
-- 当前普通时序宏、RunId、执行阶段、迭代和步骤；
-- 当前并行 Held Mapping；
-- 每个 Output Source 的贡献；
-- Source 是否因 UI 安全保护而暂时 Suspended；
-- 合并后的最终输出；
-- 最近停止原因 / ownership 最近变化原因。
-
-它不是断点调试器，也不会持续记录用户的普通键盘输入。
-
-### 单步执行
-
-普通时序宏新增 **单步执行**：
-
-1. 点击“单步执行”开始；
-2. 第一条步骤执行完后等待；
-3. 点击“下一步”继续；
-4. 最后一步结束后自动退出。
-
-单步模式只执行一轮，不使用步骤之间的普通 Delay 作为自动推进；每个步骤内部的 Press Hold 时间仍按原设置执行。正常“停止当前宏”和 Emergency Stop 在等待期间仍然有效。Held Mapping 不使用单步按钮，应继续通过物理触发键测试。
-
-### 安全边界
-
-- 修改正在活动的 Held Mapping 的关键定义（触发方式、触发键、循环方式、步骤、禁用、删除等）时，会先停止该映射，再修改配置，避免“界面定义已经变化、旧输出 Source 还活着”。
-- UI 编辑保护现在只 Suspend 普通宏自己的 Source；其他并行 Held Mapping 的手柄贡献不会因为普通宏暂停而被一起清除。
-- ownership 后端发生发送失败时会 **fail closed**：清空逻辑 Source、释放已知键鼠状态并中立化虚拟手柄，然后向上报告错误。
-- 退出程序时 ownership 也作为最终清理权威，避免普通 worker 未及时结束时残留已按住输出。
-- Emergency Stop 会解除单步等待、停止普通 worker、清除所有并行映射，并再次强制中立化手柄。
-
-### Layer / 映射层
-
-Layer 已经完成下一阶段设计，但**没有在 beta.1 中启用**。这是有意的：Input Ownership 是第一次结构性并发改造，在缺少真实游戏验收前再叠加 Layer，会让问题定位困难。
-
-当前架构已经为 Layer 做好准备。拟定的第一版是 `Base + 一个活动 Layer`，只筛选 Held Mapping；切层时先移除旧层 Source，不会为切层前已经按住的键自动补触发，必须松开后重新按下。详细设计见 `docs/LAYER_DESIGN.md`。
+- 每个 Run 只清理自己的 Output Ownership Source；
+- 一个复杂 Hold 的 KeyUp/MouseUp 或 lost-KeyUp fallback 只停止对应 Run；
+- 同一数字输出被多个 Source 持有时继续使用引用所有权；
+- 如果一个 Source 已持续持有某键/按钮，另一个宏对同一输出执行 pulse/click，不会强制制造 release/repress 抖动；该 pulse 会被确定性屏蔽；
+- 同一个 `MacroDefinition` 仍最多有一个活动 Run，避免重复触发同一宏产生不可控重入；
+- 同一物理触发键对应多个宏时仍按宏列表顺序决定优先级；
+- **Single-step** 仍刻意保持独占，因为它是诊断执行模式，不是正常宏并发类别；
+- **Emergency Stop** 和退出清理始终保持全局最高优先级。
 
 ### 自动验证
 
-当前源码完整回归通过：
+beta.2 发布前完整回归通过：
 
 - 323 keyboard checks；
-- 58 idle-gamepad assertions；
+- 58 Idle Gamepad assertions；
 - 43 updater checks；
-- 23 UI-safety / diagnostics checks；
-- 348 productivity checks；
-- **303,643 output-ownership checks**；
-- 中英文 Settings、604×441 窄窗口、旧 XML 配置兼容、已保存手柄向量初始化/编辑 smoke tests。
+- 23 UI safety / diagnostics checks；
+- 351 productivity checks；
+- **303,700 Output Ownership checks**；
+- 中英文 Settings、窄窗口、旧 XML 配置兼容、已保存手柄向量初始化/编辑 smoke tests。
 
-Ownership 测试包含数字输出多来源引用、trigger max、摇杆/D-pad 冲突、后端故障 fail-closed、10,000 次随机来源操作、5 种混合来源的完整激活/释放顺序组合、实际 MainForm 路径下 `2 Held Mapping + 1 ordinary`、单步 + Emergency Stop、UI safety suspend/resume。测试使用 fake backend，**不会发送真实键鼠输入，也不会创建真实虚拟手柄**。
+新的 Ownership / Runtime 测试覆盖普通时序宏 + 多个 Advanced Hold + Parallel Held 混跑、逐 Hold 松键、独立 lost-KeyUp probe、定义修改只停止目标 Run、有限 Hold 自然完成、同输出引用所有权、pulse masking，以及混合状态 Emergency Stop。
 
-因此这些测试不能替代真实游戏验收。请重点测试：WASD 组合、Shift/Ctrl 扳机、鼠标侧键按钮、不同松开顺序、普通时序宏共存、Alt+Tab 后释放、Emergency Stop，以及多次启停后是否存在残留状态。
+Input Lab 还使用真实 `SendInput` 验证了复杂 Hold 黑盒并发：`F9 → K` 与 `F10 → Mouse X2` 两条带延迟的 Advanced Hold 同时保持；Runtime Observation 同时显示两个 `Concurrent Advanced Hold`；松开 F9 后 K 被释放而 F10/X2 继续保持；松开 F10 后 X2 再释放。进入 XInput 预检前 **18/18 checks PASS，0 failures**。
 
-虚拟手柄仍依赖 ViGEmBus；EXE 仍未签名。Beta 与 Stable 共用 `%APPDATA%\InputStitch`，请不要同时运行两个版本。
+本测试电脑仍存在间歇性的 ViGEm/XInput 环境问题：虚拟 Xbox 可以枚举，但 XInput 偶尔停留在 neutral `packet=1`。Acceptance 会把它报告为 `SUMMARY: BLOCKED` / `failures=0`，而不是伪装成产品 PASS 或误判为 InputStitch FAIL。
+
+### 仍需真实游戏验收
+
+beta.2 的下一步是重点实测新增路径，而不是机械重测没改动的底层 SendInput/ViGEm 基础兼容性：
+
+- 两个以上复杂 Hold 同时保持；
+- 复杂 Hold + 普通时序/Toggle + Parallel Held 混跑；
+- 分别松键/停止，确认只清自己的输出；
+- 一个有限复杂 Hold 与一个无限 Hold 共存；
+- 至少一次 Alt+Tab 后在后台松开多个 Hold/Held 触发键，确认 lost-KeyUp fallback 按 Source 清理；
+- 混合状态下 Emergency Stop 回到完全中立。
+
+如果这轮真实使用验收干净，下一步就是 Stable `v1.3.0`。
 
 ## English
 
-### What this beta changes
+### Main change: universal normal-macro concurrency
 
-1.3.0-beta.1 introduces InputStitch's first explicit **Input Ownership** runtime. Persistent output now belongs to independent sources and a central merge layer computes the final keyboard/mouse/virtual-controller state.
+beta.2 extends beta.1's **Input Ownership** foundation into a unified **Concurrent Macro Runtime**. Multiple distinct macros may now run at the same time instead of being limited to “multiple Held Mappings + one ordinary macro”.
 
-The practical result is that **multiple qualifying Held Mappings can remain active together while one ordinary timed macro also runs**. Releasing one mapping removes only its contribution instead of neutralizing unrelated mappings.
+Supported concurrent execution includes:
 
-Typical simultaneous mappings include WASD → left-stick directions, Shift/Ctrl → triggers, and mouse side buttons → shoulders.
+- multiple ordinary timed / Toggle macros;
+- multiple Advanced / complex Hold macros;
+- multiple state-only Parallel Held Mappings;
+- mixed keyboard, mouse and virtual-gamepad output;
+- `Down / Up / Press` sequencing;
+- fixed or random delays;
+- finite or infinite execution.
 
-### Merge rules
+Every worker-backed run has independent `RunId / SourceId / Stop / timing / progress` state. Complex Hold runs additionally snapshot their physical trigger and lost-KeyUp release probe per run, so releasing one Hold stops only that run.
 
-- **Keyboard, mouse buttons, and digital gamepad buttons:** reference ownership; output remains Down while any source owns it.
-- **Analog triggers:** maximum requested value wins.
-- **Sticks:** source X/Y vectors are summed and then normalized to the circular stick range; opposing vectors cancel naturally.
-- **D-pad:** opposite directions cancel per axis; orthogonal directions can remain together as a diagonal.
-- **Emergency Stop:** bypasses ordinary merge rules, clears every source, releases keyboard/mouse state and forces the virtual pad neutral.
+### Parallel Held vs Advanced Hold
 
-Ordinary macros, parallel Held Mappings and Idle Gamepad now share the same ownership core, so one source finishing or being UI-suspended no longer clears another source.
+Simple infinite, immediate gamepad-Down, zero-delay mappings retain the lightweight **Parallel Held Mapping** fast path.
 
-### Concurrency boundary
+Hold macros containing keyboard/mouse output, `Press/Up` sequencing, non-zero/random delay or finite execution are classified by the authoritative runtime classifier as **Concurrent Advanced Hold**. They use independent timelines but can coexist with ordinary macros, other Advanced Hold runs and Parallel Held Mappings.
 
-This beta does **not** enable arbitrary concurrent timed macros:
+Finite Hold preserves historical semantics: it may complete naturally when its configured repetitions finish; physical release stops it early only while the run is still active.
 
-- multiple qualifying Held Mappings may run together;
-- at most one ordinary Toggle/timed worker may coexist with them;
-- advanced/complex Hold workers remain exclusive;
-- duplicate physical triggers still use macro-list priority rather than launching every duplicate;
-- Emergency Stop remains absolute priority.
+### Live runtime capability display
 
-Quick Create → Held Mapping produces the intended parallel shape: supported single terminal trigger, Hold + Infinite, and immediate gamepad Down output.
+The editor's runtime/concurrency eligibility display now reads the same `MacroRuntimeClassifier` used by execution. Editing Hold/Toggle mode, infinite/finite behavior, output type, Press/Up sequencing or delay immediately updates the real runtime category instead of maintaining a separate UI rule table.
 
-### Runtime observation
+### Deterministic safety semantics
 
-Tools now includes **Runtime observation...**, a lightweight non-modal live view of active sources, each source contribution, merged output, ordinary macro RunId/phase/step, suspended state and recent stop/ownership reasons. It is not a full debugger and does not continuously record ordinary typing.
+- one run ending/stopping/failing clears only its own Output Ownership source;
+- terminal release and lost-KeyUp fallback target the matching Hold run only;
+- shared digital output keeps reference ownership;
+- pulse/click on a key/button already persistently held by another source is deterministically masked instead of forcing a release/repress bounce;
+- one active run per `MacroDefinition` remains intentional;
+- duplicate physical triggers still use macro-list priority;
+- **Single-step** remains intentionally exclusive as a diagnostic mode;
+- **Emergency Stop** and shutdown remain the global highest-priority cleanup paths.
 
-### Single-step execution
+### Verification
 
-Ordinary timed macros gain **Single-step / Next Step**. Single-step runs one iteration, pauses between steps until Next Step is pressed, and remains interruptible by normal Stop and Emergency Stop. Per-step Press hold duration is still honored; the normal automatic post-step delay is not used to advance to the next step. Hold mappings continue to be tested with their physical triggers.
+Pre-release regression passed:
 
-### Safety boundaries
+- 323 keyboard checks;
+- 58 Idle Gamepad assertions;
+- 43 updater checks;
+- 23 UI safety / diagnostics checks;
+- 351 productivity checks;
+- **303,700 Output Ownership checks**;
+- bilingual Settings, narrow-layout, legacy XML compatibility and saved gamepad-vector smoke tests.
 
-- Definition edits that would invalidate a live Held Mapping stop that mapping before mutation.
-- UI edit protection suspends only the ordinary macro source and leaves unrelated Held Mapping contributions intact.
-- Ownership backend failure fails closed and clears every logical/physical output state it can own.
-- Shutdown performs a final ownership ClearAll even if a worker did not finish within the bounded join.
-- Emergency Stop releases single-step waits, the ordinary worker and all parallel mappings.
+Input Lab also validated real-`SendInput` complex-Hold overlap: delayed `F9 → K` and `F10 → Mouse X2` Advanced Hold timelines overlap, Runtime Observation lists both as `Concurrent Advanced Hold`, releasing F9 removes only K while F10/X2 remains, and releasing F10 clears X2. All **18 pre-XInput checks PASS with 0 failures**.
 
-### Layer status
+This laptop still has an intermittent local ViGEm/XInput observation issue where the virtual Xbox enumerates but XInput may stay at neutral `packet=1`. Acceptance reports this as `SUMMARY: BLOCKED` with `failures=0`, distinct from an InputStitch product failure.
 
-Layer / Mapping Layer is **designed but intentionally deferred** until this first ownership beta receives real-game acceptance. The proposed first design is Base + one active mapping layer, scoped to Held Mapping only. Switching removes old-layer sources and does not synthesize a trigger for keys that were already held before the switch. See `docs/LAYER_DESIGN.md`.
+### Remaining real-game gate
 
-### Verification and limits
-
-The current full suite passes 323 keyboard checks, 58 idle-gamepad assertions, 43 updater checks, 23 UI-safety/diagnostic checks, 348 productivity checks and **303,643 ownership checks**, plus bilingual Settings, narrow-layout, legacy-config and gamepad-vector smoke tests.
-
-Ownership coverage includes same-output reference ownership, trigger max, stick/D-pad conflict resolution, fail-closed faults, 10,000 randomized source operations, exhaustive activation/release ordering across five mixed sources, real MainForm composition with two Held Mappings + one ordinary worker, single-step/Emergency Stop, and UI-safety suspend/resume through a fake backend. These tests send no real keyboard/mouse input and create no real virtual controller, so game acceptance still requires live testing.
-
-Virtual gamepad output still requires ViGEmBus. Executables are unsigned. Beta and Stable share `%APPDATA%\InputStitch`; do not run both at the same time.
+Focus live testing on the newly affected paths: multiple complex Holds, complex Hold + ordinary timed/Toggle + Parallel Held coexistence, independent release order, finite + infinite Hold overlap, one Alt+Tab/lost-KeyUp sample, and mixed-state Emergency Stop. If that gate is clean, the next promotion target is Stable `v1.3.0`.
 
 ## Files / 文件
 
-- `InputStitch-1.3.0-beta.1-Windows-x64.exe`
-- `InputStitch-1.3.0-beta.1-Windows-x86.exe`
-- `InputStitch-1.3.0-beta.1-Source.zip`
+- `InputStitch-1.3.0-beta.2-Windows-x64.exe`
+- `InputStitch-1.3.0-beta.2-Windows-x86.exe`
+- `InputStitch-1.3.0-beta.2-Source.zip`
 - `InputStitch-beta.xml`
 - `SHA256SUMS.txt`

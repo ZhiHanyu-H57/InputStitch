@@ -8,10 +8,10 @@ Updated: 2026-09-08
 
 **1.3.0 concurrent macro runtime and Stable promotion**
 
-Current public Beta: `v1.3.0-beta.1`
+Current public Beta: `v1.3.0-beta.2`
 Stable rollback baseline: `v1.2.0`
 
-The Input Ownership foundation from Beta 1 has now been extended locally into a **unified Concurrent Macro Runtime** planned for Stable 1.3.0. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can all run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and a single authoritative `MacroRuntimeClassifier` drives both execution eligibility and the option-B live UI classification. Layer remains deferred until after Stable 1.3.0.
+Beta 2 publishes the **unified Concurrent Macro Runtime** built on Beta 1's Input Ownership foundation. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can all run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and a single authoritative `MacroRuntimeClassifier` drives both execution eligibility and the option-B live UI classification. The remaining 1.3.0 work is targeted real-game acceptance and evidence-backed fixes only; Layer remains deferred until after Stable 1.3.0.
 
 ## Immediate work
 

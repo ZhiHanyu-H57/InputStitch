@@ -6,11 +6,11 @@ Updated: 2026-09-08
 
 ## Current version
 
-- Public Beta: `v1.3.0-beta.1`
+- Public Beta: `v1.3.0-beta.2`
 - Stable rollback baseline: `v1.2.0`
 - Branch: `main`
-- Public Beta product/runtime commit: `689b4e3ae4e0227dff1ef8de6f33901838cc0cac` (`[publish-beta] Release 1.3.0-beta.1`)
-- Current `main` contains post-Beta Concurrent Macro Runtime work intended for Stable 1.3.0; use `git log -1 --oneline` for the current code breakpoint rather than assuming the public Beta tag is current `main`.
+- Public Beta product/runtime commit: resolve `v1.3.0-beta.2` with `git rev-list -n 1 v1.3.0-beta.2`; the release tag is the source of truth.
+- Beta 2 publishes the unified Concurrent Macro Runtime intended for Stable 1.3.0; current `main` should remain at the Beta 2 release commit until evidence-backed fixes or the Stable promotion work begins.
 
 For the commit containing this handoff document itself, use:
 
@@ -70,9 +70,9 @@ The post-Beta runtime now supports concurrency across ordinary timed/Toggle macr
 
 ### Release and verification
 
-`v1.3.0-beta.1` was published as a GitHub prerelease. Stable `v1.2.0` remained `Latest`.
+`v1.3.0-beta.2` is the current GitHub prerelease and publishes the unified macro-concurrency runtime. Stable `v1.2.0` remains `Latest`; beta.1 remains historical and must not be overwritten.
 
-The release was verified locally, rebuilt from the published Source archive in an isolated temporary directory, and re-downloaded from GitHub for hash/manifest verification.
+Beta releases use the isolated `InputStitch-beta.xml` channel. The beta.2 publication workflow must verify both architectures/assets and confirm the Stable release fingerprint is unchanged before and after publishing.
 
 Immediately before this handoff, the full regression suite was run again on the **Concurrent Macro Runtime build** and passed:
 
@@ -136,7 +136,7 @@ Intentional limitations that must not be mistaken for bugs:
 - physical Hold triggers still use the existing supported terminal forms (single keyboard key, including standalone modifiers, or mouse button); modifier chords/wheel remain outside Hold-trigger semantics even though UI/manual execution can still run the macro definition;
 - same-output digital pulse/click requests do not force a bounce while another source persistently owns that output; the pulse is masked until the persistent state releases;
 - duplicate physical triggers use list priority;
-- Layer is not enabled in `1.3.0-beta.1`;
+- Layer is not enabled in `1.3.0-beta.2`;
 - Beta and Stable share `%APPDATA%\InputStitch`, so they should not run simultaneously;
 - the application still depends on ViGEmBus for virtual-controller output and the EXE is not code-signed.
 
