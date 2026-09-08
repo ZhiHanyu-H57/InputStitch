@@ -6,19 +6,22 @@ Updated: 2026-09-08
 
 ## Current milestone
 
-**1.3.x runtime ownership acceptance and hardening**
+**1.3.0 concurrent macro runtime and Stable promotion**
 
 Current public Beta: `v1.3.0-beta.1`
 Stable rollback baseline: `v1.2.0`
 
-The Input Ownership foundation, multi-source Held Mapping support, one-ordinary-macro coexistence, runtime observation, and single-step execution are implemented and published in Beta 1. The next decision is evidence-driven: validate this architecture in real use before stacking another structural runtime feature on top of it.
+The Input Ownership foundation, multi-source Held Mapping support, one-ordinary-macro coexistence, runtime observation, and single-step execution are implemented and published in Beta 1. The highest-priority remaining 1.3.0 capability is now **Concurrent Macro Runtime**: multiple independent ordinary timed macros must be able to run at the same time instead of sharing one global worker. Layer is explicitly deferred until after Stable 1.3.0 unless the roadmap is changed again.
 
 ## Immediate work
 
-1. Real-use acceptance of `v1.3.0-beta.1`.
-2. Fix any ownership, release, merge, observation, or coexistence defects found in that testing.
-3. Publish `1.3.0-beta.2` only if another public hardening cycle is actually needed.
-4. After ownership behavior is accepted as stable, begin the first Layer implementation defined in `docs/LAYER_DESIGN.md`.
+1. Add the agreed "parallel/concurrency eligibility" UI feedback (option B): keep macros freely editable, but show the runtime category and why a macro is or is not eligible for the parallel Held path.
+2. Design and implement the first Concurrent Macro Runtime: multiple distinct ordinary timed macros may run concurrently, each with its own RunId/SourceId/stop/timing state, while continuing to use the shared Output Ownership merger.
+3. The 1.3.0 concurrency target must support ordinary one-shot/timed macros with keyboard, mouse and virtual-gamepad steps, non-zero delays, press-to-start behavior, and finite repeat counts, while coexisting with existing parallel Held Mappings.
+4. Define deterministic behavior for overlapping digital state vs edge/pulse requests before declaring the feature complete; do not hide ambiguous same-key/same-button interactions behind thread scheduling.
+5. Extend automated regression and Input Lab acceptance for multiple timed workers, independent cleanup, stop/Emergency Stop, release order, mixed keyboard/mouse/gamepad output, and coexistence with Held Mapping sources.
+6. Run targeted real-game acceptance for the newly affected concurrency/release paths and fix evidence-backed defects.
+7. When the complete regression suite, black-box acceptance, and real-use concurrency gate pass, promote directly to **Stable `v1.3.0`**. Publish another Beta only if a public hardening cycle is actually useful.
 
 ## Real-use acceptance matrix
 
@@ -47,13 +50,13 @@ Next tooling candidates are target-window message comparison, DS4/DirectInput/HI
 
 ## Gate for Layer
 
-Do **not** implement Layer merely because it is next on the roadmap. Start Layer only after the ownership Beta has enough real-use evidence that failures can be separated from Layer behavior, unless the user explicitly overrides this gate.
+Layer is no longer the next structural feature. **Concurrent Macro Runtime has higher priority and is part of the Stable 1.3.0 gate.** Do not begin Layer until Stable 1.3.0 is released and the concurrent runtime has demonstrated reliable cleanup/ownership behavior, unless the user explicitly reprioritizes it again.
 
-The planned first Layer scope remains:
+The planned first Layer scope remains documented for later work:
 
 - `Base + one active Layer`;
 - Layer affects Held Mapping eligibility first;
-- ordinary timed macro remains the single global worker;
+- it must compose with the multi-worker Concurrent Macro Runtime rather than restoring a single global worker assumption;
 - changing Layer removes old-layer sources before changing eligibility;
 - keys already physically held before a Layer switch are not synthetically re-triggered; they must be released and pressed again;
 - Emergency Stop remains above Layer selection and all mapping priority logic.

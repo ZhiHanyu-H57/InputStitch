@@ -103,11 +103,12 @@ These existing regression suites use fake/injected backends and do not create re
 
 ## Not completed yet
 
-- Real-game acceptance of the new ownership/concurrency runtime.
-- Evidence-driven fixes, if real testing exposes ownership/release/merge/observation problems.
-- Layer implementation.
+- Concurrent Macro Runtime for multiple ordinary timed macros (highest-priority unfinished 1.3.0 capability).
+- Option-B runtime-category / parallel-eligibility UI feedback.
+- Targeted real-game acceptance of the new multi-worker concurrency/release behavior and evidence-driven fixes if needed.
+- Stable 1.3.0 promotion after the concurrent runtime passes the complete regression, Input Lab and real-use gates.
+- Layer implementation after Stable 1.3.0.
 - Input Lab target-window message comparison, DS4/DirectInput/HID observation, longer soak scenarios and machine-readable report export.
-- Arbitrary parallel ordinary timed macros (not currently planned; this is an intentional boundary, not an unfinished Beta-1 task).
 
 ## Known issues / known limitations
 
@@ -131,18 +132,20 @@ Intentional limitations that must not be mistaken for bugs:
 
 ## Next step
 
-First, test `v1.3.0-beta.1` in the actual target game. The core merge/release semantics below already pass the automated black-box baseline, so the purpose of the real-game pass is to confirm game/API/foreground behavior rather than to repeat unit-test-only evidence. Focus on:
+The user has explicitly reprioritized the roadmap: **multiple concurrent ordinary timed macros are now the highest-priority feature and the final major capability gate for Stable 1.3.0. Layer is deferred until after 1.3.0.**
 
-1. WASD held in combinations and released in different orders.
-2. Shift/Ctrl trigger mappings held together with stick mappings.
-3. Mouse side-button shoulder mappings combined with the above.
-4. Two to four Held Mappings plus one ordinary timed macro.
-5. Alt+Tab / foreground changes and lost-KeyUp recovery.
-6. Runtime observation matching the actual active sources and merged state.
-7. Single-step waiting interrupted by Stop / Emergency Stop.
-8. Repeated start/stop cycles with no residual input.
+Implement in this order:
 
-Before or after a runtime change, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` for the repeatable black-box baseline, then confirm important scenarios in the actual target game. If failures appear, reproduce them with the smallest mapping set possible and harden ownership/release behavior first. If this acceptance is clean, proceed to the Layer implementation described in `docs/LAYER_DESIGN.md`.
+1. Add option-B runtime-category/parallel-eligibility feedback in the macro editor. Keep free editing, but clearly identify Parallel Held Mapping vs ordinary timed macro vs advanced/exclusive Hold and explain why eligibility changes.
+2. Design the Concurrent Macro Runtime so multiple distinct ordinary timed macros have independent RunId/SourceId, worker/timing state and stop/cleanup state instead of sharing `workerThread`, `stopEvent`, `runningMacro` and related singleton fields.
+3. First stable target: concurrent press-to-start ordinary macros with keyboard, mouse and virtual-gamepad steps, non-zero delays and finite repeat counts, coexisting with any active parallel Held Mapping sources.
+4. Define deterministic same-output semantics, especially persistent digital ownership versus edge/pulse/click requests. Do not let OS thread timing accidentally define behavior.
+5. Extend Runtime Observation and Stop/Emergency Stop semantics for multiple ordinary runs; one run completing or failing must release only its own source.
+6. Extend unit/regression tests and Input Lab black-box acceptance for at least two overlapping timed macros, mixed keyboard/mouse/gamepad output, release-order permutations, one-run failure/stop, Emergency Stop, and Held + timed-worker coexistence.
+7. Run targeted real-game acceptance only for the newly affected concurrency/release behavior. Existing SendInput/ViGEm recognition does not need a full re-validation when the low-level backend is unchanged.
+8. When all existing regression suites plus the new concurrency matrix and real-use gate pass, prepare and publish **Stable `v1.3.0`**. An intermediate beta is optional, not mandatory.
+
+Before or after runtime changes, retain `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` as the existing ownership baseline so new multi-worker work cannot silently regress Held Mapping behavior.
 
 ## Important design constraints
 
@@ -152,7 +155,7 @@ Before or after a runtime change, run `powershell -NoProfile -ExecutionPolicy By
 - Emergency Stop must remain absolute priority and must be able to clear all source state.
 - Output backend failures must remain fail-closed.
 - UI safety/edit protection must not accidentally clear unrelated parallel Held Mapping sources.
-- Do not expand to arbitrary parallel timed macros without a separate explicit design and test plan.
+- Concurrent ordinary timed macros are now explicitly approved and highest priority, but implement them only with a dedicated multi-run design and regression/black-box plan; do not obtain concurrency by merely starting extra threads around singleton runtime state.
 - Preserve duplicate-trigger macro-list priority unless a new conflict model is explicitly designed.
 - Layer switch must remove old-layer ownership before changing eligibility.
 - Do not synthesize Held Mapping activation for a key that was already physically down before a Layer switch; require release + press.

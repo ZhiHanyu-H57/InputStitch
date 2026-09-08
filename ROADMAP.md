@@ -106,21 +106,23 @@ Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplica
 
 Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
 
-### Layer / 映射层 — designed, gated by real-use acceptance / 已设计，等待实测门槛
+### Concurrent Macro Runtime / 普通宏多并发 — highest priority for 1.3.0 / 1.3.0 最高优先级
 
-Layer is **not** enabled in 1.3.0-beta.1. Ownership is the first structural concurrency change and still requires real-game acceptance. Shipping a second structural runtime change in the same first Beta would make failures harder to isolate.
+The next structural runtime feature is **Concurrent Macro Runtime**, not Layer. Stable 1.3.0 should allow multiple distinct ordinary timed macros to execute concurrently while existing Held Mapping sources remain active. Each ordinary run must own an independent RunId/SourceId, timing/stop state and source-local cleanup, with final keyboard/mouse/gamepad state still resolved through Output Ownership.
 
-The proposed first Layer is `Base + one active Layer`, scoped to Held Mapping only. A layer switch removes old-layer sources, changes eligibility, and does not synthesize activation for keys that were already physically held before the switch; they must be released and pressed again. Full design: [`docs/LAYER_DESIGN.md`](docs/LAYER_DESIGN.md).
+The initial 1.3.0 target explicitly includes ordinary press-to-start macros with keyboard, mouse and virtual-gamepad steps, non-zero delays and finite repeat counts. Implementation must define deterministic semantics for overlapping state ownership and edge/pulse requests instead of relying on worker-thread scheduling accidents.
 
-Layer 已完成设计但不在 beta.1 中启用。第一版拟采用 `Base + 一个活动 Layer`，只筛选 Held Mapping；切层会先移除旧层 Source，不会对切层前已经按住的键自动补触发，必须松开后重新按下。只有 Ownership Beta 经真实游戏验收稳定后才开始实现。
+下一项结构性功能改为 **Concurrent Macro Runtime（普通宏多并发）**，优先级高于 Layer。Stable 1.3.0 的目标是允许多个不同的普通时序宏同时执行，并继续与现有 Held Mapping Source 共存；每个运行实例拥有独立 RunId/SourceId、时序/停止状态和局部清理，最终键鼠/手柄状态仍统一交给 Output Ownership 合并。
 
-### Expected 1.3.0-beta.2 / 预期下一 Beta
+### Layer / 映射层 — designed, deferred until after Stable 1.3.0 / 已设计，延后到 1.3.0 正式版之后
 
-Beta 2 is not a pre-committed feature bundle. It exists only if real-use acceptance finds ownership/release/observation problems that need another public hardening cycle. The priority is evidence-driven fixes, not adding speculative concurrency.
+Layer remains designed but is no longer the next feature. The proposed first Layer is still `Base + one active Layer`, initially scoped to Held Mapping eligibility. It must be implemented on top of the multi-worker runtime after Stable 1.3.0 rather than preserving the old single-global-worker assumption. Full design: [`docs/LAYER_DESIGN.md`](docs/LAYER_DESIGN.md).
 
-If Beta 1 passes real-use acceptance cleanly, the next substantial feature work may move directly to the Layer implementation described above. If Beta 1 exposes issues, Beta 2 remains an ownership-hardening release first.
+Layer 设计保留，但不再是下一项功能。第一版仍拟采用 `Base + 一个活动 Layer`，优先筛选 Held Mapping；Stable 1.3.0 发布并验证普通宏多并发后再实现。
 
-Beta 2 不预先绑定功能清单：若真实使用暴露 Ownership、释放或观察问题，则先做针对性修复；若 beta.1 实测稳定，再进入 Layer 实现。不会为了版本号而强行添加任意并发或复杂条件系统。
+### Additional Beta only if needed / 仅在需要时追加 Beta
+
+`1.3.0-beta.2` is not mandatory. Use another public Beta only if Concurrent Macro Runtime or ownership hardening benefits from a separate public validation cycle. If automated, black-box and targeted real-game acceptance are clean, promote directly to Stable `1.3.0` after the concurrent runtime is complete.
 
 ## Required ownership regression matrix / Ownership 必测矩阵
 
@@ -142,9 +144,10 @@ Only schedule these when repeated real use justifies them:
 
 | Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
 |---|---|---|
-| Modifier-chord Held Mapping | repeated concrete need | after ownership stability |
-| Layer / mapping layer | Beta 1 real-use ownership acceptance | next structural candidate |
-| Conditions / richer groups | clear recurring scenarios after Layer | later |
+| Concurrent ordinary timed macros | explicit user priority; required for Stable 1.3.0 | **highest / next structural feature** |
+| Modifier-chord Held Mapping | repeated concrete need | after 1.3.0 unless reprioritized |
+| Layer / mapping layer | Stable 1.3.0 concurrent runtime complete and accepted | after Stable 1.3.0 |
+| Conditions / richer groups | clear recurring scenarios after Layer/runtime maturity | later |
 | Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
 | More controller backends | ViGEm compatibility issue or mature replacement | on demand |
 | Controller Aggregation / Gamepad Router | recurring need to merge or redirect multiple physical/virtual gamepads into one game-visible controller; investigate device hiding/filter-driver integration before any implementation | future / after Layer unless explicitly prioritized |
@@ -176,11 +179,13 @@ Current / 当前：
 
 Next / 下一轮：
 
-`real-use acceptance → ownership hardening beta only if evidence requires it`
+`Concurrent Macro Runtime → multiple ordinary timed macros + existing Held sources`
 
-`ownership accepted → Layer / mapping-layer implementation`
+`automated regression + Input Lab black-box + targeted real-game concurrency acceptance`
 
-`reliability closeout → Stable 1.3.0`
+`all 1.3.0 gates pass → Stable 1.3.0`
+
+`Stable 1.3.0 accepted → Layer / mapping-layer implementation`
 
 Long-term product goal / 长期目标：
 

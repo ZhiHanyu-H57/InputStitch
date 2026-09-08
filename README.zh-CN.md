@@ -154,4 +154,4 @@ beta.4 加入暂存/验证后替换的安全配置保存与最近 5 份有效备
 
 beta.1 将旧的“单一当前宏拥有全部输出”改成显式 Source ownership。多个符合条件的 Held Mapping 可以同时保持，并与最多一个普通时序宏共存。数字输出按来源引用，扳机取最大值，摇杆向量相加后按圆形范围归一化，D-pad 同轴相反方向相互取消。“工具 → 运行观察…”可以查看活动 Source、各来源贡献和合并结果；普通时序宏新增“单步执行 / 下一步”。
 
-本 Beta 仍不开放任意普通宏并发，高级/复杂 Hold worker 保持独占，同触发键继续按宏列表顺序决定优先级，Emergency Stop 始终是全局最高优先级。Layer / 映射层已经完成设计，但刻意等到这一版 Ownership 在真实游戏中验收稳定后再实现；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。
+`v1.3.0-beta.1` 目前仍未开放任意普通宏并发，高级/复杂 Hold worker 保持独占，同触发键继续按宏列表顺序决定优先级，Emergency Stop 始终是全局最高优先级。1.3.0 当前最高优先级已改为专门的 Concurrent Macro Runtime，用于多个普通时序宏并发；Layer / 映射层设计保留，但明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。
