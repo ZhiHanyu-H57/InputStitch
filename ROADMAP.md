@@ -147,6 +147,7 @@ Only schedule these when repeated real use justifies them:
 | Conditions / richer groups | clear recurring scenarios after Layer | later |
 | Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
 | More controller backends | ViGEm compatibility issue or mature replacement | on demand |
+| Controller Aggregation / Gamepad Router | recurring need to merge or redirect multiple physical/virtual gamepads into one game-visible controller; investigate device hiding/filter-driver integration before any implementation | future / after Layer unless explicitly prioritized |
 | Installer / signing | external-user installation friction grows | on demand |
 | Project license | repository owner decides explicitly | pending |
 
