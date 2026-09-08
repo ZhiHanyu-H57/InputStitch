@@ -35,6 +35,12 @@ Prioritize:
 - Single-step + Stop / Emergency Stop while waiting;
 - repeated start/stop cycles with no stuck keyboard, mouse, trigger, stick, D-pad, or controller-button state.
 
+## Acceptance tooling
+
+A developer-only `tools/InputLab/` black-box target now covers routine keyboard, mouse and XInput acceptance without launching a real game for every iteration. Use it to inspect injected scan-code keyboard events, mouse buttons/wheel/movement, virtual Xbox buttons/triggers/sticks and exact event ordering. It reduces the cost of the ownership acceptance matrix but does **not** replace final real-game compatibility checks.
+
+Next tooling hardening candidates are Raw Input comparison, target-window message comparison, DS4/DirectInput/HID observation and scripted expected-vs-observed assertions.
+
 ## Gate for Layer
 
 Do **not** implement Layer merely because it is next on the roadmap. Start Layer only after the ownership Beta has enough real-use evidence that failures can be separated from Layer behavior, unless the user explicitly overrides this gate.

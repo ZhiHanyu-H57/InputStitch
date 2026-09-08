@@ -153,6 +153,8 @@ Not currently committed: cross-platform support, cloud sync, plugin marketplace,
 ## Testing and promotion / 测试与晋升
 
 - Keep and extend automated regression coverage.
+- Use `tools/InputLab/` for routine black-box keyboard, mouse and XInput acceptance of InputStitch output. The v0.1 tool visualizes injected keyboard/mouse events, XInput buttons/triggers/sticks and ordered event timing without changing the product runtime.
+- Input Lab reduces repeated game launches during development but does not replace final real-game compatibility validation. Future test-tool extensions may add Raw Input/message comparison, DS4/DirectInput/HID observation and scripted expected-vs-observed scenarios.
 - Replace the old mechanical “30 minutes each” rule with **scenario acceptance + long-running real use**.
 - API/output submission success never substitutes for actual desktop/game acceptance.
 - Each Beta should have one primary value goal: implement → use for real → fix evidenced problems → freeze → publish.

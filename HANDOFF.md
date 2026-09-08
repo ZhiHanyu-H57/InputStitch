@@ -9,7 +9,7 @@ Updated: 2026-09-08
 - Public Beta: `v1.3.0-beta.1`
 - Stable rollback baseline: `v1.2.0`
 - Branch: `main`
-- Last verified **code** commit: `689b4e3ae4e0227dff1ef8de6f33901838cc0cac` (`[publish-beta] Release 1.3.0-beta.1`)
+- Last verified **product/runtime** commit: `689b4e3ae4e0227dff1ef8de6f33901838cc0cac` (`[publish-beta] Release 1.3.0-beta.1`)
 - `v1.3.0-beta.1` and remote `main` were verified to point to that same code commit at release time.
 
 For the commit containing this handoff document itself, use:
@@ -24,7 +24,7 @@ This avoids a self-referential commit hash inside the file.
 
 **Input Ownership real-use acceptance / hardening.**
 
-The architecture work planned for Beta 1 is complete. Do not assume the next task is automatically “add more concurrency.” The current engineering gate is to validate the new ownership runtime under real game/use conditions, then fix evidence-backed issues before enabling Layer.
+The architecture work planned for Beta 1 is complete. Do not assume the next task is automatically “add more concurrency.” The current engineering gate is to validate the new ownership runtime under black-box/real-game use conditions, then fix evidence-backed issues before enabling Layer. A developer-only Input Lab was added to make this acceptance much cheaper and more repeatable.
 
 ## Completed
 
@@ -83,16 +83,31 @@ Immediately before this handoff, the full regression suite was run again on the 
 
 No real input or virtual device was created by the automated ownership tests.
 
+### Input Lab v0.1 developer test target
+
+- Added a standalone developer-only tool under `tools/InputLab/`; it does not modify the InputStitch runtime path.
+- Keyboard page uses `WH_KEYBOARD_LL`, highlights key state and distinguishes Windows-injected (`SendInput`) events from non-injected events.
+- Mouse page observes left/right/middle/X1/X2, wheel, position and optional movement logging with injected-event distinction.
+- XInput page polls slots 0-3 and visualizes controller buttons, D-pad, LT/RT and both stick vectors with raw/normalized values.
+- Event Log records ordered keyboard/mouse/XInput transitions with relative millisecond timestamps and useful raw details.
+- UI is split into `Keyboard`, `Mouse + XInput` and `Event log` tabs so it remains usable on the 2160x1440 laptop at 150% scaling. Keyboard rows use fixed compact spacing after live UI review.
+- `--view devices` and `--view log` can open non-default views directly for automated/manual validation.
+- Runtime smoke validation succeeded with real synthetic/virtual output paths: scan-code `SendInput` W DOWN/UP, injected X1 DOWN/UP, and a ViGEm Xbox 360 test state containing A + RB + RT 75% + left stick approximately (+0.5,+0.75).
+- The complete existing InputStitch regression suite was rerun after adding the tool and passed unchanged.
+
 ## Not completed yet
 
 - Real-game acceptance of the new ownership/concurrency runtime.
 - Evidence-driven fixes, if real testing exposes ownership/release/merge/observation problems.
 - Layer implementation.
+- Input Lab Raw Input/message comparison, DS4/DirectInput/HID observation and automated expected-vs-observed scenario assertions.
 - Arbitrary parallel ordinary timed macros (not currently planned; this is an intentional boundary, not an unfinished Beta-1 task).
 
 ## Known issues / known limitations
 
 There is no currently known automated-regression failure at this breakpoint. The important unresolved risk is **lack of sufficient real-game validation of the new structural concurrency path**.
+
+Input Lab v0.1 is intentionally not a complete game-API simulator yet: its keyboard/mouse lane is based on low-level hooks, and its controller lane is XInput. A pass in Input Lab therefore does not prove Raw Input, DirectInput/HID, GameInput, anti-cheat, privilege-boundary or game-specific compatibility.
 
 Intentional limitations that must not be mistaken for bugs:
 
@@ -117,7 +132,7 @@ First, test `v1.3.0-beta.1` in real use. Focus on:
 7. Single-step waiting interrupted by Stop / Emergency Stop.
 8. Repeated start/stop cycles with no residual input.
 
-If failures appear, reproduce them with the smallest mapping set possible and harden ownership/release behavior first. If this acceptance is clean, proceed to the Layer implementation described in `docs/LAYER_DESIGN.md`.
+Use `tools/InputLab/` first for repeatable black-box checks of output values, ordering and release behavior, then confirm important scenarios in the actual target game. If failures appear, reproduce them with the smallest mapping set possible and harden ownership/release behavior first. If this acceptance is clean, proceed to the Layer implementation described in `docs/LAYER_DESIGN.md`.
 
 ## Important design constraints
 
