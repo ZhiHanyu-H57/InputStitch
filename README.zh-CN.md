@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+**InputStitch —— Windows 精确输入映射与自动化工具**
+
 InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄宏工具，重点关注精确时序、适合游戏场景的输入方式，以及可靠的紧急停止能力。
 
 程序基于 Windows Forms 和 .NET Framework 4.7.2 构建。界面可以在 **简体中文** 与 **English** 之间即时切换，无需重启。

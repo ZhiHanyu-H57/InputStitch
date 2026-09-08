@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+**InputStitch — Precise Input Mapping & Automation for Windows**
+
 InputStitch is a lightweight visual keyboard, mouse, and virtual gamepad macro tool for Windows. It is designed for precise timing, game-friendly input, and a dependable emergency stop.
 
 The application is built with Windows Forms and .NET Framework 4.7.2. Its interface can switch instantly between **English** and **Simplified Chinese** without restarting.
