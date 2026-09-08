@@ -106,13 +106,15 @@ Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplica
 
 Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
 
-### Concurrent Macro Runtime / 普通宏多并发 — highest priority for 1.3.0 / 1.3.0 最高优先级
+### Concurrent Macro Runtime / 普通宏多并发 — implemented locally for Stable 1.3.0 / 已本地实现
 
-The next structural runtime feature is **Concurrent Macro Runtime**, not Layer. Stable 1.3.0 should allow multiple distinct ordinary timed macros to execute concurrently while existing Held Mapping sources remain active. Each ordinary run must own an independent RunId/SourceId, timing/stop state and source-local cleanup, with final keyboard/mouse/gamepad state still resolved through Output Ownership.
+The Stable 1.3.0 Concurrent Macro Runtime is now implemented on `main` pending final real-use acceptance. Multiple distinct ordinary timed/Toggle macros can execute concurrently while existing Held Mapping sources remain active. Every ordinary run has an independent RunId/SourceId, stop/timing/progress state and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
 
-The initial 1.3.0 target explicitly includes ordinary press-to-start macros with keyboard, mouse and virtual-gamepad steps, non-zero delays and finite repeat counts. Implementation must define deterministic semantics for overlapping state ownership and edge/pulse requests instead of relying on worker-thread scheduling accidents.
+The current implementation covers keyboard, mouse and virtual-gamepad steps, non-zero delays, infinite or finite ordinary runs, and exact finite repeat counts. Runtime Observation lists all active ordinary runs. The primary Run/Stop control targets the selected macro; Emergency Stop remains global. A single `MacroRuntimeClassifier` is the authority for execution category and the option-B live concurrency/eligibility UI.
 
-下一项结构性功能改为 **Concurrent Macro Runtime（普通宏多并发）**，优先级高于 Layer。Stable 1.3.0 的目标是允许多个不同的普通时序宏同时执行，并继续与现有 Held Mapping Source 共存；每个运行实例拥有独立 RunId/SourceId、时序/停止状态和局部清理，最终键鼠/手柄状态仍统一交给 Output Ownership 合并。
+Digital overlap semantics are deliberately state-first and deterministic: if one source already owns a digital key/button, another source's pulse/click on that same control does not force a release/repress bounce. The pulse run still completes independently, while the persistent owner keeps the merged control down until the last owner releases.
+
+普通宏多并发已经在 `main` 上本地实现，等待最终真实使用验收。多个不同普通时序 / Toggle 宏可同时执行，并继续与 Held Mapping Source 共存；每个运行实例拥有独立 RunId/SourceId、停止/时序/进度状态和局部清理，最终输出继续统一交给 Output Ownership 合并。
 
 ### Layer / 映射层 — designed, deferred until after Stable 1.3.0 / 已设计，延后到 1.3.0 正式版之后
 
@@ -144,7 +146,7 @@ Only schedule these when repeated real use justifies them:
 
 | Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
 |---|---|---|
-| Concurrent ordinary timed macros | explicit user priority; required for Stable 1.3.0 | **highest / next structural feature** |
+| Concurrent ordinary timed macros | implemented locally; targeted real-use acceptance remains before Stable 1.3.0 | **implemented / acceptance gate** |
 | Modifier-chord Held Mapping | repeated concrete need | after 1.3.0 unless reprioritized |
 | Layer / mapping layer | Stable 1.3.0 concurrent runtime complete and accepted | after Stable 1.3.0 |
 | Conditions / richer groups | clear recurring scenarios after Layer/runtime maturity | later |
@@ -161,7 +163,7 @@ Not currently committed: cross-platform support, cloud sync, plugin marketplace,
 - Keep and extend automated regression coverage.
 - Use `tools/InputLab/` v0.2 for routine black-box keyboard, mouse, foreground/manual Raw Input and XInput acceptance of InputStitch output. It compares low-level hook/Raw Input lanes, visualizes XInput buttons/triggers/sticks and ordered timing, and includes an isolated expected-vs-observed ownership acceptance runner.
 - Automated mode is non-activating: Raw Input uses background `INPUTSINK`, and acceptance-only injected `K`/mouse-X2 events are observed then swallowed before reaching the user's current foreground application.
-- The automated acceptance runner uses the real InputStitch ownership/runtime plus real `SendInput` and ViGEm/XInput output while isolating user configuration. A real ViGEm/XInput preflight distinguishes a local controller-stack blocker (`SUMMARY: BLOCKED`, exit code 2) from an InputStitch assertion failure. It does not substitute for real-game validation of foreground transitions, lost-KeyUp, privilege boundaries, anti-cheat, exclusive fullscreen or game-specific APIs.
+- The automated acceptance runner uses the real InputStitch ownership/runtime plus real `SendInput` and ViGEm/XInput output while isolating user configuration. The Concurrent Runtime build adds a pre-XInput keyboard+mouse overlap lane: two ordinary timed macros must overlap, Runtime Observation must list both, stopping one must leave the other active, and both injected output paths must be observed. This lane currently passes all 11 checks. A real ViGEm/XInput preflight still distinguishes the laptop's intermittent controller-stack blocker (`SUMMARY: BLOCKED`, exit code 2, `failures=0`) from an InputStitch assertion failure.
 - Future test-tool extensions may add target-window message comparison, DS4/DirectInput/HID observation, longer soak/repeated-cycle scenarios and machine-readable report export.
 - Replace the old mechanical “30 minutes each” rule with **scenario acceptance + long-running real use**.
 - API/output submission success never substitutes for actual desktop/game acceptance.
@@ -177,11 +179,13 @@ Current / 当前：
 
 `1.3.0-beta.1 — Input Ownership + multi-source Held Mapping + runtime observation + single-step`
 
+Current local / 当前本地：
+
+`1.3.0-beta.1 base + implemented Concurrent Macro Runtime + live runtime eligibility UI`
+
 Next / 下一轮：
 
-`Concurrent Macro Runtime → multiple ordinary timed macros + existing Held sources`
-
-`automated regression + Input Lab black-box + targeted real-game concurrency acceptance`
+`targeted real-game multi-run acceptance`
 
 `all 1.3.0 gates pass → Stable 1.3.0`
 

@@ -4480,6 +4480,8 @@ namespace InputStitch
         private Button toolsButton;
         private InputSinkControl inputSink;
         private Label statusLabel;
+        private Label runtimeCapabilityTitleLabel;
+        private Label runtimeCapabilityLabel;
         private Label panicHintLabel;
         private ToolTip uiToolTip;
         private ContextMenuStrip toolsMenu;
@@ -4553,28 +4555,15 @@ namespace InputStitch
         private const string IdleOutputSourceId = "idle-gamepad";
         private long outputSourceSequence;
 
-        private Thread workerThread;
-        private ManualResetEventSlim stopEvent;
-        private MacroDefinition runningMacro;
-        private volatile MacroDefinition holdControlledMacro;
-        private MacroDefinition holdReleaseProbeMacro;
-        private long holdReleaseProbeSince;
         private readonly RuntimeTrace runtimeTrace = new RuntimeTrace();
         private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
+        private readonly Dictionary<long, MacroRunRuntime> activeMacroRuns = new Dictionary<long, MacroRunRuntime>();
+        private readonly Dictionary<MacroDefinition, long> activeMacroRunByMacro = new Dictionary<MacroDefinition, long>();
         private long runSequence = 0;
-        private long activeRunId = 0;
-        private string activeOutputSourceId = "";
-        private System.Threading.AutoResetEvent stepAdvanceEvent;
-        private volatile bool activeSingleStep;
-        private volatile bool singleStepWaiting;
-        private volatile string activeRunPhase = "idle";
         private string lastRunStopReason = "none";
-        private volatile int activeIteration;
-        private volatile int activeStepIndex;
-        private volatile int activeStepCount;
-        private volatile string activeHeldText = "无";
-        private readonly Dictionary<string, InputSpec> activeHeldInputs = new Dictionary<string, InputSpec>();
+        private MacroDefinition holdReleaseProbeMacro;
+        private long holdReleaseProbeSince;
 
         public MainForm() : this(null, null, null) { }
 
@@ -5010,6 +4999,17 @@ namespace InputStitch
             suppressBox.CheckedChanged += Settings_Changed;
             triggerLayout.Controls.Add(suppressBox, 1, 2);
             triggerLayout.SetColumnSpan(suppressBox, 2);
+
+            runtimeCapabilityTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Runtime:" : "运行资格：");
+            runtimeCapabilityLabel = new Label();
+            runtimeCapabilityLabel.AutoSize = true;
+            runtimeCapabilityLabel.Dock = DockStyle.Fill;
+            runtimeCapabilityLabel.Margin = new Padding(0, 5, 0, 3);
+            runtimeCapabilityLabel.Padding = new Padding(0, 2, 0, 2);
+            runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
+            triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 3);
+            triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 3);
+            triggerLayout.SetColumnSpan(runtimeCapabilityLabel, 2);
             rightRoot.Controls.Add(triggerGroup, 0, 1);
 
             targetGroup = MakeMainGroup("目标窗口");
@@ -5389,17 +5389,18 @@ namespace InputStitch
         private void RefreshStatusForLanguage()
         {
             if (statusLabel == null) return;
-            bool alive = false;
-            string macroName = "";
-            lock (runLock)
-            {
-                alive = workerThread != null && workerThread.IsAlive;
-                macroName = runningMacro == null ? "" : runningMacro.Name;
-            }
             if (recordingActive)
+            {
                 statusLabel.Text = Localizer.Dynamic("录制中：切到目标程序进行操作；回到 InputStitch 后点击“停止录制”。");
-            else if (alive)
-                statusLabel.Text = Localizer.Dynamic("正在执行：" + macroName);
+                return;
+            }
+            int runCount = ActiveMacroRunCount();
+            if (runCount > 0)
+            {
+                statusLabel.Text = runCount == 1
+                    ? Localizer.Dynamic("正在执行：1 个宏")
+                    : (Localizer.IsEnglish ? "Running macros: " + runCount.ToString() : "正在执行的宏：" + runCount.ToString() + " 个");
+            }
             else if (manualTriggerSuspend)
                 statusLabel.Text = Localizer.Dynamic("状态：全局宏触发已暂停；紧急停止键仍有效。");
             else
@@ -5854,16 +5855,14 @@ namespace InputStitch
                 }
                 if (recordingActive) StopMacroRecording(false, true);
                 CancelCapture();
-                Thread t = null;
-                int heldMappingCount = 0;
+
+                int runCount = ActiveMacroRunCount();
+                StopAllMacroRuns("emergency-stop");
+                int heldMappingCount;
                 lock (runLock)
                 {
-                    if (stopEvent != null) stopEvent.Set();
-                    if (stepAdvanceEvent != null) stepAdvanceEvent.Set();
-                    t = workerThread;
                     heldMappingCount = activeParallelHeldMappings.Count;
                     activeParallelHeldMappings.Clear();
-                    holdControlledMacro = null;
                     holdReleaseProbeMacro = null;
                     holdReleaseProbeSince = 0;
                 }
@@ -5874,12 +5873,12 @@ namespace InputStitch
                 // backend that failed after ownership bookkeeping was already cleared.
                 GamepadOutput.NeutralizeAll();
                 ReconcileHookState("emergency-stop");
-                if ((t != null && t.IsAlive) || heldMappingCount != 0)
-                    statusLabel.Text = "紧急停止：已发送停止信号并释放宏按住的输入。";
+                if (runCount != 0 || heldMappingCount != 0)
+                    statusLabel.Text = "紧急停止：已向全部运行实例发送停止信号并释放受管输入。";
                 else
                     statusLabel.Text = "紧急停止：当前没有正在执行的宏。";
                 UpdateRunButton();
-                AppLog.Write("Emergency stop: " + (reason ?? "unknown"));
+                AppLog.Write("Emergency stop: " + (reason ?? "unknown") + "; runs=" + runCount.ToString() + "; held=" + heldMappingCount.ToString());
             }
             catch (Exception ex)
             {
@@ -5891,8 +5890,12 @@ namespace InputStitch
         {
             lock (runLock)
             {
-                activeHeldInputs.Clear();
-                activeHeldText = "无";
+                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                {
+                    if (runtime == null) continue;
+                    runtime.HeldInputs.Clear();
+                    runtime.HeldText = "无";
+                }
             }
         }
 
@@ -5903,32 +5906,27 @@ namespace InputStitch
             sb.AppendLine(Localizer.IsEnglish ? "Runtime observation" : "运行观察");
             sb.AppendLine(new string('-', 56));
 
-            string ordinaryName;
-            long ordinaryRunId;
-            string ordinarySource;
-            int iteration;
-            int stepIndex;
-            int stepCount;
-            string heldText;
-            bool alive;
-            bool singleStep;
-            bool stepWaiting;
-            string phase;
-            string stopReason;
+            List<string> runLines = new List<string>();
             List<string> heldMappings = new List<string>();
+            string stopReason;
             lock (runLock)
             {
-                alive = workerThread != null && workerThread.IsAlive;
-                ordinaryName = runningMacro == null ? "" : runningMacro.Name;
-                ordinaryRunId = activeRunId;
-                ordinarySource = activeOutputSourceId;
-                iteration = activeIteration;
-                stepIndex = activeStepIndex;
-                stepCount = activeStepCount;
-                heldText = activeHeldText;
-                singleStep = activeSingleStep;
-                stepWaiting = singleStepWaiting;
-                phase = activeRunPhase;
+                List<MacroRunRuntime> runs = new List<MacroRunRuntime>(activeMacroRuns.Values);
+                runs.RemoveAll(delegate(MacroRunRuntime x) { return x == null; });
+                runs.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
+                foreach (MacroRunRuntime runtime in runs)
+                {
+                    string name = runtime.OwnerMacro == null ? "?" : runtime.OwnerMacro.Name;
+                    MacroRuntimeCapability capability = runtime.Capability ?? MacroRuntimeClassifier.Classify(runtime.OwnerMacro);
+                    string line = "RunId=" + runtime.RunId.ToString() + " | " + name + " | " + runtime.SourceId +
+                        " | " + capability.CategoryText(Localizer.IsEnglish) +
+                        " | phase=" + runtime.Phase +
+                        " | iter=" + runtime.Iteration.ToString() +
+                        " | step=" + runtime.StepIndex.ToString() + "/" + runtime.StepCount.ToString() +
+                        (runtime.SingleStep ? (runtime.SingleStepWaiting ? " | SINGLE-STEP WAIT" : " | SINGLE-STEP") : "") +
+                        " | held=" + Localizer.T(runtime.HeldText);
+                    runLines.Add(line);
+                }
                 stopReason = lastRunStopReason;
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
                 {
@@ -5939,18 +5937,9 @@ namespace InputStitch
                 }
             }
 
-            sb.AppendLine(Localizer.IsEnglish ? "Ordinary macro" : "普通时序宏");
-            if (!alive)
-                sb.AppendLine("  " + (Localizer.IsEnglish ? "None" : "无"));
-            else
-            {
-                sb.AppendLine("  " + (Localizer.IsEnglish ? "Name: " : "名称：") + ordinaryName);
-                sb.AppendLine("  RunId: " + ordinaryRunId.ToString() + "  Source: " + ordinarySource);
-                sb.AppendLine("  " + (Localizer.IsEnglish ? "Mode: " : "模式：") + (singleStep ? (Localizer.IsEnglish ? "Single-step" : "单步") : (Localizer.IsEnglish ? "Timed" : "连续执行")));
-                sb.AppendLine("  " + (Localizer.IsEnglish ? "Phase: " : "阶段：") + phase + (stepWaiting ? " [WAIT NEXT]" : ""));
-                sb.AppendLine("  Iteration: " + iteration.ToString() + "  Step: " + stepIndex.ToString() + "/" + stepCount.ToString());
-                sb.AppendLine("  " + (Localizer.IsEnglish ? "Logical held: " : "逻辑按住：") + Localizer.T(heldText));
-            }
+            sb.AppendLine((Localizer.IsEnglish ? "Ordinary macro runs: " : "普通时序宏运行实例：") + runLines.Count.ToString());
+            if (runLines.Count == 0) sb.AppendLine("  " + (Localizer.IsEnglish ? "None" : "无"));
+            else foreach (string line in runLines) sb.AppendLine("  - " + line);
             sb.AppendLine("  " + (Localizer.IsEnglish ? "Last stop reason: " : "上次停止原因：") + stopReason);
 
             sb.AppendLine();
@@ -6005,13 +5994,20 @@ namespace InputStitch
             sb.AppendLine("ActiveProfile: " + (string.IsNullOrWhiteSpace(activeProfilePath) ? Localizer.T("（当前 config.xml）") : activeProfilePath));
             lock (runLock)
             {
-                bool alive = workerThread != null && workerThread.IsAlive;
-                sb.AppendLine("WorkerAlive: " + (alive ? Localizer.T("是") : Localizer.T("否")));
-                sb.AppendLine("RunId: " + activeRunId.ToString());
-                sb.AppendLine("RunningMacro: " + (runningMacro == null ? Localizer.T("无") : runningMacro.Name));
-                sb.AppendLine("Iteration: " + activeIteration.ToString());
-                sb.AppendLine("Step: " + activeStepIndex.ToString() + "/" + activeStepCount.ToString());
-                sb.AppendLine("MacroHeldInputs: " + Localizer.T(activeHeldText));
+                sb.AppendLine("MacroRunCount: " + activeMacroRuns.Count.ToString());
+                List<MacroRunRuntime> runs = new List<MacroRunRuntime>(activeMacroRuns.Values);
+                runs.RemoveAll(delegate(MacroRunRuntime x) { return x == null; });
+                runs.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
+                foreach (MacroRunRuntime runtime in runs)
+                {
+                    string name = runtime.OwnerMacro == null ? Localizer.T("无") : runtime.OwnerMacro.Name;
+                    sb.AppendLine("Run[" + runtime.RunId.ToString() + "]: " + name +
+                        " Source=" + runtime.SourceId +
+                        " Phase=" + runtime.Phase +
+                        " Iteration=" + runtime.Iteration.ToString() +
+                        " Step=" + runtime.StepIndex.ToString() + "/" + runtime.StepCount.ToString() +
+                        " Held=" + Localizer.T(runtime.HeldText));
+                }
             }
             sb.AppendLine("TriggerConflicts: " + GetTriggerConflictSummary());
             return sb.ToString();
@@ -6164,12 +6160,24 @@ namespace InputStitch
             };
         }
 
+        private bool HasActiveMacroMouseOutput()
+        {
+            lock (runLock)
+            {
+                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                {
+                    if (runtime != null && UiSafetyPolicy.HasMouseOutput(runtime.OwnerMacro)) return true;
+                }
+            }
+            return false;
+        }
+
         private void UpdateUiSafetyPauseState(bool pendingStart = false)
         {
             bool shouldPause = false;
             string reason = "";
             bool running = pendingStart || HasLiveWorker();
-            bool mouseOutput = running && UiSafetyPolicy.HasMouseOutput(runningMacro);
+            bool mouseOutput = running && (HasActiveMacroMouseOutput() || (pendingStart && UiSafetyPolicy.HasMouseOutput(SelectedMacro)));
             try
             {
                 if (config != null && config.PauseMacroInRiskyUi && NativeWindowFocus.IsCurrentProcessWindow(NativeWindowFocus.ForegroundWindow()))
@@ -6331,8 +6339,10 @@ namespace InputStitch
                 StopParallelHeldMapping(parallel, "physical-release-fallback");
             }
 
-            MacroDefinition macro = holdControlledMacro;
-            if (macro == null || macro.Trigger == null || macro.RunMode != TriggerRunMode.Hold || runningMacro != macro)
+            MacroRunRuntime holdRun;
+            lock (runLock) holdRun = GetExclusiveHoldRun_NoLock();
+            MacroDefinition macro = holdRun == null ? null : holdRun.OwnerMacro;
+            if (holdRun == null || !holdRun.HoldControlled || macro == null || macro.Trigger == null || macro.RunMode != TriggerRunMode.Hold)
             {
                 UpdateHeldReleaseProbe(null, false, 0);
                 return;
@@ -6341,8 +6351,8 @@ namespace InputStitch
             bool legacyReleased = PhysicalInputState.IsTriggerTerminalReleased(macro.Trigger);
             if (!UpdateHeldReleaseProbe(macro, legacyReleased, now)) return;
 
-            runtimeTrace.Add("hold-release-fallback", "legacy worker physical release detected without terminal KeyUp/MouseUp callback");
-            StopCurrentMacro();
+            runtimeTrace.Add("hold-release-fallback", "exclusive Hold physical release detected without terminal KeyUp/MouseUp callback");
+            StopMacro(macro, "physical-release-fallback");
         }
 
         private void ForegroundTimer_Tick(object sender, EventArgs e)
@@ -6809,6 +6819,7 @@ namespace InputStitch
         private void RefreshSteps()
         {
             UpdateTriggerSuppressionUi();
+            RefreshRuntimeCapabilityUi();
             grid.Rows.Clear();
             MacroDefinition m = SelectedMacro;
             stepHistory.Observe(m);
@@ -6900,6 +6911,8 @@ namespace InputStitch
             SaveConfig();
             if (sender == enabledBox) UpdateMacroListItem(idx);
             RefreshConflictIndicators(false);
+            RefreshRuntimeCapabilityUi();
+            UpdateRunButton();
         }
 
         private void TriggerModeBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -6924,6 +6937,24 @@ namespace InputStitch
             bool hold = m != null && m.RunMode == TriggerRunMode.Hold;
             infiniteBox.Text = hold ? Localizer.T("无限循环（松开触发键或点击停止）") : Localizer.T("无限循环（再次触发或点击停止）");
             UpdateTriggerSuppressionUi();
+            RefreshRuntimeCapabilityUi();
+        }
+
+        private void RefreshRuntimeCapabilityUi()
+        {
+            if (runtimeCapabilityLabel == null || runtimeCapabilityLabel.IsDisposed) return;
+            if (runtimeCapabilityTitleLabel != null && !runtimeCapabilityTitleLabel.IsDisposed)
+                runtimeCapabilityTitleLabel.Text = Localizer.IsEnglish ? "Runtime:" : "运行资格：";
+
+            MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(SelectedMacro);
+            runtimeCapabilityLabel.Text = capability.CategoryText(Localizer.IsEnglish) + " · " +
+                capability.ConcurrencyText(Localizer.IsEnglish) + Environment.NewLine +
+                capability.ReasonText(Localizer.IsEnglish);
+            runtimeCapabilityLabel.ForeColor = !capability.CanStart
+                ? Color.DarkOrange
+                : (capability.SupportsConcurrentExecution ? Color.ForestGreen : Color.DarkOrange);
+            if (uiToolTip != null)
+                uiToolTip.SetToolTip(runtimeCapabilityLabel, capability.ReasonText(Localizer.IsEnglish));
         }
 
         private void UpdateTriggerSuppressionUi()
@@ -6949,27 +6980,12 @@ namespace InputStitch
 
         private static bool IsHoldTriggerSupported(TriggerSpec t)
         {
-            if (t == null) return false;
-            if (t.Ctrl || t.Shift || t.Alt || t.Win) return false;
-            return t.Kind != InputKind.WheelUp && t.Kind != InputKind.WheelDown;
+            return MacroRuntimeClassifier.IsHoldTriggerSupported(t);
         }
 
-        // Parallel Held Mapping is deliberately narrower than generic Hold mode in this first
-        // ownership release. Existing timed/press/keyboard/mouse Hold macros keep the legacy
-        // single-worker path. A mapping qualifies when it is an infinite Hold whose steps are
-        // immediate gamepad Down states; Quick Create Held Mapping already produces this shape.
         private static bool IsParallelHeldMapping(MacroDefinition macro)
         {
-            if (macro == null || macro.RunMode != TriggerRunMode.Hold || !macro.Infinite ||
-                !IsHoldTriggerSupported(macro.Trigger) || macro.Steps == null || macro.Steps.Count == 0)
-                return false;
-            foreach (MacroStep step in macro.Steps)
-            {
-                if (step == null || step.Kind != InputKind.Gamepad || step.Action != MacroAction.Down ||
-                    step.DelayMs != 0 || step.RandomDelay)
-                    return false;
-            }
-            return true;
+            return MacroRuntimeClassifier.Classify(macro).Category == MacroRuntimeCategory.ParallelHeldMapping;
         }
 
         private static InputSpec InputFromStep(MacroStep step)
@@ -6996,6 +7012,8 @@ namespace InputStitch
             m.Infinite = infiniteBox.Checked;
             repeatBox.Enabled = !m.Infinite;
             SaveConfig();
+            RefreshRuntimeCapabilityUi();
+            UpdateRunButton();
         }
 
         private void OpenConfigFolderButton_Click(object sender, EventArgs e)
@@ -7377,23 +7395,27 @@ namespace InputStitch
         {
             if (recordingActive) StopMacroRecording(false, true);
             StopAllParallelHeldMappings("config-change");
-            Thread t = null;
-            lock (runLock)
+            List<Thread> threads = StopAllMacroRuns("config-change");
+            if (threads.Count == 0) return true;
+
+            statusLabel.Text = Localizer.IsEnglish
+                ? "Stopping " + threads.Count.ToString() + " macro run(s) before the configuration change..."
+                : "状态：正在停止 " + threads.Count.ToString() + " 个宏运行实例…";
+            UpdateRunButton();
+
+            Stopwatch wait = Stopwatch.StartNew();
+            foreach (Thread t in threads)
             {
-                if (workerThread != null && workerThread.IsAlive)
+                if (t == null || !t.IsAlive) continue;
+                int remaining = Math.Max(0, 1500 - (int)wait.ElapsedMilliseconds);
+                if (remaining == 0 || !t.Join(remaining))
                 {
-                    if (stopEvent != null) stopEvent.Set();
-                    if (stepAdvanceEvent != null) stepAdvanceEvent.Set();
-                    t = workerThread;
+                    LocalizedMessageBox.Show(this, "当前宏未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    statusLabel.Text = "状态：操作失败：仍有宏在停止中。";
+                    return false;
                 }
             }
-            if (t == null || !t.IsAlive) return true;
-            statusLabel.Text = "状态：正在停止当前宏…";
-            UpdateRunButton();
-            if (t.Join(1500)) return true;
-            LocalizedMessageBox.Show(this, "当前宏未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            statusLabel.Text = "状态：操作失败：当前宏仍在停止中。";
-            return false;
+            return true;
         }
 
         private void BackupCurrentConfig(string reason)
@@ -7780,7 +7802,7 @@ namespace InputStitch
             int idx = macroList.SelectedIndex;
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
-            if (runningMacro == m)
+            if (IsMacroActuallyRunning(m))
             {
                 LocalizedMessageBox.Show(this, "请先停止正在执行的宏。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
@@ -7881,6 +7903,8 @@ namespace InputStitch
                     triggerBox.Text = InputNames.FormatTrigger(macro.Trigger);
                     SaveConfig();
                     RefreshConflictIndicators(true);
+                    RefreshRuntimeCapabilityUi();
+                    UpdateRunButton();
                     if (macro.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(macro.Trigger))
                         statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。";
                 }
@@ -7913,7 +7937,7 @@ namespace InputStitch
                 captureTriggerButton.Enabled = SelectedMacro != null;
             }
             RefreshPanicUi();
-            if (!recordingActive && runningMacro == null && statusLabel != null) statusLabel.Text = "状态：空闲";
+            if (!recordingActive && !HasLiveWorker() && statusLabel != null) statusLabel.Text = "状态：空闲";
             UpdateUiSafetyPauseState();
         }
 
@@ -8048,6 +8072,8 @@ namespace InputStitch
                                 SaveConfig();
                                 CancelCapture();
                                 RefreshConflictIndicators(true);
+                                RefreshRuntimeCapabilityUi();
+                                UpdateRunButton();
                                 if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
                                     statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。";
                             });
@@ -8067,7 +8093,7 @@ namespace InputStitch
                     {
                         BeginInvoke((MethodInvoker)delegate
                         {
-                            if (!recordingActive && runningMacro == null) statusLabel.Text = "状态：空闲";
+                            if (!recordingActive && !HasLiveWorker()) statusLabel.Text = "状态：空闲";
                             if (cb != null) cb(e.Input.Clone());
                             UpdateUiSafetyPauseState();
                         });
@@ -8098,7 +8124,7 @@ namespace InputStitch
                 if (m.RunMode == TriggerRunMode.Toggle && IsMacroActuallyRunning(m))
                 {
                     runtimeTrace.Add("trigger-stop", "macro-index=" + config.Macros.IndexOf(m).ToString());
-                    try { BeginInvoke((MethodInvoker)delegate { if (IsMacroActuallyRunning(m)) StopCurrentMacro(); }); }
+                    try { BeginInvoke((MethodInvoker)delegate { if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop"); }); }
                     catch { runtimeTrace.Add("trigger-cancelled", "stop dispatch unavailable"); }
                     return ModifierSafetyPolicy.ShouldSuppressTrigger(m);
                 }
@@ -8168,14 +8194,16 @@ namespace InputStitch
                 catch { }
             }
 
-            MacroDefinition m = holdControlledMacro;
-            if (m == null || m.Trigger == null || m.RunMode != TriggerRunMode.Hold) return;
+            MacroRunRuntime holdRun;
+            lock (runLock) holdRun = GetExclusiveHoldRun_NoLock();
+            MacroDefinition m = holdRun == null ? null : holdRun.OwnerMacro;
+            if (holdRun == null || !holdRun.HoldControlled || m == null || m.Trigger == null || m.RunMode != TriggerRunMode.Hold) return;
             if (!TerminalInputMatches(m.Trigger, e.Input)) return;
             try
             {
                 BeginInvoke((MethodInvoker)delegate
                 {
-                    if (runningMacro == m && holdControlledMacro == m) StopCurrentMacro();
+                    if (IsMacroActuallyRunning(m)) StopMacro(m, "terminal-release");
                 });
             }
             catch { }
@@ -8188,11 +8216,7 @@ namespace InputStitch
 
         private bool HasLegacyHoldWorker()
         {
-            lock (runLock)
-            {
-                return workerThread != null && workerThread.IsAlive && runningMacro != null &&
-                    runningMacro.RunMode == TriggerRunMode.Hold;
-            }
+            lock (runLock) return GetExclusiveHoldRun_NoLock() != null;
         }
 
         private int ActiveParallelHeldMappingCount()
@@ -8202,13 +8226,10 @@ namespace InputStitch
 
         private void HandleOutputOwnershipFailure(Exception ex, string context)
         {
-            Thread worker = null;
+            List<Thread> workers = StopAllMacroRuns("ownership-failure");
             lock (runLock)
             {
-                if (stopEvent != null) stopEvent.Set();
-                worker = workerThread;
                 activeParallelHeldMappings.Clear();
-                holdControlledMacro = null;
                 holdReleaseProbeMacro = null;
                 holdReleaseProbeSince = 0;
             }
@@ -8216,7 +8237,7 @@ namespace InputStitch
             runtimeTrace.Add("ownership-failure", (context ?? "unknown") + "; " + (ex == null ? "unknown error" : ex.Message));
             AppLog.Write("Output ownership failed: " + (context ?? "unknown"), ex);
             SetStatusSafe(Localizer.IsEnglish ? "Output ownership failed; all owned outputs were released." : "输出所有权处理失败：已释放全部受管输出。");
-            if (worker != null && worker.IsAlive) UpdateRunButtonSafe();
+            if (workers.Count != 0) UpdateRunButtonSafe();
         }
 
         private void StartParallelHeldMapping(MacroDefinition macro)
@@ -8328,14 +8349,14 @@ namespace InputStitch
                 StartParallelHeldMapping(m);
                 return;
             }
-            if (runningMacro == m && holdControlledMacro == m) return;
+            if (IsMacroActuallyRunning(m)) return;
             StartMacro(m, 0, null, true);
         }
 
         private void ToggleMacroFromHotkey(MacroDefinition m)
         {
             if (m == null) return;
-            if (IsMacroActuallyRunning(m)) StopCurrentMacro();
+            if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop");
             else StartMacro(m, 0, m.Trigger == null ? null : m.Trigger.Clone(), false);
         }
 
@@ -8817,14 +8838,24 @@ namespace InputStitch
 
             CommitNameEdit();
 
-            // The UI Run/Stop button is a GLOBAL stop while any worker is alive. Do not key the
-            // stop decision only to the currently selected MacroDefinition: changing selection or
-            // a stale bookkeeping value must never make an active macro unreachable.
-            if (HasLiveWorker())
+            bool selectedHeldActive = false;
+            lock (runLock) selectedHeldActive = m != null && activeParallelHeldMappings.ContainsKey(m);
+            if (selectedHeldActive)
             {
-                StopCurrentMacro();
+                StopParallelHeldMapping(m, "ui-stop");
                 ReconcileHookState("ui-stop");
-                statusLabel.Text = "状态：正在停止当前宏…";
+                statusLabel.Text = Localizer.IsEnglish ? "Stopped selected Held Mapping." : "状态：已停止所选按住映射。";
+                UpdateRunButton();
+                return;
+            }
+
+            // In the multi-run runtime the primary Run button controls the selected macro only.
+            // Emergency Stop remains the global escape path for all runs.
+            if (m != null && IsMacroActuallyRunning(m))
+            {
+                StopMacro(m, "ui-stop");
+                ReconcileHookState("ui-stop");
+                statusLabel.Text = Localizer.IsEnglish ? "Stopping selected macro..." : "状态：正在停止所选宏…";
                 UpdateRunButton();
                 return;
             }
@@ -8878,25 +8909,28 @@ namespace InputStitch
             try { if (inputSink != null && inputSink.CanFocus) inputSink.Focus(); } catch { }
             UpdateUiSafetyPauseState();
 
-            System.Threading.AutoResetEvent gate = null;
-            bool running = false;
-            bool isSingleStep = false;
-            bool waiting = false;
+            MacroRunRuntime singleStepRun;
+            int activeRunCount;
             lock (runLock)
             {
-                running = workerThread != null && workerThread.IsAlive;
-                isSingleStep = activeSingleStep;
-                waiting = singleStepWaiting;
-                gate = stepAdvanceEvent;
+                singleStepRun = GetSingleStepRun_NoLock();
+                activeRunCount = activeMacroRuns.Count;
             }
-            if (running)
+            if (singleStepRun != null)
             {
-                if (isSingleStep && waiting && gate != null)
+                if (singleStepRun.SingleStepWaiting && singleStepRun.StepGate != null && !singleStepRun.Stop.IsSet)
                 {
-                    gate.Set();
+                    singleStepRun.StepGate.Set();
                     statusLabel.Text = Localizer.IsEnglish ? "Single-step: continuing to the next step..." : "单步：继续执行下一步…";
                     UpdateRunButton();
                 }
+                return;
+            }
+            if (activeRunCount != 0)
+            {
+                statusLabel.Text = Localizer.IsEnglish
+                    ? "Single-step is exclusive. Stop the other ordinary macro runs first."
+                    : "单步执行保持独占；请先停止其他普通宏运行实例。";
                 return;
             }
 
@@ -8946,20 +8980,62 @@ namespace InputStitch
             StartMacro(m, startDelay, null, false, true);
         }
 
-        private bool HasLiveWorker()
+        private MacroRunRuntime GetMacroRun_NoLock(MacroDefinition macro)
+        {
+            if (macro == null) return null;
+            long runId;
+            MacroRunRuntime runtime;
+            if (!activeMacroRunByMacro.TryGetValue(macro, out runId)) return null;
+            if (!activeMacroRuns.TryGetValue(runId, out runtime) || runtime == null) return null;
+            return runtime;
+        }
+
+        private MacroRunRuntime GetExclusiveHoldRun_NoLock()
+        {
+            foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+            {
+                if (runtime == null || runtime.Capability == null) continue;
+                if (runtime.Capability.Category == MacroRuntimeCategory.ExclusiveHold) return runtime;
+            }
+            return null;
+        }
+
+        private MacroRunRuntime GetSingleStepRun_NoLock()
+        {
+            foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+            {
+                if (runtime != null && runtime.SingleStep) return runtime;
+            }
+            return null;
+        }
+
+        private List<MacroRunRuntime> SnapshotActiveMacroRuns()
         {
             lock (runLock)
             {
-                return workerThread != null && workerThread.IsAlive;
+                List<MacroRunRuntime> result = new List<MacroRunRuntime>(activeMacroRuns.Values);
+                result.RemoveAll(delegate(MacroRunRuntime runtime) { return runtime == null; });
+                result.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
+                return result;
             }
+        }
+
+        private int ActiveMacroRunCount()
+        {
+            lock (runLock) return activeMacroRuns.Count;
+        }
+
+        private bool HasLiveWorker()
+        {
+            return ActiveMacroRunCount() != 0;
         }
 
         private bool IsMacroActuallyRunning(MacroDefinition m)
         {
             lock (runLock)
             {
-                return m != null && runningMacro == m && workerThread != null && workerThread.IsAlive &&
-                       stopEvent != null && !stopEvent.IsSet;
+                MacroRunRuntime runtime = GetMacroRun_NoLock(m);
+                return runtime != null && runtime.Stop != null && !runtime.Stop.IsSet;
             }
         }
 
@@ -9011,124 +9087,173 @@ namespace InputStitch
 
         private void StartMacro(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep)
         {
-            if (m == null) return;
-            if (m.Steps == null || m.Steps.Count == 0)
+            MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
+            if (!capability.CanStart)
             {
-                LocalizedMessageBox.Show(this, "这个宏还没有任何执行步骤。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LocalizedMessageBox.Show(this, capability.ReasonText(Localizer.IsEnglish), AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            if (m.RunMode == TriggerRunMode.Hold && HasActiveParallelHeldMappings())
-            {
-                SetStatusSafe(Localizer.IsEnglish
-                    ? "Advanced/manual Hold mode cannot overlap parallel Held Mappings. Release the mappings first."
-                    : "高级/手动按住宏暂不与并行按住映射同时运行；请先释放当前映射。" );
-                return;
-            }
-            if (idleGamepad != null) idleGamepad.SetBusy(true);
-            if (!EnsureGamepadReady(m, false)) return;
-
-            // Never overlap two worker threads. A same-macro restart must not start a new worker
-            // before the old worker's finally block completes. Because both workers would own
-            // the same MacroDefinition object, the old finally block could clear runningMacro and
-            // workerThread for the NEW worker, leaving an invisible, unstoppable macro behind.
-            Thread previous = null;
             lock (runLock)
             {
-                if (workerThread != null && workerThread.IsAlive)
+                if (GetMacroRun_NoLock(m) != null)
                 {
-                    if (stopEvent != null) stopEvent.Set();
-                    previous = workerThread;
+                    SetStatusSafe(Localizer.IsEnglish ? "This macro is already running." : "状态：这个宏已经在运行。" );
+                    return;
                 }
-                else
+                if (capability.Category == MacroRuntimeCategory.ExclusiveHold)
                 {
-                    // Defensive cleanup for stale bookkeeping after a worker has already exited.
-                    workerThread = null;
-                    stopEvent = null;
-                    runningMacro = null;
-                    holdControlledMacro = null;
-                    activeRunId = 0;
-                    activeOutputSourceId = "";
+                    if (activeMacroRuns.Count != 0 || activeParallelHeldMappings.Count != 0)
+                    {
+                        SetStatusSafe(Localizer.IsEnglish
+                            ? "Advanced Hold mode is exclusive. Stop other macros and Held Mappings first."
+                            : "高级 Hold 保持独占运行；请先停止其他宏和按住映射。" );
+                        return;
+                    }
                 }
-            }
-
-            if (previous != null && previous.IsAlive)
-            {
-                // All macro delays are stop-aware, so this should normally return almost
-                // immediately. If it does not, fail closed instead of creating a second worker.
-                if (!previous.Join(1500))
+                else if (GetExclusiveHoldRun_NoLock() != null)
                 {
-                    SetStatusSafe("状态：上一宏仍在停止中。为避免重复执行，已取消本次启动；请稍后再试。");
-                    UpdateRunButtonSafe();
+                    SetStatusSafe(Localizer.IsEnglish
+                        ? "An advanced Hold macro is active. Stop it before starting concurrent timed macros."
+                        : "当前有高级 Hold 宏正在独占运行；请先停止它再启动普通并发宏。" );
+                    return;
+                }
+                if (singleStep && activeMacroRuns.Count != 0)
+                {
+                    SetStatusSafe(Localizer.IsEnglish
+                        ? "Single-step remains exclusive among ordinary macro runs. Stop other timed macros first."
+                        : "单步执行在普通宏之间仍保持独占；请先停止其他时序宏。" );
                     return;
                 }
             }
+
+            if (idleGamepad != null) idleGamepad.SetBusy(true);
+            if (!isolatedUiHost && !EnsureGamepadReady(m, false)) return;
 
             MacroDefinition snapshot = m.Clone();
             snapshot.Name = m.Name;
             InputSender.UseScanCodeInput = config.UseScanCodeInput;
 
-            ManualResetEventSlim thisStop = new ManualResetEventSlim(false);
-            System.Threading.AutoResetEvent thisStepGate = singleStep ? new System.Threading.AutoResetEvent(false) : null;
-            Thread thisThread;
-            long thisRunId;
-            string thisSourceId;
+            MacroRunRuntime runtime = new MacroRunRuntime();
+            runtime.OwnerMacro = m;
+            runtime.Snapshot = snapshot;
+            runtime.Capability = capability;
+            runtime.Stop = new ManualResetEventSlim(false);
+            runtime.StepGate = singleStep ? new System.Threading.AutoResetEvent(false) : null;
+            runtime.HoldControlled = holdControlled;
+            runtime.SingleStep = singleStep;
+            runtime.SingleStepWaiting = false;
+            runtime.Phase = singleStep ? "single-step-start" : "starting";
+            runtime.StopReason = "running";
+            runtime.StepCount = snapshot.Steps == null ? 0 : snapshot.Steps.Count;
 
             lock (runLock)
             {
-                // A second request could only arrive through the UI queue, but keep this guard so
-                // the lifecycle remains correct if StartMacro is called from elsewhere later.
-                if (workerThread != null && workerThread.IsAlive)
+                // Re-check under the same lock that installs the run so UI/hotkey requests can never
+                // create two instances of the same MacroDefinition or overlap an exclusive Hold.
+                if (GetMacroRun_NoLock(m) != null ||
+                    (capability.Category == MacroRuntimeCategory.ExclusiveHold && (activeMacroRuns.Count != 0 || activeParallelHeldMappings.Count != 0)) ||
+                    (capability.Category != MacroRuntimeCategory.ExclusiveHold && GetExclusiveHoldRun_NoLock() != null) ||
+                    (singleStep && activeMacroRuns.Count != 0))
                 {
-                    try { thisStop.Dispose(); } catch { }
-                    try { if (thisStepGate != null) thisStepGate.Dispose(); } catch { }
-                    SetStatusSafe("状态：已有宏正在运行，未启动新的宏。");
+                    try { runtime.Stop.Dispose(); } catch { }
+                    try { if (runtime.StepGate != null) runtime.StepGate.Dispose(); } catch { }
+                    SetStatusSafe(Localizer.IsEnglish ? "Runtime state changed; this macro was not started." : "状态：运行状态已变化，本次未启动这个宏。" );
                     UpdateRunButtonSafe();
                     return;
                 }
 
-                thisRunId = ++runSequence;
-                thisSourceId = "macro:" + thisRunId.ToString();
-                activeRunId = thisRunId;
-                activeOutputSourceId = thisSourceId;
-                stepAdvanceEvent = thisStepGate;
-                activeSingleStep = singleStep;
-                singleStepWaiting = false;
-                activeRunPhase = singleStep ? "single-step-start" : "starting";
+                runtime.RunId = ++runSequence;
+                runtime.SourceId = "macro:" + runtime.RunId.ToString();
+                runtime.Thread = new Thread(new ThreadStart(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); }));
+                runtime.Thread.IsBackground = true;
+                runtime.Thread.Name = "InputStitch Worker " + runtime.RunId.ToString();
+                activeMacroRuns[runtime.RunId] = runtime;
+                activeMacroRunByMacro[m] = runtime.RunId;
                 lastRunStopReason = "running";
-                runningMacro = m;
-                holdControlledMacro = holdControlled ? m : null;
-                stopEvent = thisStop;
-                thisThread = new Thread(new ThreadStart(delegate { MacroWorker(m, snapshot, thisStop, startDelayMs, waitForReleaseTrigger, thisRunId, thisSourceId, singleStep, thisStepGate); }));
-                thisThread.IsBackground = true;
-                thisThread.Name = "InputStitch Worker " + thisRunId.ToString();
-                workerThread = thisThread;
             }
 
             UpdateUiSafetyPauseState(true);
-            runtimeTrace.Add("worker-start", "run=" + thisRunId.ToString() + "; mode=" + m.RunMode.ToString());
-            thisThread.Start();
+            runtimeTrace.Add("worker-start", "run=" + runtime.RunId.ToString() + "; source=" + runtime.SourceId + "; mode=" + m.RunMode.ToString());
+            try
+            {
+                runtime.Thread.Start();
+            }
+            catch (Exception ex)
+            {
+                lock (runLock)
+                {
+                    activeMacroRuns.Remove(runtime.RunId);
+                    long mapped;
+                    if (activeMacroRunByMacro.TryGetValue(m, out mapped) && mapped == runtime.RunId) activeMacroRunByMacro.Remove(m);
+                    lastRunStopReason = "start-error";
+                }
+                try { runtime.Stop.Dispose(); } catch { }
+                try { if (runtime.StepGate != null) runtime.StepGate.Dispose(); } catch { }
+                AppLog.Write("Macro worker start failed: " + m.Name, ex);
+                SetStatusSafe(Localizer.IsEnglish ? "Failed to start macro: " + ex.Message : "宏启动失败：" + ex.Message);
+            }
             UpdateRunButton();
+        }
+
+        private void RequestStopMacroRun_NoLock(MacroRunRuntime runtime, string reason)
+        {
+            if (runtime == null || runtime.Stop == null) return;
+            string resolved = string.IsNullOrWhiteSpace(reason) ? "stop-request" : reason;
+            if (!runtime.Stop.IsSet) runtimeTrace.Add("stop-request", "run=" + runtime.RunId.ToString() + "; reason=" + resolved);
+            runtime.StopReason = resolved;
+            runtime.Phase = "stopping";
+            lastRunStopReason = resolved;
+            runtime.Stop.Set();
+            if (runtime.StepGate != null) runtime.StepGate.Set();
+        }
+
+        private void StopMacro(MacroDefinition macro, string reason)
+        {
+            if (macro == null) return;
+            lock (runLock)
+            {
+                MacroRunRuntime runtime = GetMacroRun_NoLock(macro);
+                if (runtime != null) RequestStopMacroRun_NoLock(runtime, reason);
+            }
         }
 
         private void StopCurrentMacro()
         {
-            lock (runLock) StopCurrentMacro_NoLock();
-        }
-
-        private void StopCurrentMacro_NoLock()
-        {
-            // Stop by the actual active stop event, not by UI selection or runningMacro identity.
-            if (stopEvent != null)
+            MacroDefinition selected = SelectedMacro;
+            lock (runLock)
             {
-                if (!stopEvent.IsSet) runtimeTrace.Add("stop-request", "run=" + activeRunId.ToString());
-                lastRunStopReason = "stop-request";
-                stopEvent.Set();
-                if (stepAdvanceEvent != null) stepAdvanceEvent.Set();
+                MacroRunRuntime runtime = GetMacroRun_NoLock(selected);
+                if (runtime == null && activeMacroRuns.Count == 1)
+                {
+                    foreach (MacroRunRuntime only in activeMacroRuns.Values) { runtime = only; break; }
+                }
+                if (runtime != null) RequestStopMacroRun_NoLock(runtime, "stop-request");
             }
         }
 
-        private void MacroWorker(MacroDefinition ownerMacro, MacroDefinition snapshot, ManualResetEventSlim stop, int startDelayMs, TriggerSpec waitForReleaseTrigger, long runId, string sourceId, bool singleStep, System.Threading.AutoResetEvent stepGate)
+        private List<Thread> StopAllMacroRuns(string reason)
         {
+            List<Thread> threads = new List<Thread>();
+            lock (runLock)
+            {
+                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                {
+                    if (runtime == null) continue;
+                    RequestStopMacroRun_NoLock(runtime, reason);
+                    if (runtime.Thread != null) threads.Add(runtime.Thread);
+                }
+            }
+            return threads;
+        }
+
+        private void MacroWorker(MacroRunRuntime runtime, int startDelayMs, TriggerSpec waitForReleaseTrigger)
+        {
+            MacroDefinition snapshot = runtime.Snapshot;
+            ManualResetEventSlim stop = runtime.Stop;
+            System.Threading.AutoResetEvent stepGate = runtime.StepGate;
+            long runId = runtime.RunId;
+            string sourceId = runtime.SourceId;
+            bool singleStep = runtime.SingleStep;
             Dictionary<string, InputSpec> held = new Dictionary<string, InputSpec>();
             List<MacroStep> steps = new List<MacroStep>();
             foreach (MacroStep original in snapshot.Steps) steps.Add(original.Clone());
@@ -9143,14 +9268,15 @@ namespace InputStitch
 
             lock (runLock)
             {
-                if (activeRunId == runId)
+                MacroRunRuntime current;
+                if (activeMacroRuns.TryGetValue(runId, out current) && object.ReferenceEquals(current, runtime))
                 {
-                    activeRunPhase = singleStep ? "single-step-running" : "running";
-                    activeIteration = 0;
-                    activeStepIndex = 0;
-                    activeStepCount = steps.Count;
-                    activeHeldInputs.Clear();
-                    activeHeldText = "无";
+                    runtime.Phase = singleStep ? "single-step-running" : "running";
+                    runtime.Iteration = 0;
+                    runtime.StepIndex = 0;
+                    runtime.StepCount = steps.Count;
+                    runtime.HeldInputs.Clear();
+                    runtime.HeldText = "无";
                 }
             }
 
@@ -9158,13 +9284,13 @@ namespace InputStitch
             {
                 if (waitForReleaseTrigger != null)
                 {
-                    SetStatusSafe("准备执行：" + macroName + "（等待触发键松开）");
+                    SetMacroRunStatusSafe(runtime, "准备执行：" + macroName + "（等待触发键松开）");
                     if (WaitForTriggerReleaseStable(stop, waitForReleaseTrigger, PhysicalReleaseSettleMs)) return;
                 }
 
                 if (startDelayMs > 0)
                 {
-                    SetStatusSafe("准备执行：" + macroName + "（等待目标窗口稳定 " + startDelayMs.ToString() + " ms）");
+                    SetMacroRunStatusSafe(runtime, "准备执行：" + macroName + "（等待目标窗口稳定 " + startDelayMs.ToString() + " ms）");
                     if (WaitOrStopWithUiSafety(stop, startDelayMs, macroName, held, sourceId)) return;
                 }
 
@@ -9187,53 +9313,58 @@ namespace InputStitch
                     if (!infinite && iteration >= repeatCount) break;
                     iteration++;
                     bool producedOutput = false;
-                    lock (runLock) if (activeRunId == runId) activeIteration = iteration;
+                    lock (runLock) runtime.Iteration = iteration;
                     int statusTick = Environment.TickCount;
                     if (iteration == 1 || unchecked(statusTick - lastStatusTick) >= 100)
                     {
                         lastStatusTick = statusTick;
-                        SetStatusSafe("正在执行：" + macroName + (infinite ? "（第 " + iteration.ToString() + " 次，无限循环）" : "（" + iteration.ToString() + "/" + repeatCount.ToString() + "）"));
+                        SetMacroRunStatusSafe(runtime, "正在执行：" + macroName + (infinite ? "（第 " + iteration.ToString() + " 次，无限循环）" : "（" + iteration.ToString() + "/" + repeatCount.ToString() + "）"));
                     }
 
                     for (int stepIndex = 0; stepIndex < steps.Count; stepIndex++)
                     {
                         MacroStep step = steps[stepIndex];
                         if (stop.IsSet) break;
-                        if (singleStep && stepIndex > 0 && WaitForSingleStepAdvance(stop, stepGate, macroName, stepIndex, steps.Count)) break;
+                        if (singleStep && stepIndex > 0 && WaitForSingleStepAdvance(runtime, stepIndex, steps.Count)) break;
                         lock (runLock)
                         {
-                            if (activeRunId == runId)
-                            {
-                                activeRunPhase = singleStep ? "single-step-executing" : "running";
-                                activeStepIndex = stepIndex + 1;
-                                activeStepCount = steps.Count;
-                            }
+                            runtime.Phase = singleStep ? "single-step-executing" : "running";
+                            runtime.StepIndex = stepIndex + 1;
+                            runtime.StepCount = steps.Count;
                         }
 
                         InputSpec input = InputFromStep(step);
                         string key = InputKey(input);
 
                         if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) break;
-                        // Only delay a step when current physical modifiers would create a
-                        // high-confidence Windows shortcut. Shift+ordinary game input, mouse
-                        // steps, and every key-up remain immediate.
                         if (WaitForDangerousPhysicalShortcutToClear(stop, macroName, held, step, sourceId)) break;
 
                         if (step.Action == MacroAction.Press)
                         {
                             if (InputSender.IsHoldable(input))
                             {
-                                outputOwnership.SetDown(sourceId, input);
-                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                                producedOutput = true;
-                                held[key] = input.Clone();
-                                SyncActiveHeldInputs(runId, held);
+                                // State-first overlap semantics: a Press never bounces a control that
+                                // this same run already owns Down. It simply consumes its hold time and
+                                // preserves the earlier state. Across different runs, Output Ownership
+                                // likewise masks the pulse while another source still owns the control.
+                                bool alreadyHeldByThisRun = held.ContainsKey(key);
+                                if (!alreadyHeldByThisRun)
+                                {
+                                    outputOwnership.SetDown(sourceId, input);
+                                    if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
+                                    producedOutput = true;
+                                    held[key] = input.Clone();
+                                    SyncRunHeldInputs(runtime, held);
+                                }
                                 if (WaitOrStopWithUiSafety(stop, Math.Max(0, step.HoldMs), macroName, held, sourceId)) break;
-                                outputOwnership.SetUp(sourceId, input);
-                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                                producedOutput = true;
-                                held.Remove(key);
-                                SyncActiveHeldInputs(runId, held);
+                                if (!alreadyHeldByThisRun)
+                                {
+                                    outputOwnership.SetUp(sourceId, input);
+                                    if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
+                                    producedOutput = true;
+                                    held.Remove(key);
+                                    SyncRunHeldInputs(runtime, held);
+                                }
                             }
                             else
                             {
@@ -9255,7 +9386,7 @@ namespace InputStitch
                                 if (InputSender.IsHoldable(input))
                                 {
                                     held[key] = input.Clone();
-                                    SyncActiveHeldInputs(runId, held);
+                                    SyncRunHeldInputs(runtime, held);
                                 }
                             }
                         }
@@ -9265,7 +9396,7 @@ namespace InputStitch
                             if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                             producedOutput = true;
                             held.Remove(key);
-                            SyncActiveHeldInputs(runId, held);
+                            SyncRunHeldInputs(runtime, held);
                         }
 
                         if (stop.IsSet) break;
@@ -9278,8 +9409,6 @@ namespace InputStitch
 
                     if (infinite && !hasNaturalDelay && !stop.IsSet)
                     {
-                        // A held gamepad state needs no repeated report. Keep the worker
-                        // responsive without spinning at roughly one thousand iterations/sec.
                         if (WaitOrStopWithUiSafety(stop, producedOutput ? 1 : 15, macroName, held, sourceId)) break;
                     }
                 }
@@ -9297,54 +9426,48 @@ namespace InputStitch
                 try { outputOwnership.ClearSource(sourceId); }
                 catch (OutputOwnershipException ex) { HandleOutputOwnershipFailure(ex, "macro-finally"); }
                 held.Clear();
-                SyncActiveHeldInputs(runId, held);
+                SyncRunHeldInputs(runtime, held);
 
-                bool ownedActiveState = false;
+                bool removed = false;
                 lock (runLock)
                 {
-                    if (activeRunId == runId && workerThread == Thread.CurrentThread && stopEvent == stop)
+                    MacroRunRuntime current;
+                    if (activeMacroRuns.TryGetValue(runId, out current) && object.ReferenceEquals(current, runtime))
                     {
-                        ownedActiveState = true;
-                        runningMacro = null;
-                        holdControlledMacro = null;
-                        stopEvent = null;
-                        workerThread = null;
-                        activeRunId = 0;
-                        activeOutputSourceId = "";
-                        stepAdvanceEvent = null;
-                        activeSingleStep = false;
-                        singleStepWaiting = false;
-                        activeRunPhase = "idle";
-                        lastRunStopReason = executionError != null ? "error" : (stop.IsSet ? "cancelled" : "completed");
-                        activeIteration = 0;
-                        activeStepIndex = 0;
-                        activeStepCount = 0;
-                        activeHeldInputs.Clear();
-                        activeHeldText = "无";
+                        activeMacroRuns.Remove(runId);
+                        long mapped;
+                        if (runtime.OwnerMacro != null && activeMacroRunByMacro.TryGetValue(runtime.OwnerMacro, out mapped) && mapped == runId)
+                            activeMacroRunByMacro.Remove(runtime.OwnerMacro);
+                        runtime.Phase = "finished";
+                        runtime.SingleStepWaiting = false;
+                        runtime.StopReason = executionError != null ? "error" : (stop.IsSet ? runtime.StopReason : "completed");
+                        lastRunStopReason = runtime.StopReason;
+                        removed = true;
                     }
                 }
                 try { stop.Dispose(); } catch { }
                 try { if (stepGate != null) stepGate.Dispose(); } catch { }
 
                 if (idleGamepad != null) idleGamepad.NotifyActivity();
-                if (ownedActiveState)
+                if (removed)
                 {
-                    if (executionError != null) SetStatusSafe("执行出错：" + executionError);
-                    else if (HasActiveParallelHeldMappings())
-                        SetStatusSafe(Localizer.IsEnglish ? "Held mappings active: " + ActiveParallelHeldMappingCount().ToString() : "按住映射活动：" + ActiveParallelHeldMappingCount().ToString());
-                    else SetStatusSafe("状态：空闲");
+                    if (executionError != null)
+                        SetStatusSafe((Localizer.IsEnglish ? "Macro failed: " : "执行出错：") + executionError);
+                    else RefreshAggregateRunStatusSafe();
                     UpdateRunButtonSafe();
                 }
             }
         }
 
-        private bool WaitForSingleStepAdvance(ManualResetEventSlim stop, System.Threading.AutoResetEvent gate, string macroName, int completedSteps, int totalSteps)
+        private bool WaitForSingleStepAdvance(MacroRunRuntime runtime, int completedSteps, int totalSteps)
         {
-            if (stop.IsSet) return true;
+            if (runtime == null || runtime.Stop == null || runtime.Stop.IsSet) return true;
+            ManualResetEventSlim stop = runtime.Stop;
+            System.Threading.AutoResetEvent gate = runtime.StepGate;
             lock (runLock)
             {
-                singleStepWaiting = true;
-                activeRunPhase = "single-step-wait";
+                runtime.SingleStepWaiting = true;
+                runtime.Phase = "single-step-wait";
             }
             SetStatusSafe((Localizer.IsEnglish ? "Single-step: completed " : "单步：已执行 ") + completedSteps.ToString() + "/" + totalSteps.ToString() +
                 (Localizer.IsEnglish ? "; click Next Step to continue." : "；点击“下一步”继续。"));
@@ -9358,11 +9481,11 @@ namespace InputStitch
 
             lock (runLock)
             {
-                singleStepWaiting = false;
-                if (activeSingleStep) activeRunPhase = stop.IsSet ? "stopping" : "single-step-running";
+                runtime.SingleStepWaiting = false;
+                if (runtime.SingleStep) runtime.Phase = stop.IsSet ? "stopping" : "single-step-running";
             }
             UpdateRunButtonSafe();
-            if (!stop.IsSet) SetStatusSafe((Localizer.IsEnglish ? "Single-step executing: " : "单步执行：") + macroName);
+            if (!stop.IsSet) SetStatusSafe((Localizer.IsEnglish ? "Single-step executing: " : "单步执行：") + (runtime.Snapshot == null ? "" : runtime.Snapshot.Name));
             return stop.IsSet;
         }
 
@@ -9376,24 +9499,57 @@ namespace InputStitch
             return random.Next(min, max + 1);
         }
 
-        private void SyncActiveHeldInputs(long runId, Dictionary<string, InputSpec> held)
+        private void SyncRunHeldInputs(MacroRunRuntime runtime, Dictionary<string, InputSpec> held)
         {
+            if (runtime == null) return;
             lock (runLock)
             {
-                if (activeRunId != runId) return;
-                activeHeldInputs.Clear();
+                MacroRunRuntime current;
+                if (!activeMacroRuns.TryGetValue(runtime.RunId, out current) || !object.ReferenceEquals(current, runtime)) return;
+                runtime.HeldInputs.Clear();
                 List<string> names = new List<string>();
                 if (held != null)
                 {
                     foreach (KeyValuePair<string, InputSpec> pair in held)
                     {
                         if (pair.Value == null) continue;
-                        activeHeldInputs[pair.Key] = pair.Value.Clone();
+                        runtime.HeldInputs[pair.Key] = pair.Value.Clone();
                         names.Add(InputNames.FormatInput(pair.Value));
                     }
                 }
-                activeHeldText = names.Count == 0 ? "无" : string.Join(" + ", names.ToArray());
+                runtime.HeldText = names.Count == 0 ? "无" : string.Join(" + ", names.ToArray());
             }
+        }
+
+        private void SetMacroRunStatusSafe(MacroRunRuntime runtime, string singleRunText)
+        {
+            int count = ActiveMacroRunCount();
+            if (count <= 1)
+            {
+                SetStatusSafe(singleRunText);
+                return;
+            }
+            string name = runtime == null || runtime.Snapshot == null ? "" : runtime.Snapshot.Name;
+            SetStatusSafe(Localizer.IsEnglish
+                ? "Running " + count.ToString() + " macros (latest activity: " + name + ")"
+                : "正在并发执行 " + count.ToString() + " 个宏（最近活动：" + name + "）");
+        }
+
+        private void RefreshAggregateRunStatusSafe()
+        {
+            int runCount = ActiveMacroRunCount();
+            if (runCount > 0)
+            {
+                SetStatusSafe(Localizer.IsEnglish ? "Running macros: " + runCount.ToString() : "正在执行的宏：" + runCount.ToString() + " 个");
+                return;
+            }
+            int heldCount = ActiveParallelHeldMappingCount();
+            if (heldCount > 0)
+            {
+                SetStatusSafe(Localizer.IsEnglish ? "Held mappings active: " + heldCount.ToString() : "按住映射活动：" + heldCount.ToString());
+                return;
+            }
+            SetStatusSafe(Localizer.T("状态：空闲"));
         }
 
         private bool WaitForUiSafetyClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, string sourceId)
@@ -9584,56 +9740,68 @@ namespace InputStitch
         private void UpdateRunButton()
         {
             if (runButton == null || runButton.IsDisposed) return;
-            bool alive = false;
-            bool stopping = false;
-            bool singleStep = false;
-            bool stepWaiting = false;
+            MacroDefinition selected = SelectedMacro;
+            MacroRunRuntime selectedRun;
+            MacroRunRuntime singleStepRun;
+            MacroRunRuntime exclusiveRun;
+            bool selectedHeldActive;
+            int runCount;
+            int heldCount;
             lock (runLock)
             {
-                alive = workerThread != null && workerThread.IsAlive;
-                stopping = alive && stopEvent != null && stopEvent.IsSet;
-                singleStep = alive && activeSingleStep;
-                stepWaiting = singleStep && singleStepWaiting;
+                selectedRun = GetMacroRun_NoLock(selected);
+                singleStepRun = GetSingleStepRun_NoLock();
+                exclusiveRun = GetExclusiveHoldRun_NoLock();
+                selectedHeldActive = selected != null && activeParallelHeldMappings.ContainsKey(selected);
+                runCount = activeMacroRuns.Count;
+                heldCount = activeParallelHeldMappings.Count;
             }
-            if (stopping)
+
+            bool selectedStopping = selectedRun != null && selectedRun.Stop != null && selectedRun.Stop.IsSet;
+            if (selectedStopping)
             {
                 runButton.Text = Localizer.T("■ 正在停止…");
                 runButton.ForeColor = Color.DarkOrange;
                 runButton.Enabled = true;
             }
-            else if (alive)
+            else if (selectedRun != null || selectedHeldActive)
             {
-                runButton.Text = Localizer.T("■ 停止当前宏");
+                runButton.Text = Localizer.IsEnglish ? "■ Stop selected macro" : "■ 停止所选宏";
                 runButton.ForeColor = uiSafetyPauseRequested ? Color.DarkOrange : Color.Firebrick;
                 runButton.Enabled = true;
             }
             else
             {
+                bool canStart = !recordingActive && selected != null;
+                if (canStart)
+                {
+                    MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(selected);
+                    canStart = capability.CanStart;
+                    if (capability.Category == MacroRuntimeCategory.ExclusiveHold)
+                        canStart = canStart && runCount == 0 && heldCount == 0;
+                    else if (exclusiveRun != null)
+                        canStart = false;
+                }
                 runButton.Text = Localizer.T("▶ 执行所选宏");
-                runButton.Enabled = !recordingActive && SelectedMacro != null;
-                runButton.ForeColor = runButton.Enabled ? Color.ForestGreen : SystemColors.GrayText;
+                runButton.Enabled = canStart;
+                runButton.ForeColor = canStart ? Color.ForestGreen : SystemColors.GrayText;
             }
             runButton.BackColor = SystemColors.Control;
 
             if (stepRunButton != null && !stepRunButton.IsDisposed)
             {
-                if (singleStep)
+                bool singleStepStopping = singleStepRun != null && singleStepRun.Stop != null && singleStepRun.Stop.IsSet;
+                if (singleStepRun != null)
                 {
-                    stepRunButton.Text = Localizer.T(stepWaiting ? "▷ 下一步" : "▷ 正在执行…");
-                    stepRunButton.Enabled = stepWaiting && !stopping;
+                    stepRunButton.Text = Localizer.T(singleStepRun.SingleStepWaiting ? "▷ 下一步" : "▷ 正在执行…");
+                    stepRunButton.Enabled = singleStepRun.SingleStepWaiting && !singleStepStopping;
                     stepRunButton.ForeColor = stepRunButton.Enabled ? Color.RoyalBlue : SystemColors.GrayText;
-                }
-                else if (alive)
-                {
-                    stepRunButton.Text = Localizer.T("▷ 单步执行");
-                    stepRunButton.Enabled = false;
-                    stepRunButton.ForeColor = SystemColors.GrayText;
                 }
                 else
                 {
-                    MacroDefinition selected = SelectedMacro;
                     stepRunButton.Text = Localizer.T("▷ 单步执行");
-                    stepRunButton.Enabled = !recordingActive && selected != null && selected.RunMode != TriggerRunMode.Hold;
+                    stepRunButton.Enabled = !recordingActive && runCount == 0 && selected != null &&
+                        selected.RunMode != TriggerRunMode.Hold && MacroRuntimeClassifier.Classify(selected).CanStart;
                     stepRunButton.ForeColor = stepRunButton.Enabled ? Color.RoyalBlue : SystemColors.GrayText;
                 }
                 stepRunButton.BackColor = SystemColors.Control;
@@ -9689,12 +9857,17 @@ namespace InputStitch
                     foregroundTimer.Dispose();
                     foregroundTimer = null;
                 }
-                StopCurrentMacro();
-                lock (runLock) { if (stepAdvanceEvent != null) stepAdvanceEvent.Set(); }
+                List<Thread> shutdownThreads = StopAllMacroRuns("shutdown");
                 StopAllParallelHeldMappings("shutdown");
                 ForceReleaseActiveHeldInputs();
-                Thread t = workerThread;
-                if (t != null && t.IsAlive) t.Join(800);
+                Stopwatch shutdownWait = Stopwatch.StartNew();
+                foreach (Thread t in shutdownThreads)
+                {
+                    if (t == null || !t.IsAlive) continue;
+                    int remaining = Math.Max(0, 1200 - (int)shutdownWait.ElapsedMilliseconds);
+                    if (remaining == 0) break;
+                    t.Join(remaining);
+                }
                 // Ownership is the final shutdown authority. This releases keyboard/mouse state
                 // as well as the gamepad, including the rare case where a worker missed its
                 // normal finally path before the bounded join returned.

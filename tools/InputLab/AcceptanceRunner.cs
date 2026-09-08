@@ -121,6 +121,7 @@ namespace InputStitch.Tools.InputLab
             // environment blocker cannot hide useful SendInput/Raw Input evidence.
             ScenarioKeyboardRawComparison(lab, product);
             ScenarioMouseRawComparison(lab, product);
+            ScenarioConcurrentKeyboardMouseRuns(lab, product);
 
             BindVirtualXboxObservation(lab, product);
             ObservationSnapshot startup = lab.CaptureObservation();
@@ -134,6 +135,7 @@ namespace InputStitch.Tools.InputLab
             ScenarioTriggerMaximum(lab, product);
             ScenarioSharedDigitalOwnership(lab, product);
             ScenarioDPadAxisMerge(lab, product);
+            ScenarioConcurrentOrdinaryRuns(lab, product);
             ScenarioFourHeldPlusOrdinary(lab, product);
             ScenarioEmergencyStop(lab, product);
             Neutral(product, lab, "final-neutral");
@@ -338,6 +340,108 @@ namespace InputStitch.Tools.InputLab
             SleepAndPump(lab, SettleMs);
             CheckButton(lab, "D-pad cleanup Up", XInputReader.DPAD_UP, false);
             CheckButton(lab, "D-pad cleanup Right", XInputReader.DPAD_RIGHT, false);
+        }
+
+        private static void ScenarioConcurrentKeyboardMouseRuns(InputLabForm lab, MainForm product)
+        {
+            Section("Concurrent keyboard + mouse timed macros (pre-XInput)");
+            ObservationSnapshot before = lab.CaptureObservation();
+
+            Press(product, KeyEvent(Keys.F7));
+            Release(product, KeyEvent(Keys.F7));
+            Thread.Sleep(35);
+            Press(product, KeyEvent(Keys.F8));
+            Release(product, KeyEvent(Keys.F8));
+
+            ObservationSnapshot overlap;
+            bool bothDown = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                return s.KeysDown.Contains((int)Keys.K) && s.MouseButtonsDown.Contains("X2");
+            }, 1200, out overlap);
+            Check("two ordinary SendInput macros overlap", bothDown,
+                "K=" + overlap.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + overlap.MouseButtonsDown.Contains("X2").ToString());
+
+            string observation = GetRuntimeObservation(product);
+            Check("runtime observation lists concurrent F7/F8 runs before XInput preflight",
+                observation.Contains("F7 -> K timed") && observation.Contains("F8 -> X2 timed"),
+                observation.Replace("\r", " ").Replace("\n", " | "));
+
+            // Toggle only the keyboard macro off. The mouse macro must remain owned and down.
+            Press(product, KeyEvent(Keys.F7));
+            Release(product, KeyEvent(Keys.F7));
+            ObservationSnapshot afterKeyboardStop;
+            bool isolatedRelease = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                return !s.KeysDown.Contains((int)Keys.K) && s.MouseButtonsDown.Contains("X2");
+            }, 650, out afterKeyboardStop);
+            Check("stopping keyboard run leaves concurrent mouse run active", isolatedRelease,
+                "KDown=" + afterKeyboardStop.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + afterKeyboardStop.MouseButtonsDown.Contains("X2").ToString());
+
+            CheckWaitMouse(lab, "concurrent preflight mouse run releases naturally", "X2", false, 1700);
+            ObservationSnapshot after = lab.CaptureObservation();
+            Check("concurrent preflight keyboard path used injected SendInput", after.InjectedKeyboardEvents > before.InjectedKeyboardEvents,
+                "injected keyboard delta=" + (after.InjectedKeyboardEvents - before.InjectedKeyboardEvents).ToString());
+            Check("concurrent preflight mouse path used injected SendInput", after.InjectedMouseEvents > before.InjectedMouseEvents,
+                "injected mouse delta=" + (after.InjectedMouseEvents - before.InjectedMouseEvents).ToString());
+        }
+
+        private static void ScenarioConcurrentOrdinaryRuns(InputLabForm lab, MainForm product)
+        {
+            Section("Concurrent ordinary timed macros");
+            ObservationSnapshot before = lab.CaptureObservation();
+
+            Press(product, KeyEvent(Keys.F6));
+            Release(product, KeyEvent(Keys.F6));
+            Thread.Sleep(35);
+            Press(product, KeyEvent(Keys.F7));
+            Release(product, KeyEvent(Keys.F7));
+            Thread.Sleep(35);
+            Press(product, KeyEvent(Keys.F8));
+            Release(product, KeyEvent(Keys.F8));
+
+            ObservationSnapshot overlap;
+            bool allDown = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                bool a = s.XInputConnected && (s.Gamepad.wButtons & XInputReader.A) != 0;
+                bool k = s.KeysDown.Contains((int)Keys.K);
+                bool x2 = s.MouseButtonsDown.Contains("X2");
+                return a && k && x2;
+            }, 1400, out overlap);
+            Check("three ordinary timed macros overlap on real outputs", allDown,
+                "A=" + ((overlap.Gamepad.wButtons & XInputReader.A) != 0).ToString() +
+                ", K=" + overlap.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + overlap.MouseButtonsDown.Contains("X2").ToString());
+
+            string observation = GetRuntimeObservation(product);
+            Check("runtime observation lists concurrent F6/F7/F8 runs",
+                observation.Contains("F6 -> A timed") && observation.Contains("F7 -> K timed") && observation.Contains("F8 -> X2 timed"),
+                observation.Replace("\r", " ").Replace("\n", " | "));
+
+            // Toggle only F7 off while the other two ordinary macros are still inside their hold window.
+            Press(product, KeyEvent(Keys.F7));
+            Release(product, KeyEvent(Keys.F7));
+            ObservationSnapshot afterKeyboardStop;
+            bool independentStop = WaitForObservation(lab, delegate(ObservationSnapshot s)
+            {
+                bool a = s.XInputConnected && (s.Gamepad.wButtons & XInputReader.A) != 0;
+                bool kUp = !s.KeysDown.Contains((int)Keys.K);
+                bool x2 = s.MouseButtonsDown.Contains("X2");
+                return a && kUp && x2;
+            }, 700, out afterKeyboardStop);
+            Check("stopping F7 releases only K while F6/F8 remain active", independentStop,
+                "A=" + ((afterKeyboardStop.Gamepad.wButtons & XInputReader.A) != 0).ToString() +
+                ", KDown=" + afterKeyboardStop.KeysDown.Contains((int)Keys.K).ToString() +
+                ", X2=" + afterKeyboardStop.MouseButtonsDown.Contains("X2").ToString());
+
+            CheckWaitButton(lab, "concurrent F6 finishes and releases A", XInputReader.A, false, 1700);
+            CheckWaitMouse(lab, "concurrent F8 finishes and releases X2", "X2", false, 1700);
+            ObservationSnapshot after = lab.CaptureObservation();
+            Check("concurrent keyboard macro emitted injected K events", after.InjectedKeyboardEvents > before.InjectedKeyboardEvents,
+                "injected keyboard delta=" + (after.InjectedKeyboardEvents - before.InjectedKeyboardEvents).ToString());
+            Check("concurrent mouse macro emitted injected X2 events", after.InjectedMouseEvents > before.InjectedMouseEvents,
+                "injected mouse delta=" + (after.InjectedMouseEvents - before.InjectedMouseEvents).ToString());
         }
 
         private static void ScenarioFourHeldPlusOrdinary(InputLabForm lab, MainForm product)
@@ -679,9 +783,9 @@ namespace InputStitch.Tools.InputLab
             config.Macros.Add(HeldKey("I -> DPadRight", Keys.I, GamepadControl.DPadRight, 0, 0, 100));
             config.Macros.Add(HeldKey("Shift -> LT70", Keys.LShiftKey, GamepadControl.LeftTrigger, 0, 0, 70));
             config.Macros.Add(HeldMouse("X1 -> LB", InputKind.MouseX1, GamepadControl.LeftShoulder));
-            config.Macros.Add(TimedGamepadPress("F6 -> A timed", Keys.F6, GamepadControl.South, 300));
-            config.Macros.Add(TimedKeyboardPress("F7 -> K timed", Keys.F7, Keys.K, 240));
-            config.Macros.Add(TimedMousePress("F8 -> X2 timed", Keys.F8, InputKind.MouseX2, 240));
+            config.Macros.Add(TimedGamepadPress("F6 -> A timed", Keys.F6, GamepadControl.South, 900));
+            config.Macros.Add(TimedKeyboardPress("F7 -> K timed", Keys.F7, Keys.K, 900));
+            config.Macros.Add(TimedMousePress("F8 -> X2 timed", Keys.F8, InputKind.MouseX2, 900));
             return config;
         }
 

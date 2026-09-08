@@ -3,6 +3,17 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## Unreleased — Stable 1.3.0 candidate / 未发布 — 1.3.0 正式版候选
+
+- Replaced the single ordinary-macro worker state with a dedicated Concurrent Macro Runtime. Multiple distinct ordinary timed/Toggle macros can now run concurrently, each with its own RunId/SourceId, stop/timing/progress state and source-local cleanup while sharing Output Ownership.
+- Ordinary concurrent runs support keyboard, mouse and virtual-gamepad steps, non-zero delays, finite or infinite execution and exact finite repeat counts, and may coexist with parallel Held Mappings.
+- The primary Run/Stop button now targets the selected macro; Emergency Stop remains global and clears all ordinary runs + Held Mapping sources. Runtime Observation lists every active ordinary run.
+- Added one authoritative `MacroRuntimeClassifier` shared by execution and the live editor eligibility UI. Freely editing Hold/infinite/steps/delay settings immediately changes the displayed runtime category and concurrency reason without maintaining a second UI rule table.
+- Advanced/complex Hold remains exclusive for the Stable 1.3.0 scope. Same-output digital pulse/click requests are deterministic state-first: a pulse on a key/button already persistently owned by another source is masked rather than forcing a release/repress bounce.
+- Extended regression coverage to 303,677 Output Ownership checks, including three simultaneous ordinary timed runs + Held Mapping, independent one-run Stop, duplicate same-macro start rejection, same-key reference ownership/pulse masking, finite-repeat overlap and mixed Emergency Stop.
+- Extended Input Lab automated acceptance with a real-SendInput pre-XInput concurrency lane. Keyboard K + mouse X2 ordinary macros overlap, Runtime Observation must show both, stopping K must leave X2 active, and both injected paths are observed; all 11 checks pass before this laptop's existing intermittent ViGEm/XInput environment preflight currently reports `BLOCKED` with zero failures.
+- 新增普通宏多并发运行时：多个不同普通时序 / Toggle 宏可同时执行，分别拥有独立 RunId/SourceId、停止/时序/进度和局部清理，并继续与 Held Mapping 共用 Output Ownership；编辑器实时显示由同一 classifier 给出的运行类别与并发资格。完整自动回归和新增键鼠黑盒并发检查已通过，下一步只剩真实游戏中的针对性多宏并发验收。
+
 ## 1.3.0-beta.1 (pre-release / 预发布)
 
 - Introduced a central Input Ownership / merged-output runtime. Persistent output now belongs to explicit sources instead of the old single-current-macro state.

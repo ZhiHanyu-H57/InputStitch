@@ -10,7 +10,7 @@ InputStitch 是一款轻量级 Windows 可视化键盘、鼠标与虚拟手柄�
 
 ## 下载
 
-**当前正式版：v1.2.0；公开 Beta：v1.3.0-beta.1。** 正式版仍是推荐的稳定回退基线。Beta 1 首次加入 Input Ownership、多 Held Mapping 并行、轻量运行观察和普通时序宏单步执行。Beta 始终作为 GitHub prerelease 发布，不替换 Stable 的 `releases/latest` 或 `InputStitch-update.xml`。
+**当前正式版：v1.2.0；公开 Beta：v1.3.0-beta.1。** 正式版仍是推荐的稳定回退基线。Beta 1 首次加入 Input Ownership、多 Held Mapping 并行、轻量运行观察和普通时序宏单步执行。仓库当前 `main` 已领先于公开 Beta，包含面向 Stable 1.3.0 的 Concurrent Macro Runtime 候选实现；下方下载链接仍只指向已经正式发布的产物。Beta 始终作为 GitHub prerelease 发布，不替换 Stable 的 `releases/latest` 或 `InputStitch-update.xml`。
 
 Beta 与正式版目前共用配置。测试 Beta 前请退出另一版本并备份 `%APPDATA%\InputStitch`，不要同时运行两个版本。详见[开发路线和发布规则](ROADMAP.md)。
 
@@ -44,7 +44,7 @@ EXE 为便携式程序：下载后放入有写入权限的文件夹即可运行�
 - 编辑手柄步骤时显示动态虚拟手柄预览，高亮当前按键、扳机或摇杆方向
 - 为每个步骤设置按住时长和执行后间隔
 - 快捷创建“按住映射 / 定次数连按 / 顺序执行”；普通键、单独左右 Ctrl/Shift/Alt/Win 和鼠标按钮都可作为 Held Mapping 触发键
-- Input Ownership：多个符合条件的 Held Mapping 可同时保持，并与最多一个普通时序宏共存
+- Input Ownership + Concurrent Macro Runtime：当前 `main` 可同时保持多个符合条件的 Held Mapping，并并发运行多个不同的普通时序 / Toggle 宏
 - 明确的合并规则：数字输出按来源引用、扳机取最大值、摇杆向量按圆形范围合并、D-pad 对向轴相互取消
 - 轻量“运行观察”，实时查看活动 Source、各来源贡献、合并结果、普通宏步骤/阶段和停止原因
 - 普通时序宏支持“单步执行 / 下一步”
@@ -154,4 +154,4 @@ beta.4 加入暂存/验证后替换的安全配置保存与最近 5 份有效备
 
 beta.1 将旧的“单一当前宏拥有全部输出”改成显式 Source ownership。多个符合条件的 Held Mapping 可以同时保持，并与最多一个普通时序宏共存。数字输出按来源引用，扳机取最大值，摇杆向量相加后按圆形范围归一化，D-pad 同轴相反方向相互取消。“工具 → 运行观察…”可以查看活动 Source、各来源贡献和合并结果；普通时序宏新增“单步执行 / 下一步”。
 
-`v1.3.0-beta.1` 目前仍未开放任意普通宏并发，高级/复杂 Hold worker 保持独占，同触发键继续按宏列表顺序决定优先级，Emergency Stop 始终是全局最高优先级。1.3.0 当前最高优先级已改为专门的 Concurrent Macro Runtime，用于多个普通时序宏并发；Layer / 映射层设计保留，但明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。
+公开发布的 `v1.3.0-beta.1` 本身仍未开放任意普通宏并发；但当前 `main` 已实现面向 Stable 1.3.0 的 Concurrent Macro Runtime：多个不同普通时序 / Toggle 宏可以同时运行，分别拥有独立 RunId/SourceId/停止与时序状态，并可与并行 Held Mapping 共存。编辑器里的“运行资格 / 并发能力”实时提示直接来自执行时使用的同一个 classifier。Stable 1.3.0 范围内，高级/复杂 Hold worker 仍保持独占，同触发键继续按宏列表顺序决定优先级，Emergency Stop 始终是全局最高优先级。Layer / 映射层明确延后到 Stable 1.3.0 之后；详见 [Layer 设计说明](docs/LAYER_DESIGN.md)。

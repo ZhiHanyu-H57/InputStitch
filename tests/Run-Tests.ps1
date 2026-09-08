@@ -15,7 +15,7 @@ foreach($suite in @('KeyboardTests','IdleGamepadTests','ModifierSafetyPolicyTest
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
   $arguments += '/reference:'+$client
   $arguments += '/resource:'+$client+',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
-  foreach($file in @('InputStitch.cs','ReleaseInfo.cs','VirtualKeyboard.cs','IdleGamepad.cs','UpdateInstaller.cs','RuntimeDiagnostics.cs','ConfigStore.cs','StepHistory.cs','QuickCreate.cs','OutputOwnership.cs')) { $arguments += Join-Path $project $file }
+  foreach($file in @('InputStitch.cs','ReleaseInfo.cs','VirtualKeyboard.cs','IdleGamepad.cs','UpdateInstaller.cs','RuntimeDiagnostics.cs','ConfigStore.cs','StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs')) { $arguments += Join-Path $project $file }
   $arguments += Join-Path $PSScriptRoot ($suite+'.cs')
   & $compiler @arguments
   if($LASTEXITCODE -ne 0) { throw "$suite compilation failed" }

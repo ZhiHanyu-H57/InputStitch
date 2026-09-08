@@ -22,7 +22,8 @@ Automated acceptance:
 - Runs Input Lab in non-activating background mode. Raw Input uses `RIDEV_INPUTSINK`, and the acceptance-only injected `K` / mouse `X2` events are recorded by the low-level hooks and then swallowed so they do not reach the user's current foreground application.
 - Performs a ViGEm/XInput preflight using a distinctive virtual-controller report before product assertions begin. If the controller enumerates but report state does not propagate, the run returns `SUMMARY: BLOCKED` instead of misreporting dozens of InputStitch failures.
 - Produces explicit `PASS` / `FAIL` expected-vs-observed reports.
-- Covers core ownership scenarios: WASD stick merge/release order, opposing-axis cancellation, trigger maximum merge, shared digital ownership, D-pad axis conflict, four Held Mappings plus one ordinary timed macro, Emergency Stop cleanup, keyboard SendInput observation and mouse SendInput observation.
+- Covers core ownership scenarios: WASD stick merge/release order, opposing-axis cancellation, trigger maximum merge, shared digital ownership, D-pad axis conflict, Held/timed coexistence, Emergency Stop cleanup, keyboard SendInput observation and mouse SendInput observation.
+- The Stable-1.3.0 candidate adds a pre-XInput concurrent-timed lane: keyboard `K` and mouse `X2` ordinary macros must overlap, Runtime Observation must list both runs, stopping the keyboard run must leave the mouse run active, and both injected SendInput paths must be observed. A controller-backed keyboard+mouse+gamepad concurrent scenario follows when the ViGEm/XInput preflight is healthy.
 
 ## Build the viewer
 

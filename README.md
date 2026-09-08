@@ -10,7 +10,7 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 ## Download
 
-**Stable: v1.2.0. Public Beta: v1.3.0-beta.1.** Stable remains the recommended rollback baseline. Beta 1 introduces Input Ownership, simultaneous Held Mappings, lightweight runtime observation, and ordinary-macro single-step execution. Beta remains a GitHub prerelease and never replaces the Stable `releases/latest` or `InputStitch-update.xml` channel.
+**Stable: v1.2.0. Public Beta: v1.3.0-beta.1.** Stable remains the recommended rollback baseline. Beta 1 introduces Input Ownership, simultaneous Held Mappings, lightweight runtime observation, and ordinary-macro single-step execution. The repository's current `main` is ahead of the published Beta and contains the Stable-1.3.0 candidate Concurrent Macro Runtime; released download links below still point only to published artifacts. Beta remains a GitHub prerelease and never replaces the Stable `releases/latest` or `InputStitch-update.xml` channel.
 
 Beta and Stable currently share configuration. Before testing Beta, exit the other version and back up `%APPDATA%\InputStitch`. Do not run both at the same time. See [development roadmap and release policy](ROADMAP.md).
 
@@ -44,7 +44,7 @@ The executable is portable: download it, place it in a folder where you have wri
 - A live virtual-controller preview while editing, highlighting the selected button, trigger, or stick direction
 - Per-step key-hold duration and delay controls
 - Quick Create templates for Held Mapping, fixed-count repetition, and ordered sequences; standalone Ctrl/Shift/Alt/Win, normal keys, and mouse buttons can be Held Mapping triggers
-- Input Ownership: multiple qualifying Held Mappings can stay active together while one ordinary timed macro also runs
+- Input Ownership + Concurrent Macro Runtime: multiple qualifying Held Mappings and multiple distinct ordinary timed/Toggle macros can stay active together on current `main`
 - Deterministic merged output: digital reference ownership, trigger maximum, circular stick-vector merge, and D-pad opposite-axis cancellation
 - Lightweight Runtime observation for active sources, source contributions, merged state, ordinary macro step/phase, and stop reasons
 - Single-step / Next Step execution for ordinary timed macros
@@ -154,4 +154,4 @@ Beta.4 adds staged/verified configuration saves with five recent valid backups, 
 
 Beta 1 replaces the old single-owner output assumption with explicit source ownership. Qualifying Held Mappings can stay active together and one ordinary timed macro may coexist with them. Digital state uses reference ownership, triggers use the maximum requested value, sticks merge vectors with circular normalization, and opposite D-pad directions cancel per axis. Tools → **Runtime observation...** shows active sources and the merged result; ordinary timed macros also gain **Single-step / Next Step**.
 
-Arbitrary timed-macro concurrency is not yet enabled in `v1.3.0-beta.1`; Advanced/complex Hold workers remain exclusive, duplicate physical triggers still use macro-list priority, and Emergency Stop remains the absolute global clear. The next 1.3.0 priority is a dedicated Concurrent Macro Runtime for multiple ordinary timed macros. Layer / Mapping Layer remains designed but is now deferred until after Stable 1.3.0; see [the Layer design note](docs/LAYER_DESIGN.md).
+Arbitrary timed-macro concurrency is not enabled in the published `v1.3.0-beta.1`. On current `main`, the Stable-1.3.0 candidate Concurrent Macro Runtime is implemented: multiple distinct ordinary timed/Toggle macros can overlap with independent RunId/SourceId/stop/timing state and coexist with parallel Held Mappings. The editor's live runtime/concurrency eligibility display comes from the same classifier used by execution. Advanced/complex Hold workers remain exclusive for the Stable 1.3.0 scope, duplicate physical triggers still use macro-list priority, and Emergency Stop remains the absolute global clear. Layer / Mapping Layer remains deferred until after Stable 1.3.0; see [the Layer design note](docs/LAYER_DESIGN.md).

@@ -98,6 +98,16 @@ internal static class OutputOwnershipTests
         return condition();
     }
 
+    private static List<MacroRunRuntime> ActiveRuns(MainForm form)
+    {
+        return (List<MacroRunRuntime>)Call(form, "SnapshotActiveMacroRuns");
+    }
+
+    private static MacroRunRuntime ActiveSingleStepRun(MainForm form)
+    {
+        return ActiveRuns(form).FirstOrDefault(delegate(MacroRunRuntime runtime) { return runtime != null && runtime.SingleStep; });
+    }
+
     private static List<int[]> Permutations(int count)
     {
         int[] values = Enumerable.Range(0, count).ToArray();
@@ -420,9 +430,14 @@ internal static class OutputOwnershipTests
                 Check(diagonal.GamepadX == 71 && diagonal.GamepadY == 71, "ordinary worker cleanup does not neutralize Held Mapping output");
 
                 start.Invoke(form, new object[] { ordinary, 0, null, false, true });
-                Check(WaitUntil(delegate { return (bool)Field(form, "singleStepWaiting"); }, 2000), "single-step pauses after first step");
+                Check(WaitUntil(delegate
+                {
+                    MacroRunRuntime run = ActiveSingleStepRun(form);
+                    return run != null && run.SingleStepWaiting;
+                }, 2000), "single-step pauses after first step");
                 Check((int)Call(form, "ActiveParallelHeldMappingCount") == 2, "single-step wait preserves parallel Held Mappings");
-                AutoResetEvent gate = (AutoResetEvent)Field(form, "stepAdvanceEvent");
+                MacroRunRuntime singleStepRun = ActiveSingleStepRun(form);
+                AutoResetEvent gate = singleStepRun == null ? null : singleStepRun.StepGate;
                 Check(gate != null, "single-step owns an advance gate");
                 gate.Set();
                 Check(WaitUntil(delegate { return !(bool)Call(form, "HasLiveWorker"); }, 2000), "single-step completes after Next");
@@ -448,8 +463,11 @@ internal static class OutputOwnershipTests
                 Call(form, "StartParallelHeldMapping", w);
                 Call(form, "StartParallelHeldMapping", d);
                 start.Invoke(form, new object[] { ordinary, 0, null, false, true });
-                Check(WaitUntil(delegate { return (bool)Field(form, "singleStepWaiting"); }, 2000),
-                    "single-step reaches wait state before Emergency Stop test");
+                Check(WaitUntil(delegate
+                {
+                    MacroRunRuntime run = ActiveSingleStepRun(form);
+                    return run != null && run.SingleStepWaiting;
+                }, 2000), "single-step reaches wait state before Emergency Stop test");
                 Call(form, "EmergencyStop", "ownership-runtime-test");
                 Check(WaitUntil(delegate { return !(bool)Call(form, "HasLiveWorker"); }, 2000),
                     "Emergency Stop terminates single-step worker");
@@ -462,6 +480,226 @@ internal static class OutputOwnershipTests
             }
         }
         finally { try { Directory.Delete(root, true); } catch { } }
+    }
+
+    private static void ConcurrentTimedRuntimeAndOverlapSemantics()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "InputStitch-concurrent-runtime-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        FakeBackend backend = new FakeBackend();
+        MacroConfig config = new MacroConfig();
+
+        MacroDefinition timedKey = new MacroDefinition
+        {
+            Name = "Timed key A",
+            RunMode = TriggerRunMode.Toggle,
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, Action = MacroAction.Down, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, Action = MacroAction.Up, DelayMs = 0 }
+            }
+        };
+        MacroDefinition timedMouse = new MacroDefinition
+        {
+            Name = "Timed mouse X1",
+            RunMode = TriggerRunMode.Toggle,
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.MouseX1, Action = MacroAction.Down, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.MouseX1, Action = MacroAction.Up, DelayMs = 0 }
+            }
+        };
+        MacroDefinition timedStick = new MacroDefinition
+        {
+            Name = "Timed stick right",
+            RunMode = TriggerRunMode.Toggle,
+            RepeatCount = 1,
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Gamepad, Action = MacroAction.Down, GamepadControl = GamepadControl.LeftStick, GamepadX = 100, GamepadY = 0, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.Gamepad, Action = MacroAction.Up, GamepadControl = GamepadControl.LeftStick, GamepadX = 100, GamepadY = 0, DelayMs = 0 }
+            }
+        };
+        MacroDefinition heldUp = new MacroDefinition
+        {
+            Name = "Held up",
+            Infinite = true,
+            RunMode = TriggerRunMode.Hold,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.W },
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Gamepad, Action = MacroAction.Down, GamepadControl = GamepadControl.LeftStick, GamepadX = 0, GamepadY = 100, DelayMs = 0 }
+            }
+        };
+        MacroDefinition secondA = new MacroDefinition
+        {
+            Name = "Second A owner",
+            RunMode = TriggerRunMode.Toggle,
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, Action = MacroAction.Down, DelayMs = 5000 },
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, Action = MacroAction.Up, DelayMs = 0 }
+            }
+        };
+        MacroDefinition pulseA = new MacroDefinition
+        {
+            Name = "A pulse",
+            RunMode = TriggerRunMode.Toggle,
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, Action = MacroAction.Press, HoldMs = 25, DelayMs = 0 }
+            }
+        };
+        MacroDefinition finite = new MacroDefinition
+        {
+            Name = "Finite B repeat",
+            RunMode = TriggerRunMode.Toggle,
+            Infinite = false,
+            RepeatCount = 3,
+            Steps = new List<MacroStep>
+            {
+                new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.B, Action = MacroAction.Press, HoldMs = 40, DelayMs = 60 }
+            }
+        };
+        config.Macros.Add(timedKey);
+        config.Macros.Add(timedMouse);
+        config.Macros.Add(timedStick);
+        config.Macros.Add(heldUp);
+        config.Macros.Add(secondA);
+        config.Macros.Add(pulseA);
+        config.Macros.Add(finite);
+
+        try
+        {
+            using (MainForm form = new MainForm(config, root, backend))
+            {
+                MacroRuntimeCapability keyCapability = MacroRuntimeClassifier.Classify(timedKey);
+                Check(keyCapability.Category == MacroRuntimeCategory.ConcurrentTimedMacro && keyCapability.SupportsConcurrentExecution,
+                    "ordinary delayed keyboard macro is classified as concurrent timed");
+                Check(MacroRuntimeClassifier.Classify(heldUp).Category == MacroRuntimeCategory.ParallelHeldMapping,
+                    "simple Hold remains classified as Parallel Held Mapping");
+                MacroDefinition advancedHold = heldUp.Clone();
+                advancedHold.Infinite = false;
+                Check(MacroRuntimeClassifier.Classify(advancedHold).Category == MacroRuntimeCategory.ExclusiveHold,
+                    "finite Hold is classified as exclusive advanced Hold");
+
+                Label capabilityLabel = (Label)Field(form, "runtimeCapabilityLabel");
+                Check(capabilityLabel != null && capabilityLabel.Text.Contains(keyCapability.CategoryText(Localizer.IsEnglish)),
+                    "editor runtime eligibility text is driven by the authoritative classifier");
+
+                MethodInfo start = typeof(MainForm).GetMethod("StartMacro", BindingFlags.Instance | BindingFlags.NonPublic, null,
+                    new Type[] { typeof(MacroDefinition), typeof(int), typeof(TriggerSpec), typeof(bool), typeof(bool) }, null);
+                OutputOwnershipManager manager = (OutputOwnershipManager)Field(form, "outputOwnership");
+
+                Call(form, "StartParallelHeldMapping", heldUp);
+                start.Invoke(form, new object[] { timedKey, 0, null, false, false });
+                start.Invoke(form, new object[] { timedMouse, 0, null, false, false });
+                start.Invoke(form, new object[] { timedStick, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 3; }, 2000),
+                    "three distinct ordinary timed macros run concurrently");
+                Check(WaitUntil(delegate
+                {
+                    OutputOwnershipSnapshot s = manager.Snapshot();
+                    bool key = s.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; });
+                    bool mouse = s.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.MouseX1; });
+                    InputSpec stick = s.Merged.FirstOrDefault(delegate(InputSpec x) { return x.Kind == InputKind.Gamepad && x.GamepadControl == GamepadControl.LeftStick; });
+                    return key && mouse && stick != null && stick.GamepadX == 71 && stick.GamepadY == 71;
+                }, 2000), "keyboard + mouse + timed gamepad outputs merge while Held Mapping remains active");
+
+                string observation = (string)Call(form, "BuildRuntimeObservationText");
+                Check(observation.Contains("Timed key A") && observation.Contains("Timed mouse X1") && observation.Contains("Timed stick right"),
+                    "runtime observation lists every concurrent ordinary run");
+
+                Call(form, "StopMacro", timedKey, "test-stop-one");
+                Check(WaitUntil(delegate { return !IsRunning(form, timedKey) && ActiveRuns(form).Count == 2; }, 2000),
+                    "stopping one ordinary run leaves the other two alive");
+                OutputOwnershipSnapshot afterOneStop = manager.Snapshot();
+                Check(!afterOneStop.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }),
+                    "stopped run releases only its keyboard contribution");
+                Check(afterOneStop.Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.MouseX1; }),
+                    "unrelated mouse run remains active after keyboard run stops");
+                InputSpec diagonal = afterOneStop.Merged.FirstOrDefault(delegate(InputSpec x) { return x.Kind == InputKind.Gamepad && x.GamepadControl == GamepadControl.LeftStick; });
+                Check(diagonal != null && diagonal.GamepadX == 71 && diagonal.GamepadY == 71,
+                    "unrelated timed stick + Held Mapping remain merged after one run stops");
+
+                Call(form, "StopMacro", timedMouse, "test-cleanup");
+                Call(form, "StopMacro", timedStick, "test-cleanup");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "first concurrent group stops cleanly");
+                Call(form, "StopParallelHeldMapping", heldUp, "test-cleanup");
+                Check(manager.Snapshot().Merged.Count == 0, "first concurrent group cleanup returns neutral");
+
+                start.Invoke(form, new object[] { timedKey, 0, null, false, false });
+                start.Invoke(form, new object[] { timedKey, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 1 && IsRunning(form, timedKey); }, 2000),
+                    "retrigger/start request does not create a second instance of the same macro definition");
+                Call(form, "StopMacro", timedKey, "duplicate-instance-test");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "same-macro duplicate-start test cleans up");
+
+                int aDownBefore = backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; });
+                int aUpBefore = backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; });
+                start.Invoke(form, new object[] { timedKey, 0, null, false, false });
+                start.Invoke(form, new object[] { secondA, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 2 && manager.Snapshot().Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }); }, 2000),
+                    "two timed runs can own the same digital key together");
+                Check(backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }) == aDownBefore + 1,
+                    "second digital owner does not emit a duplicate physical Down edge");
+
+                Call(form, "StopMacro", timedKey, "test-first-owner-release");
+                Check(WaitUntil(delegate { return !IsRunning(form, timedKey) && IsRunning(form, secondA); }, 2000),
+                    "first same-key owner stops while second owner remains");
+                Check(manager.Snapshot().Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }),
+                    "releasing first same-key owner keeps merged key Down");
+                Check(backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }) == aUpBefore,
+                    "first same-key owner does not emit physical Up while another owner remains");
+
+                int downsBeforePulse = backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; });
+                int upsBeforePulse = backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; });
+                start.Invoke(form, new object[] { pulseA, 0, null, false, false });
+                Check(WaitUntil(delegate { return !IsRunning(form, pulseA); }, 2000), "overlapping same-key pulse completes independently");
+                Check(IsRunning(form, secondA), "persistent same-key owner survives overlapping pulse");
+                Check(backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }) == downsBeforePulse &&
+                      backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }) == upsBeforePulse,
+                    "pulse on an already-held digital control is deterministically masked instead of forcing a bounce");
+
+                Call(form, "StopMacro", secondA, "test-last-owner-release");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "last same-key owner stops");
+                Check(!manager.Snapshot().Merged.Any(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }),
+                    "last same-key owner releases merged key");
+                Check(backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.A; }) == aUpBefore + 1,
+                    "last same-key owner emits exactly one physical Up");
+
+                int bDownBefore = backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.B; });
+                int bUpBefore = backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.B; });
+                start.Invoke(form, new object[] { timedMouse, 0, null, false, false });
+                start.Invoke(form, new object[] { finite, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 2 && IsRunning(form, timedMouse) && IsRunning(form, finite); }, 1000),
+                    "finite-repeat ordinary macro overlaps another delayed ordinary macro");
+                Check(WaitUntil(delegate { return !IsRunning(form, finite) && IsRunning(form, timedMouse); }, 2500),
+                    "finite repeat macro completes independently while another timed macro remains active");
+                Check(backend.Downs.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.B; }) == bDownBefore + 3 &&
+                      backend.Ups.Count(delegate(InputSpec x) { return x.Kind == InputKind.Keyboard && x.VirtualKey == (int)Keys.B; }) == bUpBefore + 3,
+                    "finite repeat count remains exact under multi-run runtime");
+                Call(form, "StopMacro", timedMouse, "finite-overlap-cleanup");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "finite-repeat overlap cleanup completes");
+
+                Call(form, "StartParallelHeldMapping", heldUp);
+                start.Invoke(form, new object[] { timedKey, 0, null, false, false });
+                start.Invoke(form, new object[] { timedMouse, 0, null, false, false });
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 2; }, 2000), "two timed runs active before Emergency Stop");
+                Call(form, "EmergencyStop", "concurrent-runtime-test");
+                Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "Emergency Stop terminates every timed run");
+                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0, "Emergency Stop clears Held Mapping beside timed runs");
+                Check(manager.Snapshot().Merged.Count == 0, "Emergency Stop leaves concurrent runtime fully neutral");
+            }
+        }
+        finally { try { Directory.Delete(root, true); } catch { } }
+    }
+
+    private static bool IsRunning(MainForm form, MacroDefinition macro)
+    {
+        return (bool)Call(form, "IsMacroActuallyRunning", macro);
     }
 
     private static void RuntimeUiSafetyComposition()
@@ -571,6 +809,7 @@ internal static class OutputOwnershipTests
             StressOwnership();
             MixedPermutationMatrix();
             RuntimeCompositionAndSingleStep();
+            ConcurrentTimedRuntimeAndOverlapSemantics();
             RuntimeUiSafetyComposition();
             Console.WriteLine("PASS output ownership: " + checks + " checks; fake backend only, no real input or virtual device.");
             return 0;
