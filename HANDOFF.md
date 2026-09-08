@@ -10,7 +10,7 @@ Updated: 2026-09-08
 - Stable rollback baseline: `v1.2.0`
 - Branch: `main`
 - Public Beta product/runtime commit: resolve `v1.3.0-beta.2` with `git rev-list -n 1 v1.3.0-beta.2`; the release tag is the source of truth.
-- Beta 2 publishes the unified Concurrent Macro Runtime intended for Stable 1.3.0; current `main` should remain at the Beta 2 release commit until evidence-backed fixes or the Stable promotion work begins.
+- Beta 2 publishes the unified Concurrent Macro Runtime intended for Stable 1.3.0. The runtime baseline remains the `v1.3.0-beta.2` tag; `main` may move ahead for roadmap/documentation changes before evidence-backed runtime fixes or Stable promotion work begins.
 
 For the commit containing this handoff document itself, use:
 
@@ -24,7 +24,9 @@ This avoids a self-referential commit hash inside the file.
 
 **Targeted real-game acceptance for the unified Concurrent Macro Runtime, then Stable 1.3.0 promotion.**
 
-The post-Beta runtime now supports concurrency across ordinary timed/Toggle macros, Advanced/complex Hold timelines and state-only Parallel Held Mappings. Automated validation is green. The remaining engineering gate is intentionally narrow: verify this newly expanded universal-concurrency behavior in the actual target game—multiple complex Holds together, source-local Hold release, coexistence with ordinary + Parallel Held output, one Alt+Tab/lost-KeyUp sample, and mixed-state Emergency Stop. Do not mechanically re-test unchanged SendInput/ViGEm recognition. If this targeted real-use gate is clean, prepare Stable 1.3.0; Layer remains deferred until after that release.
+The post-Beta runtime now supports concurrency across ordinary timed/Toggle macros, Advanced/complex Hold timelines and state-only Parallel Held Mappings. Automated validation is green. The remaining engineering gate is intentionally narrow: verify this newly expanded universal-concurrency behavior in the actual target game—multiple complex Holds together, source-local Hold release, coexistence with ordinary + Parallel Held output, one Alt+Tab/lost-KeyUp sample, and mixed-state Emergency Stop. Do not mechanically re-test unchanged SendInput/ViGEm recognition. If this targeted real-use gate is clean, prepare Stable 1.3.0.
+
+**After Stable 1.3.0, the next highest-priority feature is Physical Gamepad Input + Hybrid Controller Routing. Layer has been reprioritized behind that track.** The first goal is Windows XInput controller buttons/D-pad/trigger thresholds as first-class InputStitch triggers; the second is controller→keyboard/mouse hybrid mapping; the third is controlled replacement/routing through one virtual gamepad with device-hiding only after a mature fail-safe approach is chosen. Full design: `docs/GAMEPAD_INPUT_ROUTING.md`.
 
 ## Completed
 
@@ -64,9 +66,21 @@ The post-Beta runtime now supports concurrency across ordinary timed/Toggle macr
 
 ### Layer preparation
 
-- Layer architecture has been designed but intentionally not enabled in Beta 1.
+- Layer architecture has been designed but is intentionally deferred behind the post-1.3 Physical Gamepad Input / Hybrid Routing track.
 - Design document: `docs/LAYER_DESIGN.md`.
 - Intended first version: `Base + one active Layer`, initially scoped to Held Mapping eligibility.
+
+### Physical Gamepad Input / Hybrid Routing — planned next after Stable 1.3.0
+
+- First input backend: Windows XInput / Xbox-class controllers.
+- First trigger scope: controller buttons + D-pad, then LT/RT threshold triggers with hysteresis; stick-region triggers are optional/later.
+- Controller triggers should reuse the existing macro runtime, so they can start keyboard, mouse, virtual-gamepad or mixed-output macros instead of creating a second execution engine.
+- The first controller→keyboard/mouse implementation is **augmentation only**: without hiding the physical device, the target game still receives the original controller action as well as InputStitch's mapped output.
+- Full replacement requires the Gamepad Router stage: hide/take over the selected physical controller from the game, read it in InputStitch, route retained analog/gamepad controls to one virtual controller, and send selected controls as keyboard/mouse/macros.
+- Do not write an InputStitch kernel filter driver as the first solution. Investigate a mature external hiding/filter mechanism, including admin/signing/Secure Boot/anti-cheat implications and fail-safe unhide/recovery.
+- Avoid controller feedback loops: InputStitch must never treat its own ViGEm virtual controller output as a physical trigger source. XInput index alone is not a stable identity guarantee; virtual-slot exclusion/source identity must be designed before release.
+- Hot-plug/reconnect and selected-controller ownership must be deterministic.
+- PC only. DualShock/DualSense on Windows may be added later via DirectInput/HID/GameInput if worthwhile; native PlayStation-console support is out of scope unless an official low-friction path appears.
 
 ### Release and verification
 
@@ -115,7 +129,10 @@ The current universal-concurrency source completed fresh x64/x86 release build v
 
 - Targeted real-game acceptance of the new **universal timed/Toggle/Advanced-Hold + Parallel-Held concurrency** and source-local release behavior.
 - Stable 1.3.0 promotion after that real-use gate passes.
-- Layer implementation after Stable 1.3.0.
+- Physical XInput gamepad as a first-class trigger/input source after Stable 1.3.0.
+- Controller→keyboard/mouse hybrid mapping, initially as augmentation while original physical controller input still reaches the game.
+- Gamepad Router / controlled replacement with device hiding and one game-visible virtual controller after the simpler input-source stage is accepted.
+- Layer implementation after the gamepad-input/routing core reaches a stable checkpoint, unless explicitly reprioritized.
 - Input Lab target-window message comparison, DS4/DirectInput/HID observation, longer soak scenarios and machine-readable report export.
 
 ## Known issues / known limitations
@@ -154,7 +171,7 @@ Next actions:
 6. Do one Alt+Tab/lost-KeyUp sample with at least two physical Hold/Held triggers, release them while backgrounded, and confirm source-local fallback cleanup.
 7. Repeat mixed start/stop/release cycles enough times to catch stale RunId/SourceId/release-probe state or stuck input. Existing SendInput/ViGEm recognition does not need full re-validation.
 8. If no evidence-backed defect appears, prepare and publish **Stable `v1.3.0`** directly. An intermediate beta is optional, not mandatory.
-9. After Stable 1.3.0 is accepted, resume Layer work unless the user reprioritizes another feature.
+9. After Stable 1.3.0 is accepted, begin **Physical Gamepad Input + Hybrid Controller Routing**. Start with XInput controller triggers; do not jump directly to device hiding or Layer.
 
 Keep `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-acceptance.ps1` as the automated ownership/concurrency baseline. On this laptop all 18 pre-XInput ordinary + complex-Hold SendInput checks pass; a later `BLOCKED` at ViGEm/XInput preflight is an environment condition, not permission to bypass the preflight.
 
@@ -168,6 +185,13 @@ Keep `powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-a
 - UI safety/edit protection must not accidentally clear unrelated parallel Held Mapping sources.
 - Unified timed/Toggle/Advanced-Hold concurrency is implemented with dedicated per-run state; do not regress back to singleton worker bookkeeping, a global Hold owner, or ad-hoc threads that bypass Output Ownership.
 - Preserve duplicate-trigger macro-list priority unless a new conflict model is explicitly designed.
+- Controller input must use the same trigger/runtime/source model rather than bypassing Concurrent Macro Runtime with a separate macro engine.
+- Do not claim that controller→keyboard/mouse mapping replaces/suppresses the physical controller action until a verified device-hiding/router path exists.
+- Prevent self-feedback: InputStitch's own virtual controller output must never be eligible as a physical controller trigger source.
+- Analog controller triggers require threshold hysteresis and deterministic release semantics; do not use a single noisy threshold for both activation and release.
+- Physical-controller selection, disconnect and reconnect must fail safe and must not silently switch to an unintended controller if that can trigger macros.
+- For the first Router implementation, prefer a mature external hiding/filter solution with fail-safe unhide over writing a new kernel driver.
+- Keep native PlayStation-console development out of scope; Windows-connected DualShock/DualSense support is a separate later backend question.
 - Layer switch must remove old-layer ownership before changing eligibility.
 - Do not synthesize Held Mapping activation for a key that was already physically down before a Layer switch; require release + press.
 - Stable and Beta release/update channels must remain separated.

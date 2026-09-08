@@ -118,15 +118,49 @@ Digital overlap semantics remain state-first and deterministic: if one source al
 
 Stable 1.3.0 候选运行时现在已经支持**任意正常宏类型之间的多并发**：多个普通时序 / Toggle、多个高级/复杂 Hold，以及状态型 Parallel Held Mapping 可以同时存在。复杂 Hold 的物理松键与 lost-KeyUp 恢复按 Run 独立跟踪，一个 Hold 的松开不会停止其他运行实例；最终输出继续统一交给 Output Ownership 合并。
 
-### Layer / 映射层 — designed, deferred until after Stable 1.3.0 / 已设计，延后到 1.3.0 正式版之后
+### Physical Gamepad Input + Hybrid Controller Routing — highest priority after Stable 1.3.0 / 1.3.0 后最高优先级
 
-Layer remains designed but is no longer the next feature. The proposed first Layer is still `Base + one active Layer`, initially scoped to Held Mapping eligibility. It must be implemented on top of the multi-worker runtime after Stable 1.3.0 rather than preserving the old single-global-worker assumption. Full design: [`docs/LAYER_DESIGN.md`](docs/LAYER_DESIGN.md).
+The next structural direction is to make a **physical Windows gamepad a first-class InputStitch input source**, then build hybrid routing on top of the same Concurrent Macro Runtime and Output Ownership architecture. The intended use is not “turn the whole controller into a keyboard”; it is to preserve analog controls where a gamepad is strong while selectively gaining PC keyboard/mouse shortcuts, direct actions and macros where they are more efficient.
 
-Layer 设计保留，但不再是下一项功能。第一版仍拟采用 `Base + 一个活动 Layer`，优先筛选 Held Mapping；Stable 1.3.0 发布并验证普通宏多并发后再实现。
+这条主线的目标不是“把整个手柄变成键盘”，而是让手柄成为 InputStitch 的正式输入源：保留摇杆、扳机等模拟量优势，同时把部分按钮映射成键盘/鼠标/宏，从而形成 PC 上的混合控制方案。
+
+Planned stages:
+
+1. **Physical XInput gamepad as Trigger/Input Source**
+   - Xbox/XInput-class controller first;
+   - buttons + D-pad as digital triggers;
+   - LT/RT threshold triggers with hysteresis;
+   - explicit controller selection and deterministic hot-plug/reconnect;
+   - reuse existing macro runtime/output paths;
+   - hard requirement: never treat InputStitch's own ViGEm virtual controller as a physical trigger source.
+2. **Controller → Keyboard/Mouse hybrid mapping**
+   - controller buttons may launch keyboard/mouse/virtual-gamepad/mixed macros;
+   - analog driving/movement controls may remain native gamepad input;
+   - first version is **augmentation**, not true replacement, because the original physical controller still reaches the game without device hiding;
+   - real-game testing must cover mixed-input mode/glyph switching and context-sensitive controls.
+3. **Gamepad Router / controlled replacement**
+   - hide/take over the selected physical controller from the target game;
+   - feed retained controller state through one InputStitch virtual gamepad;
+   - route selected controls to keyboard/mouse/macros;
+   - investigate a mature external device-hiding/filter solution before implementation; do not start by writing an InputStitch kernel driver;
+   - fail-safe unhide/recovery, admin/signing/Secure Boot/anti-cheat implications are release gates;
+   - enabling routing before game launch is acceptable for the first version; seamless post-launch XInput-index takeover is not required.
+4. **Controller aggregation / broader backends**
+   - after single-controller routing is stable, optionally merge multiple physical/virtual controllers into one game-visible controller;
+   - add DirectInput/HID/GameInput / Windows-connected DualShock/DualSense only when real use justifies the complexity;
+   - gyro-to-mouse, if ever added, is a separate later capability.
+
+Platform scope is **Windows PC only**. Native PlayStation-console development is not planned unless an official low-friction path appears. Full design: [`docs/GAMEPAD_INPUT_ROUTING.md`](docs/GAMEPAD_INPUT_ROUTING.md).
+
+### Layer / 映射层 — designed, deferred behind gamepad input/routing / 已设计，继续后移
+
+Layer remains designed, but it is now behind the Physical Gamepad Input / Hybrid Routing core rather than being the first feature after Stable 1.3.0. The proposed first Layer is still `Base + one active Layer`, initially scoped to state-only Parallel Held Mapping eligibility. It must remain a thin eligibility/grouping layer on top of the common input/routing/runtime architecture. Full design: [`docs/LAYER_DESIGN.md`](docs/LAYER_DESIGN.md).
+
+Layer 设计继续保留，但当前顺序改为：先完成 1.3.0 → Physical Gamepad Input → Hybrid Mapping / Router 核心 → 再考虑 Layer。Layer 不应另造一套输入或执行引擎。
 
 ### Additional Beta only if needed / 仅在需要时追加 Beta
 
-`1.3.0-beta.2` is not mandatory. Use another public Beta only if Concurrent Macro Runtime or ownership hardening benefits from a separate public validation cycle. If automated, black-box and targeted real-game acceptance are clean, promote directly to Stable `1.3.0` after the concurrent runtime is complete.
+`1.3.0-beta.2` is now the published public Beta for universal macro concurrency. Use `beta.3` only if evidence-backed fixes from real-game acceptance benefit from another public validation cycle. If beta.2's targeted real-game gate is clean, promote directly to Stable `1.3.0`.
 
 ## Required ownership regression matrix / Ownership 必测矩阵
 
@@ -148,13 +182,16 @@ Only schedule these when repeated real use justifies them:
 
 | Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
 |---|---|---|
-| Unified macro concurrency (timed/Toggle/Advanced Hold + Parallel Held) | implemented locally; targeted real-use acceptance remains before Stable 1.3.0 | **implemented / acceptance gate** |
-| Modifier-chord Held Mapping | repeated concrete need | after 1.3.0 unless reprioritized |
-| Layer / mapping layer | Stable 1.3.0 concurrent runtime complete and accepted | after Stable 1.3.0 |
-| Conditions / richer groups | clear recurring scenarios after Layer/runtime maturity | later |
+| Unified macro concurrency (timed/Toggle/Advanced Hold + Parallel Held) | published in `v1.3.0-beta.2`; targeted real-use acceptance remains before Stable 1.3.0 | **implemented / acceptance gate** |
+| Physical XInput gamepad as trigger/input source | Stable 1.3.0 accepted | **highest after 1.3.0** |
+| Controller → keyboard/mouse hybrid mapping | physical gamepad trigger source stable | **next** |
+| Gamepad Router / controlled replacement | hybrid mapping proves useful; mature fail-safe device-hiding route identified | **high, after simple input source** |
+| Controller aggregation / broader gamepad backends | single-controller router stable; repeated concrete need | after router core |
+| Modifier-chord Held Mapping | repeated concrete need | after 1.3.0 / fit around gamepad work if small |
+| Layer / mapping layer | gamepad input/routing core reaches stable checkpoint | after gamepad routing core unless reprioritized |
+| Conditions / richer groups | clear recurring scenarios after routing/Layer maturity | later |
 | Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
 | More controller backends | ViGEm compatibility issue or mature replacement | on demand |
-| Controller Aggregation / Gamepad Router | recurring need to merge or redirect multiple physical/virtual gamepads into one game-visible controller; investigate device hiding/filter-driver integration before any implementation | future / after Layer unless explicitly prioritized |
 | Installer / signing | external-user installation friction grows | on demand |
 | Project license | repository owner decides explicitly | pending |
 
@@ -185,7 +222,7 @@ Current / 当前：
 
 Current local / 当前本地：
 
-`main == v1.3.0-beta.2 release source until evidence-backed fixes begin`
+`runtime baseline = v1.3.0-beta.2; main may move ahead for roadmap/docs before evidence-backed runtime fixes`
 
 Next / 下一轮：
 
@@ -193,7 +230,13 @@ Next / 下一轮：
 
 `all 1.3.0 gates pass → Stable 1.3.0`
 
-`Stable 1.3.0 accepted → Layer / mapping-layer implementation`
+`Stable 1.3.0 accepted → Physical XInput gamepad input/trigger source`
+
+`physical gamepad input stable → Controller → keyboard/mouse hybrid mapping`
+
+`hybrid mapping accepted → Gamepad Router / controlled replacement → optional aggregation/backends`
+
+`gamepad routing core stable → Layer / mapping-layer implementation unless reprioritized`
 
 Long-term product goal / 长期目标：
 

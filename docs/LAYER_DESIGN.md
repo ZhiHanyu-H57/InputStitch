@@ -1,8 +1,8 @@
 # Layer / Mapping Layer design note
 
-Status: **designed, intentionally deferred until after Stable 1.3.0**.
+Status: **designed, intentionally deferred behind the post-1.3 Physical Gamepad Input / Hybrid Routing track**.
 
-状态：**已完成设计，当前明确延后到 Stable 1.3.0 之后。**
+状态：**已完成设计；当前明确排在 Stable 1.3.0 之后的 Physical Gamepad Input / Hybrid Routing 主线之后。**
 
 ## Why it is deferred / 为什么暂缓
 
@@ -10,9 +10,9 @@ Status: **designed, intentionally deferred until after Stable 1.3.0**.
 
 1.3.0-beta.1 首次改变运行时所有权模型。自动测试可以证明所有权和合并规则的确定性，但多来源 Held Mapping 仍需要在真实游戏中验证 WASD + Shift/Ctrl + 鼠标侧键、前后台切换和紧急停止等组合。如果在同一个首版 Ownership Beta 中同时加入 Layer，会把两个结构性变化叠在一起，不利于定位真实使用问题。
 
-The architecture added in Beta 1 is Layer-ready: every persistent contributor already has an independent source identity and the merged output manager does not depend on macro-list ownership.
+The architecture added in Beta 1 and expanded in beta.2 is Layer-ready: every persistent contributor already has an independent source identity and the merged output manager does not depend on macro-list ownership. However, current user value prioritizes completing bidirectional controller input/routing first.
 
-Beta 1 已经为 Layer 做好底层准备：每个持续输出都有独立 Source ID，最终输出由统一合并器负责，不再依赖“当前唯一宏”的所有权。
+Beta 1 / beta.2 已经为 Layer 做好底层准备：每个持续输出都有独立 Source ID，最终输出由统一合并器负责，不再依赖“当前唯一宏”的所有权。但当前实际需求优先级已经调整为先完成手柄输入与混合路由闭环。
 
 ## Proposed first Layer scope / 第一版 Layer 范围
 
@@ -92,8 +92,8 @@ Do not persist momentary layer state until the behavior is validated. Configurat
 
 ## Release gate before implementation / 实现前门槛
 
-Layer implementation now starts only **after Stable 1.3.0**. Stable 1.3.0 must first complete and accept the unified Concurrent Macro Runtime: ordinary timed/Toggle + Advanced/complex Hold concurrency, per-run Hold release/lost-KeyUp isolation, independent source-local cleanup, coexistence with Parallel Held sources, deterministic overlap semantics, Stop/Emergency Stop, automated regression, Input Lab black-box acceptance and targeted real-game validation.
+Layer implementation now starts only **after Stable 1.3.0 and after the Physical Gamepad Input / Hybrid Routing core reaches a stable checkpoint**, unless the user explicitly reprioritizes Layer. Stable 1.3.0 must first complete and accept the unified Concurrent Macro Runtime: ordinary timed/Toggle + Advanced/complex Hold concurrency, per-run Hold release/lost-KeyUp isolation, independent source-local cleanup, coexistence with Parallel Held sources, deterministic overlap semantics, Stop/Emergency Stop, automated regression, Input Lab black-box acceptance and targeted real-game validation.
 
-Only after that should Layer be implemented as a thin eligibility/grouping layer on top of the ownership + multi-run runtime, not as a second execution engine.
+The post-1.3 controller track then adds physical XInput input sources, controller→keyboard/mouse hybrid mapping and the Gamepad Router core. Only after that stable checkpoint should Layer be implemented as a thin eligibility/grouping layer on top of the common input/routing/ownership + multi-run runtime, not as a second execution engine.
 
-Layer 当前明确延后到 **Stable 1.3.0 之后**。1.3.0 必须先完成并验收普通时序 / Toggle + 高级/复杂 Hold 多并发、逐 Run 松键与 lost-KeyUp 隔离、独立 Source 清理、与 Parallel Held 共存、确定性的冲突语义、Stop/Emergency Stop 以及自动化/黑盒/真实游戏测试；之后 Layer 才作为现有 Ownership + multi-run runtime 上的“资格筛选/分组层”实现，而不是再造第二套执行引擎。
+Layer 当前明确延后到 **Stable 1.3.0 + Physical Gamepad Input / Hybrid Routing 核心稳定之后**。1.3.0 必须先完成并验收普通时序 / Toggle + 高级/复杂 Hold 多并发、逐 Run 松键与 lost-KeyUp 隔离、独立 Source 清理、与 Parallel Held 共存、确定性的冲突语义、Stop/Emergency Stop 以及自动化/黑盒/真实游戏测试；随后优先完成物理手柄输入、Controller→Keyboard/Mouse 混合映射和 Router 核心。之后 Layer 才作为统一 input/routing/Ownership + multi-run runtime 上的“资格筛选/分组层”实现，而不是再造第二套执行引擎。

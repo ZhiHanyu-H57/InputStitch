@@ -11,7 +11,9 @@ Updated: 2026-09-08
 Current public Beta: `v1.3.0-beta.2`
 Stable rollback baseline: `v1.2.0`
 
-Beta 2 publishes the **unified Concurrent Macro Runtime** built on Beta 1's Input Ownership foundation. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can all run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and a single authoritative `MacroRuntimeClassifier` drives both execution eligibility and the option-B live UI classification. The remaining 1.3.0 work is targeted real-game acceptance and evidence-backed fixes only; Layer remains deferred until after Stable 1.3.0.
+Beta 2 publishes the **unified Concurrent Macro Runtime** built on Beta 1's Input Ownership foundation. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can all run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and a single authoritative `MacroRuntimeClassifier` drives both execution eligibility and the option-B live UI classification. The remaining 1.3.0 work is targeted real-game acceptance and evidence-backed fixes only.
+
+After Stable 1.3.0, the next highest-priority product direction is now **Physical Gamepad Input + Hybrid Controller Routing**, not Layer. The goal is to let a Windows controller become a first-class InputStitch trigger/input source, preserve the analog controls that gamepads are good at, and selectively map controller inputs to keyboard/mouse or macros where PC keyboard/mouse bindings are more efficient. Layer remains designed but moves behind this routing track.
 
 ## Immediate work
 
@@ -58,9 +60,46 @@ The runner now performs a real ViGEm/XInput report preflight before controller a
 
 Next tooling candidates are target-window message comparison, DS4/DirectInput/HID observation, longer soak/repeated-cycle scenarios and machine-readable report export.
 
+## Highest priority after Stable 1.3.0 — Physical Gamepad Input + Hybrid Routing
+
+This track is intentionally split into stages so InputStitch does not confuse simple controller-trigger support with full device takeover.
+
+### Phase 1 — Physical XInput gamepad as an input/trigger source
+
+- Add physical XInput controller buttons and D-pad directions as first-class triggers.
+- Add LT/RT threshold triggers with explicit hysteresis (for example trigger at >=80%, release at <=70%) so analog noise cannot chatter a Hold mapping.
+- Prefer one explicitly selected physical controller source in the first version; hot-plug/reconnect must be deterministic.
+- Decide stick-as-trigger semantics separately; do not overload the first version with arbitrary analog-region logic unless a concrete use case requires it.
+- Reuse the existing macro runtime/output paths so a controller trigger can launch keyboard, mouse, virtual-gamepad or mixed-output macros.
+- Prevent feedback from InputStitch's own ViGEm virtual controller. XInput user-index polling alone is not enough if the app can observe its own virtual output; source selection / virtual-slot exclusion is a release gate.
+
+### Phase 2 — Controller → keyboard/mouse hybrid mappings
+
+- Support practical PC hybrid profiles where analog movement/driving controls remain gamepad-native while selected controller buttons trigger keyboard/mouse actions or macros.
+- Treat this phase as **augmentation**, not replacement: without device hiding, the game can still receive the original physical controller button at the same time as the mapped keyboard/mouse output.
+- Test mixed-input behavior in real games, especially input-mode/glyph switching, weapon/menu states, and simultaneous gamepad + keyboard/mouse interpretation.
+- Keep mapping, accessibility, ergonomics and compatibility as the product framing; do not position the feature as anti-cheat bypass or competitive automation.
+
+### Phase 3 — Gamepad Router / controlled replacement
+
+- Route selected/all physical-controller state through InputStitch to one game-visible virtual controller, while still allowing selected controls to become keyboard/mouse/macros.
+- Investigate a mature external device-hiding/filter solution before implementation. Do **not** start by writing an InputStitch kernel driver.
+- First realistic workflow may require enabling routing before launching the game; seamless takeover after a game has already bound an XInput index is not a v1 requirement.
+- Device hiding must have fail-safe recovery/unhide behavior, explicit user control, and compatibility review for admin/signing/Secure Boot/anti-cheat implications.
+- Once one-controller routing is stable, extend the same source model to multiple physical/virtual controllers and aggregation if real use justifies it.
+
+### Platform scope
+
+- Target Windows PC only.
+- Xbox/XInput-class devices are the first implementation target.
+- DualShock/DualSense **connected to Windows** may be added later through DirectInput/HID/GameInput if the incremental cost is justified; gyro-to-mouse is a separate later capability.
+- Do not plan a native PlayStation-console version unless an officially supported, low-friction path appears. Remote-play or external-hardware workarounds are outside the current product scope.
+
+Full design note: `docs/GAMEPAD_INPUT_ROUTING.md`.
+
 ## Gate for Layer
 
-Concurrent Macro Runtime is now implemented locally, but **Layer still remains behind the Stable 1.3.0 promotion gate**. Do not begin Layer until the new multi-run runtime passes targeted real-game acceptance and Stable 1.3.0 is released, unless the user explicitly reprioritizes it again.
+Concurrent Macro Runtime is implemented and published in beta.2. **Layer is no longer the first post-1.3 structural feature.** Do not begin Layer until Stable 1.3.0 is released and the Physical Gamepad Input / Hybrid Routing core has reached a stable checkpoint, unless the user explicitly reprioritizes Layer again.
 
 The planned first Layer scope remains documented for later work:
 
@@ -70,6 +109,8 @@ The planned first Layer scope remains documented for later work:
 - changing Layer removes old-layer sources before changing eligibility;
 - keys already physically held before a Layer switch are not synthetically re-triggered; they must be released and pressed again;
 - Emergency Stop remains above Layer selection and all mapping priority logic.
+
+Layer must remain an eligibility/grouping feature layered on top of the common input/routing/runtime architecture. It must not become a separate controller-input engine.
 
 ## Release discipline
 
