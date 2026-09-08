@@ -84,7 +84,6 @@ namespace InputStitch
         public static bool IsHoldTriggerSupported(TriggerSpec trigger)
         {
             if (trigger == null) return false;
-            if (trigger.Ctrl || trigger.Shift || trigger.Alt || trigger.Win) return false;
             return trigger.Kind != InputKind.WheelUp && trigger.Kind != InputKind.WheelDown;
         }
 

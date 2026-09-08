@@ -13,6 +13,8 @@ Stable rollback baseline: `v1.2.0`
 
 Beta 2 publishes the **unified Concurrent Macro Runtime** built on Beta 1's Input Ownership foundation. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can all run concurrently while state-only Parallel Held Mappings remain active. Every worker-backed run has its own RunId/SourceId/stop/timing/trigger-release state, and a single authoritative `MacroRuntimeClassifier` drives both execution eligibility and the option-B live UI classification. The remaining 1.3.0 work is targeted real-game acceptance and evidence-backed fixes only.
 
+Current `main` contains one evidence-backed post-beta.2 trigger fix from real use: a bare ordinary key remains triggerable while **Shift alone** is held (unless a more specific explicit chord such as `Shift+E` exists), while Ctrl/Alt/Win remain strict for bare keys. Hold mode now accepts modifier chords, and the complete chord state—not only the terminal key—controls source-local release/lost-KeyUp cleanup.
+
 After Stable 1.3.0, the next highest-priority product direction is now **Physical Gamepad Input + Hybrid Controller Routing**, not Layer. The goal is to let a Windows controller become a first-class InputStitch trigger/input source, preserve the analog controls that gamepads are good at, and selectively map controller inputs to keyboard/mouse or macros where PC keyboard/mouse bindings are more efficient. Layer remains designed but moves behind this routing track.
 
 ## Immediate work
@@ -49,6 +51,8 @@ The old core Held/Ownership matrix is already covered by regression + Input Lab 
 - trigger Emergency Stop while multiple complex Hold + ordinary + Parallel Held sources are active and confirm all output returns neutral;
 - repeat mixed start/stop/release patterns enough times to catch stale RunId/SourceId/trigger-release state or stuck input;
 - perform one Alt+Tab/lost-KeyUp sample while at least two Hold/Held triggers are physically down, then release them in the background and confirm fallback cleanup is source-local.
+- verify `Shift` held + bare ordinary-key trigger (for example `Shift` macro + separate `E` macro) works concurrently; then add an explicit `Shift+E` trigger and confirm the explicit chord wins;
+- verify modifier-chord Hold (`Shift+E`, and optionally a Ctrl/Shift multi-modifier chord) starts only when the terminal key is pressed with required modifiers already down, and releasing either the terminal key or a required modifier stops only that Hold source;
 
 ## Acceptance tooling
 

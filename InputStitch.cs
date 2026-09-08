@@ -336,9 +336,9 @@ namespace InputStitch
             { "请先停止正在执行的宏。", "Please stop the running macro first." },
             { "这个宏还没有任何执行步骤。", "This macro has no steps yet." },
             { "当前宏未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", "The current macro did not stop in time. This operation was cancelled to avoid configuration and worker state inconsistency." },
-            { "提示：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮；不支持修饰键组合或滚轮，请重新录制触发键。", "Hold-to-run supports one keyboard key (including standalone Ctrl/Shift/Alt/Win) or mouse button; modifier chords and wheel triggers are not supported. Please capture the trigger again." },
-            { "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。", "Hold-to-run does not support modifier chords or wheel triggers; standalone Ctrl/Shift/Alt/Win are valid triggers." },
-            { "无法启动：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮，但不支持修饰键组合或滚轮。", "Cannot start: hold-to-run supports one keyboard key (including standalone Ctrl/Shift/Alt/Win) or mouse button, but not modifier chords or wheel triggers." },
+            { "提示：按住运行模式支持单键、修饰键组合和鼠标按钮；滚轮没有持续按下状态，不能作为按住触发键，请重新录制触发键。", "Hold-to-run supports single keys, modifier chords, and mouse buttons. Wheel input has no held state and cannot be used as a Hold trigger; please capture another trigger." },
+            { "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。", "Hold-to-run supports modifier chords. Wheel input has no held state and cannot be used as a Hold trigger." },
+            { "无法启动：按住运行模式支持单键、修饰键组合和鼠标按钮，但滚轮不能作为按住触发键。", "Cannot start: hold-to-run supports single keys, modifier chords, and mouse buttons, but wheel input cannot be used as a Hold trigger." },
             { "提示：单步编辑一次只能选择一个步骤；批量修改间隔请使用“批量间隔”。", "Single-step editing requires exactly one selected step. Use Batch Delay to modify multiple delays." },
 
             { "载入方案会停止当前宏，并用所选方案替换当前宏列表和大部分程序设置。\r\n\r\n紧急停止键、自动方案切换和托盘设置保持不变；当前配置会先自动备份。是否继续？", "Loading a profile stops the current macro and replaces the current macro list and most app settings.\r\n\r\nEmergency Stop, automatic profile switching, and tray settings are preserved. The current configuration is backed up first. Continue?" },
@@ -1325,6 +1325,37 @@ namespace InputStitch
             return false;
         }
 
+        public static bool SupportsExtraPhysicalModifiers(TriggerSpec trigger, InputEventInfo inputEvent)
+        {
+            if (trigger == null || inputEvent == null) return false;
+            if (SupportsExtraPhysicalModifiers(trigger)) return true;
+
+            // Bare ordinary keyboard triggers may coexist with a physically held Shift so
+            // sprint/other gameplay modifiers do not disable otherwise independent macros.
+            // Ctrl/Alt/Win remain strict for bare keys to avoid surprising activation inside
+            // common application/system shortcuts such as Ctrl+C, Alt+F4 or Win+E.
+            if (trigger.Kind != InputKind.Keyboard || GetTriggerModifierMask(trigger) != 0) return false;
+            Keys key = (Keys)trigger.VirtualKey;
+            bool ordinaryGameplayKey = (key >= Keys.A && key <= Keys.Z) ||
+                                       (key >= Keys.D0 && key <= Keys.D9) || key == Keys.Space;
+            return ordinaryGameplayKey && EventModifiersForTrigger(trigger, inputEvent) == Shift;
+        }
+
+        public static bool HoldTriggerReleasedByEvent(TriggerSpec trigger, InputEventInfo releaseEvent)
+        {
+            if (trigger == null || releaseEvent == null || releaseEvent.Input == null) return false;
+            if (TriggerTerminalMatches(trigger, releaseEvent)) return true;
+            if (releaseEvent.Input.Kind != InputKind.Keyboard) return false;
+
+            int releasedModifier = ModifierMaskForKey(releaseEvent.Input.VirtualKey);
+            int required = GetTriggerModifierMask(trigger);
+            if (releasedModifier == 0 || (required & releasedModifier) == 0) return false;
+
+            // HookManager updates its physical modifier snapshot before building the KeyUp event.
+            // If another side of the same generic modifier is still held, the chord remains valid.
+            return (GetEventModifierMask(releaseEvent) & required) != required;
+        }
+
         public static bool PreserveNativeShiftForGamepad(MacroDefinition macro)
         {
             if (macro == null || macro.RunMode != TriggerRunMode.Hold || macro.Trigger == null ||
@@ -1965,6 +1996,13 @@ namespace InputStitch
 
             // Mouse wheel events have no persistent down state.
             return true;
+        }
+
+        public static bool IsHoldTriggerSatisfied(TriggerSpec trigger)
+        {
+            if (trigger == null || IsTriggerTerminalReleased(trigger)) return false;
+            int required = ModifierSafetyPolicy.GetTriggerModifierMask(trigger);
+            return (GetModifierMask() & required) == required;
         }
 
         public static int GetModifierMask()
@@ -6311,7 +6349,7 @@ namespace InputStitch
                 {
                     HeldMappingRuntime runtime = pair.Value;
                     if (runtime == null || runtime.Trigger == null) continue;
-                    bool released = PhysicalInputState.IsTriggerTerminalReleased(runtime.Trigger);
+                    bool released = !PhysicalInputState.IsHoldTriggerSatisfied(runtime.Trigger);
                     if (!released)
                     {
                         runtime.ReleaseProbeSince = 0;
@@ -6330,7 +6368,7 @@ namespace InputStitch
                 foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
                 {
                     if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null || runtime.Stop == null || runtime.Stop.IsSet) continue;
-                    bool released = PhysicalInputState.IsTriggerTerminalReleased(runtime.HoldTrigger);
+                    bool released = !PhysicalInputState.IsHoldTriggerSatisfied(runtime.HoldTrigger);
                     if (UpdateRunReleaseProbe(runtime, released, now)) holdRunsToStop.Add(runtime.RunId);
                 }
             }
@@ -6918,7 +6956,7 @@ namespace InputStitch
 
             if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
             {
-                statusLabel.Text = "提示：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮；不支持修饰键组合或滚轮，请重新录制触发键。";
+                statusLabel.Text = "提示：按住运行模式支持单键、修饰键组合和鼠标按钮；滚轮没有持续按下状态，不能作为按住触发键，请重新录制触发键。";
             }
         }
 
@@ -7897,7 +7935,7 @@ namespace InputStitch
                     RefreshRuntimeCapabilityUi();
                     UpdateRunButton();
                     if (macro.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(macro.Trigger))
-                        statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。";
+                        statusLabel.Text = "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。";
                 }
             }
             finally
@@ -7965,16 +8003,17 @@ namespace InputStitch
                 if (ModifierSafetyPolicy.TriggerMatchesExactly(m.Trigger, e)) return m;
             }
 
-            // Game-friendly fallback: keep bare printable keys strict, but allow an already-held
-            // gameplay modifier (for example Shift while sprinting) around function keys, numpad,
-            // mouse triggers, or a trigger chord that already declares at least one modifier.
+            // Game-friendly fallback: allow an already-held gameplay modifier around function
+            // keys, numpad, mouse triggers, or a trigger chord that already declares at least one
+            // modifier. Bare ordinary keyboard keys additionally allow Shift-only fallback so a
+            // sprint modifier does not disable an independent macro; Ctrl/Alt/Win remain strict.
             // The most specific declared chord wins; configuration order breaks equal ties.
             MacroDefinition best = null;
             int bestSpecificity = -1;
             foreach (MacroDefinition m in macros)
             {
                 if (m == null || !m.Enabled || m.Trigger == null) continue;
-                if (!ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(m.Trigger)) continue;
+                if (!ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(m.Trigger, e)) continue;
                 if (!ModifierSafetyPolicy.TriggerRequiredModifiersMatch(m.Trigger, e)) continue;
                 int specificity = ModifierSafetyPolicy.TriggerSpecificity(m.Trigger);
                 if (specificity > bestSpecificity)
@@ -8066,7 +8105,7 @@ namespace InputStitch
                                 RefreshRuntimeCapabilityUi();
                                 UpdateRunButton();
                                 if (m.RunMode == TriggerRunMode.Hold && !IsHoldTriggerSupported(m.Trigger))
-                                    statusLabel.Text = "提示：按住运行模式不支持修饰键组合或滚轮；单独 Ctrl/Shift/Alt/Win 可以作为触发键。";
+                                    statusLabel.Text = "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。";
                             });
                         }
                         catch { }
@@ -8169,12 +8208,12 @@ namespace InputStitch
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
                 {
                     HeldMappingRuntime runtime = pair.Value;
-                    if (runtime != null && TerminalInputMatches(runtime.Trigger, e.Input)) parallelReleased.Add(pair.Key);
+                    if (runtime != null && ModifierSafetyPolicy.HoldTriggerReleasedByEvent(runtime.Trigger, e)) parallelReleased.Add(pair.Key);
                 }
                 foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
                 {
                     if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null) continue;
-                    if (TerminalInputMatches(runtime.HoldTrigger, e.Input)) holdRunsReleased.Add(runtime.RunId);
+                    if (ModifierSafetyPolicy.HoldTriggerReleasedByEvent(runtime.HoldTrigger, e)) holdRunsReleased.Add(runtime.RunId);
                 }
             }
             if (parallelReleased.Count == 0 && holdRunsReleased.Count == 0) return;
@@ -8313,7 +8352,7 @@ namespace InputStitch
             if (m == null) return;
             if (!IsHoldTriggerSupported(m.Trigger))
             {
-                statusLabel.Text = "无法启动：按住运行模式支持单个键盘键（包括单独 Ctrl/Shift/Alt/Win）或鼠标按钮，但不支持修饰键组合或滚轮。";
+                statusLabel.Text = "无法启动：按住运行模式支持单键、修饰键组合和鼠标按钮，但滚轮不能作为按住触发键。";
                 return;
             }
             if (IsParallelHeldMapping(m))

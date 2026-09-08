@@ -229,6 +229,29 @@ internal static class ProductivityTests
             Check((bool)Call(form, "IsMacroTriggerConflicted", second), "Emergency Stop collision remains a hard conflict");
             config.PanicTrigger = new TriggerSpec { Ctrl = true, Shift = true, VirtualKey = (int)Keys.F12 };
 
+            MacroDefinition bareE = new MacroDefinition { Name = "bare-E", Enabled = true,
+                Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.E } };
+            MacroDefinition shiftE = new MacroDefinition { Name = "shift-E", Enabled = true,
+                Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.E, Shift = true } };
+            InputEventInfo shiftedE = new InputEventInfo
+            {
+                Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.E },
+                Shift = true
+            };
+            Check(Object.ReferenceEquals(shiftE, (MacroDefinition)StaticCall(typeof(MainForm), "SelectTriggerMacro",
+                new List<MacroDefinition> { bareE, shiftE }, shiftedE)),
+                "Explicit Shift+E trigger wins over bare E Shift fallback");
+            Check(Object.ReferenceEquals(bareE, (MacroDefinition)StaticCall(typeof(MainForm), "SelectTriggerMacro",
+                new List<MacroDefinition> { bareE }, shiftedE)),
+                "Bare ordinary key remains triggerable while gameplay Shift is held when no explicit chord exists");
+            InputEventInfo ctrlE = new InputEventInfo
+            {
+                Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.E },
+                Ctrl = true
+            };
+            Check(StaticCall(typeof(MainForm), "SelectTriggerMacro", new List<MacroDefinition> { bareE }, ctrlE) == null,
+                "Bare ordinary key does not fallback through Ctrl");
+
             Check((bool)StaticCall(typeof(MainForm), "IdleKeyboardMouseScopeMatches", false, "", "chrome", false),
                 "Idle keyboard/mouse remains global without configured target");
             Check((bool)StaticCall(typeof(MainForm), "IdleKeyboardMouseScopeMatches", true, "GTA5_Enhanced", "gta5_enhanced", false),

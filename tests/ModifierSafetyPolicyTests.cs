@@ -92,8 +92,26 @@ internal static class ModifierSafetyPolicyTests
 
         TriggerSpec bareE = Trigger(Keys.E, false, false, false, false);
         InputEventInfo shiftE = Event(Keys.E, false, true, false, false);
-        Expect("Bare E remains strict", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareE));
+        Expect("Bare E does not broadly accept arbitrary modifiers", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareE));
         Expect("Bare E is not exact under Shift", false, ModifierSafetyPolicy.TriggerMatchesExactly(bareE, shiftE));
+        Expect("Bare E accepts Shift-only gameplay fallback", true, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareE, shiftE));
+        InputEventInfo ctrlE = Event(Keys.E, true, false, false, false);
+        Expect("Bare E remains strict under Ctrl", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareE, ctrlE));
+        InputEventInfo shiftCtrlE = Event(Keys.E, true, true, false, false);
+        Expect("Bare E Shift fallback does not also admit Ctrl", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareE, shiftCtrlE));
+        TriggerSpec bareTab = Trigger(Keys.Tab, false, false, false, false);
+        InputEventInfo shiftTab = Event(Keys.Tab, false, true, false, false);
+        Expect("Bare Tab does not gain Shift fallback", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareTab, shiftTab));
+
+        TriggerSpec shiftEHold = Trigger(Keys.E, false, true, false, false);
+        Expect("Shift+E Hold terminal release ends chord", true,
+            ModifierSafetyPolicy.HoldTriggerReleasedByEvent(shiftEHold, Event(Keys.E, false, true, false, false)));
+        Expect("Shift+E Hold modifier release ends chord", true,
+            ModifierSafetyPolicy.HoldTriggerReleasedByEvent(shiftEHold, Event(Keys.LShiftKey, false, false, false, false)));
+        Expect("Shift+E remains held if the other Shift side is still down", false,
+            ModifierSafetyPolicy.HoldTriggerReleasedByEvent(shiftEHold, Event(Keys.LShiftKey, false, true, false, false)));
+        Expect("Unrelated Ctrl release does not end Shift+E Hold", false,
+            ModifierSafetyPolicy.HoldTriggerReleasedByEvent(shiftEHold, Event(Keys.LControlKey, false, true, false, false)));
 
         TriggerSpec alt9 = Trigger(Keys.D9, false, false, true, false);
         InputEventInfo shiftAlt9Event = Event(Keys.D9, false, true, true, false);

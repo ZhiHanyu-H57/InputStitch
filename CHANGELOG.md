@@ -3,6 +3,15 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## Unreleased — post-beta.2 trigger semantics / 未发布 — beta.2 后触发语义修正
+
+- Bare ordinary keyboard triggers now remain eligible while **Shift alone** is physically held, so a gameplay/sprint Shift macro no longer disables an independent `E`, `Q`, etc. macro. Explicit modifier chords still win first; Ctrl/Alt/Win do not gain this bare-key fallback.
+- Hold mode now supports modifier chords such as `Shift+E`, `Ctrl+F`, or `Ctrl+Shift+K`. The chord starts when its terminal key is pressed while all declared modifiers are already held.
+- Releasing either the terminal key or any required modifier stops only that Hold run/source. Lost-KeyUp fallback now evaluates the whole Hold chord instead of only the terminal key.
+- Modifier-chord Hold works for both the lightweight Parallel Held Mapping path and worker-backed Concurrent Advanced Hold path; wheel input remains unsupported as a Hold trigger because it has no persistent down state.
+- 新增 Shift 下裸普通键 fallback：按住 Shift 时，若不存在更具体的 `Shift+E` 等组合触发，单独配置的 `E` 宏仍可触发；Ctrl/Alt/Win 仍保持严格，避免误触系统/软件快捷键。
+- Hold 现支持修饰键组合；组合中的终止键或任意必需修饰键松开都会只停止对应 Hold Run，lost-KeyUp 恢复也按完整组合状态判断。
+
 ## 1.3.0-beta.2 (pre-release / 预发布)
 
 - Replaced the old ordinary-macro singleton worker with a unified Concurrent Macro Runtime. Multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can now run concurrently, each with its own RunId/SourceId, stop/timing/progress state and source-local cleanup while sharing Output Ownership.

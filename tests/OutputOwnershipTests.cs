@@ -649,11 +649,23 @@ internal static class OutputOwnershipTests
                     "ordinary delayed keyboard macro is classified as concurrent timed");
                 Check(MacroRuntimeClassifier.Classify(heldUp).Category == MacroRuntimeCategory.ParallelHeldMapping,
                     "simple Hold remains classified as Parallel Held Mapping");
+                MacroDefinition chordHeld = heldUp.Clone();
+                chordHeld.Name = "Shift+W Held up";
+                chordHeld.Trigger.Shift = true;
+                Check(MacroRuntimeClassifier.IsHoldTriggerSupported(chordHeld.Trigger) &&
+                      MacroRuntimeClassifier.Classify(chordHeld).Category == MacroRuntimeCategory.ParallelHeldMapping,
+                    "modifier chord can use the state-only Parallel Held path");
                 MacroDefinition advancedHold = heldUp.Clone();
                 advancedHold.Infinite = false;
                 Check(MacroRuntimeClassifier.Classify(advancedHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
                     MacroRuntimeClassifier.Classify(advancedHold).SupportsConcurrentExecution,
                     "finite Hold is classified as concurrent advanced Hold");
+                MacroDefinition chordAdvancedHold = advancedHoldKey.Clone();
+                chordAdvancedHold.Name = "Shift+F9 Advanced Hold";
+                chordAdvancedHold.Trigger.Shift = true;
+                Check(MacroRuntimeClassifier.IsHoldTriggerSupported(chordAdvancedHold.Trigger) &&
+                      MacroRuntimeClassifier.Classify(chordAdvancedHold).Category == MacroRuntimeCategory.ConcurrentHoldMacro,
+                    "modifier chord can use the concurrent Advanced Hold runtime");
                 Check(MacroRuntimeClassifier.Classify(advancedHoldKey).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
                     MacroRuntimeClassifier.Classify(advancedHoldMouse).Category == MacroRuntimeCategory.ConcurrentHoldMacro &&
                     MacroRuntimeClassifier.Classify(advancedHoldTrigger).Category == MacroRuntimeCategory.ConcurrentHoldMacro,
@@ -714,6 +726,31 @@ internal static class OutputOwnershipTests
                 Check(WaitUntil(delegate { return ActiveRuns(form).Count == 0; }, 2000), "first concurrent group stops cleanly");
                 Call(form, "StopParallelHeldMapping", heldUp, "test-cleanup");
                 Check(manager.Snapshot().Merged.Count == 0, "first concurrent group cleanup returns neutral");
+
+                // Modifier-chord Hold release is source-local for both Hold execution paths.
+                Call(form, "StartParallelHeldMapping", chordHeld);
+                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 1,
+                    "Shift+W Parallel Held mapping can start");
+                InputEventInfo shiftRelease = new InputEventInfo
+                {
+                    Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.LShiftKey },
+                    Shift = false
+                };
+                Check(ModifierSafetyPolicy.HoldTriggerReleasedByEvent(chordHeld.Trigger, shiftRelease),
+                    "required Shift release is recognized for Shift+W Parallel Held mapping");
+                Call(form, "StopParallelHeldMapping", chordHeld, "modifier-release-test");
+                Check((int)Call(form, "ActiveParallelHeldMappingCount") == 0,
+                    "Shift+W Parallel Held mapping cleanup remains source-local");
+
+                start.Invoke(form, new object[] { chordAdvancedHold, 0, null, true, false });
+                Check(WaitUntil(delegate { return IsRunning(form, chordAdvancedHold); }, 1000),
+                    "Shift+F9 Advanced Hold can start");
+                Check(ModifierSafetyPolicy.HoldTriggerReleasedByEvent(chordAdvancedHold.Trigger, shiftRelease),
+                    "required Shift release is recognized for Shift+F9 Advanced Hold");
+                Call(form, "StopMacro", chordAdvancedHold, "modifier-release-test");
+                Check(WaitUntil(delegate { return !IsRunning(form, chordAdvancedHold) &&
+                    ActiveRuns(form).Count == 0 && manager.Snapshot().Merged.Count == 0; }, 2000),
+                    "Shift+F9 Advanced Hold cleanup stops only that run and releases its source");
 
                 // Universal concurrency: multiple complex Hold timelines, an ordinary timed macro,
                 // and the state-only Parallel Held fast path all coexist. Each physical terminal

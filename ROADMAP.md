@@ -118,6 +118,8 @@ Digital overlap semantics remain state-first and deterministic: if one source al
 
 Stable 1.3.0 候选运行时现在已经支持**任意正常宏类型之间的多并发**：多个普通时序 / Toggle、多个高级/复杂 Hold，以及状态型 Parallel Held Mapping 可以同时存在。复杂 Hold 的物理松键与 lost-KeyUp 恢复按 Run 独立跟踪，一个 Hold 的松开不会停止其他运行实例；最终输出继续统一交给 Output Ownership 合并。
 
+Post-beta.2 `main` also contains an evidence-backed trigger-semantic fix: Shift-only physical modifier state no longer blocks an otherwise bare ordinary-key trigger, exact explicit chords remain higher priority, and modifier chords are valid Hold triggers with whole-chord release/lost-KeyUp semantics. Ctrl/Alt/Win remain strict around bare ordinary keys.
+
 ### Physical Gamepad Input + Hybrid Controller Routing — highest priority after Stable 1.3.0 / 1.3.0 后最高优先级
 
 The next structural direction is to make a **physical Windows gamepad a first-class InputStitch input source**, then build hybrid routing on top of the same Concurrent Macro Runtime and Output Ownership architecture. The intended use is not “turn the whole controller into a keyboard”; it is to preserve analog controls where a gamepad is strong while selectively gaining PC keyboard/mouse shortcuts, direct actions and macros where they are more efficient.

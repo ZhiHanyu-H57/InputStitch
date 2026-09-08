@@ -28,6 +28,8 @@ The post-Beta runtime now supports concurrency across ordinary timed/Toggle macr
 
 **After Stable 1.3.0, the next highest-priority feature is Physical Gamepad Input + Hybrid Controller Routing. Layer has been reprioritized behind that track.** The first goal is Windows XInput controller buttons/D-pad/trigger thresholds as first-class InputStitch triggers; the second is controller→keyboard/mouse hybrid mapping; the third is controlled replacement/routing through one virtual gamepad with device-hiding only after a mature fail-safe approach is chosen. Full design: `docs/GAMEPAD_INPUT_ROUTING.md`.
 
+Current `main` is now one evidence-backed trigger fix ahead of the `v1.3.0-beta.2` runtime tag. Holding **Shift** no longer disables a separately configured bare ordinary-key trigger such as `E`; exact explicit chords still win, and Ctrl/Alt/Win remain strict for bare keys. Modifier chords are now valid Hold triggers. The chord starts on the terminal-key down edge with required modifiers already held; terminal-key release or release of any required modifier stops only the matching Hold source, and lost-KeyUp reconciliation checks the complete chord state.
+
 ## Completed
 
 ### Input Ownership core
@@ -63,6 +65,8 @@ The post-Beta runtime now supports concurrency across ordinary timed/Toggle macr
 - Runtime observation lists every active worker run with RunId/Source/category/phase/iteration/step/logical-held state, followed by Parallel Held mappings, active ownership sources and merged output.
 - The macro editor shows live runtime category + concurrency eligibility + reason from the same authoritative `MacroRuntimeClassifier` used by execution; there is no duplicate UI rule table.
 - Single-step / Next Step remains intentionally exclusive as a diagnostic execution mode and is interruptible by Stop/Emergency Stop; it is not a limitation on normal macro concurrency.
+- Bare ordinary-key trigger selection now permits Shift-only fallback after exact matching. Therefore an explicit `Shift+E` trigger wins over bare `E`, while bare `E` still works under Shift if no explicit chord matches. Bare Ctrl/Alt/Win combinations remain strict.
+- Modifier-chord Hold is supported in both Parallel Held Mapping and Concurrent Advanced Hold. Hook release handling recognizes either terminal-key release or required-modifier release; the physical-state fallback evaluates the full chord rather than only the terminal key.
 
 ### Layer preparation
 
@@ -94,8 +98,8 @@ Immediately before this handoff, the full regression suite was run again on the 
 - 58 Idle Gamepad assertions;
 - 43 updater checks;
 - 23 UI safety / diagnostics checks;
-- 351 productivity checks;
-- 303,700 Output Ownership checks, including the universal timed/Toggle/Advanced-Hold + Parallel-Held matrix;
+- 354 productivity checks;
+- 303,708 Output Ownership checks, including the universal timed/Toggle/Advanced-Hold + Parallel-Held matrix and modifier-chord Hold classification/release semantics;
 - zh-CN/en-US Settings smoke tests at normal and narrow sizes;
 - old XML configuration compatibility;
 - saved gamepad vector initialization/editing smoke tests.
@@ -150,7 +154,7 @@ Intentional limitations that must not be mistaken for bugs:
 - only qualifying state-style Held Mappings use the dedicated lightweight Parallel Held path; complex Hold uses the worker-backed concurrent runtime instead;
 - multiple distinct timed/Toggle/Advanced-Hold macros are concurrent, but the same `MacroDefinition` still has at most one active run instance;
 - Single-step remains exclusive because it is a diagnostic execution mode;
-- physical Hold triggers still use the existing supported terminal forms (single keyboard key, including standalone modifiers, or mouse button); modifier chords/wheel remain outside Hold-trigger semantics even though UI/manual execution can still run the macro definition;
+- physical Hold triggers support single keyboard keys (including standalone modifiers), modifier+terminal-key chords, and mouse buttons. A chord starts when the terminal key goes down with all declared modifiers already held; releasing the terminal key or any required modifier stops only that Hold run/source. Wheel remains outside Hold-trigger semantics because it has no persistent down state;
 - same-output digital pulse/click requests do not force a bounce while another source persistently owns that output; the pulse is masked until the persistent state releases;
 - duplicate physical triggers use list priority;
 - Layer is not enabled in `1.3.0-beta.2`;
