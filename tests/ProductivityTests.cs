@@ -19,6 +19,11 @@ internal static class ProductivityTests
     private sealed class FaultStore : ConfigStore
     {
         internal int Fail;
+        internal DateTime? FixedUtcNow;
+        internal override DateTime GetUtcNow()
+        {
+            return FixedUtcNow.HasValue ? FixedUtcNow.Value : base.GetUtcNow();
+        }
         internal override void Write(string path, MacroConfig config)
         {
             if (Fail == 1) { File.WriteAllText(path, "partial"); throw new IOException("Simulated disk full"); }
@@ -88,17 +93,45 @@ internal static class ProductivityTests
         store.Save(path, config);
         Check(Directory.GetFiles(backups, "config-*.xml").Length == 1, "Old valid backup created");
         Check(original.SequenceEqual(File.ReadAllBytes(Directory.GetFiles(backups, "config-*.xml")[0])), "Backup byte exact");
+        // Windows wall-clock resolution can be much coarser than the seven fractional digits used
+        // in backup file names. Force every rapid save to observe exactly the same wall-clock value;
+        // retention must still follow save order rather than falling back to random GUID ordering.
+        store.FixedUtcNow = new DateTime(2099, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         for (int i = 0; i < 9; i++) { config.Macros[0].Name = "revision-" + i; store.Save(path, config); }
         string[] files = Directory.GetFiles(backups, "config-*.xml");
         Check(files.Length == 5, "Only latest five valid backups");
         foreach (string file in files) store.Validate(file);
         foreach (int i in Enumerable.Range(3, 5)) Check(files.Any(p => File.ReadAllText(p).Contains("revision-" + i)), "Expected retained revision " + i);
+        Check(files.Select(p => Path.GetFileName(p).Substring("config-".Length, "yyyyMMddTHHmmssfffffff".Length)).Distinct().Count() == 5,
+            "Rapid same-clock backups receive strictly ordered unique retention stamps");
         store.Save(path, config);
         Check(files.OrderBy(p => p).SequenceEqual(Directory.GetFiles(backups, "config-*.xml").OrderBy(p => p)), "No-op preserves backup names");
         File.WriteAllText(path, "unreadable original");
         store.Save(path, config);
         store.Validate(path);
         Check(File.ReadAllText(Directory.GetFiles(backups, "unreadable-*.xml")[0]) == "unreadable original", "Unreadable original preserved separately");
+
+        // Simulate a fresh process after a wall-clock rollback: there is no in-memory allocation
+        // history for this directory, but a valid backup from a future wall-clock value already exists.
+        string restartDirectory = Path.Combine(directory, "restart-clock");
+        Directory.CreateDirectory(restartDirectory);
+        string restartPath = Path.Combine(restartDirectory, "config.xml");
+        MacroConfig restartConfig = new MacroConfig();
+        restartConfig.Macros.Add(new MacroDefinition { Name = "before-restart", Steps = new List<MacroStep> { new MacroStep() } });
+        FaultStore restartStore = new FaultStore();
+        restartStore.Save(restartPath, restartConfig);
+        string restartBackups = Path.Combine(restartDirectory, "backups", "config");
+        Directory.CreateDirectory(restartBackups);
+        const string futureStamp = "20990102T0304050000000";
+        string futureBackup = Path.Combine(restartBackups, "config-" + futureStamp + "-" + Guid.Empty.ToString("N") + ".xml");
+        File.Copy(restartPath, futureBackup);
+        restartStore.FixedUtcNow = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        restartConfig.Macros[0].Name = "after-restart";
+        restartStore.Save(restartPath, restartConfig);
+        string newestRestartBackup = Directory.GetFiles(restartBackups, "config-*.xml").OrderByDescending(p => p, StringComparer.Ordinal).First();
+        string newestRestartStamp = Path.GetFileName(newestRestartBackup).Substring("config-".Length, "yyyyMMddTHHmmssfffffff".Length);
+        Check(string.CompareOrdinal(newestRestartStamp, futureStamp) > 0,
+            "Cold-start wall-clock rollback still allocates a backup newer than existing history");
     }
     private static void TestHistory()
     {

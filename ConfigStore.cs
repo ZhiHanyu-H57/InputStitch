@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -9,6 +11,16 @@ namespace InputStitch
     // All staging and replacement stay on the configuration volume. No delete-before-move.
     internal class ConfigStore
     {
+        private const string BackupStampFormat = "yyyyMMddTHHmmssfffffff";
+        private static readonly object BackupNameSync = new object();
+        private static readonly Dictionary<string, long> LastAllocatedBackupTicksByDirectory =
+            new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+
+        internal virtual DateTime GetUtcNow()
+        {
+            return DateTime.UtcNow;
+        }
+
         internal virtual void Write(string path, MacroConfig config)
         {
             using (FileStream stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -54,8 +66,7 @@ namespace InputStitch
                     try { Validate(path); } catch { validOld = false; }
                     string backups = Path.Combine(directory, "backups", "config");
                     Directory.CreateDirectory(backups);
-                    string backup = Path.Combine(backups, (validOld ? "config-" : "unreadable-") +
-                        DateTime.UtcNow.ToString("yyyyMMddTHHmmssfffffff") + "-" + Guid.NewGuid().ToString("N") + ".xml");
+                    string backup = CreateBackupPath(backups, validOld);
                     Replace(staged, path, backup);
                     // Replacement keeps the exact old file. Unreadable originals are retained separately.
                     try { TrimBackups(backups); }
@@ -67,6 +78,47 @@ namespace InputStitch
             {
                 try { if (File.Exists(staged)) File.Delete(staged); } catch { }
             }
+        }
+
+        private string CreateBackupPath(string directory, bool validOld)
+        {
+            string prefix = validOld ? "config-" : "unreadable-";
+            DateTime stamp = GetUtcNow().ToUniversalTime();
+
+            if (validOld)
+            {
+                // File-name ordering is the backup retention ordering. DateTime.UtcNow can return the
+                // same value for several rapid saves on Windows, despite the seven fractional digits in
+                // the formatted name. Guarantee a strictly increasing stamp so GUID ordering can never
+                // decide which valid backup is considered newest. Scan existing files as well so the
+                // guarantee survives process restart or a short wall-clock rollback.
+                lock (BackupNameSync)
+                {
+                    string directoryKey = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    long lastAllocatedBackupTicks;
+                    if (!LastAllocatedBackupTicksByDirectory.TryGetValue(directoryKey, out lastAllocatedBackupTicks))
+                        lastAllocatedBackupTicks = 0;
+                    long newestExistingTicks = 0;
+                    foreach (string existing in Directory.GetFiles(directory, "config-*.xml"))
+                    {
+                        string name = Path.GetFileName(existing);
+                        if (name == null || name.Length < prefix.Length + BackupStampFormat.Length) continue;
+                        string text = name.Substring(prefix.Length, BackupStampFormat.Length);
+                        DateTime parsed;
+                        if (DateTime.TryParseExact(text, BackupStampFormat, CultureInfo.InvariantCulture,
+                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out parsed))
+                            newestExistingTicks = Math.Max(newestExistingTicks, parsed.Ticks);
+                    }
+
+                    long ticks = Math.Max(stamp.Ticks, Math.Max(lastAllocatedBackupTicks + 1, newestExistingTicks + 1));
+                    if (ticks > DateTime.MaxValue.Ticks) ticks = DateTime.MaxValue.Ticks;
+                    stamp = new DateTime(ticks, DateTimeKind.Utc);
+                    LastAllocatedBackupTicksByDirectory[directoryKey] = stamp.Ticks;
+                }
+            }
+
+            return Path.Combine(directory, prefix + stamp.ToString(BackupStampFormat, CultureInfo.InvariantCulture) +
+                "-" + Guid.NewGuid().ToString("N") + ".xml");
         }
 
         private void TrimBackups(string directory)

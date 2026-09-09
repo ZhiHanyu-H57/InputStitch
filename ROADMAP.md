@@ -224,7 +224,7 @@ Latest clean 2026-09-10 automated regression:
 | Macro timing | 7 pass |
 | Updater | 43 pass |
 | UI safety / diagnostics | 23 pass |
-| Productivity/config/UI | 358 pass |
+| Productivity/config/UI | 360 pass |
 | Output Ownership | 303,716 pass |
 | Settings smoke | zh-CN/en-US, normal+narrow pass |
 | Legacy XML / gamepad-vector editor | pass |

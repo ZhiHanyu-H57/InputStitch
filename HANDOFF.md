@@ -305,7 +305,7 @@ Release policy               PASS
 Updater                    43 PASS
 Update network             18 PASS (injected failures; no network request)
 UI Safety / diagnostics    23 PASS
-Productivity              358 PASS
+Productivity              360 PASS
 Output Ownership      303,716 PASS
 Settings smoke zh/en normal+narrow PASS
 Legacy XML / gamepad-vector smoke PASS
@@ -364,6 +364,23 @@ This verifies the Windows/ViGEm connection-order mechanism at the current four-s
 - `releases/latest` remains Stable `v1.3.0`.
 
 Do not mutate this release/tag while publishing beta.2.
+
+### beta.2 CI backup-ordering issue found and fixed
+
+The first beta.2 non-publishing verification commit `7d17309` passed GitHub `windows-2022`. The first publish-trigger commit `f505ceb` changed no source but its repeated verify exposed a pre-existing nondeterministic `ProductivityTests.TestSave` failure: `Expected retained revision 3`.
+
+Root cause was real product behavior, not Layer/Controller code. Valid configuration backups are retained by descending file name. Backup names used `DateTime.UtcNow` formatted with seven fractional digits plus a random GUID, but Windows wall-clock resolution can return the exact same `UtcNow` value for several rapid saves. When timestamps tied, random GUID ordering accidentally decided which backup was considered newer.
+
+Fix in `ConfigStore`:
+
+- valid-backup sort timestamps are allocated strictly monotonically;
+- allocation considers current UTC, the latest in-process allocation for that backup directory, and the latest valid-backup timestamp already present on disk;
+- this makes ordering stable across rapid same-clock saves, short clock rollback, and process restart;
+- GUID remains only a uniqueness suffix, never a retention-order tie breaker.
+
+Deterministic regression coverage now forces all rapid saves to observe one frozen UTC value and separately simulates a cold directory containing a future-dated valid backup while the new process clock is rolled back to 2001. Both paths retain chronological save order. Productivity coverage is now **360 PASS**.
+
+A new non-publishing GitHub verification must pass after this fix before beta.2 publication is retried.
 
 ## beta.2 release gates
 

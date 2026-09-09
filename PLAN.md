@@ -148,7 +148,7 @@ Latest clean regression on 2026-09-10:
 - 43 updater install/rollback checks;
 - 18 update-network interruption/retry checks (injected failures only; no network request);
 - 23 UI safety/diagnostics checks;
-- 358 productivity/config/UI checks;
+- 360 productivity/config/UI checks;
 - 303,716 Output Ownership checks;
 - zh-CN/en-US Settings smoke at 700×660 and 604×441;
 - legacy XML compatibility and gamepad-vector editor smoke: PASS.
