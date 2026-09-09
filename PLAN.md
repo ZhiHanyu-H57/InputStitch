@@ -10,7 +10,7 @@ Updated: 2026-09-10
 
 - Current Stable: `v1.4.0`
 - Previous prerelease: `v1.3.1-beta.1` — published and immutable
-- Current prerelease: `v1.3.1-beta.2` — published and immutable
+- Latest historical prerelease: `v1.3.1-beta.2` — published and immutable
 - Branch: `main`
 - Previous Stable `v1.3.0` remains an immutable rollback reference; `v1.4.0` is the recommended Stable line.
 
@@ -178,7 +178,7 @@ Input Lab final run:
 
 ## Release discipline
 
-`v1.3.1-beta.1` and `v1.3.1-beta.2` are published **prereleases** and must remain immutable. `v1.3.0` is the previous Stable rollback reference; `v1.4.0` is the current Stable line and is expected to own `releases/latest` after publication.
+`v1.3.1-beta.1` and `v1.3.1-beta.2` are published **prereleases** and must remain immutable. `v1.3.0` is the previous Stable rollback reference; `v1.4.0` is the current Stable line and now owns `releases/latest`.
 
 Beta.2 release gates completed:
 

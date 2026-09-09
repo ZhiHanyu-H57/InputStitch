@@ -8,7 +8,7 @@ Updated: 2026-09-10
 
 - Current Stable: `v1.4.0`
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
-- Current prerelease: `v1.3.1-beta.2` — published successfully as a public GitHub prerelease
+- Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
 - Branch: `main`
 - Previous Stable rollback reference: `v1.3.0`
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
@@ -397,6 +397,25 @@ All beta.2 release gates are satisfied:
 - `releases/latest` still resolves to Stable `v1.3.0` (`prerelease=false`).
 
 `v1.3.1-beta.2` is now immutable release history. Future work must use a new version/tag.
+
+### Published Stable 1.4.0 verification
+
+`v1.4.0` promotes the validated 1.3.1 Beta controller-input/routing and flexible-Layer tree into Stable while keeping Controller Takeover explicitly Experimental.
+
+- non-publishing Stable candidate commit: `c998ddb`; GitHub workflow `34390506022`: `completed / success`;
+- final no-source-change publish commit / tag target: `ab2639e2ac6354013f3182cf4e921dabe36ae6fb`;
+- tag: `v1.4.0`;
+- `releases/latest` resolves to `v1.4.0`;
+- Release page and all five expected Stable assets return HTTP 200;
+- x64 remote asset: 750,080 bytes, SHA-256 `39b0d9bb527ab195375694ac630461fe0aa0c423de4d7d2dac40e7cb80f365c8`;
+- x86 remote asset: 750,592 bytes, SHA-256 `ca712a9fd57ab15271f57ef6582a650d13427ebb3bbbe78024497a33f4130a99`;
+- Source.zip SHA-256 `ae768be60da7af484864ef312295607a6a73fdff6a1d981a63f5ea79ab194a20`;
+- `InputStitch-update.xml` SHA-256 `6925987e5b69fb840249d67f5ebe581783dac54e7481e7138aaf903ce111a35f` and advertises `<Version>1.4.0</Version>` through the Stable `releases/latest/download` endpoints;
+- downloaded remote x64/x86 EXEs report `ProductName=InputStitch`, `ProductVersion=1.4.0`, `FileVersion=1.4.0.0`;
+- downloaded remote x64/x86/Source.zip/manifest hashes all match the published `SHA256SUMS.txt`;
+- the main release workflow badge reports `passing` after publication.
+
+`v1.4.0` is immutable Stable release history. Future release work must use a new version/tag. Physical controller + HidHide + target-game takeover acceptance remains blocked by missing hardware and does not change the Stable status of the rest of 1.4.0.
 
 ## Public documentation rule
 

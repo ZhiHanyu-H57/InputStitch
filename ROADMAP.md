@@ -8,7 +8,7 @@ Updated: 2026-09-10
 
 Current Stable: **v1.4.0**
 Previous prerelease: **v1.3.1-beta.1** — published and immutable
-Current prerelease: **v1.3.1-beta.2** — published and immutable
+Latest historical prerelease: **v1.3.1-beta.2** — published and immutable
 
 Stable `v1.4.0` promotes the validated controller-input/aggregation and flexible-Layer work from the 1.3.1 Beta line into the recommended Stable channel. Controller takeover remains explicitly Experimental until physical-controller + HidHide + target-game acceptance is available.
 
@@ -380,7 +380,7 @@ controlled replacement hardware maturity
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
 - `v1.3.1-beta.2` is published as a GitHub **prerelease**; keep it immutable.
-- Keep historical `v1.3.0` immutable. `v1.4.0` is the current Stable line and should own `releases/latest` after publication.
+- Keep historical `v1.3.0` immutable. `v1.4.0` is the current Stable line and now owns `releases/latest`.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
 - Runtime changes require the complete regression suite before commit.
