@@ -6,11 +6,11 @@ Updated: 2026-09-10
 
 ## Current versions
 
-- Current Stable: `v1.4.0`
+- Current Stable: `v1.4.1`
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
 - Branch: `main`
-- Previous Stable rollback reference: `v1.3.0`
+- Previous Stable rollback reference: `v1.4.0`
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
 For the commit containing this handoff itself, use:
@@ -23,7 +23,7 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**`v1.4.0` is the current Stable line. It promotes the validated controller-input/routing and flexible-Layer work from the 1.3.1 Beta line while keeping Controller Takeover explicitly Experimental. The post-1.4.0 plan is Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.1` is the current Stable line. It is a UI-lifecycle hotfix over 1.4.0: transient ContextMenuStrip instances are disposed only after the current ToolStrip message turn, and shutdown no longer synchronously disposes menus that WinForms may still reference. The post-1.4.x plan remains Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -306,7 +306,7 @@ Modifier Safety              PASS
 Release policy               PASS
 Updater                    43 PASS
 Update network             18 PASS (injected failures; no network request)
-UI Safety / diagnostics    23 PASS
+UI Safety / diagnostics    26 PASS
 Productivity              360 PASS
 Output Ownership      303,716 PASS
 Settings smoke zh/en normal+narrow PASS

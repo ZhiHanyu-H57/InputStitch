@@ -16,13 +16,13 @@ InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式�
 
 ### 正式版
 
-**当前正式版：v1.4.0。** 这一版把 1.3.1 Beta 线里已经验证的手柄输入/汇总、多映射层、运行观察、更新与配置安全改进正式纳入 Stable。实验性手柄接管也保留，但仍明确标记为“实验性”。
+**当前正式版：v1.4.1。** 这是 1.4.0 的界面稳定性修复版，修复“管理映射层”弹出菜单过早释放 `ContextMenuStrip`、导致 WinForms 菜单点击收尾阶段抛出 `ObjectDisposedException` 的问题。1.4.0 的功能和配置格式保持不变。
 
 | Windows 架构 | 下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.4.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.0-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.4.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.0-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.4.0-Source.zip](../../releases/latest/download/InputStitch-1.4.0-Source.zip) |
+| 64 位 Windows（x64） | [InputStitch-1.4.1-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.1-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.4.1-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.1-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.4.1-Source.zip](../../releases/latest/download/InputStitch-1.4.1-Source.zip) |
 | 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 ### 历史测试版

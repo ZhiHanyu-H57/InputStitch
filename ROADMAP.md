@@ -6,7 +6,7 @@ Updated: 2026-09-10
 
 ## Current position / 当前阶段
 
-Current Stable: **v1.4.0**
+Current Stable: **v1.4.1**
 Previous prerelease: **v1.3.1-beta.1** — published and immutable
 Latest historical prerelease: **v1.3.1-beta.2** — published and immutable
 
@@ -332,7 +332,7 @@ Latest clean 2026-09-10 automated regression:
 | Flexible Layer / XML / observation | 39 pass |
 | Macro timing | 7 pass |
 | Updater | 43 pass |
-| UI safety / diagnostics | 23 pass |
+| UI safety / diagnostics | 26 pass |
 | Productivity/config/UI | 360 pass |
 | Output Ownership | 303,716 pass |
 | Settings smoke | zh-CN/en-US, normal+narrow pass |
@@ -361,7 +361,9 @@ v1.3.1-beta.1  ← published prerelease; slot acquisition implemented
    ↓
 v1.3.1-beta.2  ← current published prerelease; flexible layers + takeover health monitoring
    ↓
-v1.4.0 Stable   ← current recommended Stable; takeover remains Experimental
+v1.4.0 Stable   ← previous Stable / rollback reference
+   ↓
+v1.4.1 Stable   ← current recommended Stable; UI lifecycle hotfix, takeover remains Experimental
    ↓
 output backend abstraction + Device Identity + Router source policy + Analog Transform
    ↓
@@ -380,7 +382,7 @@ controlled replacement hardware maturity
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
 - `v1.3.1-beta.2` is published as a GitHub **prerelease**; keep it immutable.
-- Keep historical `v1.3.0` immutable. `v1.4.0` is the current Stable line and now owns `releases/latest`.
+- Keep historical Stable releases immutable. `v1.4.0` is the previous Stable rollback reference; `v1.4.1` is the current Stable line and is expected to own `releases/latest` after publication.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
 - Runtime changes require the complete regression suite before commit.

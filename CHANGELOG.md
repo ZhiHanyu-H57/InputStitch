@@ -3,6 +3,15 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.4.1
+
+**界面稳定性 Hotfix：修复映射层管理菜单在 WinForms 仍处理当前菜单点击时过早释放 `ContextMenuStrip`，从而抛出 `ObjectDisposedException` 的问题。**
+
+- “管理映射层”和“快速创建”临时菜单统一改为下一轮 UI 消息再 Dispose，而不是在 `Closed` 事件里同步销毁。
+- 主窗口退出时不再同步 Dispose `toolsMenu` / `trayMenu`，避免由菜单项触发退出时与 WinForms `ModalMenuFilter` 生命周期竞争。
+- UI Safety/Diagnostics 回归从 23 项增加到 26 项，明确验证菜单不会在当前 ToolStrip 事件中被释放。
+- 不新增功能、不修改配置格式；1.4.0 的功能和 Experimental Controller Takeover 状态保持不变。
+
 ## 1.4.0
 
 **正式版：把 1.3.1 Beta 线中已经验证的手柄输入/汇总、多映射层、运行观察、更新与配置安全能力纳入 Stable。实验性手柄接管继续保留，但仍明确标记为 Experimental。**

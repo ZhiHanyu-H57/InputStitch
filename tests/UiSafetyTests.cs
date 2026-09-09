@@ -53,9 +53,35 @@ internal static class UiSafetyTests
             Check(snapshot.Contains("10000 "), "trace preserves last sequence");
             trace.Add("test", new string('x',200)+"\nnot-an-event");
             Check(!trace.Snapshot().Contains("not-an-event"), "detail length and newline sanitization");
+            ContextMenuLifetime();
             Console.WriteLine("PASS UI safety/diagnostics: " + checks + " checks; no real hooks, windows shown, input or user configuration.");
             return 0;
         }
         catch(Exception ex) { Console.Error.WriteLine(ex); return 1; }
+    }
+
+    private static void ContextMenuLifetime()
+    {
+        using (Control dispatcher = new Control())
+        {
+            IntPtr handle = dispatcher.Handle;
+            using (ContextMenuStrip menu = new ContextMenuStrip())
+            {
+                MainForm.DeferContextMenuDispose(dispatcher, menu);
+                Check(!menu.IsDisposed, "context menu disposal is deferred past the current ToolStrip event");
+                Application.DoEvents();
+                Check(menu.IsDisposed, "deferred context menu disposal completes on the next UI message turn");
+            }
+        }
+
+        ContextMenuStrip orphan = new ContextMenuStrip();
+        using (Control disposedDispatcher = new Control())
+        {
+            IntPtr handle = disposedDispatcher.Handle;
+            disposedDispatcher.Dispose();
+            MainForm.DeferContextMenuDispose(disposedDispatcher, orphan);
+            Check(!orphan.IsDisposed, "disposed dispatcher never forces synchronous context menu disposal");
+        }
+        orphan.Dispose();
     }
 }

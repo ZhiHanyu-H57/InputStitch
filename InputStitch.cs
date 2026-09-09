@@ -5262,7 +5262,7 @@ namespace InputStitch
                 }
                 menu.Items.Add(new ToolStripSeparator());
                 menu.Items.Add(VirtualKeyboardDialog.TextFor("空白宏（高级）", "Blank macro (advanced)"), null, AddMacro_Click);
-                menu.Closed += delegate { BeginInvoke((MethodInvoker)delegate { menu.Dispose(); }); };
+                menu.Closed += delegate { DeferContextMenuDispose(this, menu); };
                 menu.Show(addMacro, new Point(0, addMacro.Height));
             };
             copyMacro.Click += CopyMacro_Click;
@@ -6062,6 +6062,20 @@ namespace InputStitch
             toolsMenu.Items.Add(aboutMenuItem);
             toolsMenu.Opening += delegate { RefreshPanicUi(); RefreshMenuLanguage(); };
             RefreshMenuLanguage();
+        }
+
+        internal static void DeferContextMenuDispose(Control dispatcher, ContextMenuStrip menu)
+        {
+            if (menu == null || menu.IsDisposed) return;
+            if (dispatcher == null || dispatcher.IsDisposed || dispatcher.Disposing || !dispatcher.IsHandleCreated) return;
+            try
+            {
+                dispatcher.BeginInvoke((MethodInvoker)delegate
+                {
+                    if (!menu.IsDisposed) menu.Dispose();
+                });
+            }
+            catch (InvalidOperationException) { }
         }
 
         private void ShowControllerTakeoverDialog()
@@ -7571,7 +7585,7 @@ namespace InputStitch
                 RefreshLayerChoiceLists();
             };
             menu.Items.Add(clearShortcut);
-            menu.Closed += delegate { menu.Dispose(); };
+            menu.Closed += delegate { DeferContextMenuDispose(this, menu); };
             menu.Show(layerManageButton, new Point(0, layerManageButton.Height));
         }
 
@@ -11236,8 +11250,13 @@ namespace InputStitch
                     trayIcon.Dispose();
                     trayIcon = null;
                 }
-                if (trayMenu != null) { trayMenu.Dispose(); trayMenu = null; }
-                if (toolsMenu != null) { toolsMenu.Dispose(); toolsMenu = null; }
+                // Do not synchronously Dispose ContextMenuStrip instances during FormClosing.
+                // If shutdown was initiated from a menu item, WinForms' ModalMenuFilter may
+                // still reference that drop-down until the click/close message fully unwinds.
+                // The process is exiting, so dropping our references is safer than forcing an
+                // early Dispose that can surface ObjectDisposedException from ToolStrip internals.
+                trayMenu = null;
+                toolsMenu = null;
                 if (runtimeObservationForm != null && !runtimeObservationForm.IsDisposed) { runtimeObservationForm.Close(); runtimeObservationForm = null; }
                 AppLog.Write("Application closed normally.");
             }
