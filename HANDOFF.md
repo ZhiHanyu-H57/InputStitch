@@ -23,7 +23,7 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**`v1.3.1-beta.2` is published. Physical controller + HidHide + real-game acceptance remains parked until hardware exists; non-hardware follow-up can continue from controller identity/diagnostic UX and richer Router selection/policy only when a concrete workflow justifies it.**
+**`v1.3.1-beta.2` is published. The post-beta.2 plan has been structurally reprioritized after a 2026 competitive review: next non-hardware work is Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -31,6 +31,8 @@ Beta.2 adds two major non-hardware improvements on top of beta.1:
 2. continuous Controlled Replacement health monitoring + automatic fail-safe disengage/recovery.
 
 Physical-controller + HidHide + real-game acceptance is explicitly blocked because the development machine has no physical XInput controller and no HidHide environment. Do **not** substitute more virtual devices and claim that as physical acceptance.
+
+Product strategy reference: `docs/PRODUCT_STRATEGY.md`. The project should compete on deterministic orchestration, observability and fail-safe behavior rather than broad controller-model/vendor-feature count.
 
 ## Architecture baseline inherited from v1.3.0 / beta.1
 
@@ -408,7 +410,17 @@ Technical design notes may use internal English type/API names freely.
 
 ## Next step after beta.2
 
-Hardware-dependent acceptance remains parked until a physical controller exists. When available:
+Active non-hardware order:
+
+1. introduce a virtual-output backend boundary and keep ViGEm as the first implementation with behavior unchanged;
+2. build persistent `DeviceKey` / Device Manager inventory and diagnostics;
+3. change Router from “all visible external XInput sources” to explicit source selection + per-device policy;
+4. introduce reusable Analog Transform primitives (deadzone/curve/scaling/inversion/zones/merge policy);
+5. generalize Activator + Condition semantics rather than adding more one-off trigger modes;
+6. then improve Layer ergonomics, profile/context behavior and evaluate `IInputProvider` + SDL3;
+7. only after the output interface is stable, prototype/compare a second virtual-output backend.
+
+Hardware-dependent acceptance remains parked in parallel until a physical controller exists. When available:
 
 1. validate physical starting layouts with InputStitch initially in slots 0/1/2/3;
 2. validate HidHide while InputStitch remains whitelisted/readable;
@@ -416,13 +428,15 @@ Hardware-dependent acceptance remains parked until a physical controller exists.
 4. intentionally break slot/Router/HidHide state and verify the new health monitor restores without doubled input;
 5. only then call controller takeover hardware-mature.
 
-Non-hardware work may continue independently from concrete use cases: controller identity/diagnostic UX, routing selection/policies, or broader input backends.
+Do not spend the next phase chasing controller-model count, gyro/touchpad/vendor haptics, complex Layer stacking or unrestricted plugins/scripts unless a concrete workflow justifies them.
 
 ## Important design constraints
 
 - Do not regress Stable 1.3.0 source-local ownership semantics.
 - Emergency Stop remains absolute priority.
 - Output backend failure remains fail-closed.
+- Macro/runtime/ownership/routing code must not become more tightly coupled to ViGEm; future output backends go behind a stable interface.
+- XInput slot number is transient runtime state and must not become the durable user-facing device identity.
 - InputStitch's own ViGEm output must never become an external trigger/router source.
 - Respect `VirtualGamepadTypes.None`; incompatible features may refuse but must not silently recreate ViGEm.
 - Controlled Replacement: **target slot not verified → no original-device hide**.
@@ -430,6 +444,7 @@ Non-hardware work may continue independently from concrete use cases: controller
 - Hiding must be explicit and recoverable; preserve pre-existing HidHide state.
 - Do not write a kernel filter driver while a mature external hiding solution is sufficient.
 - Layer remains eligibility/grouping on top of the common runtime, never a second execution engine.
+- Analog transforms, activators and conditions must remain observable/testable and must not bypass Output Ownership or the common runtime.
 - Observation/diagnostics must not create/connect virtual devices merely to inspect status.
 - Stable and Beta release/update channels remain separate.
 - Complete regression before every runtime-changing commit.
@@ -440,11 +455,12 @@ Non-hardware work may continue independently from concrete use cases: controller
 1. Read AGENTS.md
 2. Read PLAN.md
 3. Read ROADMAP.md
-4. Read HANDOFF.md
-5. git log -8 --oneline --decorate
-6. git status --short --branch
-7. git fetch / git pull as appropriate
-8. Confirm expected version and working-tree baseline before editing
+4. Read docs/PRODUCT_STRATEGY.md
+5. Read HANDOFF.md
+6. git log -8 --oneline --decorate
+7. git status --short --branch
+8. git fetch / git pull as appropriate
+9. Confirm expected version and working-tree baseline before editing
 ```
 
 On a new development machine, verify Git, .NET Framework 4.7.2 reference assemblies/build path, embedded ViGEm client dependency and GitHub authentication before release work.

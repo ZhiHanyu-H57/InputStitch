@@ -2,11 +2,15 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**InputStitch — Precise Input Mapping & Automation for Windows**
+**InputStitch — Deterministic Input Orchestration & Automation for Windows**
 
-InputStitch is a lightweight visual keyboard, mouse, and virtual gamepad macro tool for Windows. It is designed for precise timing, game-friendly input, and a dependable emergency stop.
+InputStitch is a visual input-orchestration and macro tool for Windows. It combines keyboard, mouse, physical/virtual controller triggers, concurrent macro execution, routing, layers, and optional virtual-controller output in one observable runtime.
+
+The project is deliberately **not** trying to win a controller-model or hardware-feature-count race. Its core priorities are precise timing, deterministic concurrent ownership, explainable runtime state, safe failure/recovery, and keeping simple “press this → send that” workflows simple.
 
 The application is built with Windows Forms and .NET Framework 4.7.2. Its interface can switch instantly between **English** and **Simplified Chinese** without restarting.
+
+See [Product positioning and competitive strategy](docs/PRODUCT_STRATEGY.md) for the 2026 comparison with projects such as PadForge, reWASD, Joystick Gremlin, Steam Input and DS4Windows, and see [ROADMAP.md](ROADMAP.md) for the resulting development priorities.
 
 ## Download
 
@@ -107,7 +111,25 @@ The controller preview follows the selected Xbox 360 or PS4 layout. A stick dire
 
 Virtual gamepad output, controller merging, idle gamepad input, and controller takeover use [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest). If you only need keyboard/mouse macros or use a physical/other XInput controller as a trigger for keyboard/mouse output, choose **Do not create a virtual controller** and ViGEm is not created for those features. The upstream project is retired and no longer receives updates. InputStitch never silently installs the driver: if it is missing, the app explains the requirement and offers to open the original author's official GitHub Release page. Download it only from that official page, install it yourself, and restart InputStitch.
 
+ViGEm remains the current production backend, but it is no longer treated as the permanent architecture. The roadmap now prioritizes a virtual-output backend interface before any second backend is adopted, so macros, Output Ownership, Router, Idle and takeover logic can remain independent of the underlying emulation technology. HIDMaestro and the standalone VIIPER server/API are examples to evaluate only after that abstraction is stable; deployment, security, architecture support and license compatibility are part of that decision.
+
 Connect the virtual controller from **Settings → Virtual Gamepad Output** before launching a game. InputStitch keeps one virtual controller connected until the app exits. Ordinary source completion now removes only that source's ownership; other active Held Mapping or Idle sources remain merged. **Emergency Stop** and application shutdown are the global boundaries that clear every source and force the virtual controller neutral without unplugging it. This avoids games that cache controllers at startup and ignore later hot-plugging. Changing between Xbox 360 and PS4 while a game is open may require restarting the game.
+
+## Where InputStitch is going
+
+After reviewing current controller-remapping and automation projects, the roadmap deliberately prioritizes **platform depth before hardware breadth**.
+
+The next non-hardware foundation is:
+
+1. virtual-output backend abstraction;
+2. persistent Device Identity / Device Manager;
+3. explicit Router source selection and per-device policy;
+4. reusable analog transforms such as deadzones, curves, sensitivity, inversion and zones;
+5. a generalized Activator + Condition engine for press/release/hold/long/double/turbo and deterministic context rules.
+
+Broader controller input is planned through an `IInputProvider` architecture, with SDL3 as the first general-purpose provider candidate rather than adding one device family/API at a time. Gyro, touchpad, vendor-specific haptics, plugin scripting, complex Layer stacking and radial/overlay UI remain later, evidence-driven features rather than current success metrics.
+
+Physical-controller + HidHide + real-game acceptance of the experimental takeover path remains a separate **hardware-blocked validation lane** until suitable hardware is available. See [ROADMAP.md](ROADMAP.md) and [the strategy review](docs/PRODUCT_STRATEGY.md) for details.
 
 ## Safety notes
 
@@ -173,4 +195,4 @@ Beta.4 added staged/verified configuration saves with five recent valid backups,
 
 Beta 1 replaces the old single-owner output assumption with explicit source ownership. Qualifying Held Mappings can stay active together and one ordinary timed macro may coexist with them. Digital state uses reference ownership, triggers use the maximum requested value, sticks merge vectors with circular normalization, and opposite D-pad directions cancel per axis. Tools → **Runtime observation...** shows active sources and the merged result; ordinary timed macros also gain **Single-step / Next Step**.
 
-`v1.3.0-beta.2` publishes the **unified Concurrent Macro Runtime**: multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can overlap with independent RunId/SourceId/stop/timing state while Parallel Held Mappings remain active. Complex Hold runs keep per-run physical-trigger/lost-KeyUp release tracking; releasing one Hold stops only that run. The editor's live runtime/concurrency eligibility display comes from the same classifier used by execution. Duplicate physical triggers still use macro-list priority, Single-step remains an intentionally exclusive diagnostic mode, and Emergency Stop remains the absolute global clear. Layer / Mapping Layer remains deferred; after Stable 1.3.0 the roadmap now prioritizes Physical Gamepad Input + Hybrid Controller Routing before Layer. See [the gamepad input/routing design](docs/GAMEPAD_INPUT_ROUTING.md) and [the Layer design note](docs/LAYER_DESIGN.md).
+`v1.3.0-beta.2` published the **unified Concurrent Macro Runtime**: multiple distinct ordinary timed/Toggle macros and Advanced/complex Hold macros can overlap with independent RunId/SourceId/stop/timing state while Parallel Held Mappings remain active. Complex Hold runs keep per-run physical-trigger/lost-KeyUp release tracking; releasing one Hold stops only that run. The editor's live runtime/concurrency eligibility display comes from the same classifier used by execution. Duplicate physical triggers still use macro-list priority, Single-step remains an intentionally exclusive diagnostic mode, and Emergency Stop remains the absolute global clear. At that milestone Layer was still deferred; the 1.3.1 Beta line subsequently implemented physical XInput routing/takeover foundations and then arbitrary named Layers with switch bindings. See [the gamepad input/routing design](docs/GAMEPAD_INPUT_ROUTING.md), [the Layer design note](docs/LAYER_DESIGN.md), and [the current roadmap](ROADMAP.md).

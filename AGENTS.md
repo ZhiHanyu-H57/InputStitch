@@ -7,10 +7,11 @@ Before changing code in this repository, restore project context in this order:
 1. Read `AGENTS.md`.
 2. Read `PLAN.md`.
 3. Read `ROADMAP.md`.
-4. Read `HANDOFF.md`.
-5. Run `git log -8 --oneline --decorate`.
-6. Run `git status --short --branch`.
-7. Confirm the local branch is based on the expected remote `main` before editing.
+4. Read `docs/PRODUCT_STRATEGY.md` for current product positioning and priority rationale.
+5. Read `HANDOFF.md`.
+6. Run `git log -8 --oneline --decorate`.
+7. Run `git status --short --branch`.
+8. Confirm the local branch is based on the expected remote `main` before editing.
 
 `HANDOFF.md` is the machine-to-machine continuation note. It describes the last safe development breakpoint and should be updated before handing development to another computer or agent.
 

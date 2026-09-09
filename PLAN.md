@@ -6,13 +6,15 @@ Updated: 2026-09-10
 
 ## Current milestone
 
-**`v1.3.1-beta.2` — 任意多 Layer / 快捷切层 / 接管运行自检与自动恢复**
+**Post-`v1.3.1-beta.2` platform foundation — output backend abstraction / Device Identity / Router policy / Analog Transform**
 
 - Current Stable: `v1.3.0`
 - Previous prerelease: `v1.3.1-beta.1` — published and immutable
 - Current prerelease: `v1.3.1-beta.2` — published and immutable
 - Branch: `main`
 - Stable `v1.3.0` remains the recommended rollback baseline and must not be overwritten by this Beta.
+
+The 2026 competitive review is now an explicit planning input. InputStitch is positioned as a **deterministic input orchestration and macro platform**, not a “support the most controller models” remapper. See [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md).
 
 ## What is implemented in 1.3.1-beta.2
 
@@ -118,17 +120,25 @@ Not complete / not yet claimed:
 
 ## Immediate next engineering work
 
-Hardware acceptance is explicitly **blocked until a physical XInput controller is available**; do not substitute more virtual devices and claim that as physical acceptance.
+Hardware acceptance remains explicitly **blocked until a physical XInput controller is available**. Keep it as a parallel P0 validation lane; do not substitute more virtual devices and claim that as physical acceptance.
 
-When hardware becomes available:
+The active non-hardware engineering order is now:
 
-1. Validate the implemented slot-acquisition + HidHide + runtime-health pipeline with one or more physical XInput controllers on a machine where HidHide is installed.
-2. Prove the selected original controller disappears from an ordinary observer/target while InputStitch remains whitelisted and keeps reading/routing it.
-3. Exercise physical starting layouts with InputStitch initially in slots 0/1/2/3 and up to three external XInput sources.
-4. Intentionally break one runtime invariant (for example slot, Router or HidHide state) and verify the new automatic disengage restores visibility without doubled routed input.
-5. Only after those real-device/game checks are proven, call the feature “full controller takeover/replacement.”
+1. **Virtual Output Backend abstraction** — introduce a ViGEm-independent output boundary with no behavior change; keep ViGEm as the only production backend initially.
+2. **Persistent Device Identity / Device Manager** — establish durable `DeviceKey` + inventory/diagnostics so slot number becomes a transient attribute rather than identity.
+3. **Router source selection / per-device policy** — explicitly select routed sources and prepare per-source transform/merge policy.
+4. **Analog Transform Engine** — reusable deadzone, curve, scaling, inversion, zones and merge policies.
+5. **Activator + Condition Engine** — unify press/release/held/short/long/double/toggle/turbo and deterministic Layer/device/app/axis conditions.
+6. After those foundations, improve Layer ergonomics (Momentary/Hold-to-Layer before more complex modes), profile/context behavior, and then evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
+7. Only after the output backend interface is stable should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
 
-Non-hardware work may continue independently: improve controller-source identity/diagnostics, Router policy/selection UX, Layer ordering/presets only when a concrete workflow justifies them, and evaluate broader controller backends only when real use requires them.
+When physical hardware becomes available in parallel:
+
+1. Validate slot-acquisition + HidHide + runtime-health with one or more physical XInput controllers.
+2. Prove selected originals disappear from an ordinary observer/game while InputStitch remains whitelisted/readable.
+3. Exercise InputStitch starting slots 0/1/2/3 and intentional slot/Router/HidHide faults.
+4. Confirm recovery avoids doubled original+routed input and preserves pre-existing HidHide state.
+5. Only then call controller takeover “hardware-mature.”
 
 ## Current automated evidence
 

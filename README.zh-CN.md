@@ -2,11 +2,15 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-**InputStitch —— Windows 输入映射与宏工具**
+**InputStitch —— Windows 精确输入编排与宏平台**
 
-InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式：按一下、按住、循环、顺序执行，或者用一个输入去触发另一组输入。它尤其适合需要精确时序、多个输入同时存在、以及随时能够安全停止的场景。
+InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式：按一下、按住、循环、顺序执行，或者用一个输入去触发另一组输入。它尤其适合需要**精确时序、多个输入同时存在、运行状态能够解释、异常时能够安全停止和恢复**的场景。
+
+这个项目并不打算靠“支持最多的手柄型号、最多的厂商特性”来竞争。InputStitch 更重视的是：多个宏和路由来源同时运行时结果仍然确定，一个来源结束不会误伤另一个来源；复杂状态可以在运行观察里说明白；涉及设备、配置和更新的高风险操作尽量采用验证、回滚和恢复机制；同时又不能把最简单的“按这个 → 输出那个”做复杂。
 
 界面支持简体中文和 English 即时切换。程序仅支持 Windows。
+
+2026 年重新比较 PadForge、reWASD、Joystick Gremlin、Steam Input、DS4Windows 等项目之后，InputStitch 已经重新调整长期路线。详细分析见 [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md)，正式开发优先级见 [`ROADMAP.md`](ROADMAP.md)。
 
 ## 下载
 
@@ -215,6 +219,26 @@ InputStitch 会记录“哪个宏或手柄正在要求哪个输出”，而不�
 [ViGEmBus 官方发布页面](https://github.com/nefarius/ViGEmBus/releases/latest)
 
 安装后请重启 InputStitch。对于只在启动游戏时识别手柄的游戏，建议先连接 InputStitch 虚拟手柄，再启动游戏。
+
+ViGEm 目前仍然是正式使用的虚拟手柄后端，但它不再被视为 InputStitch 永久绑定的底层实现。长期路线已经把**虚拟输出后端抽象**提前：先让宏、Output Ownership、Router、闲置输入和接管逻辑只依赖统一接口，再评估 HIDMaestro、VIIPER Server/API 等替代方案。是否采用新后端会同时考虑部署难度、安全/驱动模型、x86/x64 支持和许可证兼容性，而不是只看“能模拟多少种手柄”。
+
+## 接下来往哪里发展
+
+重新比较 2026 年仍活跃的同类项目后，InputStitch 的长期路线已经明确成：**先做平台深度，再做硬件广度。**
+
+下一阶段非硬件主线依次是：
+
+1. **虚拟输出后端抽象**：先解除核心逻辑对 ViGEm 具体实现的硬绑定；
+2. **持久 Device Identity / Device Manager**：让“这只手柄是谁”不再等同于“它现在是 XInput 几号槽位”；
+3. **Router 来源选择与按设备策略**：用户明确决定哪些手柄参与汇总，而不是默认把所有可见外部 XInput 手柄都合并；
+4. **Analog Transform Engine**：统一处理死区、响应曲线、灵敏度、反转、轴区间和模拟量合并策略；
+5. **Activator + Condition Engine**：把按下、松开、按住、短按、长按、双击、Toggle、Turbo，以及 Layer/设备/窗口/模拟量条件统一成可组合规则。
+
+更广泛的手柄输入将优先考虑 `IInputProvider` 架构和 SDL3，而不是以后每增加一种手柄就单独写一套输入系统。Gyro、触摸板、厂商专用震动/自适应扳机、脚本插件、复杂多 Layer 叠加、圆盘菜单/Overlay 等都降为**有真实需求再做**的后期能力。
+
+“实体手柄 + HidHide + 实际游戏”的接管验收仍然是一条独立的 **Blocked by hardware** 路线：代码继续保留，等以后真的有实体手柄再验证，不会为了清空 ROADMAP 用更多虚拟手柄冒充完成。
+
+详细竞争定位见 [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md)，正式优先级见 [`ROADMAP.md`](ROADMAP.md)。
 
 ## 安全提示
 

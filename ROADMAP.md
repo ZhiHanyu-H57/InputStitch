@@ -137,75 +137,184 @@ Not completed:
 
 Therefore **do not describe 1.3.1-beta.2 as fully hardware-validated controller takeover**.
 
+## Product positioning / 产品定位
+
+The 2026 competitive review changes the priority order, not the core architecture.
+
+**InputStitch should compete as a deterministic input orchestration and macro platform, not as a hardware-feature-count remapper.** Mature projects such as PadForge, reWASD, Joystick Gremlin, Steam Input and DS4Windows already invest heavily in broad controller coverage, vendor-specific features, curves, gyro, menus and device ecosystems. InputStitch's strongest differentiators are instead:
+
+- explicit Output Ownership and source-local cleanup;
+- deterministic concurrent macro/runtime semantics;
+- one common keyboard/mouse/controller orchestration pipeline;
+- runtime observation and explainable state;
+- fail-safe transactions, rollback and recovery;
+- a useful keyboard/mouse-only mode that does not require virtual-controller creation.
+
+See [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md) for the detailed competitive comparison and rationale.
+
 ## Highest-priority next work / 下一步最高优先级
 
-### 1. Real-device acceptance for the implemented slot-acquisition transaction
+### P0 — Physical takeover acceptance — BLOCKED by hardware
 
-The unsafe “hide slot 0 first and hope” design is no longer used. Current implementation follows:
+The implemented slot-acquisition + HidHide + health-monitor pipeline still requires a real physical XInput controller and a HidHide test environment before full controller takeover can be claimed.
+
+When hardware becomes available, verify:
+
+1. physical PnP disable/enable and slot-0 acquisition from InputStitch starting slots 0/1/2/3;
+2. selected originals disappear from an ordinary observer/game while InputStitch remains whitelisted/readable;
+3. the target game sees the intended routed slot-0 virtual controller rather than the selected originals;
+4. stop/crash recovery restores only InputStitch-owned changes and preserves pre-existing HidHide state;
+5. deliberate slot/Router/HidHide faults trigger the runtime watchdog without leaving doubled original+routed input.
+
+Do not substitute additional virtual devices and call this hardware acceptance.
+
+### P1 — Virtual Output Backend abstraction
+
+ViGEmBus remains the current supported virtual-controller backend, but upstream is retired and archived. New platform code must therefore stop assuming:
 
 ```text
-stop managed output
-        ↓
-disconnect InputStitch virtual Xbox once for self-identity filtering
-        ↓
-temporarily re-enumerate all present external XUSB sources if slot 0 must be freed
-        ↓
-reconnect InputStitch first and hard-verify XInput 0
-        ↓
-restore every external XUSB source and verify all identities returned
-        ↓
-re-establish Router/source state and re-check slot 0
-        ↓
-only now can HidHide Begin run for the explicitly selected external identities
+virtual controller output == ViGEm
 ```
 
-The remaining task is physical-controller validation of this already-implemented transaction. A neutral four-device ViGEm probe has verified the ordering mechanism from `external 0/1/2 + InputStitch 3` to `InputStitch 0 + external 1/2/3`.
+Introduce a backend boundary such as `IGamepadOutputBackend` so macro execution, Output Ownership, Router, Idle and takeover logic do not depend directly on ViGEm implementation details.
 
-### 2. Broader stable device identity
+The first goal is **abstraction without behavior change**. Keep ViGEm as the only production backend until the interface and regression coverage are stable.
 
-XInput slot number is not durable physical identity. Current XInput takeover uses HidHide's XUSB identity and re-enumeration-based self filtering. Broader hardware support will need correlation between:
+After that, evaluate alternatives such as HIDMaestro or VIIPER's standalone server/API. Backend selection must consider deployment, signing/security, x86/x64 support and licensing—not just device features. Do not link an incompatible-license backend into InputStitch casually.
 
-- HidHide / PnP device instance path;
-- physical controller/container identity;
-- XUSB/XInput-visible source;
-- InputStitch's own ViGEm device.
+### P1 — Persistent Device Identity / Device Manager
 
-The UI must never hide a device based only on a guessed slot association.
+XInput slot numbers are runtime state, not durable device identity. Establish a stable `DeviceKey` and a device inventory/diagnostic model that can correlate, where available:
 
-### 3. Real HidHide acceptance
+- input provider;
+- PnP/container identity;
+- device instance path;
+- VID/PID;
+- serial or stable hardware identifier;
+- XUSB identity;
+- current XInput slot as a transient attribute;
+- InputStitch-owned virtual-device identity.
 
-On a machine with HidHide installed, prove all of the following:
+This becomes the foundation for per-device triggers, Router selection, profiles and safe takeover. The UI must never hide a device based only on a guessed slot association.
 
-- selected original controller is hidden from an ordinary observer/target;
-- InputStitch remains whitelisted and can still read it;
-- virtual routed controller remains available in the required target slot;
-- stopping takeover restores original visibility;
-- crash/restart recovery restores InputStitch-owned changes;
-- pre-existing HidHide configuration is preserved.
+### P1 — Router source selection and per-device routing policy
 
-### 4. Physical fault-injection acceptance for the implemented health monitor
+The current Router aggregates every visible non-own XInput source. Evolve it into an explicit source-selection model:
 
-The runtime health watchdog is now implemented and automatically disengages after confirmed consecutive failures. When physical hardware becomes available, validate that real-world failures behave the same way:
+```text
+[x] Controller A
+[ ] Controller B
+[x] Controller C
+```
 
-- target virtual slot changes unexpectedly;
-- Router becomes unavailable;
-- a whitelisted original XInput source stops being visible to InputStitch;
-- HidHide cloak/hidden-device/application-whitelist state is changed externally.
+Then support per-source routing policy without breaking Output Ownership:
 
-Each confirmed fault must restore InputStitch-owned hiding changes when possible, stop routed output, and avoid original + routed doubled input.
+- enabled/disabled;
+- selected output target when multiple backends/targets eventually exist;
+- transform chain;
+- merge policy;
+- diagnostics showing why a source is or is not routed.
 
-### 5. Broader controller platform — later / 按真实需求推进
+Do not make “support more controllers” an independent KPI; make additional sources a consequence of provider/backend architecture.
 
-After XInput takeover is mature, consider:
+### P1 — Analog Transform Engine
 
-- more than four sources;
-- DirectInput / HID / GameInput;
-- Windows-connected DualShock / DualSense;
-- per-device identity UI;
-- optional Layer ordering/presets only if a concrete workflow demonstrates a need;
-- conditions / groups / richer routing policies.
+This is now a higher-priority platform gap than another controller model. Build reusable transforms for analog input/output:
 
-Gyro-to-mouse is a separate later project because it requires sensor calibration/filtering and should not be mixed into basic routing.
+- inner/outer deadzone;
+- response curves;
+- sensitivity/scaling;
+- inversion;
+- half-axis conversion;
+- threshold/zone bands;
+- clamping;
+- explicit merge policies such as maximum magnitude, priority/latest source, average or normalized sum where appropriate.
+
+Transforms should be observable and composable, not buried inside one Router special case.
+
+### P2 — Activator + Condition Engine
+
+Unify today's Press/Toggle/Hold/modifier/Layer/application-context behavior into reusable concepts instead of accumulating special-case trigger modes.
+
+Target activators:
+
+- On Press;
+- On Release;
+- While Held;
+- Short Press;
+- Long Press;
+- Double/Triple Press;
+- Toggle;
+- Turbo/repeat.
+
+Target conditions:
+
+- active Layer;
+- source `DeviceKey`;
+- analog threshold/zone;
+- another input currently held;
+- foreground application/profile;
+- other deterministic runtime state that can be observed and tested.
+
+The engine must continue to use the common Concurrent Macro Runtime and Output Ownership rather than becoming a second executor.
+
+### P2 — Layer ergonomics, not Layer complexity
+
+Current Base + one active named Layer is intentionally easy to reason about. Extend ergonomics in this order:
+
+1. Momentary / Hold-to-Layer;
+2. Toggle/Latch/Cycle if real workflows justify them;
+3. profile/context integration.
+
+Arbitrary simultaneous Layer stacking, inheritance trees and precedence graphs remain low priority because they increase ambiguity and reduce observability.
+
+### P2 — Profile/context improvements
+
+Build profile auto-switch/manual override/fallback behavior on top of `DeviceKey` + Condition rather than adding more ad-hoc application switches. Profiles should remain deterministic and explainable in diagnostics.
+
+### P3 — Input Provider abstraction and broader controller input
+
+Move from “add one API/controller family at a time” to a provider architecture:
+
+```text
+IInputProvider
+  ├─ Keyboard / Mouse Raw Input
+  ├─ XInput
+  ├─ future SDL3 provider
+  └─ specialized Raw HID/provider only when needed
+```
+
+SDL3 is the preferred first candidate for broad controller input evaluation because current general-purpose remappers successfully use it as a cross-device input layer. Keep specialized Raw HID/device-specific providers for capabilities the general provider cannot expose cleanly.
+
+### P3 — Second virtual-output backend evaluation
+
+Only after `IGamepadOutputBackend` is stable, prototype one alternative backend and compare:
+
+- output fidelity/API visibility;
+- deployment friction;
+- driver/security model;
+- hot-plug behavior;
+- supported virtual identities;
+- latency/reliability;
+- license compatibility with InputStitch's project-governance decision.
+
+Do not replace ViGEm merely because it is retired; replace or supplement it only when the new backend is measurably safer or more sustainable.
+
+### P4 — Evidence-driven advanced features
+
+Keep these later unless a concrete user workflow makes them important:
+
+- gyro/touchpad/vendor-specific haptics;
+- deeper DualSense-specific behavior;
+- richer Raw HID support;
+- plugin/script API after internal action/condition/transform interfaces are stable;
+- Layer stacking/inheritance;
+- radial menus/overlays;
+- more than four sources as a natural consequence of broader providers/backends.
+
+### Governance — License decision
+
+InputStitch is source-visible but currently declares no open-source license. That is acceptable for the current project, but it becomes a strategic decision before a third-party backend/plugin ecosystem, broad redistribution or license-constrained dependency integration. Treat license selection as a separate governance task; do not silently change it as part of implementation work.
 
 ## Validation status / 验证状态
 
@@ -252,11 +361,16 @@ v1.3.1-beta.1  ← published prerelease; slot acquisition implemented
    ↓
 v1.3.1-beta.2  ← current published prerelease; flexible layers + takeover health monitoring
    ↓
-physical PnP + real HidHide + target-game acceptance (blocked until hardware exists)
+output backend abstraction + Device Identity + Router source policy + Analog Transform
    ↓
+Activator / Condition + profile/context improvements
+   ↓
+IInputProvider + broader controller input / second output backend as justified
+
+parallel hardware lane:
+physical PnP + real HidHide + target-game acceptance (BLOCKED until hardware exists)
+    ↓
 controlled replacement hardware maturity
-   ↓
-broader controller platform / richer routing as justified
 ```
 
 ## Release discipline / 发布纪律
@@ -272,5 +386,10 @@ broader controller platform / richer routing as justified
 
 ## Long-term product goal / 长期目标
 
-> **Common tasks simple, advanced tasks explicit, every task reliable.**  
+> **Common tasks simple, advanced tasks explicit, every task reliable.**
+>
 > **常用的足够简单，复杂的足够明确，所有功能都足够可靠。**
+
+> **Compete on deterministic orchestration, not on device-feature count.**
+>
+> **竞争重点是确定、可解释的输入编排，而不是硬件功能数量。**

@@ -385,15 +385,23 @@ On confirmed failure the monitor stops first, then UI-thread recovery:
 
 The one-failure tolerance reduces false disengagement from short device-enumeration/HidHide CLI transients while two consecutive failures still fail closed.
 
-## Broader platform later
+## Broader platform direction after the 2026 strategy review
 
-After XInput controlled replacement is mature, consider only when justified:
+Do not grow the controller platform by adding one API/device family at a time. The next architecture should separate input identity, routing policy, transforms and virtual output from today's XInput/ViGEm implementation details.
 
-- >4 controllers;
-- DirectInput/HID/GameInput;
-- Windows-connected DualShock/DualSense input;
-- per-device routing identity UI;
-- gyro-to-mouse as a separate sensor feature.
+Near-term order:
+
+1. introduce an `IGamepadOutputBackend` boundary while keeping ViGEm behavior unchanged;
+2. introduce durable `DeviceKey` / Device Manager identity so XInput slot is only runtime metadata;
+3. let Router explicitly select devices/sources rather than aggregating every visible external XInput source;
+4. add reusable analog transforms and explicit merge policy;
+5. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
+
+Only after those boundaries are stable should the project evaluate a second virtual-output backend or specialized Raw HID/device providers.
+
+ViGEmBus is retired/archived, so it must not become more deeply embedded in new orchestration code. It remains the current production backend until an alternative is proven. Candidates such as HIDMaestro or VIIPER must be evaluated for deployment/security/licensing as well as feature breadth.
+
+Features such as >4 controllers, DualSense-specific input, gyro/touchpad/haptics and specialized vendor behavior remain evidence-driven later work rather than standalone roadmap targets.
 
 Native PlayStation-console support remains out of scope without an official low-friction route.
 
@@ -425,6 +433,8 @@ SUMMARY: BLOCKED | checks=18 | failures=0
 ## Non-negotiable constraints
 
 - Controller input must use the common trigger/runtime/source model.
+- Virtual-controller output must move behind a backend interface before a second backend is added; new runtime/Router code must not deepen ViGEm coupling.
+- XInput user index is transient runtime state, not durable device identity.
 - InputStitch must never consume its own virtual output as an external input source.
 - No-output preference must not be silently overridden.
 - Router aggregation must not be described as interception.
