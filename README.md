@@ -12,7 +12,7 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 **Stable: v1.3.0.** This release promotes the validated Input Ownership + universal Concurrent Macro Runtime to the recommended Stable channel: distinct ordinary timed/Toggle macros, Advanced/complex Hold timelines, and Parallel Held Mappings can run concurrently with source-local cleanup and per-Hold release tracking. Modifier-chord Hold and Shift-friendly bare-key triggering are included in Stable 1.3.0.
 
-The previous `v1.3.0-beta.2` prerelease remains available as historical test evidence, but `releases/latest` and `InputStitch-update.xml` now refer to Stable 1.3.0. See [development roadmap and release policy](ROADMAP.md).
+**Current prerelease: v1.3.1-beta.1.** It adds physical/virtual XInput controller triggers, multi-controller merging, a **Do not create a virtual controller** preference, mapping-layer eligibility for every macro type, and an experimental controller-takeover path that safely acquires XInput slot 0 before any selected original controller is hidden. Stable v1.3.0 and `releases/latest` remain unchanged. See [development roadmap and release policy](ROADMAP.md).
 
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
@@ -23,15 +23,15 @@ Download a ready-to-run executable from the [latest GitHub Release](../../releas
 | Complete source code | [InputStitch-1.3.0-Source.zip](../../releases/latest/download/InputStitch-1.3.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
-Historical `v1.3.0-beta.2` prerelease artifacts remain available for comparison/rollback testing:
+Current `v1.3.1-beta.1` prerelease artifacts:
 
 | Beta artifact | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.3.0-beta.2-Windows-x64.exe](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.3.0-beta.2-Windows-x86.exe](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Windows-x86.exe) |
-| Complete Beta source | [InputStitch-1.3.0-beta.2-Source.zip](../../releases/download/v1.3.0-beta.2/InputStitch-1.3.0-beta.2-Source.zip) |
-| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.0-beta.2/InputStitch-beta.xml) |
-| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.0-beta.2/SHA256SUMS.txt) |
+| 64-bit Windows (x64) | [InputStitch-1.3.1-beta.1-Windows-x64.exe](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.3.1-beta.1-Windows-x86.exe](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Windows-x86.exe) |
+| Complete Beta source | [InputStitch-1.3.1-beta.1-Source.zip](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Source.zip) |
+| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.1-beta.1/InputStitch-beta.xml) |
+| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.1-beta.1/SHA256SUMS.txt) |
 
 InputStitch supports Windows only. There is no macOS or Linux executable. If you are unsure which Windows build to use, choose x64 on a modern 64-bit installation.
 
@@ -73,9 +73,17 @@ The executable is portable: download it, place it in a folder where you have wri
 5. Run the macro from the main window or enable its global trigger.
 6. Before using a macro in another application, confirm the Emergency Stop hotkey shown in InputStitch.
 
-Use the gear button to open settings, including **Language / 语言**, virtual controller type, update preferences, safety options, target-window behavior, runtime observation/diagnostics, and tray preferences. Xbox 360 is the default virtual controller because it has the broadest compatibility with Windows/XInput games; choose PS4 / DualShock 4 for games that support that device path. Stable builds can use the automatic SHA-256-verified Stable update path. Prerelease/Beta builds deliberately disable unattended automatic update checks; a manual Beta update opens GitHub Releases instead of touching the Stable manifest.
+Use the gear button to open settings, including **Language / 语言**, virtual controller type, update preferences, safety options, target-window behavior, runtime observation/diagnostics, and tray preferences. Xbox 360 remains the default virtual controller because it has the broadest compatibility with Windows/XInput games; choose PS4 / DualShock 4 for games that support that device path, or choose **Do not create a virtual controller** when you only need keyboard/mouse macros or controller-triggered keyboard/mouse output. That choice persists and prevents saved gamepad-output macros from creating ViGEm at startup. Stable builds can use the automatic SHA-256-verified Stable update path. Prerelease/Beta builds deliberately disable unattended automatic update checks; a manual Beta update opens GitHub Releases instead of touching the Stable manifest.
 
 The stick editor uses direction and strength: `0°` is forward, `90°` is right, `-90°` is left, and `±180°` is backward. Existing X/Y values remain backward compatible and are preserved unless the user actually edits direction or strength. For a key-to-controller hold mapping, Quick Create → Held Mapping is the easiest path. In 1.3.0-beta.1, qualifying Held Mappings are independent ownership sources: releasing one removes only its contribution, while the remaining stick/trigger/button sources stay active and are re-merged.
+
+## Experimental controller takeover in v1.3.1-beta.1
+
+Controller merging by itself does not suppress original devices. **Tools → Controller takeover (Experimental)** adds the controlled-replacement path. If the InputStitch virtual Xbox is not already XInput slot 0, takeover first stops managed controller output, temporarily re-enumerates all present external XUSB controllers, reconnects InputStitch first, and requires a hard slot-0 check. It then restores every external controller and re-verifies their device identities, Router visibility, and slot 0 before HidHide is allowed to hide any selected original device.
+
+The slot-reordering scope and the hiding scope are intentionally different: every external XUSB controller may need a short re-enumeration so slot 0 becomes available, but only explicitly selected external device identities are passed to HidHide. Any failure stops the transaction and attempts recovery; InputStitch never hides the old slot-0 controller first and merely hopes the virtual controller will move into slot 0.
+
+The current XInput backend supports at most **three external controllers + one InputStitch virtual Xbox** at the same time. A neutral four-controller ViGEm probe on the development machine verified the real ordering transition from `external 0/1/2 + InputStitch 3` to `InputStitch 0 + external 1/2/3` without submitting button, stick, or trigger input. Final physical-controller + HidHide + real-game takeover still requires hardware acceptance; the current development laptop does not have HidHide or a physical XInput test controller installed/connected.
 
 ## Virtual keyboard and idle input
 
@@ -87,7 +95,7 @@ The controller preview follows the selected Xbox 360 or PS4 layout. A stick dire
 
 ## Optional virtual gamepad driver
 
-Virtual gamepad output uses [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest). The upstream project is retired and no longer receives updates. InputStitch never silently installs the driver: if it is missing, the app explains the requirement and offers to open the original author's official GitHub Release page. Download it only from that official page, install it yourself, and restart InputStitch.
+Virtual gamepad output, controller merging, idle gamepad input, and controller takeover use [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest). If you only need keyboard/mouse macros or use a physical/other XInput controller as a trigger for keyboard/mouse output, choose **Do not create a virtual controller** and ViGEm is not created for those features. The upstream project is retired and no longer receives updates. InputStitch never silently installs the driver: if it is missing, the app explains the requirement and offers to open the original author's official GitHub Release page. Download it only from that official page, install it yourself, and restart InputStitch.
 
 Connect the virtual controller from **Settings → Virtual Gamepad Output** before launching a game. InputStitch keeps one virtual controller connected until the app exits. Ordinary source completion now removes only that source's ownership; other active Held Mapping or Idle sources remain merged. **Emergency Stop** and application shutdown are the global boundaries that clear every source and force the virtual controller neutral without unplugging it. This avoids games that cache controllers at startup and ignore later hot-plugging. Changing between Xbox 360 and PS4 while a game is open may require restarting the game.
 

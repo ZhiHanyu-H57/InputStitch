@@ -3,6 +3,45 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.3.1-beta.1（测试版）
+
+**一句话概括：现在可以直接用手柄触发宏、把多个手柄汇总到 InputStitch 自己的虚拟手柄，并在实验性接管模式下先安全取得 0 号槽位，再把所选原手柄交给 InputStitch 统一转发。**
+
+### 面向用户的变化
+
+- 新增手柄触发：Windows 能看到的 Xbox 兼容手柄按键和左右扳机可以直接作为宏触发方式，进而执行键盘、鼠标、虚拟手柄或混合操作。
+- 虚拟手柄类型新增“**不创建虚拟手柄（仅使用键盘/鼠标功能）**”。选中后，即使配置里保存着手柄输出宏，启动时也不会创建 ViGEm 虚拟设备；实体/其他 XInput 手柄仍可作为键鼠宏触发来源。
+- 编辑虚拟手柄输出步骤不再为了保存配置而立即连接虚拟手柄；真正运行需要手柄输出的功能时才按需连接。
+- 新增多手柄汇总测试功能：其他可见手柄的按键、方向键、左右摇杆和左右扳机会持续合并到 InputStitch 自己的虚拟 Xbox 360 手柄。
+- 多个手柄同时操作时彼此独立：一只手柄松开、回中或断开，只撤销它自己的输入，不会清掉其他手柄或宏的状态。
+- 映射层扩大到所有宏类型。基础层始终有效；普通时序宏、按一次启动/停止的宏、复杂按住宏和轻量按住映射都可以放入映射层 1。
+- 切换映射层时，旧层正在运行的宏会停止并释放旧层自己的输出；新层中原本已经按住的触发必须先松开再重新按，避免切层瞬间误触发。
+- 新增实验性手柄接管：如果 InputStitch 不在 0 号，会在任何 HidHide 隐藏之前先安全重排外部 XInput/XUSB 手柄，让 InputStitch 自己先重新连接并硬验证 0 号，再恢复全部外部手柄并重新验证。
+- 为了取得 0 号，未选择长期隐藏的外部 XInput 手柄也可能被短暂重新枚举；最终 HidHide 只接收用户明确选择、且经重新枚举确认仍是外部设备的身份。
+- 当前 XInput 后端支持最多 3 个外部手柄 + 1 个 InputStitch 虚拟手柄；超过该范围会在修改设备前拒绝接管。
+- 紧急停止现在也会关闭手柄汇总，避免刚释放的状态在下一次手柄轮询时又被重新发送。
+- 正式版内置更新器增强断网处理：检查/下载遇到超时、DNS 或连接中断时最多自动重试 2 次；每次重新下载前都会删除旧半包，最终失败也不会留下可执行半包或进入安装事务。后台自动检查断网继续保持安静；用户已经确认更新后若下载失败，会明确提示“下载更新失败”。
+
+### 需要明确的限制
+
+- 0 号槽位取得和 HidHide 隐藏都已经有事务/回滚代码，但真正把原设备对普通程序隐藏仍依赖用户自行安装 HidHide。
+- 当前开发机没有 HidHide 和实体测试手柄，因此尚未完成“实体手柄 + HidHide + 实际游戏只看到 InputStitch”的最终硬件验收。
+- 槽位取得使用 Windows XInput/XUSB 设备重新枚举，只覆盖当前 XInput 四槽位后端；DirectInput/HID/GameInput 等更广泛设备仍不在这一版接管范围内。
+
+### 自动验证
+
+- 新增 26 项手柄输入测试、28 项多手柄汇总测试、39 项接管安全流水线测试、27 项 0 号槽位取得/恢复测试、15 项“不创建虚拟手柄”偏好测试、24 项全类型映射层测试、7 项宏计时漂移测试和 18 项更新网络中断/重试测试。
+- 原有 323 项键盘测试、58 项闲置手柄测试、43 项更新器测试、23 项界面安全/诊断测试、358 项易用性测试和 303,716 项输出合并/并发测试继续通过。
+- 常规自动测试使用注入状态和假输出后端，不禁用真实设备。另新增开发者专用中立 ViGEm 槽位顺序探针，实测 `外部 0/1/2 + InputStitch 3 → InputStitch 0 + 外部 1/2/3`，且不提交按钮/摇杆/扳机输入。
+
+### Technical notes
+
+- Physical/virtual Xbox-compatible sources are read through XInput; the InputStitch-owned ViGEm Xbox user index is dynamically excluded to prevent feedback.
+- Controller routing replaces each source's whole persistent state atomically through Output Ownership; identical frames are no-ops.
+- Controlled takeover now separates slot-acquisition scope from hiding scope: all present external XUSB sources may be temporarily re-enumerated to make slot 0 available, while only explicitly selected external device identities reach HidHide.
+- Slot acquisition uses non-persistent Windows Configuration Manager disable/enable operations plus a dedicated crash-recovery journal. HidHide mutation is unreachable until slot 0, Router and external-source checks all pass.
+- Layer eligibility now applies to every macro class. Leaving a layer stops both lightweight held mappings and worker-backed timed/toggle/complex-Hold runs; worker sources are suspended immediately during the stop transition.
+
 ## 1.3.0
 
 - Promoted the validated Input Ownership + universal Concurrent Macro Runtime from the 1.3.0 Beta line to Stable: distinct ordinary timed/Toggle macros, Advanced/complex Hold timelines, and Parallel Held Mappings can run concurrently with source-local cleanup.

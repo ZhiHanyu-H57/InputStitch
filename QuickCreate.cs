@@ -13,8 +13,8 @@ namespace InputStitch
         internal static MacroDefinition Create(QuickTemplate template, string name, TriggerSpec trigger,
             IList<MacroStep> steps, int count)
         {
-            if (trigger == null || trigger.Kind == InputKind.Gamepad)
-                throw new ArgumentException(VirtualKeyboardDialog.TextFor("请选择触发键。", "Choose a trigger."));
+            if (trigger == null)
+                throw new ArgumentException(VirtualKeyboardDialog.TextFor("请选择触发方式。", "Choose a trigger."));
             if (steps == null || steps.Count == 0 || steps.Any(s => s == null))
                 throw new ArgumentException(VirtualKeyboardDialog.TextFor("请添加执行操作。", "Add an output action."));
             bool held = template == QuickTemplate.HeldMapping;
@@ -210,7 +210,8 @@ namespace InputStitch
             {
                 if (IsDisposed) return;
                 if (input != null) trigger = new TriggerSpec { Kind = input.Kind, VirtualKey = input.VirtualKey,
-                    Extended = input.Extended, MatchExtended = input.VirtualKey == (int)Keys.Enter };
+                    Extended = input.Extended, MatchExtended = input.Kind == InputKind.Keyboard && input.VirtualKey == (int)Keys.Enter,
+                    GamepadControl = input.GamepadControl, GamepadUserIndex = XInputInputService.AnyController };
                 UpdateTrigger();
             });
         }

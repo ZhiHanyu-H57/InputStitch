@@ -39,6 +39,10 @@
     <Compile Include="OutputOwnership.cs" />
     <Compile Include="VirtualKeyboard.cs" />
     <Compile Include="IdleGamepad.cs" />
+    <Compile Include="XInputInput.cs" />
+    <Compile Include="GamepadRouter.cs" />
+    <Compile Include="ControlledReplacement.cs" />
+    <Compile Include="SlotAcquisition.cs" />
     <None Include="InputStitch.ico" />
     <None Include="app.manifest" />
     <EmbeddedResource Include="third-party\Nefarius.ViGEm.Client\Nefarius.ViGEm.Client.dll">

@@ -25,6 +25,13 @@ Automated acceptance:
 - Covers core ownership scenarios: WASD stick merge/release order, opposing-axis cancellation, trigger maximum merge, shared digital ownership, D-pad axis conflict, Held/timed coexistence, Emergency Stop cleanup, keyboard SendInput observation and mouse SendInput observation.
 - The Stable-1.3.0 candidate adds a pre-XInput concurrent-timed lane: keyboard `K` and mouse `X2` ordinary macros must overlap, Runtime Observation must list both runs, stopping the keyboard run must leave the mouse run active, and both injected SendInput paths must be observed. A controller-backed keyboard+mouse+gamepad concurrent scenario follows when the ViGEm/XInput preflight is healthy.
 
+Neutral slot-order probe:
+
+- `run-slot-order-probe.ps1` creates four temporary neutral ViGEm Xbox controllers and never submits a button, stick or trigger report.
+- It verifies the Windows/ViGEm connection-order behavior used by InputStitch's experimental slot-0 acquisition transaction.
+- The expected maximum-layout transition is `external 0/1/2 + InputStitch 3 → InputStitch 0 + external 1/2/3` after all devices are removed and InputStitch reconnects first.
+- It does not disable or hide physical devices and does not require HidHide.
+
 ## Build the viewer
 
 From the repository root:
@@ -81,6 +88,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-accepta
 ```
 
 The automated host creates a temporary ViGEm Xbox 360 virtual controller and cleans it up on exit, but it does **not** activate or bring Input Lab to the foreground. In the hardened v0.2 verification, three consecutive `50/50` runs were sampled every 50 ms and the acceptance process never became the foreground process. Do not run the acceptance host while another InputStitch instance is actively driving the same virtual-controller stack.
+
+## Run the neutral XInput slot-order probe
+
+From the repository root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-slot-order-probe.ps1
+```
+
+This probe is deliberately narrower than Controlled Replacement acceptance. It validates only the real ViGEm/XInput ordering mechanism and cleans up every temporary virtual controller on exit. A passing result ends with:
+
+```text
+EXPECTED_ORDER=True
+```
+
+It does **not** prove physical PnP cycling, HidHide suppression, or game-specific controller visibility; those remain separate real-hardware acceptance requirements.
 
 ## Typical manual use
 

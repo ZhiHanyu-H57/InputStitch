@@ -55,10 +55,17 @@ namespace InputStitch
     {
         public const string Xbox360 = "Xbox360";
         public const string DualShock4 = "DualShock4";
+        public const string None = "None";
 
         public static string Normalize(string value)
         {
+            if (string.Equals(value, None, StringComparison.OrdinalIgnoreCase)) return None;
             return string.Equals(value, DualShock4, StringComparison.OrdinalIgnoreCase) ? DualShock4 : Xbox360;
+        }
+
+        public static bool IsDisabled(string value)
+        {
+            return string.Equals(Normalize(value), None, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -119,6 +126,8 @@ namespace InputStitch
             { "正在下载并验证更新…", "Downloading and verifying the update…" },
             { "已是最新版本。", "You already have the latest build." },
             { "检查更新失败。", "Update check failed." },
+            { "下载更新失败。", "Update download failed." },
+            { "准备安装更新失败。", "Update installation preparation failed." },
             { "发现可用更新", "Update Available" },
             { "安装更新", "Install Update" },
             { "稍后", "Later" },
@@ -140,6 +149,9 @@ namespace InputStitch
             { "触发键：", "Trigger:" },
             { "录制触发键", "Capture Trigger" },
             { "触发方式：", "Trigger mode:" },
+            { "当前映射层：", "Active layer:" },
+            { "此宏属于：", "Macro layer:" },
+            { "任意 XInput 手柄", "Any XInput controller" },
             { "按一次切换启动/停止", "Press once to start/stop" },
             { "按住运行，松开停止", "Run while held, stop on release" },
             { "执行次数：", "Repeat count:" },
@@ -684,18 +696,16 @@ namespace InputStitch
     {
         private static readonly string UpdatesDirectory = Path.Combine(AppPaths.Root, "updates");
         private static readonly string PendingPath = Path.Combine(UpdatesDirectory, "pending-update.xml");
+        internal const int NetworkTimeoutMs = 8000;
+        internal const int NetworkMaxAttempts = 3;
 
         public static async Task<UpdateCheckResult> CheckAsync()
         {
             if (!ReleaseInfo.AutomaticChecksAllowed)
                 throw new InvalidOperationException("Beta builds use manual downloads from the GitHub Releases page.");
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            string xml;
-            using (WebClient client = CreateClient())
-            {
-                Uri uri = new Uri(AppInfo.UpdateManifestUrl + "?cache=" + DateTime.UtcNow.Ticks.ToString());
-                xml = await client.DownloadStringTaskAsync(uri);
-            }
+            Uri manifestUri = new Uri(AppInfo.UpdateManifestUrl + "?cache=" + DateTime.UtcNow.Ticks.ToString());
+            string xml = await DownloadStringWithRetryAsync(manifestUri, DownloadStringOnceAsync);
 
             UpdateManifest manifest;
             XmlSerializer serializer = new XmlSerializer(typeof(UpdateManifest));
@@ -746,8 +756,7 @@ namespace InputStitch
             string destination = Path.Combine(UpdatesDirectory, Guid.NewGuid().ToString("N") + ".exe");
             try
             {
-                using (WebClient client = CreateClient())
-                    await client.DownloadFileTaskAsync(new Uri(update.Asset.Url), destination);
+                await DownloadFileWithRetryAsync(new Uri(update.Asset.Url), destination, DownloadFileOnceAsync);
                 string hash = ComputeSha256(destination);
                 if (!string.Equals(hash, update.Asset.Sha256, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("The downloaded update failed SHA-256 verification.");
@@ -888,11 +897,120 @@ namespace InputStitch
 
         private static WebClient CreateClient()
         {
-            WebClient client = new WebClient();
+            WebClient client = new TimeoutWebClient(NetworkTimeoutMs);
             client.Encoding = Encoding.UTF8;
             client.Headers[HttpRequestHeader.UserAgent] = AppInfo.ProductName + "/" + AppInfo.Version;
             client.Headers[HttpRequestHeader.Accept] = "application/xml, text/xml, */*";
             return client;
+        }
+
+        private static Task<string> DownloadStringOnceAsync(Uri uri)
+        {
+            return Task.Run(delegate
+            {
+                using (WebClient client = CreateClient())
+                    return client.DownloadString(uri);
+            });
+        }
+
+        private static Task DownloadFileOnceAsync(Uri uri, string destination)
+        {
+            return Task.Run(delegate
+            {
+                using (WebClient client = CreateClient())
+                    client.DownloadFile(uri, destination);
+            });
+        }
+
+        internal static async Task<string> DownloadStringWithRetryAsync(Uri uri, Func<Uri, Task<string>> downloader)
+        {
+            if (uri == null) throw new ArgumentNullException("uri");
+            if (downloader == null) throw new ArgumentNullException("downloader");
+            return await ExecuteWithRetryAsync(delegate { return downloader(uri); });
+        }
+
+        internal static async Task DownloadFileWithRetryAsync(Uri uri, string destination, Func<Uri, string, Task> downloader)
+        {
+            if (uri == null) throw new ArgumentNullException("uri");
+            if (string.IsNullOrWhiteSpace(destination)) throw new ArgumentNullException("destination");
+            if (downloader == null) throw new ArgumentNullException("downloader");
+            try
+            {
+                await ExecuteWithRetryAsync(async delegate
+                {
+                    TryDeleteFile(destination);
+                    await downloader(uri, destination);
+                    return true;
+                });
+            }
+            catch
+            {
+                TryDeleteFile(destination);
+                throw;
+            }
+        }
+
+        internal static async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> operation)
+        {
+            if (operation == null) throw new ArgumentNullException("operation");
+            Exception last = null;
+            for (int attempt = 1; attempt <= NetworkMaxAttempts; attempt++)
+            {
+                bool retry = false;
+                try { return await operation(); }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    if (attempt >= NetworkMaxAttempts || !IsTransientNetworkException(ex)) throw;
+                    retry = true;
+                }
+                if (retry) await Task.Delay(350 * attempt);
+            }
+            throw last ?? new WebException("Update network operation failed.");
+        }
+
+        internal static bool IsTransientNetworkException(Exception exception)
+        {
+            WebException ex = exception as WebException;
+            if (ex == null) return false;
+            switch (ex.Status)
+            {
+                case WebExceptionStatus.ConnectFailure:
+                case WebExceptionStatus.ConnectionClosed:
+                case WebExceptionStatus.KeepAliveFailure:
+                case WebExceptionStatus.NameResolutionFailure:
+                case WebExceptionStatus.ProxyNameResolutionFailure:
+                case WebExceptionStatus.ReceiveFailure:
+                case WebExceptionStatus.SendFailure:
+                case WebExceptionStatus.Timeout:
+                    return true;
+                case WebExceptionStatus.ProtocolError:
+                    HttpWebResponse response = ex.Response as HttpWebResponse;
+                    if (response == null) return false;
+                    int status = (int)response.StatusCode;
+                    return status == 408 || status == 429 || status == 500 || status == 502 || status == 503 || status == 504;
+                default:
+                    return false;
+            }
+        }
+
+        private static void TryDeleteFile(string path)
+        {
+            try { if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) File.Delete(path); } catch { }
+        }
+
+        private sealed class TimeoutWebClient : WebClient
+        {
+            private readonly int timeoutMs;
+            internal TimeoutWebClient(int timeout) { timeoutMs = timeout; }
+            protected override WebRequest GetWebRequest(Uri address)
+            {
+                WebRequest request = base.GetWebRequest(address);
+                if (request != null) request.Timeout = timeoutMs;
+                HttpWebRequest http = request as HttpWebRequest;
+                if (http != null) http.ReadWriteTimeout = timeoutMs;
+                return request;
+            }
         }
 
         private static void ValidateAsset(UpdateAsset asset, string architecture)
@@ -1045,6 +1163,10 @@ namespace InputStitch
         // Optional distinction for the main Enter and the extended numpad Enter key.
         public bool Extended;
         public bool MatchExtended;
+        // Physical controller trigger. -1 means any visible XInput controller; a non-negative
+        // value is used at runtime to pin a Hold run to the controller that actually started it.
+        public GamepadControl GamepadControl = GamepadControl.South;
+        public int GamepadUserIndex = -1;
 
         public TriggerSpec Clone()
         {
@@ -1057,6 +1179,8 @@ namespace InputStitch
             x.VirtualKey = VirtualKey;
             x.Extended = Extended;
             x.MatchExtended = MatchExtended;
+            x.GamepadControl = GamepadControl;
+            x.GamepadUserIndex = GamepadUserIndex;
             return x;
         }
     }
@@ -1102,6 +1226,20 @@ namespace InputStitch
         }
     }
 
+    public static class MappingLayerIds
+    {
+        public const string Base = "base";
+        public const string Layer1 = "layer-1";
+    }
+
+    [Serializable]
+    public class MappingLayerDefinition
+    {
+        public string Id = MappingLayerIds.Base;
+        public string Name = "基础层";
+        public bool IsBase = true;
+    }
+
     [Serializable]
     public class MacroDefinition
     {
@@ -1113,6 +1251,9 @@ namespace InputStitch
         public bool Infinite = false;
         public int RepeatCount = 1;
         public bool SuppressTrigger = true;
+        // Every macro type can belong to a mapping layer. Base is always eligible; one additional
+        // runtime layer can be activated at a time in the first public Layer implementation.
+        public string MappingLayerId = MappingLayerIds.Base;
         public List<MacroStep> Steps = new List<MacroStep>();
 
         public MacroDefinition Clone()
@@ -1126,6 +1267,7 @@ namespace InputStitch
             x.Infinite = Infinite;
             x.RepeatCount = RepeatCount;
             x.SuppressTrigger = SuppressTrigger;
+            x.MappingLayerId = string.IsNullOrWhiteSpace(MappingLayerId) ? MappingLayerIds.Base : MappingLayerId;
             x.Steps = new List<MacroStep>();
             if (Steps != null)
             {
@@ -1140,6 +1282,7 @@ namespace InputStitch
     {
         public string FormatVersion = AppInfo.ConfigFormatVersion;
         public List<MacroDefinition> Macros = new List<MacroDefinition>();
+        public List<MappingLayerDefinition> MappingLayers = CreateDefaultMappingLayers();
         // Scan-code SendInput is substantially more game-friendly than virtual-key SendInput.
         public bool UseScanCodeInput = true;
         public bool ActivateTargetWindowOnUiRun = false;
@@ -1158,11 +1301,23 @@ namespace InputStitch
         public string UpdateMode = UpdateModes.Automatic;
         // Virtual controller type is a global preference and is not replaced by profile loading.
         public string GamepadDeviceType = VirtualGamepadTypes.Xbox360;
+        // Router mirrors all other visible XInput slots into InputStitch's own virtual Xbox pad.
+        // Device hiding / forcing slot 0 is a separate controlled-replacement stage.
+        public bool GamepadRouterEnabled = false;
         public IdleGamepadOptions IdleGamepad = new IdleGamepadOptions();
         public bool HasSeenWelcome = false;
         // Empty on configurations created by older versions. Existing users then see the
         // current release summary once; fresh installs mark it seen together with Welcome.
         public string LastShownReleaseSummaryVersion = "";
+
+        private static List<MappingLayerDefinition> CreateDefaultMappingLayers()
+        {
+            return new List<MappingLayerDefinition>
+            {
+                new MappingLayerDefinition { Id = MappingLayerIds.Base, Name = "基础层", IsBase = true },
+                new MappingLayerDefinition { Id = MappingLayerIds.Layer1, Name = "映射层 1", IsBase = false }
+            };
+        }
 
         private static TriggerSpec CreateDefaultPanicTrigger()
         {
@@ -1207,6 +1362,8 @@ namespace InputStitch
     public class InputEventInfo
     {
         public InputSpec Input;
+        // XInput user index for physical controller events; -1 for keyboard/mouse or unknown.
+        public int DeviceIndex = -1;
         public bool Ctrl;
         public bool Shift;
         public bool Alt;
@@ -1245,8 +1402,13 @@ namespace InputStitch
 
         public static bool TriggerTerminalMatches(TriggerSpec trigger, InputEventInfo inputEvent)
         {
-            return trigger != null && inputEvent != null && inputEvent.Input != null &&
-                   trigger.Kind == inputEvent.Input.Kind && VirtualKeysMatch(trigger.VirtualKey, inputEvent.Input.VirtualKey) &&
+            if (trigger == null || inputEvent == null || inputEvent.Input == null || trigger.Kind != inputEvent.Input.Kind) return false;
+            if (trigger.Kind == InputKind.Gamepad)
+            {
+                if (trigger.GamepadControl != inputEvent.Input.GamepadControl) return false;
+                return trigger.GamepadUserIndex < 0 || trigger.GamepadUserIndex == inputEvent.DeviceIndex;
+            }
+            return VirtualKeysMatch(trigger.VirtualKey, inputEvent.Input.VirtualKey) &&
                    (!trigger.MatchExtended || trigger.Extended == inputEvent.Input.Extended);
         }
 
@@ -1356,7 +1518,10 @@ namespace InputStitch
 
         public static bool ShouldSuppressTrigger(MacroDefinition macro)
         {
-            return macro != null && macro.SuppressTrigger && !PreserveNativeShiftForGamepad(macro);
+            // XInput is observed, not intercepted. Until Router/controlled replacement hides the
+            // physical device, a controller trigger cannot suppress the original controller event.
+            return macro != null && macro.Trigger != null && macro.Trigger.Kind != InputKind.Gamepad &&
+                macro.SuppressTrigger && !PreserveNativeShiftForGamepad(macro);
         }
 
         // Return only PHYSICAL modifiers that would turn this single macro step into a
@@ -1537,6 +1702,13 @@ namespace InputStitch
         public static string FormatTrigger(TriggerSpec t)
         {
             if (t == null) return Localizer.T("未设置");
+            if (t.Kind == InputKind.Gamepad)
+            {
+                string source = t.GamepadUserIndex < 0
+                    ? Localizer.T("任意 XInput 手柄")
+                    : (Localizer.IsEnglish ? "XInput controller " : "XInput 手柄 ") + (t.GamepadUserIndex + 1).ToString();
+                return source + " · " + FormatGamepadControl(t.GamepadControl);
+            }
             List<string> p = new List<string>();
             if (t.Ctrl) p.Add("Ctrl");
             if (t.Shift) p.Add("Shift");
@@ -2051,6 +2223,7 @@ namespace InputStitch
 
     public enum GamepadFailureKind
     {
+        OutputDisabled,
         DriverMissing,
         VersionMismatch,
         AccessFailed,
@@ -2125,6 +2298,15 @@ namespace InputStitch
             lock (Sync)
             {
                 preferredType = normalized;
+                if (VirtualGamepadTypes.IsDisabled(normalized))
+                {
+                    DisconnectLocked();
+                    throw new GamepadOutputException(GamepadFailureKind.OutputDisabled,
+                        Localizer.IsEnglish
+                            ? "Virtual gamepad creation is disabled in Settings."
+                            : "设置中已选择“不创建虚拟手柄”。",
+                        null);
+                }
                 if (controller != null && string.Equals(connectedType, normalized, StringComparison.OrdinalIgnoreCase)) return;
                 DisconnectLocked();
                 try
@@ -2395,6 +2577,16 @@ namespace InputStitch
     {
         public static void Show(IWin32Window owner, GamepadOutputException error)
         {
+            if (error != null && error.FailureKind == GamepadFailureKind.OutputDisabled)
+            {
+                LocalizedMessageBox.Show(owner,
+                    error.Message + "\r\n\r\n" +
+                    (Localizer.IsEnglish
+                        ? "Choose Xbox 360 or PS4 / DualShock 4 in Settings if you want to use virtual-controller output."
+                        : "如果要使用虚拟手柄输出，请在设置中改选 Xbox 360 或 PS4 / DualShock 4。"),
+                    AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
             string reason = error == null ? Localizer.T("驱动检测失败") : error.Message;
             string text = reason + "\r\n\r\n" +
                 Localizer.T("虚拟手柄需要 ViGEmBus 驱动。该上游项目已停止维护；InputStitch 不会静默安装驱动，只会打开原作者的官方 GitHub 下载页。") + "\r\n\r\n" +
@@ -3336,12 +3528,8 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, "随机间隔的最小值不能大于最大值。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            if (selectedInput.Kind == InputKind.Gamepad)
-            {
-                try { GamepadOutput.EnsureConnected(); }
-                catch (GamepadOutputException ex) { GamepadDriverGuidance.Show(this, ex); }
-            }
-
+            // Editing a virtual-controller step is configuration only. Do not create a ViGEm
+            // device merely because the user saved an editable step; runtime connection is lazy.
             MacroStep s = new MacroStep();
             s.Action = actionBox.SelectedIndex == 0 ? MacroAction.Press : (actionBox.SelectedIndex == 1 ? MacroAction.Down : MacroAction.Up);
             s.Kind = selectedInput.Kind;
@@ -4080,6 +4268,7 @@ namespace InputStitch
         private readonly ComboBox languageBox;
         private readonly ComboBox updateModeBox;
         private readonly ComboBox gamepadTypeBox;
+        private readonly CheckBox gamepadRouterBox;
         private readonly Label gamepadStatusLabel;
         private readonly IdleGamepadSettingsPanel idleSettings;
 
@@ -4094,7 +4283,15 @@ namespace InputStitch
         public bool AutoSwitchProfiles { get { return autoProfileBox.Checked; } }
         public IdleGamepadOptions SelectedIdleOptions { get { return idleSettings.ReadOptions(); } }
         public string SelectedLanguage { get { return languageBox.SelectedIndex == 1 ? Localizer.English : Localizer.Chinese; } }
-        public string SelectedGamepadType { get { return gamepadTypeBox.SelectedIndex == 1 ? VirtualGamepadTypes.DualShock4 : VirtualGamepadTypes.Xbox360; } }
+        public string SelectedGamepadType
+        {
+            get
+            {
+                if (gamepadTypeBox.SelectedIndex == 2) return VirtualGamepadTypes.None;
+                return gamepadTypeBox.SelectedIndex == 1 ? VirtualGamepadTypes.DualShock4 : VirtualGamepadTypes.Xbox360;
+            }
+        }
+        public bool SelectedGamepadRouterEnabled { get { return gamepadRouterBox.Checked; } }
         public string SelectedUpdateMode
         {
             get
@@ -4199,10 +4396,45 @@ namespace InputStitch
             gamepadTypeBox.Dock = DockStyle.Fill;
             gamepadTypeBox.Items.Add(Localizer.T("Xbox 360（推荐，Windows 游戏兼容性最好）"));
             gamepadTypeBox.Items.Add(Localizer.T("PS4 / DualShock 4"));
-            gamepadTypeBox.SelectedIndex = string.Equals(config.GamepadDeviceType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            gamepadTypeBox.Items.Add(Localizer.IsEnglish ? "Do not create a virtual controller (keyboard/mouse only)" : "不创建虚拟手柄（仅使用键盘/鼠标功能）");
+            gamepadTypeBox.SelectedIndex = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType) ? 2 :
+                (string.Equals(config.GamepadDeviceType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
             gamepadTypeRow.Controls.Add(gamepadTypeLabel, 0, 0);
             gamepadTypeRow.Controls.Add(gamepadTypeBox, 1, 0);
             gamepadLayout.Controls.Add(gamepadTypeRow);
+
+            gamepadRouterBox = MakeCheck(
+                Localizer.IsEnglish ? "Merge every other XInput controller into the InputStitch virtual controller (Beta)" :
+                    "把其他 XInput 手柄的操作汇总到 InputStitch 虚拟手柄（测试）",
+                config.GamepadRouterEnabled);
+            int gamepadTypeBeforeRouter = gamepadTypeBox.SelectedIndex;
+            gamepadRouterBox.CheckedChanged += delegate
+            {
+                if (gamepadRouterBox.Checked)
+                {
+                    gamepadTypeBeforeRouter = gamepadTypeBox.SelectedIndex;
+                    gamepadTypeBox.SelectedIndex = 0;
+                    gamepadTypeBox.Enabled = false;
+                }
+                else
+                {
+                    gamepadTypeBox.Enabled = true;
+                    if (gamepadTypeBeforeRouter >= 0 && gamepadTypeBeforeRouter < gamepadTypeBox.Items.Count)
+                        gamepadTypeBox.SelectedIndex = gamepadTypeBeforeRouter;
+                }
+                RefreshGamepadStatus();
+            };
+            if (gamepadRouterBox.Checked) { gamepadTypeBox.SelectedIndex = 0; gamepadTypeBox.Enabled = false; }
+            gamepadLayout.Controls.Add(gamepadRouterBox);
+            Label routerHint = new Label();
+            routerHint.AutoSize = true;
+            routerHint.MaximumSize = new Size(610, 0);
+            routerHint.ForeColor = Color.FromArgb(86, 96, 112);
+            routerHint.Margin = new Padding(24, 0, 0, 6);
+            routerHint.Text = Localizer.IsEnglish
+                ? "This mirrors buttons, sticks and triggers from the other visible XInput slots. For games that only read XInput 0, the InputStitch virtual controller must also own slot 0. Device hiding/forced replacement is not enabled yet."
+                : "开启后会持续转发其他可见 XInput 手柄的按键、摇杆和扳机。对于只读取 0 号槽位的游戏，InputStitch 自己的虚拟手柄也必须位于 0 号；目前还没有自动隐藏原手柄、强制抢占 0 号槽位。";
+            gamepadLayout.Controls.Add(routerHint);
 
             gamepadStatusLabel = new Label();
             gamepadStatusLabel.AutoSize = true;
@@ -4211,6 +4443,12 @@ namespace InputStitch
             gamepadLayout.Controls.Add(gamepadStatusLabel);
             Button connectGamepad = MakeDialogButton(Localizer.T("检测驱动并连接"));
             connectGamepad.Margin = new Padding(0, 2, 0, 6);
+            connectGamepad.Enabled = !VirtualGamepadTypes.IsDisabled(SelectedGamepadType);
+            gamepadTypeBox.SelectedIndexChanged += delegate
+            {
+                connectGamepad.Enabled = !VirtualGamepadTypes.IsDisabled(SelectedGamepadType);
+                RefreshGamepadStatus();
+            };
             connectGamepad.Click += delegate
             {
                 try
@@ -4363,6 +4601,7 @@ namespace InputStitch
                 delayBox.Value = 300;
                 autoProfileBox.Checked = false;
                 updateModeBox.SelectedIndex = 0;
+                gamepadRouterBox.Checked = false;
                 gamepadTypeBox.SelectedIndex = 0;
                 idleSettings.LoadOptions(new IdleGamepadOptions());
             };
@@ -4398,12 +4637,40 @@ namespace InputStitch
 
         private void RefreshGamepadStatus()
         {
+            if (gamepadTypeBox != null && VirtualGamepadTypes.IsDisabled(SelectedGamepadType) &&
+                (gamepadRouterBox == null || !gamepadRouterBox.Checked))
+            {
+                if (GamepadOutput.IsConnected)
+                {
+                    gamepadStatusLabel.Text = Localizer.IsEnglish
+                        ? "Do not create is selected. The currently connected virtual controller will be disconnected after you save Settings."
+                        : "已选择“不创建虚拟手柄”。保存设置后，当前已连接的虚拟手柄会断开。";
+                    gamepadStatusLabel.ForeColor = Color.DarkOrange;
+                }
+                else
+                {
+                    gamepadStatusLabel.Text = Localizer.IsEnglish
+                        ? "Virtual controller creation is disabled. Keyboard/mouse macros and physical-controller triggers can still be used."
+                        : "当前不会创建虚拟手柄；键盘/鼠标宏和实体手柄触发仍可使用。";
+                    gamepadStatusLabel.ForeColor = Color.FromArgb(86, 96, 112);
+                }
+                return;
+            }
             if (GamepadOutput.IsConnected)
             {
                 string type = string.Equals(GamepadOutput.ConnectedType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase)
                     ? "PS4 / DualShock 4" : "Xbox 360";
-                gamepadStatusLabel.Text = Localizer.T("已连接：") + type;
-                gamepadStatusLabel.ForeColor = Color.ForestGreen;
+                int slot = GamepadOutput.OwnXboxUserIndex;
+                string slotText = slot >= 0 ? " · XInput " + slot.ToString() : "";
+                gamepadStatusLabel.Text = Localizer.T("已连接：") + type + slotText;
+                if (gamepadRouterBox != null && gamepadRouterBox.Checked && slot > 0)
+                {
+                    gamepadStatusLabel.Text += Localizer.IsEnglish
+                        ? " · Warning: games limited to XInput 0 may ignore routed output."
+                        : " · 注意：只读取 0 号槽位的游戏可能仍看不到汇总后的输出。";
+                    gamepadStatusLabel.ForeColor = Color.DarkOrange;
+                }
+                else gamepadStatusLabel.ForeColor = Color.ForestGreen;
             }
             else
             {
@@ -4468,6 +4735,14 @@ namespace InputStitch
             public DateTime StartedUtc;
         }
 
+        private sealed class LayerChoice
+        {
+            public string Id;
+            public string Text;
+            public LayerChoice(string id, string text) { Id = id ?? ""; Text = text ?? ""; }
+            public override string ToString() { return Text; }
+        }
+
         private MacroConfig config;
         private string appDir;
         private string configPath;
@@ -4491,6 +4766,8 @@ namespace InputStitch
         private TextBox triggerBox;
         private Button captureTriggerButton;
         private ComboBox triggerModeBox;
+        private ComboBox mappingLayerBox;
+        private ComboBox activeLayerBox;
         private CheckBox suppressBox;
         private CheckBox infiniteBox;
         private NumericUpDown repeatBox;
@@ -4515,6 +4792,7 @@ namespace InputStitch
         private ToolStripMenuItem suspendTriggersMenuItem;
         private ToolStripMenuItem minimizeToTrayMenuItem;
         private ToolStripMenuItem runtimeObservationMenuItem;
+        private ToolStripMenuItem controllerTakeoverMenuItem;
         private ToolStripMenuItem diagnosticsMenuItem;
         private DiagnosticsForm runtimeObservationForm;
         private ToolStripMenuItem openConfigFolderMenuItem;
@@ -4563,6 +4841,19 @@ namespace InputStitch
         private string lastAutoProfileProcess = "";
         private bool autoProfileSwitchBusy;
         private IdleGamepadService idleGamepad;
+        private XInputInputService gamepadInput;
+        private GamepadRouterService gamepadRouter;
+        private System.Windows.Forms.Timer gamepadInputTimer;
+        private IDeviceHidingBackend deviceHidingBackend;
+        private IControlledReplacementJournal replacementJournal;
+        private IPnpDeviceControl pnpDeviceControl;
+        private ISlotAcquisitionJournal slotAcquisitionJournal;
+        private XInputSlotAcquisitionCoordinator slotAcquisition;
+        private ControlledReplacementCoordinator controlledReplacement;
+        private ControlledTakeoverPipeline controlledTakeoverPipeline;
+        private int[] replacementExpectedControllerSlots = new int[0];
+        private string replacementRecoveryWarning = "";
+        private string slotAcquisitionRecoveryWarning = "";
         private long lastIdleHookEventCount;
         private bool idleKeyboardMouseActivityInScope = true;
 
@@ -4578,6 +4869,9 @@ namespace InputStitch
 
         private readonly OutputOwnershipManager outputOwnership;
         private readonly Dictionary<MacroDefinition, HeldMappingRuntime> activeParallelHeldMappings = new Dictionary<MacroDefinition, HeldMappingRuntime>();
+        private readonly HashSet<MacroDefinition> layerBlockedUntilRelease = new HashSet<MacroDefinition>();
+        // Empty means only Base is eligible. This is intentionally runtime-only in Layer v1.
+        private string activeMappingLayerId = "";
         private const string IdleOutputSourceId = "idle-gamepad";
         private long outputSourceSequence;
 
@@ -4633,6 +4927,16 @@ namespace InputStitch
             profilesDir = AppPaths.Profiles;
             configPath = AppPaths.Config;
             config = LoadConfig();
+            deviceHidingBackend = new HidHideCliBackend();
+            pnpDeviceControl = new WindowsPnpDeviceControl();
+            slotAcquisitionJournal = new FileSlotAcquisitionJournal(Path.Combine(appDir, "slot-acquisition-recovery.xml"));
+            slotAcquisitionRecoveryWarning = SlotAcquisitionRecovery.RestorePending(pnpDeviceControl, slotAcquisitionJournal);
+            if (!string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning))
+                AppLog.Write("Slot acquisition recovery needs attention: " + slotAcquisitionRecoveryWarning);
+            replacementJournal = new FileControlledReplacementJournal(Path.Combine(appDir, "controlled-replacement-recovery.xml"));
+            replacementRecoveryWarning = ControlledReplacementRecovery.RestorePending(deviceHidingBackend, replacementJournal);
+            if (!string.IsNullOrWhiteSpace(replacementRecoveryWarning))
+                AppLog.Write("Controlled replacement recovery needs attention: " + replacementRecoveryWarning);
             Localizer.SetLanguage(config.Language);
             GamepadOutput.Configure(config.GamepadDeviceType);
             Text = AppInfo.ProductName + " " + AppInfo.Version + " - " + Localizer.T("键鼠与手柄宏工具");
@@ -4672,6 +4976,57 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
+            // XInput is a separate first-class input source. Poll all visible slots at low latency,
+            // but always exclude this process' own ViGEm Xbox slot to prevent feedback loops.
+            gamepadInput = new XInputInputService(delegate { return GamepadOutput.OwnXboxUserIndex; });
+            gamepadInput.InputDown = HandleControllerInputDown;
+            gamepadInput.InputUp = HandleControllerInputUp;
+            gamepadRouter = new GamepadRouterService(outputOwnership);
+            gamepadRouter.Configure(config.GamepadRouterEnabled);
+            slotAcquisition = new XInputSlotAcquisitionCoordinator(
+                deviceHidingBackend,
+                pnpDeviceControl,
+                delegate
+                {
+                    GamepadOutput.NeutralizeAll();
+                    GamepadOutput.Disconnect();
+                },
+                delegate
+                {
+                    GamepadOutput.Configure(VirtualGamepadTypes.Xbox360);
+                    GamepadOutput.EnsureConnected(VirtualGamepadTypes.Xbox360);
+                },
+                delegate { return GamepadOutput.OwnXboxUserIndex; },
+                delegate
+                {
+                    if (gamepadInput == null) return new int[0];
+                    gamepadInput.Poll();
+                    return gamepadInput.ConnectedUserIndices();
+                },
+                slotAcquisitionJournal);
+            controlledReplacement = new ControlledReplacementCoordinator(
+                deviceHidingBackend,
+                delegate { return config.GamepadRouterEnabled && gamepadRouter != null && gamepadRouter.Enabled && GamepadOutput.OwnXboxUserIndex >= 0; },
+                delegate { return GamepadOutput.OwnXboxUserIndex; },
+                ValidateControlledReplacementSourceHealth,
+                Application.ExecutablePath,
+                replacementJournal);
+            controlledTakeoverPipeline = new ControlledTakeoverPipeline(
+                delegate(IEnumerable<GamingDeviceDescriptor> devices, int targetSlot) { return slotAcquisition.Acquire(devices, targetSlot); },
+                delegate { return GamepadOutput.OwnXboxUserIndex; },
+                PrepareControlledTakeoverForHiding,
+                delegate(IEnumerable<string> paths, int targetSlot) { return controlledReplacement.Begin(paths, targetSlot); });
+            gamepadInputTimer = new System.Windows.Forms.Timer();
+            gamepadInputTimer.Interval = 10;
+            gamepadInputTimer.Tick += delegate
+            {
+                if (gamepadInput == null) return;
+                gamepadInput.Poll();
+                if (gamepadRouter != null && gamepadRouter.Enabled)
+                    gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
+            };
+            gamepadInputTimer.Start();
+
             idleGamepad = new IdleGamepadService(
                 delegate { GamepadOutput.EnsureConnected(); },
                 delegate(InputSpec input, bool down)
@@ -4696,6 +5051,26 @@ namespace InputStitch
             Shown += delegate
             {
                 if (idleGamepad != null) idleGamepad.AttachWindow(Handle);
+                if (!string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning))
+                {
+                    LocalizedMessageBox.Show(this,
+                        (Localizer.IsEnglish
+                            ? "InputStitch found an interrupted XInput slot-reordering recovery record. No new controller takeover was started. Details: "
+                            : "InputStitch 检测到上次异常退出留下的 XInput 槽位重排恢复记录。程序没有开始新的手柄接管。详细信息：") + slotAcquisitionRecoveryWarning,
+                        AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    slotAcquisitionRecoveryWarning = "";
+                }
+                if (!string.IsNullOrWhiteSpace(replacementRecoveryWarning))
+                {
+                    LocalizedMessageBox.Show(this,
+                        (Localizer.IsEnglish
+                            ? "InputStitch found controller-takeover recovery data from an earlier abnormal exit, but could not fully restore it. No new device hiding was started. Details: "
+                            : "InputStitch 检测到上次异常退出留下的手柄接管恢复记录，但未能完整恢复。程序没有开始新的设备隐藏。详细信息：") + replacementRecoveryWarning,
+                        AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    replacementRecoveryWarning = "";
+                }
+                if (config.GamepadRouterEnabled)
+                    BeginInvoke((MethodInvoker)delegate { EnsureGamepadRouterReady(true); });
                 if (!config.HasSeenWelcome)
                 {
                     LocalizedMessageBox.Show(this,
@@ -5024,6 +5399,24 @@ namespace InputStitch
             triggerLayout.Controls.Add(suppressBox, 1, 2);
             triggerLayout.SetColumnSpan(suppressBox, 2);
 
+            Label activeLayerLabel = MakeFieldLabel("当前映射层：");
+            activeLayerBox = new ComboBox();
+            activeLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            activeLayerBox.Dock = DockStyle.Fill;
+            activeLayerBox.SelectedIndexChanged += ActiveLayerBox_SelectedIndexChanged;
+            triggerLayout.Controls.Add(activeLayerLabel, 0, 3);
+            triggerLayout.Controls.Add(activeLayerBox, 1, 3);
+            triggerLayout.SetColumnSpan(activeLayerBox, 2);
+
+            Label mappingLayerLabel = MakeFieldLabel("此宏属于：");
+            mappingLayerBox = new ComboBox();
+            mappingLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            mappingLayerBox.Dock = DockStyle.Fill;
+            mappingLayerBox.SelectedIndexChanged += MappingLayerBox_SelectedIndexChanged;
+            triggerLayout.Controls.Add(mappingLayerLabel, 0, 4);
+            triggerLayout.Controls.Add(mappingLayerBox, 1, 4);
+            triggerLayout.SetColumnSpan(mappingLayerBox, 2);
+
             runtimeCapabilityTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Runtime:" : "运行资格：");
             runtimeCapabilityLabel = new Label();
             runtimeCapabilityLabel.AutoSize = true;
@@ -5031,8 +5424,8 @@ namespace InputStitch
             runtimeCapabilityLabel.Margin = new Padding(0, 5, 0, 3);
             runtimeCapabilityLabel.Padding = new Padding(0, 2, 0, 2);
             runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
-            triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 3);
-            triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 3);
+            triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 5);
+            triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 5);
             triggerLayout.SetColumnSpan(runtimeCapabilityLabel, 2);
             rightRoot.Controls.Add(triggerGroup, 0, 1);
 
@@ -5465,6 +5858,7 @@ namespace InputStitch
                 englishLanguageMenuItem.Checked = Localizer.IsEnglish;
             }
             if (runtimeObservationMenuItem != null) runtimeObservationMenuItem.Text = Localizer.IsEnglish ? "Runtime observation..." : "运行观察...";
+            if (controllerTakeoverMenuItem != null) controllerTakeoverMenuItem.Text = Localizer.IsEnglish ? "Controller takeover (Experimental)..." : "手柄接管（实验）...";
             if (diagnosticsMenuItem != null) diagnosticsMenuItem.Text = Localizer.T("诊断信息...");
             if (openConfigFolderMenuItem != null) openConfigFolderMenuItem.Text = Localizer.T("打开配置文件夹");
             if (openLogMenuItem != null) openLogMenuItem.Text = Localizer.T("打开日志文件夹");
@@ -5573,6 +5967,10 @@ namespace InputStitch
             };
             toolsMenu.Items.Add(runtimeObservationMenuItem);
 
+            controllerTakeoverMenuItem = new ToolStripMenuItem();
+            controllerTakeoverMenuItem.Click += delegate { ShowControllerTakeoverDialog(); };
+            toolsMenu.Items.Add(controllerTakeoverMenuItem);
+
             diagnosticsMenuItem = new ToolStripMenuItem();
             diagnosticsMenuItem.Click += delegate
             {
@@ -5636,6 +6034,38 @@ namespace InputStitch
             RefreshMenuLanguage();
         }
 
+        private void ShowControllerTakeoverDialog()
+        {
+            if (deviceHidingBackend == null || controlledReplacement == null)
+            {
+                LocalizedMessageBox.Show(this,
+                    Localizer.IsEnglish ? "Controller takeover is unavailable in this host." : "当前环境不能使用手柄接管。",
+                    AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            uiSafetyModalDepth++;
+            UpdateUiSafetyPauseState();
+            try
+            {
+                using (ControlledReplacementDialog dialog = new ControlledReplacementDialog(
+                    deviceHidingBackend,
+                    delegate { return GamepadOutput.OwnXboxUserIndex; },
+                    delegate { return config.GamepadRouterEnabled && gamepadRouter != null && gamepadRouter.Enabled && GamepadOutput.OwnXboxUserIndex >= 0; },
+                    delegate { return controlledReplacement != null && controlledReplacement.Active; },
+                    BeginControlledReplacement,
+                    StopControlledReplacement))
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
+            finally
+            {
+                uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
+                UpdateUiSafetyPauseState();
+            }
+        }
+
         private void ShowSettingsDialog()
         {
             uiSafetyModalDepth++;
@@ -5656,6 +6086,13 @@ namespace InputStitch
                     }
                     bool autoProfilesWasEnabled = config.AutoSwitchProfiles;
                     bool gamepadWasConnected = GamepadOutput.IsConnected;
+                    bool routerWasEnabled = config.GamepadRouterEnabled;
+                    bool virtualOutputWasDisabled = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType);
+                    bool requestedRouterEnabled = dialog.SelectedGamepadRouterEnabled;
+                    string requestedGamepadType = requestedRouterEnabled ? VirtualGamepadTypes.Xbox360 : dialog.SelectedGamepadType;
+                    bool virtualOutputWillBeDisabled = VirtualGamepadTypes.IsDisabled(requestedGamepadType);
+                    if (!virtualOutputWasDisabled && virtualOutputWillBeDisabled && !StopRuntimeForConfigChange()) return;
+
                     config.UseScanCodeInput = dialog.UseScanCodeInput;
                     config.PauseMacroInRiskyUi = dialog.PauseMacroInRiskyUi;
                     config.MinimizeToTray = dialog.MinimizeToTray;
@@ -5664,16 +6101,48 @@ namespace InputStitch
                     config.UiRunStartDelayMs = dialog.UiRunStartDelayMs;
                     config.AutoSwitchProfiles = dialog.AutoSwitchProfiles;
                     config.UpdateMode = dialog.SelectedUpdateMode;
-                    config.GamepadDeviceType = dialog.SelectedGamepadType;
-                    config.IdleGamepad = dialog.SelectedIdleOptions;
+                    if (!requestedRouterEnabled && controlledReplacement != null && controlledReplacement.Active)
+                    {
+                        ControlledReplacementResult stopReplacement = StopControlledReplacement();
+                        if (stopReplacement.State == ControlledReplacementState.Failed)
+                        {
+                            requestedRouterEnabled = true;
+                            LocalizedMessageBox.Show(this,
+                                Localizer.IsEnglish
+                                    ? "Controller takeover could not be fully restored, so controller merging was kept enabled. " + stopReplacement.Message
+                                    : "手柄接管未能完整恢复原设备，因此暂时保持“手柄汇总”开启。" + stopReplacement.Message,
+                                AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
+                    config.GamepadRouterEnabled = requestedRouterEnabled;
+                    config.GamepadDeviceType = config.GamepadRouterEnabled ? VirtualGamepadTypes.Xbox360 : dialog.SelectedGamepadType;
+                    IdleGamepadOptions requestedIdleOptions = dialog.SelectedIdleOptions;
+                    bool idleDisabledByVirtualOutput = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType) &&
+                        requestedIdleOptions != null && requestedIdleOptions.Enabled;
+                    if (idleDisabledByVirtualOutput) requestedIdleOptions.Enabled = false;
+                    config.IdleGamepad = requestedIdleOptions;
                     idleTargetWindowHandle = IntPtr.Zero;
                     ResolveIdleTargetWindowFromConfig();
                     idleKeyboardMouseActivityInScope = IsIdleKeyboardMouseActivityInScope(NativeWindowFocus.ForegroundWindow());
                     InputSender.UseScanCodeInput = config.UseScanCodeInput;
                     GamepadOutput.Configure(config.GamepadDeviceType);
                     if (idleGamepad != null) idleGamepad.Configure(config.IdleGamepad, true);
-                    if (gamepadWasConnected && !string.Equals(GamepadOutput.ConnectedType, config.GamepadDeviceType, StringComparison.OrdinalIgnoreCase))
-                        EnsureGamepadReady(null, false);
+                    if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
+                    if (VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType))
+                    {
+                        if (gamepadRouter != null) gamepadRouter.Stop("virtual-output-disabled");
+                        GamepadOutput.NeutralizeAll();
+                        GamepadOutput.Disconnect();
+                    }
+                    else
+                    {
+                        if (config.GamepadRouterEnabled)
+                            EnsureGamepadRouterReady(false);
+                        else if (routerWasEnabled && gamepadRouter != null)
+                            gamepadRouter.Stop("disabled-by-user");
+                        if (!config.GamepadRouterEnabled && gamepadWasConnected && !string.Equals(GamepadOutput.ConnectedType, config.GamepadDeviceType, StringComparison.OrdinalIgnoreCase))
+                            EnsureGamepadReady(null, false);
+                    }
                     TopMost = config.KeepWindowTopMost;
                     if (autoProfilesWasEnabled && !config.AutoSwitchProfiles) lastAutoProfileProcess = "";
                     UpdateTargetSectionVisibility();
@@ -5691,6 +6160,16 @@ namespace InputStitch
                     }
                     UpdateUiSafetyPauseState();
                     SaveConfig();
+                    if (VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType))
+                    {
+                        SetStatusSafe(idleDisabledByVirtualOutput
+                            ? (Localizer.IsEnglish
+                                ? "Virtual controller creation is disabled; Idle gamepad input was also turned off."
+                                : "已设置为不创建虚拟手柄；“闲置自动手柄输入”也已关闭。")
+                            : (Localizer.IsEnglish
+                                ? "Virtual controller creation is disabled. Keyboard/mouse features remain available."
+                                : "已设置为不创建虚拟手柄；键盘/鼠标功能仍可正常使用。"));
+                    }
                 }
             }
             finally
@@ -5720,6 +6199,7 @@ namespace InputStitch
             if (updateCheckBusy) return;
             updateCheckBusy = true;
             string previousStatus = statusLabel == null ? "" : statusLabel.Text;
+            string updateStage = "check";
             try
             {
                 if (statusLabel != null) statusLabel.Text = Localizer.T("正在检查更新…");
@@ -5738,8 +6218,10 @@ namespace InputStitch
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
                 if (choice != DialogResult.OK) return;
 
+                updateStage = "download";
                 if (statusLabel != null) statusLabel.Text = Localizer.T("正在下载并验证更新…");
                 string downloaded = await UpdateManager.DownloadAsync(update);
+                updateStage = "install";
                 EmergencyStop("software-update");
                 SaveConfig();
                 UpdateManager.BeginInstall(downloaded, update.Asset.Sha256);
@@ -5749,10 +6231,14 @@ namespace InputStitch
             }
             catch (Exception ex)
             {
-                AppLog.Write("Update check or installation preparation failed", ex);
-                if (!automatic)
-                    LocalizedMessageBox.Show(owner, Localizer.T("检查更新失败。") + "\r\n\r\n" + ex.Message,
+                AppLog.Write("Update stage failed: " + updateStage, ex);
+                if (!automatic || updateStage != "check")
+                {
+                    string heading = updateStage == "download" ? Localizer.T("下载更新失败。") :
+                        updateStage == "install" ? Localizer.T("准备安装更新失败。") : Localizer.T("检查更新失败。");
+                    LocalizedMessageBox.Show(owner, heading + "\r\n\r\n" + ex.Message,
                         AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             finally
             {
@@ -5892,10 +6378,24 @@ namespace InputStitch
         {
             try
             {
+                bool replacementRestoreFailed = false;
                 if (idleGamepad != null) idleGamepad.PanicStop();
                 if (config.IdleGamepad != null && config.IdleGamepad.Enabled)
                 {
                     config.IdleGamepad.Enabled = false;
+                    SaveConfig();
+                }
+                if (controlledReplacement != null && controlledReplacement.Active)
+                {
+                    ControlledReplacementResult replacementStop = StopControlledReplacement();
+                    replacementRestoreFailed = replacementStop.State == ControlledReplacementState.Failed;
+                    if (replacementRestoreFailed) AppLog.Write("Emergency stop could not fully restore controller visibility: " + replacementStop.Message);
+                }
+                if (gamepadRouter != null) gamepadRouter.Stop("emergency-stop");
+                if (config.GamepadRouterEnabled)
+                {
+                    config.GamepadRouterEnabled = false;
+                    if (gamepadRouter != null) gamepadRouter.Configure(false);
                     SaveConfig();
                 }
                 if (recordingActive) StopMacroRecording(false, true);
@@ -5916,7 +6416,11 @@ namespace InputStitch
                 // backend that failed after ownership bookkeeping was already cleared.
                 GamepadOutput.NeutralizeAll();
                 ReconcileHookState("emergency-stop");
-                if (runCount != 0 || heldMappingCount != 0)
+                if (replacementRestoreFailed)
+                    statusLabel.Text = Localizer.IsEnglish
+                        ? "Emergency Stop released managed output, but controller visibility could not be fully restored. Restart InputStitch to retry recovery."
+                        : "紧急停止已释放受管输入，但原手柄可见性未能完整恢复；重启 InputStitch 会再次尝试恢复。";
+                else if (runCount != 0 || heldMappingCount != 0)
                     statusLabel.Text = "紧急停止：已向全部运行实例发送停止信号并释放受管输入。";
                 else
                     statusLabel.Text = "紧急停止：当前没有正在执行的宏。";
@@ -6020,6 +6524,10 @@ namespace InputStitch
             sb.AppendLine("ScanCodeInput: " + (config != null && config.UseScanCodeInput ? Localizer.T("开启") : (Localizer.IsEnglish ? "Off" : "关闭")));
             sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
             sb.AppendLine("VirtualGamepadConnected: " + (GamepadOutput.IsConnected ? GamepadOutput.ConnectedType : Localizer.T("否")));
+            sb.AppendLine("VirtualXboxSlot: " + GamepadOutput.OwnXboxUserIndex.ToString());
+            sb.AppendLine("GamepadRouter: " + (gamepadRouter == null ? "unavailable" :
+                (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : "disabled")));
+            sb.AppendLine("ActiveMappingLayer: " + (activeMappingLayerId.Length == 0 ? MappingLayerIds.Base : MappingLayerIds.Base + "+" + activeMappingLayerId));
             sb.AppendLine("PanicTrigger: " + InputNames.FormatTrigger(config == null ? null : config.PanicTrigger));
             sb.AppendLine("GlobalTriggersSuspended: " + (manualTriggerSuspend ? Localizer.T("是") : Localizer.T("否")));
             sb.AppendLine("UIProtectionPause: " + (uiSafetyPauseRequested ? Localizer.T("是") + " - " + Localizer.Dynamic(uiSafetyPauseReason) : Localizer.T("否")));
@@ -6350,6 +6858,13 @@ namespace InputStitch
             return true;
         }
 
+        private bool IsPhysicalHoldTriggerSatisfied(TriggerSpec trigger)
+        {
+            if (trigger != null && trigger.Kind == InputKind.Gamepad)
+                return gamepadInput != null && gamepadInput.IsTriggerSatisfied(trigger);
+            return PhysicalInputState.IsHoldTriggerSatisfied(trigger);
+        }
+
         private void ReconcileHeldTriggerRelease()
         {
             long now = Stopwatch.GetTimestamp();
@@ -6358,11 +6873,16 @@ namespace InputStitch
             List<long> holdRunsToStop = new List<long>();
             lock (runLock)
             {
+                List<MacroDefinition> layerBlocksToClear = new List<MacroDefinition>();
+                foreach (MacroDefinition blocked in layerBlockedUntilRelease)
+                    if (blocked == null || !IsPhysicalHoldTriggerSatisfied(blocked.Trigger)) layerBlocksToClear.Add(blocked);
+                foreach (MacroDefinition blocked in layerBlocksToClear) layerBlockedUntilRelease.Remove(blocked);
+
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
                 {
                     HeldMappingRuntime runtime = pair.Value;
                     if (runtime == null || runtime.Trigger == null) continue;
-                    bool released = !PhysicalInputState.IsHoldTriggerSatisfied(runtime.Trigger);
+                    bool released = !IsPhysicalHoldTriggerSatisfied(runtime.Trigger);
                     if (!released)
                     {
                         runtime.ReleaseProbeSince = 0;
@@ -6381,7 +6901,7 @@ namespace InputStitch
                 foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
                 {
                     if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null || runtime.Stop == null || runtime.Stop.IsSet) continue;
-                    bool released = !PhysicalInputState.IsHoldTriggerSatisfied(runtime.HoldTrigger);
+                    bool released = !IsPhysicalHoldTriggerSatisfied(runtime.HoldTrigger);
                     if (UpdateRunReleaseProbe(runtime, released, now)) holdRunsToStop.Add(runtime.RunId);
                 }
             }
@@ -6774,8 +7294,159 @@ namespace InputStitch
             saveWarning.Visible = saveFailure.Length != 0;
         }
 
+        private string LayerDisplayName(MappingLayerDefinition layer)
+        {
+            if (layer == null) return "";
+            if (string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase))
+                return Localizer.IsEnglish ? "Base layer" : "基础层（始终启用）";
+            if (string.Equals(layer.Id, MappingLayerIds.Layer1, StringComparison.OrdinalIgnoreCase))
+                return Localizer.IsEnglish ? "Layer 1" : "映射层 1";
+            return layer.Name ?? layer.Id;
+        }
+
+        private void RefreshLayerChoiceLists()
+        {
+            if (config == null || mappingLayerBox == null || activeLayerBox == null) return;
+            NormalizeMappingLayers(config);
+            bool oldLoading = loadingUi;
+            loadingUi = true;
+            try
+            {
+                mappingLayerBox.Items.Clear();
+                activeLayerBox.Items.Clear();
+                activeLayerBox.Items.Add(new LayerChoice("", Localizer.IsEnglish ? "Base only" : "仅基础层"));
+                foreach (MappingLayerDefinition layer in config.MappingLayers)
+                {
+                    if (layer == null) continue;
+                    LayerChoice choice = new LayerChoice(layer.Id, LayerDisplayName(layer));
+                    mappingLayerBox.Items.Add(choice);
+                    if (!string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase))
+                        activeLayerBox.Items.Add(new LayerChoice(layer.Id, LayerDisplayName(layer)));
+                }
+                int activeIndex = 0;
+                for (int i = 0; i < activeLayerBox.Items.Count; i++)
+                {
+                    LayerChoice choice = activeLayerBox.Items[i] as LayerChoice;
+                    if (choice != null && string.Equals(choice.Id, activeMappingLayerId, StringComparison.OrdinalIgnoreCase)) { activeIndex = i; break; }
+                }
+                activeLayerBox.SelectedIndex = activeIndex;
+            }
+            finally { loadingUi = oldLoading; }
+        }
+
+        private static string MacroLayerId(MacroDefinition macro)
+        {
+            return macro == null || string.IsNullOrWhiteSpace(macro.MappingLayerId) ? MappingLayerIds.Base : macro.MappingLayerId;
+        }
+
+        private static bool IsMacroLayerEligibleFor(MacroDefinition macro, string activeLayerId)
+        {
+            if (macro == null) return false;
+            string layerId = MacroLayerId(macro);
+            if (string.Equals(layerId, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase)) return true;
+            activeLayerId = activeLayerId ?? "";
+            return activeLayerId.Length != 0 && string.Equals(layerId, activeLayerId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsMacroLayerEligible(MacroDefinition macro)
+        {
+            return IsMacroLayerEligibleFor(macro, activeMappingLayerId);
+        }
+
+        private MacroDefinition SelectEligibleTriggerMacro(InputEventInfo inputEvent)
+        {
+            List<MacroDefinition> eligible = new List<MacroDefinition>();
+            lock (runLock)
+            {
+                foreach (MacroDefinition macro in config.Macros)
+                    if (IsMacroLayerEligible(macro) && !layerBlockedUntilRelease.Contains(macro)) eligible.Add(macro);
+            }
+            return SelectTriggerMacro(eligible, inputEvent);
+        }
+
+        private void SwitchActiveMappingLayer(string newLayerId)
+        {
+            newLayerId = newLayerId ?? "";
+            if (string.Equals(newLayerId, activeMappingLayerId, StringComparison.OrdinalIgnoreCase)) return;
+            string previousLayerId = activeMappingLayerId;
+
+            // Every macro type participates in Layer eligibility. Stop anything that belonged to
+            // the old active layer before publishing the new eligibility state. Worker-backed
+            // sources are additionally suspended immediately so they cannot reassert output while
+            // their thread is observing the stop request.
+            List<MacroDefinition> toStop = new List<MacroDefinition>();
+            Dictionary<MacroDefinition, string> workerSources = new Dictionary<MacroDefinition, string>();
+            lock (runLock)
+            {
+                foreach (MacroDefinition macro in config.Macros)
+                {
+                    if (macro == null) continue;
+                    bool wasEligible = IsMacroLayerEligibleFor(macro, previousLayerId);
+                    bool willBeEligible = IsMacroLayerEligibleFor(macro, newLayerId);
+                    if (!wasEligible || willBeEligible) continue;
+                    toStop.Add(macro);
+                    MacroRunRuntime runtime = GetMacroRun_NoLock(macro);
+                    if (runtime != null && !string.IsNullOrWhiteSpace(runtime.SourceId))
+                        workerSources[macro] = runtime.SourceId;
+                }
+            }
+            foreach (MacroDefinition macro in toStop)
+            {
+                StopMacroForDefinitionChange(macro, "layer-switch");
+                string sourceId;
+                if (workerSources.TryGetValue(macro, out sourceId))
+                {
+                    try { outputOwnership.SuspendSource(sourceId); }
+                    catch (Exception ex) { HandleOutputOwnershipFailure(ex, "layer-switch-suspend"); }
+                }
+            }
+
+            lock (runLock)
+            {
+                layerBlockedUntilRelease.Clear();
+                foreach (MacroDefinition macro in config.Macros)
+                {
+                    if (macro == null) continue;
+                    bool wasEligible = IsMacroLayerEligibleFor(macro, previousLayerId);
+                    bool willBeEligible = IsMacroLayerEligibleFor(macro, newLayerId);
+                    // A key/button already held while a layer becomes eligible must not create an
+                    // activation through key-repeat or a later poll. Require a real release first.
+                    if (!wasEligible && willBeEligible && IsPhysicalHoldTriggerSatisfied(macro.Trigger))
+                        layerBlockedUntilRelease.Add(macro);
+                }
+                activeMappingLayerId = newLayerId;
+            }
+            runtimeTrace.Add("layer-switch", newLayerId.Length == 0 ? "base-only" : newLayerId);
+            RefreshRuntimeCapabilityUi();
+            SetStatusSafe(newLayerId.Length == 0
+                ? (Localizer.IsEnglish ? "Layer: Base only." : "映射层：当前仅启用基础层。")
+                : (Localizer.IsEnglish ? "Active layer: " : "当前映射层：") + newLayerId + (Localizer.IsEnglish ? "." : "。"));
+        }
+
+        private void ActiveLayerBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (loadingUi || activeLayerBox == null) return;
+            LayerChoice choice = activeLayerBox.SelectedItem as LayerChoice;
+            if (choice != null) SwitchActiveMappingLayer(choice.Id);
+        }
+
+        private void MappingLayerBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (loadingUi || mappingLayerBox == null) return;
+            MacroDefinition macro = SelectedMacro;
+            LayerChoice choice = mappingLayerBox.SelectedItem as LayerChoice;
+            if (macro == null || choice == null) return;
+            if (string.Equals(MacroLayerId(macro), choice.Id, StringComparison.OrdinalIgnoreCase)) return;
+            StopMacroForDefinitionChange(macro, "mapping-layer-change");
+            macro.MappingLayerId = choice.Id;
+            SaveConfig();
+            RefreshRuntimeCapabilityUi();
+            statusLabel.Text = Localizer.IsEnglish ? "Mapping layer updated." : "状态：已修改这个宏所属的映射层。";
+        }
+
         private void RefreshMacroList(int selectedIndex)
         {
+            RefreshLayerChoiceLists();
             loadingUi = true;
             macroList.Items.Clear();
             foreach (MacroDefinition m in config.Macros)
@@ -6816,6 +7487,7 @@ namespace InputStitch
             enabledBox.Enabled = has;
             captureTriggerButton.Enabled = has;
             triggerModeBox.Enabled = has;
+            mappingLayerBox.Enabled = has;
             suppressBox.Enabled = has;
             infiniteBox.Enabled = has;
             repeatBox.Enabled = has && (m == null || !m.Infinite);
@@ -6833,6 +7505,13 @@ namespace InputStitch
                 triggerBox.Text = InputNames.FormatTrigger(m.Trigger);
                 try { triggerBox.SelectionStart = 0; triggerBox.SelectionLength = 0; } catch { }
                 triggerModeBox.SelectedIndex = m.RunMode == TriggerRunMode.Hold ? 1 : 0;
+                int layerIndex = 0;
+                for (int i = 0; i < mappingLayerBox.Items.Count; i++)
+                {
+                    LayerChoice choice = mappingLayerBox.Items[i] as LayerChoice;
+                    if (choice != null && string.Equals(choice.Id, MacroLayerId(m), StringComparison.OrdinalIgnoreCase)) { layerIndex = i; break; }
+                }
+                if (mappingLayerBox.Items.Count > 0) mappingLayerBox.SelectedIndex = layerIndex;
                 suppressBox.Checked = m.SuppressTrigger;
                 infiniteBox.Checked = m.Infinite;
                 decimal value = m.RepeatCount;
@@ -6966,6 +7645,7 @@ namespace InputStitch
             m.RunMode = triggerModeBox.SelectedIndex == 1 ? TriggerRunMode.Hold : TriggerRunMode.Toggle;
             UpdateTriggerModeUiText();
             SaveConfig();
+            RefreshRuntimeCapabilityUi();
 
             if (m.RunMode == TriggerRunMode.Hold && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
             {
@@ -7009,18 +7689,23 @@ namespace InputStitch
             if (suppressBox == null) return;
             MacroDefinition macro = SelectedMacro;
             bool preserve = ModifierSafetyPolicy.PreserveNativeShiftForGamepad(macro);
+            bool controllerTrigger = macro != null && macro.Trigger != null && macro.Trigger.Kind == InputKind.Gamepad;
             bool previousLoading = loadingUi;
             loadingUi = true;
             try
             {
-                suppressBox.Enabled = macro != null && !preserve;
-                suppressBox.Checked = preserve || ModifierSafetyPolicy.ShouldSuppressTrigger(macro);
+                suppressBox.Enabled = macro != null && !preserve && !controllerTrigger;
+                suppressBox.Checked = preserve || (!controllerTrigger && ModifierSafetyPolicy.ShouldSuppressTrigger(macro));
                 suppressBox.Text = preserve
                     ? (Localizer.IsEnglish ? "Shift automatically passes through (always on for gamepad hold)" : "Shift 自动传给游戏（按住手柄映射时固定开启）")
-                    : Localizer.T("触发时屏蔽最后一个触发键/鼠标事件");
+                    : controllerTrigger
+                        ? (Localizer.IsEnglish ? "Controller input stays visible to the game until Router replacement" : "当前不会屏蔽原手柄输入（接管模式完成后才可屏蔽）")
+                        : Localizer.T("触发时屏蔽最后一个触发键/鼠标事件");
                 SetTip(suppressBox, preserve
                     ? (Localizer.IsEnglish ? "Pass-through is automatically enabled here: Shift keeps its native game function while this held macro outputs gamepad input. The stored suppression preference is preserved for other modes." : "这里已自动开启透传：按住 Shift 输出手柄的同时，Shift 仍会传给游戏并保留原本功能。切换到其他模式后仍使用原先的屏蔽偏好。")
-                    : Localizer.T("触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。"));
+                    : controllerTrigger
+                        ? (Localizer.IsEnglish ? "This Beta observes XInput and can add keyboard/mouse/gamepad output, but it does not yet hide the original controller from the game." : "这个测试版已经能读取手柄并追加键盘、鼠标或虚拟手柄输出，但暂时还不会让游戏看不到原来的实体/虚拟手柄。")
+                        : Localizer.T("触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。"));
             }
             finally { loadingUi = previousLoading; }
         }
@@ -7263,8 +7948,11 @@ namespace InputStitch
         private static bool TriggersEqual(TriggerSpec a, TriggerSpec b)
         {
             if (a == null || b == null) return false;
-            return a.Kind == b.Kind && a.Ctrl == b.Ctrl && a.Shift == b.Shift && a.Alt == b.Alt && a.Win == b.Win &&
-                (ModifierSafetyPolicy.VirtualKeysMatch(a.VirtualKey, b.VirtualKey) || ModifierSafetyPolicy.VirtualKeysMatch(b.VirtualKey, a.VirtualKey)) &&
+            if (a.Kind != b.Kind || a.Ctrl != b.Ctrl || a.Shift != b.Shift || a.Alt != b.Alt || a.Win != b.Win) return false;
+            if (a.Kind == InputKind.Gamepad)
+                return a.GamepadControl == b.GamepadControl &&
+                    (a.GamepadUserIndex < 0 || b.GamepadUserIndex < 0 || a.GamepadUserIndex == b.GamepadUserIndex);
+            return (ModifierSafetyPolicy.VirtualKeysMatch(a.VirtualKey, b.VirtualKey) || ModifierSafetyPolicy.VirtualKeysMatch(b.VirtualKey, a.VirtualKey)) &&
                 (!a.MatchExtended || !b.MatchExtended || a.Extended == b.Extended);
         }
 
@@ -7485,6 +8173,7 @@ namespace InputStitch
             string language = config.Language;
             string updateMode = config.UpdateMode;
             string gamepadType = config.GamepadDeviceType;
+            bool gamepadRouterEnabled = config.GamepadRouterEnabled;
             IdleGamepadOptions idleOptions = config.IdleGamepad;
             bool welcome = config.HasSeenWelcome;
             string lastReleaseSummary = config.LastShownReleaseSummaryVersion;
@@ -7496,10 +8185,14 @@ namespace InputStitch
                 config.MinimizeToTray = minimize;
                 config.Language = language;
                 config.UpdateMode = updateMode;
-                config.GamepadDeviceType = gamepadType;
+                config.GamepadDeviceType = gamepadRouterEnabled ? VirtualGamepadTypes.Xbox360 : gamepadType;
+                config.GamepadRouterEnabled = gamepadRouterEnabled;
                 config.IdleGamepad = idleOptions;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
+                if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
+                activeMappingLayerId = "";
+                lock (runLock) layerBlockedUntilRelease.Clear();
                 config.HasSeenWelcome = welcome;
                 config.LastShownReleaseSummaryVersion = lastReleaseSummary;
                 EnsureDefaultMacro();
@@ -7520,6 +8213,9 @@ namespace InputStitch
                 config = previous;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
+                if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
+                activeMappingLayerId = "";
+                lock (runLock) layerBlockedUntilRelease.Clear();
                 InputSender.UseScanCodeInput = config.UseScanCodeInput;
                 targetWindowHandle = IntPtr.Zero;
                 ResolveTargetWindowFromConfig();
@@ -7654,8 +8350,9 @@ namespace InputStitch
                 if (m.Trigger == null) m.Trigger = new TriggerSpec();
                 if (m.Trigger.Kind == InputKind.Gamepad)
                 {
-                    m.Trigger.Kind = InputKind.Keyboard;
-                    m.Trigger.VirtualKey = (int)Keys.F8;
+                    if (!Enum.IsDefined(typeof(GamepadControl), m.Trigger.GamepadControl)) m.Trigger.GamepadControl = GamepadControl.South;
+                    if (m.Trigger.GamepadUserIndex < -1 || m.Trigger.GamepadUserIndex > 3) m.Trigger.GamepadUserIndex = -1;
+                    m.Trigger.Ctrl = m.Trigger.Shift = m.Trigger.Alt = m.Trigger.Win = false;
                 }
                 if (m.RepeatCount < 1) m.RepeatCount = 1;
                 if (m.RepeatCount > 100000000) m.RepeatCount = 100000000;
@@ -7706,13 +8403,43 @@ namespace InputStitch
             }
         }
 
+        private static void NormalizeMappingLayers(MacroConfig value)
+        {
+            if (value.MappingLayers == null) value.MappingLayers = new List<MappingLayerDefinition>();
+            value.MappingLayers.RemoveAll(delegate(MappingLayerDefinition item) { return item == null; });
+            HashSet<string> ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = value.MappingLayers.Count - 1; i >= 0; i--)
+            {
+                MappingLayerDefinition layer = value.MappingLayers[i];
+                layer.Id = (layer.Id ?? "").Trim();
+                if (layer.Id.Length == 0 || ids.Contains(layer.Id)) { value.MappingLayers.RemoveAt(i); continue; }
+                ids.Add(layer.Id);
+                layer.IsBase = string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase);
+                if (string.IsNullOrWhiteSpace(layer.Name)) layer.Name = layer.IsBase ? "基础层" : "映射层";
+            }
+            if (!ids.Contains(MappingLayerIds.Base))
+                value.MappingLayers.Insert(0, new MappingLayerDefinition { Id = MappingLayerIds.Base, Name = "基础层", IsBase = true });
+            if (!ids.Contains(MappingLayerIds.Layer1))
+                value.MappingLayers.Add(new MappingLayerDefinition { Id = MappingLayerIds.Layer1, Name = "映射层 1", IsBase = false });
+        }
+
         private static void NormalizeConfig(MacroConfig value)
         {
             if (value == null) throw new InvalidDataException("配置为空。");
             EnsureSupportedFormatVersion(value.FormatVersion, AppInfo.ConfigFormatVersion, "配置文件");
             value.FormatVersion = AppInfo.ConfigFormatVersion;
             if (value.Macros == null) value.Macros = new List<MacroDefinition>();
+            NormalizeMappingLayers(value);
             NormalizeMacroDefinitions(value.Macros);
+            HashSet<string> validLayerIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (MappingLayerDefinition layer in value.MappingLayers)
+                if (layer != null && !string.IsNullOrWhiteSpace(layer.Id)) validLayerIds.Add(layer.Id);
+            foreach (MacroDefinition macro in value.Macros)
+            {
+                if (macro == null) continue;
+                macro.MappingLayerId = string.IsNullOrWhiteSpace(macro.MappingLayerId) ? MappingLayerIds.Base : macro.MappingLayerId.Trim();
+                if (!validLayerIds.Contains(macro.MappingLayerId)) macro.MappingLayerId = MappingLayerIds.Base;
+            }
             if (value.PanicTrigger == null) value.PanicTrigger = new MacroConfig().PanicTrigger;
             if (value.PanicTrigger.Kind == InputKind.Gamepad) value.PanicTrigger = new MacroConfig().PanicTrigger;
             if (!string.Equals(value.Language, Localizer.English, StringComparison.OrdinalIgnoreCase)) value.Language = Localizer.Chinese;
@@ -7720,7 +8447,9 @@ namespace InputStitch
                 !string.Equals(value.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase))
                 value.UpdateMode = UpdateModes.Automatic;
             value.GamepadDeviceType = VirtualGamepadTypes.Normalize(value.GamepadDeviceType);
+            if (value.GamepadRouterEnabled) value.GamepadDeviceType = VirtualGamepadTypes.Xbox360;
             if (value.IdleGamepad == null) value.IdleGamepad = new IdleGamepadOptions();
+            if (VirtualGamepadTypes.IsDisabled(value.GamepadDeviceType)) value.IdleGamepad.Enabled = false;
             value.LastShownReleaseSummaryVersion = value.LastShownReleaseSummaryVersion ?? "";
             value.IdleGamepad.TargetProcessName = value.IdleGamepad.TargetProcessName ?? "";
             value.IdleGamepad.TargetWindowTitle = value.IdleGamepad.TargetWindowTitle ?? "";
@@ -7986,6 +8715,13 @@ namespace InputStitch
             t.VirtualKey = e.Input.VirtualKey;
             t.Extended = e.Input.Extended;
             t.MatchExtended = e.Input.Kind == InputKind.Keyboard && e.Input.VirtualKey == (int)Keys.Enter;
+            if (e.Input.Kind == InputKind.Gamepad)
+            {
+                t.GamepadControl = e.Input.GamepadControl;
+                // Capturing a controller trigger intentionally means the same control on any
+                // visible XInput controller. Hold runs are pinned to the actual device at dispatch.
+                t.GamepadUserIndex = XInputInputService.AnyController;
+            }
             if (e.Input.Kind == InputKind.Keyboard)
             {
                 int own = ModifierSafetyPolicy.ModifierMaskForKey(e.Input.VirtualKey);
@@ -8033,6 +8769,28 @@ namespace InputStitch
         private bool HandleTerminalInput(InputEventInfo e)
         {
             return HandleTerminalInputCore(e, false);
+        }
+
+        private void HandleControllerInputDown(InputEventInfo e)
+        {
+            if (e == null || e.Input == null) return;
+            runtimeTrace.Add("controller-down", "slot=" + e.DeviceIndex.ToString() + "; control=" + e.Input.GamepadControl.ToString());
+            HandleTerminalInputCore(e, false);
+        }
+
+        private void HandleControllerInputUp(InputEventInfo e)
+        {
+            if (e == null || e.Input == null) return;
+            runtimeTrace.Add("controller-up", "slot=" + e.DeviceIndex.ToString() + "; control=" + e.Input.GamepadControl.ToString());
+            HandleTerminalInputReleased(e);
+        }
+
+        private static TriggerSpec ResolveTriggerForPhysicalEvent(TriggerSpec configured, InputEventInfo e)
+        {
+            TriggerSpec resolved = configured == null ? null : configured.Clone();
+            if (resolved != null && resolved.Kind == InputKind.Gamepad && resolved.GamepadUserIndex < 0 && e != null && e.DeviceIndex >= 0)
+                resolved.GamepadUserIndex = e.DeviceIndex;
+            return resolved;
         }
 
         private bool HandleTerminalInputCore(InputEventInfo e, bool completingModifierCapture)
@@ -8148,7 +8906,7 @@ namespace InputStitch
             // notification must not leave the previous UI protection state cached.
             UpdateUiSafetyPauseState();
 
-            MacroDefinition matchedMacro = SelectTriggerMacro(config.Macros, e);
+            MacroDefinition matchedMacro = SelectEligibleTriggerMacro(e);
 
             if (matchedMacro != null)
             {
@@ -8182,7 +8940,7 @@ namespace InputStitch
                         { runtimeTrace.Add("trigger-cancelled", "UI state changed before dispatch"); return; }
                         if (NativeWindowFocus.ForegroundWindow() == Handle && inputSink != null) inputSink.Focus();
                         UpdateUiSafetyPauseState();
-                        if (m.RunMode == TriggerRunMode.Hold) StartMacroFromHeldTrigger(m);
+                        if (m.RunMode == TriggerRunMode.Hold) StartMacroFromHeldTrigger(m, ResolveTriggerForPhysicalEvent(m.Trigger, e));
                         else ToggleMacroFromHotkey(m);
                     });
                 }
@@ -8205,6 +8963,14 @@ namespace InputStitch
                 return;
             }
             if (recordingActive) RecordPhysicalInput(e, false);
+
+            lock (runLock)
+            {
+                List<MacroDefinition> unblocked = new List<MacroDefinition>();
+                foreach (MacroDefinition macro in layerBlockedUntilRelease)
+                    if (macro != null && ModifierSafetyPolicy.HoldTriggerReleasedByEvent(macro.Trigger, e)) unblocked.Add(macro);
+                foreach (MacroDefinition macro in unblocked) layerBlockedUntilRelease.Remove(macro);
+            }
 
             List<MacroDefinition> parallelReleased = new List<MacroDefinition>();
             List<long> holdRunsReleased = new List<long>();
@@ -8254,6 +9020,11 @@ namespace InputStitch
 
         private void StartParallelHeldMapping(MacroDefinition macro)
         {
+            StartParallelHeldMappingWithTrigger(macro, null);
+        }
+
+        private void StartParallelHeldMappingWithTrigger(MacroDefinition macro, TriggerSpec triggerOverride)
+        {
             if (macro == null || !IsParallelHeldMapping(macro)) return;
             if (!isolatedUiHost && !EnsureGamepadReady(macro, false)) return;
 
@@ -8263,7 +9034,8 @@ namespace InputStitch
                 if (activeParallelHeldMappings.ContainsKey(macro)) return;
                 runtime = new HeldMappingRuntime();
                 runtime.Macro = macro;
-                runtime.Trigger = macro.Trigger == null ? null : macro.Trigger.Clone();
+                TriggerSpec effectiveTrigger = triggerOverride ?? macro.Trigger;
+                runtime.Trigger = effectiveTrigger == null ? null : effectiveTrigger.Clone();
                 runtime.SourceId = "held:" + (++outputSourceSequence).ToString();
                 runtime.StartedUtc = DateTime.UtcNow;
                 runtime.ReleaseProbeSince = 0;
@@ -8349,6 +9121,16 @@ namespace InputStitch
 
         private void StartMacroFromHeldTrigger(MacroDefinition m)
         {
+            StartMacroFromHeldTriggerWithTrigger(m, null);
+        }
+
+        private void StartMacroFromHeldTrigger(MacroDefinition m, TriggerSpec effectiveTrigger)
+        {
+            StartMacroFromHeldTriggerWithTrigger(m, effectiveTrigger);
+        }
+
+        private void StartMacroFromHeldTriggerWithTrigger(MacroDefinition m, TriggerSpec effectiveTrigger)
+        {
             if (m == null) return;
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
             if (!capability.CanStart)
@@ -8364,11 +9146,11 @@ namespace InputStitch
             }
             if (capability.Category == MacroRuntimeCategory.ParallelHeldMapping)
             {
-                StartParallelHeldMapping(m);
+                StartParallelHeldMappingWithTrigger(m, effectiveTrigger);
                 return;
             }
             if (IsMacroActuallyRunning(m)) return;
-            StartMacro(m, 0, null, true);
+            StartMacroCore(m, 0, null, true, false, effectiveTrigger);
         }
 
         private void ToggleMacroFromHotkey(MacroDefinition m)
@@ -9064,10 +9846,169 @@ namespace InputStitch
             return false;
         }
 
+        private bool ValidateControlledReplacementSourceHealth()
+        {
+            if (gamepadInput == null || replacementExpectedControllerSlots == null || replacementExpectedControllerSlots.Length == 0) return false;
+            // Give the filter/PNP stack a short settle window, then require every XInput source that
+            // InputStitch was routing before hiding to remain visible to this whitelisted process.
+            Thread.Sleep(350);
+            gamepadInput.Poll();
+            int[] connected = gamepadInput.ConnectedUserIndices();
+            HashSet<int> visible = new HashSet<int>(connected);
+            foreach (int expected in replacementExpectedControllerSlots)
+                if (!visible.Contains(expected)) return false;
+            return true;
+        }
+
+        private bool PrepareControlledTakeoverForHiding()
+        {
+            replacementExpectedControllerSlots = new int[0];
+            if (!config.GamepadRouterEnabled || !EnsureGamepadRouterReady(false)) return false;
+            if (GamepadOutput.OwnXboxUserIndex != 0 || gamepadInput == null || gamepadRouter == null) return false;
+
+            gamepadInput.Poll();
+            gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
+            gamepadInput.Poll();
+            replacementExpectedControllerSlots = gamepadInput.ConnectedUserIndices();
+            return GamepadOutput.OwnXboxUserIndex == 0 && replacementExpectedControllerSlots.Length > 0;
+        }
+
+        private void ResumeGamepadRouterAfterTakeoverFailure()
+        {
+            replacementExpectedControllerSlots = new int[0];
+            if (!config.GamepadRouterEnabled) return;
+            try
+            {
+                EnsureGamepadRouterReady(false);
+                if (gamepadInput != null) gamepadInput.Poll();
+                if (gamepadRouter != null && gamepadInput != null)
+                    gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
+            }
+            catch { }
+        }
+
+        private ControlledReplacementResult BeginControlledReplacement(IEnumerable<GamingDeviceDescriptor> selectedDevices)
+        {
+            if (controlledReplacement == null)
+                return new ControlledReplacementResult { State = ControlledReplacementState.BackendUnavailable, Message = "Controlled replacement is unavailable." };
+            if (!config.GamepadRouterEnabled || !EnsureGamepadRouterReady(false))
+                return new ControlledReplacementResult { State = ControlledReplacementState.RouterNotReady, Message = "Controller merging must be enabled and connected first." };
+
+            List<GamingDeviceDescriptor> selected = new List<GamingDeviceDescriptor>();
+            HashSet<string> seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (selectedDevices != null)
+            {
+                foreach (GamingDeviceDescriptor device in selectedDevices)
+                {
+                    if (device == null || string.IsNullOrWhiteSpace(device.DeviceInstancePath)) continue;
+                    if (!seenPaths.Add(device.DeviceInstancePath)) continue;
+                    selected.Add(device);
+                }
+            }
+            if (selected.Count == 0)
+                return new ControlledReplacementResult { State = ControlledReplacementState.NoSourceDevices, Message = "No controller device was selected for takeover." };
+
+            if (gamepadInput != null) gamepadInput.Poll();
+            replacementExpectedControllerSlots = gamepadInput == null ? new int[0] : gamepadInput.ConnectedUserIndices();
+            if (replacementExpectedControllerSlots.Length == 0)
+                return new ControlledReplacementResult { State = ControlledReplacementState.NoSourceDevices, Message = "No external XInput controller is currently visible to InputStitch." };
+
+            if (slotAcquisition == null || controlledTakeoverPipeline == null)
+            {
+                replacementExpectedControllerSlots = new int[0];
+                return new ControlledReplacementResult { State = ControlledReplacementState.SlotAcquisitionFailed, Message = "Slot-acquisition service is unavailable." };
+            }
+
+            // A non-zero starting slot necessarily needs a temporary PnP re-enumeration. Refuse
+            // before stopping any active runtime if elevation is unavailable. When already slot 0,
+            // no admin rights are needed for the self-identity disconnect/reconnect verification.
+            if (GamepadOutput.OwnXboxUserIndex != 0 && pnpDeviceControl != null && !pnpDeviceControl.IsElevated)
+            {
+                replacementExpectedControllerSlots = new int[0];
+                return new ControlledReplacementResult { State = ControlledReplacementState.ElevationRequired, Message = "Administrator permission is required to safely acquire XInput slot 0. No original controller was hidden." };
+            }
+
+            // Slot acquisition always disconnects InputStitch's own virtual controller once so its
+            // HidHide identity can be excluded without guessing by VID/PID. Stop every managed output
+            // first, even when we already own slot 0.
+            if (!StopRuntimeForConfigChange())
+            {
+                replacementExpectedControllerSlots = new int[0];
+                return new ControlledReplacementResult { State = ControlledReplacementState.SlotAcquisitionFailed, Message = "Active macro runs could not be stopped safely before slot acquisition." };
+            }
+            if (idleGamepad != null) idleGamepad.SetBusy(true);
+            if (gamepadRouter != null) gamepadRouter.Stop("slot-acquisition");
+            outputOwnership.ClearAll("slot-acquisition");
+            GamepadOutput.NeutralizeAll();
+
+            ControlledReplacementResult result = controlledTakeoverPipeline.Begin(selected, 0);
+            if (!result.Success)
+            {
+                // The slot and hiding coordinators have already performed their own local rollback.
+                // Restore ordinary Router operation only after those rollback boundaries complete.
+                ResumeGamepadRouterAfterTakeoverFailure();
+            }
+            return result;
+        }
+
+        private ControlledReplacementResult StopControlledReplacement()
+        {
+            if (controlledReplacement == null)
+                return new ControlledReplacementResult { State = ControlledReplacementState.Idle, Message = "Controlled replacement is already off." };
+            ControlledReplacementResult result = controlledReplacement.Stop();
+            replacementExpectedControllerSlots = new int[0];
+            return result;
+        }
+
+        private bool EnsureGamepadRouterReady(bool startup)
+        {
+            if (config == null || !config.GamepadRouterEnabled) return true;
+            try
+            {
+                // XInput routing targets an Xbox-compatible virtual controller so it owns a real
+                // XInput user slot that can be measured and excluded from the source scanner.
+                config.GamepadDeviceType = VirtualGamepadTypes.Xbox360;
+                GamepadOutput.Configure(VirtualGamepadTypes.Xbox360);
+                GamepadOutput.EnsureConnected(VirtualGamepadTypes.Xbox360);
+                if (gamepadRouter != null) gamepadRouter.Configure(true);
+                int slot = GamepadOutput.OwnXboxUserIndex;
+                string message;
+                if (slot == 0)
+                    message = Localizer.IsEnglish
+                        ? "Controller merge is active on XInput 0. Other visible XInput controllers are routed into it."
+                        : "手柄汇总已启用：InputStitch 虚拟手柄位于 XInput 0，其他可见 XInput 手柄会转发到这里。";
+                else
+                    message = (Localizer.IsEnglish ? "Controller merge is active on XInput " : "手柄汇总已启用，但 InputStitch 虚拟手柄位于 XInput ") +
+                        slot.ToString() + (Localizer.IsEnglish
+                            ? ". Games that only read XInput 0 may still ignore routed output."
+                            : "。只读取 0 号槽位的游戏仍可能看不到汇总后的输出。");
+                if (!startup || slot != 0) SetStatusSafe(message);
+                return true;
+            }
+            catch (GamepadOutputException ex)
+            {
+                if (gamepadRouter != null) gamepadRouter.Stop("virtual-controller-unavailable");
+                AppLog.Write("Controller router virtual gamepad connection failed", ex);
+                SetStatusSafe((Localizer.IsEnglish ? "Controller merge unavailable: " : "手柄汇总不可用：") + ex.Message);
+                if (!startup) GamepadDriverGuidance.Show(this, ex);
+                return false;
+            }
+        }
+
         private bool EnsureGamepadReady(MacroDefinition macro, bool startup)
         {
             if (macro != null && !MacroUsesGamepad(macro)) return true;
             if (macro == null && startup && !HasAnyGamepadSteps()) return true;
+            if (VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType))
+            {
+                // This is an explicit user preference, not a driver failure. Do not create ViGEm
+                // at startup and do not silently override the preference when a macro is run.
+                if (!startup)
+                    SetStatusSafe(Localizer.IsEnglish
+                        ? "This macro needs virtual-controller output, but virtual controller creation is disabled in Settings."
+                        : "这个宏需要虚拟手柄输出，但设置中已选择“不创建虚拟手柄”。");
+                return startup;
+            }
             try
             {
                 GamepadOutput.Configure(config.GamepadDeviceType);
@@ -9093,6 +10034,11 @@ namespace InputStitch
         }
 
         private void StartMacro(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep)
+        {
+            StartMacroCore(m, startDelayMs, waitForReleaseTrigger, holdControlled, singleStep, null);
+        }
+
+        private void StartMacroCore(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep, TriggerSpec holdTriggerOverride)
         {
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
             if (!capability.CanStart)
@@ -9136,7 +10082,8 @@ namespace InputStitch
             runtime.Stop = new ManualResetEventSlim(false);
             runtime.StepGate = singleStep ? new System.Threading.AutoResetEvent(false) : null;
             runtime.HoldControlled = holdControlled;
-            runtime.HoldTrigger = holdControlled && snapshot.Trigger != null ? snapshot.Trigger.Clone() : null;
+            TriggerSpec runtimeHoldTrigger = holdTriggerOverride ?? snapshot.Trigger;
+            runtime.HoldTrigger = holdControlled && runtimeHoldTrigger != null ? runtimeHoldTrigger.Clone() : null;
             runtime.ReleaseProbeSince = 0;
             runtime.SingleStep = singleStep;
             runtime.SingleStepWaiting = false;
@@ -9576,15 +10523,28 @@ namespace InputStitch
             if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) return true;
             if (ms <= 0) return stop.IsSet;
 
-            int remaining = ms;
-            while (remaining > 0 && !stop.IsSet)
+            // Do not assume that Wait(10) advances time by exactly 10 ms. On Windows the scheduler
+            // may wake substantially later (commonly around the system timer quantum). Subtracting
+            // the requested slice once per loop makes long macro delays drift badly because that
+            // overshoot accumulates. Track actual monotonic elapsed time instead.
+            double remainingMs = ms;
+            while (remainingMs > 0.0 && !stop.IsSet)
             {
                 if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) return true;
-                int slice = Math.Min(10, remaining);
+                int slice = Math.Max(1, Math.Min(10, (int)Math.Ceiling(remainingMs)));
+                long before = Stopwatch.GetTimestamp();
                 if (stop.Wait(slice)) return true;
-                // If protection became active during this short slice, do not count the slice
-                // toward the macro delay. This keeps timing paused rather than merely suppressing output.
-                if (!uiSafetyPauseRequested) remaining -= slice;
+                long after = Stopwatch.GetTimestamp();
+
+                // If UI protection became active during this slice, preserve the historical rule:
+                // none of that slice counts toward macro timing. The next iteration waits for the
+                // protection state to clear before timing resumes.
+                if (!uiSafetyPauseRequested)
+                {
+                    double elapsedMs = (after - before) * 1000.0 / Stopwatch.Frequency;
+                    if (elapsedMs <= 0.0) elapsedMs = slice;
+                    remainingMs -= elapsedMs;
+                }
             }
             return stop.IsSet;
         }
@@ -9831,9 +10791,45 @@ namespace InputStitch
                 e.Cancel = true;
                 return;
             }
+            if (controlledReplacement != null && controlledReplacement.Active)
+            {
+                ControlledReplacementResult replacementStop = StopControlledReplacement();
+                if (replacementStop.State == ControlledReplacementState.Failed)
+                {
+                    AppLog.Write("Shutdown could not fully restore controller visibility: " + replacementStop.Message);
+                    if (e.CloseReason == CloseReason.UserClosing &&
+                        MessageBox.Show(this,
+                            Localizer.IsEnglish
+                                ? "InputStitch could not fully restore the original controller visibility. Closing now may leave a controller hidden until recovery succeeds on a later launch. Exit anyway?"
+                                : "InputStitch 未能完整恢复原手柄可见性。现在退出可能会让某个手柄继续处于隐藏状态，直到以后启动时恢复成功。仍要退出吗？",
+                            AppInfo.ProductName, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
+            }
             try
             {
                 if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
+                if (gamepadInputTimer != null)
+                {
+                    gamepadInputTimer.Stop();
+                    gamepadInputTimer.Dispose();
+                    gamepadInputTimer = null;
+                }
+                if (gamepadRouter != null)
+                {
+                    gamepadRouter.Dispose();
+                    gamepadRouter = null;
+                }
+                if (gamepadInput != null)
+                {
+                    gamepadInput.InputDown = null;
+                    gamepadInput.InputUp = null;
+                    gamepadInput.Dispose();
+                    gamepadInput = null;
+                }
                 CancelCapture();
                 uiSafetyPauseRequested = false;
                 uiSafetyPauseReason = "";

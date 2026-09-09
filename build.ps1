@@ -125,6 +125,10 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'OutputOwnership.cs')
     $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
+    $compilerArguments += (Join-Path $projectRoot 'XInputInput.cs')
+    $compilerArguments += (Join-Path $projectRoot 'GamepadRouter.cs')
+    $compilerArguments += (Join-Path $projectRoot 'ControlledReplacement.cs')
+    $compilerArguments += (Join-Path $projectRoot 'SlotAcquisition.cs')
 
     Write-Host "Building $outputName ..."
     & $Compiler @compilerArguments 2>&1 | ForEach-Object { Write-Host $_ }
@@ -143,13 +147,16 @@ function New-SourceArchive {
         'docs',
         'scripts',
         'tests',
+        'tools',
         'third-party',
         '.gitignore',
+        'AGENTS.md',
         'app.manifest',
         'build.bat',
         'build.ps1',
         'CHANGELOG.md',
         'CONTRIBUTING.md',
+        'HANDOFF.md',
         'InputStitch.cs',
         'ReleaseInfo.cs',
         'UpdateInstaller.cs',
@@ -161,11 +168,16 @@ function New-SourceArchive {
         'OutputOwnership.cs',
         'VirtualKeyboard.cs',
         'IdleGamepad.cs',
+        'XInputInput.cs',
+        'GamepadRouter.cs',
+        'ControlledReplacement.cs',
+        'SlotAcquisition.cs',
         'InputStitch.csproj',
         'InputStitch.ico',
         'README.md',
         'README.zh-CN.md',
         'RELEASE_NOTES.md',
+        'PLAN.md',
         'ROADMAP.md',
         'SECURITY.md',
         'THIRD_PARTY_NOTICES.md'

@@ -122,6 +122,52 @@ namespace InputStitch
             }
         }
 
+        // Atomically replaces the complete persistent state contributed by one source. This is
+        // used by the controller router so one XInput report becomes one ownership transition,
+        // rather than a sequence of transient per-button/per-axis states.
+        public void ReplaceSource(string sourceId, IEnumerable<InputSpec> inputs)
+        {
+            if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("sourceId");
+            Dictionary<string, InputSpec> next = new Dictionary<string, InputSpec>(StringComparer.Ordinal);
+            if (inputs != null)
+            {
+                foreach (InputSpec input in inputs)
+                {
+                    if (input == null) continue;
+                    ValidateSourceAndInput(sourceId, input);
+                    if (!InputSender.IsHoldable(input))
+                        throw new ArgumentException("ReplaceSource accepts persistent inputs only.");
+                    next[ControlKey(input)] = input.Clone();
+                }
+            }
+
+            lock (sync)
+            {
+                if (next.Count == 0)
+                {
+                    if (!sources.Remove(sourceId)) return;
+                }
+                else
+                {
+                    SourceState source = GetOrCreateSourceLocked(sourceId);
+                    bool same = source.Contributions.Count == next.Count;
+                    if (same)
+                    {
+                        foreach (KeyValuePair<string, InputSpec> pair in next)
+                        {
+                            InputSpec existing;
+                            if (!source.Contributions.TryGetValue(pair.Key, out existing) || !SameOutputState(existing, pair.Value))
+                            { same = false; break; }
+                        }
+                    }
+                    if (same) return;
+                    source.Contributions.Clear();
+                    foreach (KeyValuePair<string, InputSpec> pair in next) source.Contributions[pair.Key] = pair.Value;
+                }
+                RecomputeAndEmitLocked("replace-source:" + sourceId);
+            }
+        }
+
         // Used by UI-safety pause for any worker-backed macro source. The logical source remains intact
         // so ResumeSource can restore only that source without reconstructing or touching others.
         public void SuspendSource(string sourceId)

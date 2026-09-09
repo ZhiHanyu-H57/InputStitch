@@ -35,7 +35,8 @@ $arguments += '/reference:' + $client
 
 foreach ($name in @(
     'InputStitch.cs','ReleaseInfo.cs','UpdateInstaller.cs','RuntimeDiagnostics.cs','ConfigStore.cs',
-    'StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualKeyboard.cs','IdleGamepad.cs'
+    'StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualKeyboard.cs','IdleGamepad.cs',
+    'XInputInput.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs'
 )) {
     $arguments += Join-Path $projectRoot $name
 }

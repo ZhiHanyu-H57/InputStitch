@@ -1,242 +1,265 @@
-# Development roadmap / 开发路线
+# ROADMAP.md
 
-Updated / 更新：2026-09-08
+# InputStitch Roadmap / 开发路线
 
-## Product principles / 产品原则
+Updated: 2026-09-09
 
-- Keep basic, frequent workflows simple; advanced, infrequent workflows may require learning but must remain explicit and diagnosable.
-- Quick Create and Advanced Edit share one configuration/runtime core.
-- Reliability is non-negotiable: configuration integrity, input release, Emergency Stop, clear failure reporting and rollback boundaries come before feature count.
-- Real usage findings may interrupt feature development; speculative features must not interrupt reliability closeout.
-- Prefer incremental architecture work around the part being changed; avoid whole-application rewrites for aesthetic reasons.
+## Current position / 当前阶段
 
-基础高频需求保持低门槛；复杂低频能力可以有学习成本，但必须参数明确、可验证、可诊断。快捷创建与高级编辑共用同一核心。配置安全、输入释放、紧急停止和错误提示优先于功能数量。真实使用发现的问题可以打断功能开发；假想需求不能打断可靠性收尾。
+Current Stable: **v1.3.0**
+Current prerelease target: **v1.3.1-beta.1**
 
-## Release policy / 发布规则
+Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runtime milestone. The current `1.3.1-beta.1` branch extends that common runtime into controller input, multi-controller routing, mapping layers, optional virtual-controller creation and an experimental fail-safe controlled-replacement foundation.
 
-- Stable releases are explicit reviewed promotions. `releases/latest` and `InputStitch-update.xml` belong to Stable only.
-- Beta releases use `-beta.N`, GitHub `prerelease=true`, `make_latest=false`, and a separate `InputStitch-beta.xml`.
-- Beta builds never perform unattended automatic update checks; manual Beta update opens GitHub Releases.
-- Stable builds may use the stable automatic-check/update path with SHA-256 verification.
-- Beta and Stable currently share `%APPDATA%\InputStitch`; run only one version at a time and keep configuration backups.
-- Every public release must be rebuilt from reviewed source, verified locally, then re-verified after publication: main commit, tag, release state, assets, manifest and hashes.
-- No telemetry is added.
+一句话：**1.3.0 已经解决“多个宏同时运行且互不误伤”；1.3.1-beta.1 正在把手柄正式接入这套统一平台。**
 
-正式版与 Beta 分离：Stable 独占 `releases/latest` 与 `InputStitch-update.xml`；Beta 使用 prerelease 与独立 beta 清单。每次正式发布都必须经过本地构建/回归/校验，并在 GitHub 发布后再次核对提交、tag、Release、资产、清单和哈希。
+## Completed milestones / 已完成里程碑
 
-## Completed development cycle / 已完成并归档的开发周期
+### Stable 1.2.0 — reliability/productivity baseline
 
-### 1.1.1-beta.1 — idle release reliability / 闲置输入释放可靠性
+- safer configuration persistence and backups;
+- Quick Create templates;
+- step Undo/Redo;
+- Held Mapping support for normal keys, mouse buttons and standalone modifiers;
+- improved foreground/hotkey and Idle Gamepad behavior.
 
-Completed:
-- idle pulse release independent of UI refresh;
-- stale callback/generation protection;
-- 10,000 simulated start/cancel cycles;
-- centralized release metadata;
-- isolated Beta channel and manual Beta downloads.
+### Stable 1.3.0 — Input Ownership + universal concurrency
 
-### 1.1.1-beta.2 — modifier safety and update replacement / 修饰键与更新替换安全
+- multiple state-only Parallel Held Mappings;
+- multiple distinct ordinary timed/Toggle macros;
+- multiple Advanced/complex Hold timelines;
+- independent RunId / SourceId / stop / timing / Hold-release state;
+- source-local cleanup;
+- deterministic digital/trigger/stick/D-pad merge;
+- selected-macro Stop vs global Emergency Stop;
+- Runtime Observation and runtime eligibility UI;
+- modifier-chord Hold and Shift-friendly bare-key trigger fallback;
+- Single-step diagnostic execution.
 
-Completed:
-- standalone Shift passthrough for held gamepad-only mappings;
-- modifier safety policy;
-- staged updater verification;
-- EXE/config backup and rollback paths;
-- updater fault-injection regression coverage.
+Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` tags and releases remain immutable.
 
-### 1.1.1-beta.3 — foreground hotkeys and runtime evidence / 前台热键与运行诊断
+## v1.3.1-beta.1 — current prerelease / 当前测试版
 
-Completed:
-- removed false hotkey blocks caused by idle hover/non-editing focus;
-- preserved editing and pointer-output safety;
-- visible pause reasons;
-- bounded in-memory runtime trace;
-- UI-safety/diagnostic regression coverage.
+### A. Physical XInput controller input — implemented
 
-### 1.1.1-beta.4 — safer persistence, productivity and live-use fixes / 配置安全、易用性与真实使用修复
+- visible XInput slots `0..3` become first-class input sources;
+- own ViGEm Xbox slot is excluded dynamically;
+- buttons, D-pad, LT and RT can trigger macros;
+- LT/RT use hysteresis;
+- reconnect baseline and disconnect release are fail-safe;
+- Hold runs are pinned to the actual controller that started them.
 
-Completed:
-- staged/verified main-config replacement, visible save failure and five valid backups;
-- Quick Create: Held Mapping, fixed-count Repeat, Sequence;
-- step Undo/Redo with bounded history;
-- Held Mapping support for normal keys, mouse buttons and standalone left/right Ctrl/Shift/Alt/Win;
-- duplicate enabled triggers follow macro-list priority; Up/Down changes priority immediately;
-- Shift passthrough UI clarified;
-- lost-KeyUp/Alt+Tab hold-release fallback using physical state reconciliation;
-- Idle Gamepad physical mouse movement uses Raw Input so game cursor recentering does not fake activity;
-- independent Idle target in Settings > Automation;
-- typing/mouse use in other apps no longer resets a background target's idle timer;
-- configured Idle target absent => idle output pauses completely; target return => full fresh idle interval;
-- formal idle defaults: off, 120 seconds, left stick down, 150 ms;
-- narrow Settings layout keeps Idle target controls on one line, ellipsizes long target names and exposes full text via Tooltip.
+### B. Controller → keyboard/mouse/hybrid macro mapping — implemented
 
-This completes the old near-term plan: **safe persistence / live validation → simple Held Mapping → step Undo/Redo**. Those items are archived, not future work.
+A controller trigger can run the same macro types as keyboard/mouse triggers, including keyboard, mouse, virtual-gamepad and mixed output. No controller-specific second macro engine was added.
 
-以上完成原近期计划：**安全保存与真实验收 → 简易按住映射 → 步骤撤销/重做**。这些任务正式归档，不再作为待办。
+This is **augmentation** until device hiding is active: the original controller may still reach the game directly.
 
-## Current release target / 当前发布目标
+### C. Multi-controller aggregation Router — implemented for visible XInput slots
 
-### Stable 1.3.0 — current Stable / 当前正式版
+- every external XInput slot is an independent routing source;
+- full button/D-pad/stick/trigger state is mirrored;
+- whole-source state updates are atomic;
+- existing Output Ownership merge rules combine multiple controllers and macros;
+- disconnect/recenter clears only that controller's contribution;
+- identical frames do not generate redundant output.
 
-Stable 1.3.0 promotes the validated Input Ownership + unified Concurrent Macro Runtime from the 1.3 Beta line. `releases/latest` and `InputStitch-update.xml` now resolve to Stable 1.3.0; Stable 1.2.0 remains the previous rollback point if an older baseline is needed.
+This solves the routing half of “several controllers → one InputStitch virtual Xbox controller,” but Router alone does not suppress the original devices.
 
-Stable 1.3.0 已将 1.3 Beta 期间验证的 Input Ownership 与统一 Concurrent Macro Runtime 晋升为正式版；`releases/latest` 与 `InputStitch-update.xml` 现在指向 1.3.0。需要旧基线时，1.2.0 仍可作为上一正式版回退点。
+### D. Optional virtual-controller creation — implemented
 
-### 1.3.0-beta.1 — Input Ownership + multi-source Held Mapping / previous Beta
+Virtual-controller type now supports:
 
-The ownership foundation is now implemented locally for Beta 1. Persistent output is no longer owned by a single “current macro”; each contributor has an independent source identity and a central merge manager computes the final output.
+- Xbox 360;
+- PS4 / DualShock 4;
+- **Do not create a virtual controller / 不创建虚拟手柄**.
 
-Implemented in Beta 1:
+The no-output choice is persistent and respected:
 
-- multiple qualifying Held Mappings can remain active simultaneously;
-- at most one ordinary Toggle/timed macro may coexist with those mappings;
-- advanced/complex Hold workers remain exclusive rather than joining arbitrary concurrency;
-- ordinary macro, Held Mapping and Idle Gamepad output share one ownership core;
-- digital outputs use reference ownership;
-- analog triggers use maximum requested value;
-- stick vectors sum and normalize to the circular range;
-- opposing D-pad directions cancel independently per axis while orthogonal directions can remain diagonal;
-- Emergency Stop, backend failure and shutdown have fail-closed global cleanup;
-- live definition changes stop the affected Held Mapping before mutating its trigger/run/step definition;
-- lightweight **Runtime observation** exposes source contributions, merged state, ordinary macro step/phase and stop reason;
-- ordinary timed macros support **Single-step / Next Step** execution;
-- UI safety suspends only the ordinary macro source rather than globally neutralizing unrelated Held Mappings.
+- no startup ViGEm creation merely because saved gamepad-output macros exist;
+- no ViGEm creation merely from editing a gamepad step;
+- keyboard/mouse macros remain available;
+- physical/other XInput controller triggers remain available;
+- incompatible runtime actions are refused rather than silently overriding the preference.
 
-Beta 1 deliberately does **not** enable arbitrary parallel timed macros. Duplicate physical triggers continue to use macro-list priority, and Emergency Stop remains absolute priority.
+Fresh-install default remains Xbox360 unless a later product decision changes it.
 
-Beta 1 已完成 Ownership 核心、多 Held Mapping 并行、最多一个普通时序宏共存、明确的摇杆/扳机/数字输出/D-pad 合并规则、轻量运行观察和普通宏单步执行。范围仍刻意限制：不开放任意普通宏并行，高级 Hold 宏保持独占，同触发键继续按列表顺序决定优先级。
+### E. Layer / mapping layer — implemented for all macro types
 
-### 1.3.0-beta.2 — Unified Concurrent Macro Runtime / 任意宏类型多并发 — previous Beta / 历史 Beta
+Current model:
 
-Beta 2 publishes the Stable-1.3.0 candidate runtime with concurrency across every normal macro execution class: multiple distinct ordinary timed/Toggle macros, multiple Advanced/complex Hold timelines, and state-only Parallel Held Mappings may all coexist. Every worker-backed run owns an independent RunId/SourceId, stop/timing/progress state, immutable Hold-trigger snapshot where applicable, and source-local cleanup; final keyboard/mouse/gamepad state still resolves through Output Ownership.
+- Base always active;
+- one additional active Layer 1;
+- active layer is runtime-only;
+- ordinary timed, Toggle, Advanced/complex Hold and Parallel Held Mapping can all belong to a layer;
+- list priority remains authoritative inside the eligible set;
+- leaving a layer stops only that layer's active sources;
+- newly eligible triggers that were already held require release + press.
 
-Advanced Hold is no longer an exclusive runtime class. Hold macros containing keyboard/mouse output, gamepad Press/Up sequencing, non-zero or random delays, or finite repeat counts are classified as **Concurrent Advanced Hold** and run beside ordinary macros and other Hold runs. Simple infinite gamepad-only Down/no-delay Held Mappings keep the lightweight state-only fast path. Physical terminal release and lost-KeyUp reconciliation are tracked per Hold run, so releasing one trigger cannot stop another Hold timeline. Finite Hold keeps its historical semantics: it may complete naturally before the physical trigger is released.
+### F. Controlled Replacement safety foundation — experimental, partially implemented
 
-Runtime Observation lists all active worker runs plus Parallel Held sources. The primary Run/Stop control targets the selected macro; Emergency Stop remains global. A single `MacroRuntimeClassifier` is the authority for execution category and the option-B live concurrency/eligibility UI. One active run per `MacroDefinition` remains intentional, and Single-step stays an exclusive diagnostic mode rather than a normal macro category.
-
-Digital overlap semantics remain state-first and deterministic: if one source already owns a digital key/button, another source's pulse/click on that same control does not force a release/repress bounce. The pulse run still completes independently, while the persistent owner keeps the merged control down until the last owner releases.
-
-Stable 1.3.0 候选运行时现在已经支持**任意正常宏类型之间的多并发**：多个普通时序 / Toggle、多个高级/复杂 Hold，以及状态型 Parallel Held Mapping 可以同时存在。复杂 Hold 的物理松键与 lost-KeyUp 恢复按 Run 独立跟踪，一个 Hold 的松开不会停止其他运行实例；最终输出继续统一交给 Output Ownership 合并。
-
-Stable 1.3.0 additionally includes the evidence-backed post-beta.2 trigger-semantic fix: Shift-only physical modifier state no longer blocks an otherwise bare ordinary-key trigger, exact explicit chords remain higher priority, and modifier chords are valid Hold triggers with whole-chord release/lost-KeyUp semantics. Ctrl/Alt/Win remain strict around bare ordinary keys. The final Stable source also aligns Quick Create/recording/status capability paths with the concurrent runtime and adds a gear-menu link to the project GitHub page.
-
-### Physical Gamepad Input + Hybrid Controller Routing — highest priority after Stable 1.3.0 / 1.3.0 后最高优先级
-
-The next structural direction is to make a **physical Windows gamepad a first-class InputStitch input source**, then build hybrid routing on top of the same Concurrent Macro Runtime and Output Ownership architecture. The intended use is not “turn the whole controller into a keyboard”; it is to preserve analog controls where a gamepad is strong while selectively gaining PC keyboard/mouse shortcuts, direct actions and macros where they are more efficient.
-
-这条主线的目标不是“把整个手柄变成键盘”，而是让手柄成为 InputStitch 的正式输入源：保留摇杆、扳机等模拟量优势，同时把部分按钮映射成键盘/鼠标/宏，从而形成 PC 上的混合控制方案。
-
-Planned stages:
-
-1. **Physical XInput gamepad as Trigger/Input Source**
-   - Xbox/XInput-class controller first;
-   - buttons + D-pad as digital triggers;
-   - LT/RT threshold triggers with hysteresis;
-   - explicit controller selection and deterministic hot-plug/reconnect;
-   - reuse existing macro runtime/output paths;
-   - hard requirement: never treat InputStitch's own ViGEm virtual controller as a physical trigger source.
-2. **Controller → Keyboard/Mouse hybrid mapping**
-   - controller buttons may launch keyboard/mouse/virtual-gamepad/mixed macros;
-   - analog driving/movement controls may remain native gamepad input;
-   - first version is **augmentation**, not true replacement, because the original physical controller still reaches the game without device hiding;
-   - real-game testing must cover mixed-input mode/glyph switching and context-sensitive controls.
-3. **Gamepad Router / controlled replacement**
-   - hide/take over the selected physical controller from the target game;
-   - feed retained controller state through one InputStitch virtual gamepad;
-   - route selected controls to keyboard/mouse/macros;
-   - investigate a mature external device-hiding/filter solution before implementation; do not start by writing an InputStitch kernel driver;
-   - fail-safe unhide/recovery, admin/signing/Secure Boot/anti-cheat implications are release gates;
-   - enabling routing before game launch is acceptable for the first version; seamless post-launch XInput-index takeover is not required.
-4. **Controller aggregation / broader backends**
-   - after single-controller routing is stable, optionally merge multiple physical/virtual controllers into one game-visible controller;
-   - add DirectInput/HID/GameInput / Windows-connected DualShock/DualSense only when real use justifies the complexity;
-   - gyro-to-mouse, if ever added, is a separate later capability.
-
-Platform scope is **Windows PC only**. Native PlayStation-console development is not planned unless an official low-friction path appears. Full design: [`docs/GAMEPAD_INPUT_ROUTING.md`](docs/GAMEPAD_INPUT_ROUTING.md).
-
-### Layer / 映射层 — designed, deferred behind gamepad input/routing / 已设计，继续后移
-
-Layer remains designed, but it is now behind the Physical Gamepad Input / Hybrid Routing core rather than being the first feature after Stable 1.3.0. The proposed first Layer is still `Base + one active Layer`, initially scoped to state-only Parallel Held Mapping eligibility. It must remain a thin eligibility/grouping layer on top of the common input/routing/runtime architecture. Full design: [`docs/LAYER_DESIGN.md`](docs/LAYER_DESIGN.md).
-
-Layer 设计继续保留，但当前顺序改为：先完成 1.3.0 → Physical Gamepad Input → Hybrid Mapping / Router 核心 → 再考虑 Layer。Layer 不应另造一套输入或执行引擎。
-
-### 1.3 Beta line — completed / 1.3 Beta 阶段已完成
-
-`1.3.0-beta.1` and `1.3.0-beta.2` remain historical prereleases. Their ownership/concurrency work has been promoted to Stable `1.3.0`; do not move or overwrite those tags/releases.
-
-## Required ownership regression matrix / Ownership 必测矩阵
-
-The core black-box ownership matrix below is now automated in Input Lab v0.2. The hardened runner passed three consecutive `50/50` runs at the 2026-09-08 breakpoint, did not become the foreground process during 50 ms sampling, and left the user's real configuration hash/size/mtime unchanged. Continue to live-check the same semantics in the actual target game, and keep Alt+Tab/lost-KeyUp/foreground behavior as a real-use requirement because the automated host does not synthesize true hardware state.
-
-At minimum automate and live-check sequences such as:
-
-- `W down → D down → W up → D up` (W release must not neutralize D);
-- two sources owning the same digital output; one releases while the other remains;
-- RT 100% + RT 50% → 100%; release 100% source → 50%; release last source → 0%;
-- W + S → neutral Y; A + D → neutral X; W + D → diagonal with circular normalization;
-- Alt+Tab and lost-KeyUp fallback while multiple sources are held;
-- Emergency Stop clears every source exactly once and leaves no stuck state;
-- Idle Gamepad and Held Mapping competing for controller state must follow the same ownership rules.
-
-## Later capabilities / 后续能力
-
-Only schedule these when repeated real use justifies them:
-
-| Direction / 方向 | Trigger / 触发条件 | Priority / 优先级 |
-|---|---|---|
-| Unified macro concurrency (timed/Toggle/Advanced Hold + Parallel Held) | promoted to Stable `v1.3.0` | **completed** |
-| Physical XInput gamepad as trigger/input source | Stable 1.3.0 accepted | **highest after 1.3.0** |
-| Controller → keyboard/mouse hybrid mapping | physical gamepad trigger source stable | **next** |
-| Gamepad Router / controlled replacement | hybrid mapping proves useful; mature fail-safe device-hiding route identified | **high, after simple input source** |
-| Controller aggregation / broader gamepad backends | single-controller router stable; repeated concrete need | after router core |
-| Modifier-chord Held Mapping | included in Stable `v1.3.0`; whole-chord release/lost-KeyUp semantics covered by regression | completed |
-| Layer / mapping layer | gamepad input/routing core reaches stable checkpoint | after gamepad routing core unless reprioritized |
-| Conditions / richer groups | clear recurring scenarios after routing/Layer maturity | later |
-| Step-by-step execution | implemented in 1.3.0-beta.1 | completed |
-| More controller backends | ViGEm compatibility issue or mature replacement | on demand |
-| Installer / signing | external-user installation friction grows | on demand |
-| Project license | repository owner decides explicitly | pending |
-
-Not currently committed: cross-platform support, cloud sync, plugin marketplace, scripting language, image recognition, or wholesale UI-framework migration.
-
-## Testing and promotion / 测试与晋升
-
-- Keep and extend automated regression coverage.
-- Use `tools/InputLab/` v0.2 for routine black-box keyboard, mouse, foreground/manual Raw Input and XInput acceptance of InputStitch output. It compares low-level hook/Raw Input lanes, visualizes XInput buttons/triggers/sticks and ordered timing, and includes an isolated expected-vs-observed ownership acceptance runner.
-- Automated mode is non-activating: Raw Input uses background `INPUTSINK`, and acceptance-only injected `K`/mouse-X2 events are observed then swallowed before reaching the user's current foreground application.
-- The automated acceptance runner uses the real InputStitch ownership/runtime plus real `SendInput` and ViGEm/XInput output while isolating user configuration. Before XInput preflight it now validates both ordinary timed overlap and **two delayed Advanced Hold timelines** (F9→K, F10→X2): both Hold runs overlap, Runtime Observation classifies them as Concurrent Advanced Hold, releasing F9 removes only K while X2 remains, and both injected paths are observed. All **18 pre-XInput checks pass**. A controller-backed universal-mix scenario is compiled for healthy XInput environments. The laptop's intermittent controller-stack blocker remains `SUMMARY: BLOCKED` / exit code 2 with `failures=0`, distinct from an InputStitch assertion failure.
-- Future test-tool extensions may add target-window message comparison, DS4/DirectInput/HID observation, longer soak/repeated-cycle scenarios and machine-readable report export.
-- Replace the old mechanical “30 minutes each” rule with **scenario acceptance + long-running real use**.
-- API/output submission success never substitutes for actual desktop/game acceptance.
-- Each Beta should have one primary value goal: implement → use for real → fix evidenced problems → freeze → publish.
-- Small commits do not require releases.
-- Stable promotion requires a clear rollback baseline and remote post-publish verification.
-
-## Version path / 版本路径
-
-Current / 当前：
-
-`1.1.1-beta.4 → Stable 1.2.0 (published rollback baseline)`
-
-`1.3.0-beta.1 — Input Ownership + multi-source Held Mapping + runtime observation + single-step`
-
-`1.3.0-beta.2 — unified timed/Toggle/Advanced-Hold concurrency + Parallel Held + live runtime eligibility UI`
-
-Current / 当前正式版：
-
-`Stable 1.3.0 — Input Ownership + universal Concurrent Macro Runtime + modifier-chord Hold + trigger/runtime cleanup`
-
-Next / 下一轮：
-
-`Stable 1.3.0 published → Physical XInput gamepad input/trigger source`
-
-`physical gamepad input stable → Controller → keyboard/mouse hybrid mapping`
-
-`hybrid mapping accepted → Gamepad Router / controlled replacement → optional aggregation/backends`
-
-`gamepad routing core stable → Layer / mapping-layer implementation unless reprioritized`
-
-Long-term product goal / 长期目标：
+Implemented:
+
+- HidHide CLI backend abstraction;
+- device enumeration/parsing;
+- explicit user-selected device hiding;
+- InputStitch whitelist management;
+- pre-hide Router requirement;
+- recoverable slot-0 acquisition before HidHide: all present external XUSB controllers may be temporarily re-enumerated, InputStitch reconnects first and must verify slot 0, then all external controllers are restored and re-verified;
+- slot-reordering scope is separate from hiding scope, so only explicitly selected external identities proceed to HidHide;
+- non-persistent Windows Configuration Manager disable/enable operations with a dedicated slot-acquisition recovery journal;
+- independent hard gates after acquisition: target slot, Router and external source identity/visibility must all still be valid before HidHide Begin is reachable;
+- post-hide Router/slot/source-health verification;
+- rollback of InputStitch-owned changes;
+- preservation of pre-existing HidHide state;
+- crash-recovery journal written before mutation;
+- next-launch recovery;
+- Emergency Stop / shutdown recovery attempts;
+- experimental Tools → Controller takeover UI.
+
+Not completed:
+
+- physical XInput controller PnP disable/enable acceptance on a real controller;
+- reliable identity mapping beyond the current XUSB/HidHide `xusbDeviceInstancePath` path for arbitrary hardware;
+- real HidHide hardware validation on the current development laptop;
+- proof that a specific game sees only the routed controller;
+- continuous in-session health watchdog for hiding/slot/source loss;
+- non-XInput controller backends.
+
+Therefore **do not describe 1.3.1-beta.1 as complete controller takeover**.
+
+## Highest-priority next work / 下一步最高优先级
+
+### 1. Real-device acceptance for the implemented slot-acquisition transaction
+
+The unsafe “hide slot 0 first and hope” design is no longer used. Current implementation follows:
+
+```text
+stop managed output
+        ↓
+disconnect InputStitch virtual Xbox once for self-identity filtering
+        ↓
+temporarily re-enumerate all present external XUSB sources if slot 0 must be freed
+        ↓
+reconnect InputStitch first and hard-verify XInput 0
+        ↓
+restore every external XUSB source and verify all identities returned
+        ↓
+re-establish Router/source state and re-check slot 0
+        ↓
+only now can HidHide Begin run for the explicitly selected external identities
+```
+
+The remaining task is physical-controller validation of this already-implemented transaction. A neutral four-device ViGEm probe has verified the ordering mechanism from `external 0/1/2 + InputStitch 3` to `InputStitch 0 + external 1/2/3`.
+
+### 2. Broader stable device identity
+
+XInput slot number is not durable physical identity. Current XInput takeover uses HidHide's XUSB identity and re-enumeration-based self filtering. Broader hardware support will need correlation between:
+
+- HidHide / PnP device instance path;
+- physical controller/container identity;
+- XUSB/XInput-visible source;
+- InputStitch's own ViGEm device.
+
+The UI must never hide a device based only on a guessed slot association.
+
+### 3. Real HidHide acceptance
+
+On a machine with HidHide installed, prove all of the following:
+
+- selected original controller is hidden from an ordinary observer/target;
+- InputStitch remains whitelisted and can still read it;
+- virtual routed controller remains available in the required target slot;
+- stopping takeover restores original visibility;
+- crash/restart recovery restores InputStitch-owned changes;
+- pre-existing HidHide configuration is preserved.
+
+### 4. Continuous takeover health monitoring
+
+While Controlled Replacement is active, monitor:
+
+- Router health;
+- expected physical source visibility to InputStitch;
+- target virtual slot;
+- hiding backend state.
+
+Unexpected loss should fail safe and restore the original device when possible.
+
+### 5. Broader controller platform — later / 按真实需求推进
+
+After XInput takeover is mature, consider:
+
+- more than four sources;
+- DirectInput / HID / GameInput;
+- Windows-connected DualShock / DualSense;
+- per-device identity UI;
+- more than one named Layer;
+- Layer-switch bindings;
+- conditions / groups / richer routing policies.
+
+Gyro-to-mouse is a separate later project because it requires sensor calibration/filtering and should not be mixed into basic routing.
+
+## Validation status / 验证状态
+
+Latest clean 2026-09-09 automated regression:
+
+| Area | Result |
+|---|---:|
+| Keyboard / trigger | 323 pass |
+| Idle Gamepad | 58 pass |
+| XInput input | 26 pass |
+| Gamepad Router | 28 pass |
+| Controlled Replacement cross-stage transaction/recovery | 39 pass |
+| Slot acquisition / PnP recovery | 27 pass; fake PnP/XInput, no real device disabled |
+| Optional virtual-controller preference | 15 pass; no ViGEm device created |
+| Layer | 24 pass |
+| Macro timing | 7 pass |
+| Updater | 43 pass |
+| UI safety / diagnostics | 23 pass |
+| Productivity/config/UI | 358 pass |
+| Output Ownership | 303,716 pass |
+| Settings smoke | zh-CN/en-US, normal+narrow pass |
+| Legacy XML / gamepad-vector editor | pass |
+
+Input Lab final acceptance on this laptop:
+
+- 18 pre-XInput real `SendInput` / timed-concurrency / complex-Hold checks: **PASS**;
+- product assertion failures: **0**;
+- controller lane then returns the known local environment condition: `SUMMARY: BLOCKED | checks=18 | failures=0` because the ViGEm Xbox enumerates but its report is not reflected through local XInput.
+
+Do not convert that environment blocker into a fake product pass, and do not reinstall system drivers solely to force the test green without a separate troubleshooting decision.
+
+## Release path / 版本路径
+
+```text
+v1.2.0 Stable
+   ↓
+v1.3.0-beta.1
+   ↓
+v1.3.0-beta.2
+   ↓
+v1.3.0 Stable   ← current recommended Stable
+   ↓
+v1.3.1-beta.1  ← current prerelease target; slot acquisition implemented
+   ↓
+physical PnP + real HidHide + target-game acceptance
+   ↓
+controlled replacement maturity
+   ↓
+broader controller platform / richer layers as justified
+```
+
+## Release discipline / 发布纪律
+
+- Beta uses the isolated Beta manifest/channel.
+- `v1.3.1-beta.1` must be published as a GitHub **prerelease**.
+- Do not change `v1.3.0` or `releases/latest`.
+- Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
+- Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
+- Runtime changes require the complete regression suite before commit.
+- API/output submission success is never a substitute for real-game acceptance.
+
+## Long-term product goal / 长期目标
 
 > **Common tasks simple, advanced tasks explicit, every task reliable.**  
 > **常用的足够简单，复杂的足够明确，所有功能都足够可靠。**
