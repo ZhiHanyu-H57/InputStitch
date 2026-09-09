@@ -9,7 +9,7 @@ Updated: 2026-09-09
 **`v1.3.1-beta.1` — 手柄输入 / 多手柄汇总 / 全类型 Layer / 受控接管安全基础**
 
 - Current Stable: `v1.3.0`
-- Current prerelease target: `v1.3.1-beta.1`
+- Current prerelease: `v1.3.1-beta.1` — published
 - Branch: `main`
 - Stable `v1.3.0` remains the recommended rollback baseline and must not be overwritten by this Beta.
 
@@ -153,18 +153,18 @@ Input Lab final run:
 
 ## Release discipline
 
-`v1.3.1-beta.1` is a **prerelease**, not Stable.
+`v1.3.1-beta.1` is published as a **prerelease**, not Stable. Keep that release immutable.
 
-Before publication:
+Publication completed with all release gates satisfied:
 
-1. keep public Chinese text plain-language first, technical detail later;
-2. update PLAN / ROADMAP / HANDOFF / design notes to match actual implementation;
-3. rebuild x64/x86 and source archive from the final tree;
-4. run release verification and clean regression;
-5. inspect `git diff --check` and working tree;
-6. commit and push;
-7. publish `v1.3.1-beta.1` as a GitHub prerelease without moving or replacing `v1.3.0` / `releases/latest`;
-8. verify remote assets and release metadata after publication.
+1. public Chinese text is plain-language first, technical detail later;
+2. PLAN / ROADMAP / HANDOFF / design notes match the implementation;
+3. x64/x86 and Source.zip were rebuilt from the final release tree;
+4. local release verification, full regression, Input Lab pre-XInput checks and neutral four-slot probe were run;
+5. GitHub `windows-2022` verify passed on the final release-trigger commit;
+6. `v1.3.1-beta.1` was published as a public GitHub prerelease;
+7. all five remote assets are present with GitHub SHA-256 digests;
+8. `releases/latest` remains Stable `v1.3.0`.
 
 ## Non-negotiable design constraints
 

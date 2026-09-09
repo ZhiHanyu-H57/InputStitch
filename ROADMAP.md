@@ -7,11 +7,11 @@ Updated: 2026-09-09
 ## Current position / 当前阶段
 
 Current Stable: **v1.3.0**
-Current prerelease target: **v1.3.1-beta.1**
+Current prerelease: **v1.3.1-beta.1** — published
 
 Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runtime milestone. The current `1.3.1-beta.1` branch extends that common runtime into controller input, multi-controller routing, mapping layers, optional virtual-controller creation and an experimental fail-safe controlled-replacement foundation.
 
-一句话：**1.3.0 已经解决“多个宏同时运行且互不误伤”；1.3.1-beta.1 正在把手柄正式接入这套统一平台。**
+一句话：**1.3.0 已经解决“多个宏同时运行且互不误伤”；已发布的 1.3.1-beta.1 把手柄触发、汇总、映射层和实验性安全接管正式接入这套统一平台。**
 
 ## Completed milestones / 已完成里程碑
 
@@ -240,7 +240,7 @@ v1.3.0-beta.2
    ↓
 v1.3.0 Stable   ← current recommended Stable
    ↓
-v1.3.1-beta.1  ← current prerelease target; slot acquisition implemented
+v1.3.1-beta.1  ← current published prerelease; slot acquisition implemented
    ↓
 physical PnP + real HidHide + target-game acceptance
    ↓
@@ -252,7 +252,7 @@ broader controller platform / richer layers as justified
 ## Release discipline / 发布纪律
 
 - Beta uses the isolated Beta manifest/channel.
-- `v1.3.1-beta.1` must be published as a GitHub **prerelease**.
+- `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
 - Do not change `v1.3.0` or `releases/latest`.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.

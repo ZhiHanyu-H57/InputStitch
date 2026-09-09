@@ -7,7 +7,7 @@ Updated: 2026-09-09
 ## Current versions
 
 - Current Stable: `v1.3.0`
-- Current prerelease target: `v1.3.1-beta.1`
+- Current prerelease: `v1.3.1-beta.1` — published successfully as a public GitHub prerelease
 - Branch: `main`
 - Stable rollback baseline: `v1.3.0`
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` releases are immutable.
@@ -22,7 +22,7 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**Close out and publish `v1.3.1-beta.1`, then validate the implemented controller takeover path on physical XInput hardware + HidHide + a real target game.**
+**Validate the published `v1.3.1-beta.1` controller-takeover path on physical XInput hardware + HidHide + a real target game, then add continuous takeover health monitoring.**
 
 Stable `v1.3.0` completed Input Ownership + universal Concurrent Macro Runtime. The current Beta extends that common architecture with physical XInput input, controller triggers, keyboard/mouse hybrid mapping, multi-controller aggregation, all-macro Layer eligibility, optional virtual-controller creation, and an experimental fail-safe Controlled Replacement foundation.
 
@@ -256,6 +256,19 @@ EXPECTED_ORDER=True
 
 This validates the real Windows/ViGEm connection-order mechanism used by slot acquisition at the current four-slot maximum. It does **not** replace physical PnP + HidHide + game acceptance.
 
+### Published prerelease verification
+
+`v1.3.1-beta.1` was published after a separate diagnostic CI pass and a final `[publish-beta]` workflow pass.
+
+- release tag: `v1.3.1-beta.1`;
+- tag commit: `303704878669ddad8f65bbcf2fe9374a2d83a00d`;
+- GitHub Release is public, `prerelease=true`, `draft=false`;
+- x64, x86, Source.zip, `InputStitch-beta.xml` and `SHA256SUMS.txt` are all present;
+- GitHub reported SHA-256 digests for all five assets;
+- `releases/latest` remains Stable `v1.3.0` (`prerelease=false`), so publishing the Beta did not replace the Stable channel.
+
+The first publish-trigger workflow on commit `e0a833a` was safely blocked by CI during the regression step. The test runner was then hardened so Windows PowerShell 5.1 captures native stderr without terminating before `$LASTEXITCODE` can be inspected, and failures now emit a specific GitHub annotation. Diagnostic commit `3bab4c9` passed the same GitHub `windows-2022` verification. The final release-trigger commit `3037048` then passed and published the Beta.
+
 ## Public documentation rule
 
 The user explicitly requested that public Simplified Chinese documentation and update notices avoid jargon-first writing.
@@ -269,8 +282,6 @@ Use this order:
 Technical design notes may use internal English API/type names freely.
 
 ## Next step
-
-After `v1.3.1-beta.1` is committed/pushed/published as a prerelease:
 
 1. validate the implemented slot-acquisition transaction with physical XInput controllers starting from InputStitch slots 0/1/2/3;
 2. validate HidHide on a machine where it is installed and prove InputStitch remains whitelisted/readable while ordinary target applications lose the selected original controller;
