@@ -417,6 +417,38 @@ All beta.2 release gates are satisfied:
 
 `v1.4.0` is immutable Stable release history. Future release work must use a new version/tag. Physical controller + HidHide + target-game takeover acceptance remains blocked by missing hardware and does not change the Stable status of the rest of 1.4.0.
 
+### Published Stable 1.4.1 hotfix verification
+
+`v1.4.1` is a narrow UI-lifecycle hotfix prompted by a real post-update user log from 1.4.0. The update transaction itself completed successfully, but the new 1.4.0 process later raised `ObjectDisposedException` from WinForms `ContextMenuStrip` / `ModalMenuFilter` handling.
+
+Root cause and fix:
+
+- `ShowLayerManagementMenu()` synchronously disposed its temporary `ContextMenuStrip` from the menu `Closed` event while WinForms could still be completing `ToolStripDropDown.OnItemClicked` / visibility cleanup;
+- Layer Management and Quick Create now share `DeferContextMenuDispose`, which posts disposal to the next UI message turn;
+- MainForm shutdown no longer synchronously disposes `toolsMenu` / `trayMenu`, because a menu-triggered shutdown can leave WinForms' `ModalMenuFilter` holding a reference until the current click/close message fully unwinds;
+- UI Safety / diagnostics coverage increased from 23 to **26 PASS**, directly checking deferred disposal and the disposed-dispatcher boundary;
+- no feature or configuration-format changes were introduced.
+
+Release evidence:
+
+- non-publishing candidate commit: `d14b346`; GitHub workflow `34396249147`: `completed / success`;
+- final no-source-change publish commit / tag target: `592e2febaab66636f8139d8264261c1906d74d99`;
+- publish workflow `34396527972`: `completed / success`;
+- tag: `v1.4.1`, exact target `592e2febaab66636f8139d8264261c1906d74d99`;
+- `releases/latest` resolves to `v1.4.1`, `prerelease=false`, `draft=false`;
+- x64 remote asset: 747,008 bytes, SHA-256 `69193ead5dcb37813a1e7350c1d0b34f4884512cc1d9d4cb29d1647859880c60`;
+- x86 remote asset: 748,032 bytes, SHA-256 `8249848f98fd15c4547a25b9bdceb382435268c806ce89a27a7e9362f5b4258e`;
+- Source.zip SHA-256 `31a2b93146c71e2e95d14738c62f39fff55b8d597c345b11995f4c93d4c98a2f`;
+- `InputStitch-update.xml` SHA-256 `06c48ddbabd0cab9e5a71473c5aec1adf73bed3a432caee4c4f31da322789737` and advertises `<Version>1.4.1</Version>` through Stable `releases/latest/download` endpoints;
+- remote-download verification independently downloaded x64/x86/Source.zip/manifest and matched all four hashes against `SHA256SUMS.txt`;
+- downloaded x64/x86 EXEs report `ProductName=InputStitch`, `ProductVersion=1.4.1`, `FileVersion=1.4.1.0`;
+- Source.zip contains the repaired `InputStitch.cs`, `tests/UiSafetyTests.cs`, release metadata and current documentation;
+- local full regression, Input Lab `18 PASS / failures=0` before the known environment blocker, and neutral four-slot probe `EXPECTED_ORDER=True` all passed before publication.
+
+The older log also contained historical 1.3.0 `Nefarius.ViGEm.Client` resolution failures. Both the saved 1.3.0 executable and current 1.4.x executable contain the embedded ViGEm client resource, and isolated `EmbeddedDependencyLoader.Register → GamepadOutput.NeutralizeAll` probes pass for both. That separate historical issue was therefore not modified without a current reproducer; investigate independently if it appears again under 1.4.1.
+
+`v1.4.1` is now immutable Stable release history. Future release work must use a new version/tag.
+
 ## Public documentation rule
 
 Public Simplified Chinese README/update text must be ordinary-user-first:

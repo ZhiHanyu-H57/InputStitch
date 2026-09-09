@@ -382,7 +382,7 @@ controlled replacement hardware maturity
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
 - `v1.3.1-beta.2` is published as a GitHub **prerelease**; keep it immutable.
-- Keep historical Stable releases immutable. `v1.4.0` is the previous Stable rollback reference; `v1.4.1` is the current Stable line and is expected to own `releases/latest` after publication.
+- Keep historical Stable releases immutable. `v1.4.0` is the previous Stable rollback reference; `v1.4.1` is the current Stable line and now owns `releases/latest`.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
 - Runtime changes require the complete regression suite before commit.
