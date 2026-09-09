@@ -8,7 +8,7 @@ Updated: 2026-09-10
 
 Current Stable: **v1.3.0**
 Previous prerelease: **v1.3.1-beta.1** — published and immutable
-Current prerelease candidate: **v1.3.1-beta.2**
+Current prerelease: **v1.3.1-beta.2** — published and immutable
 
 Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runtime milestone. The current `1.3.1-beta.2` tree keeps the controller-input/aggregation/slot-acquisition foundation from beta.1, expands Layer into arbitrary named layers with switch bindings, and adds continuous takeover health monitoring with automatic fail-safe disengage/recovery.
 
@@ -39,7 +39,7 @@ Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runti
 
 Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` tags and releases remain immutable.
 
-## v1.3.1-beta.2 — current prerelease candidate / 当前测试版候选
+## v1.3.1-beta.2 — current prerelease / 当前测试版
 
 ### A. Physical XInput controller input — implemented
 
@@ -250,7 +250,7 @@ v1.3.0 Stable   ← current recommended Stable
    ↓
 v1.3.1-beta.1  ← published prerelease; slot acquisition implemented
    ↓
-v1.3.1-beta.2  ← current candidate; flexible layers + takeover health monitoring
+v1.3.1-beta.2  ← current published prerelease; flexible layers + takeover health monitoring
    ↓
 physical PnP + real HidHide + target-game acceptance (blocked until hardware exists)
    ↓
@@ -263,7 +263,7 @@ broader controller platform / richer routing as justified
 
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
-- `v1.3.1-beta.2` is the next prerelease candidate and must pass the same local + GitHub verify gates before publication.
+- `v1.3.1-beta.2` is published as a GitHub **prerelease**; keep it immutable.
 - Do not change `v1.3.0` or `releases/latest`.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.

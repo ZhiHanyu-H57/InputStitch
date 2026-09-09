@@ -7,11 +7,11 @@ Updated: 2026-09-10
 ## Current versions
 
 - Current Stable: `v1.3.0`
-- Published prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
-- Current prerelease candidate: `v1.3.1-beta.2`
+- Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
+- Current prerelease: `v1.3.1-beta.2` — published successfully as a public GitHub prerelease
 - Branch: `main`
 - Stable rollback baseline: `v1.3.0`
-- Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` releases are immutable.
+- Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
 For the commit containing this handoff itself, use:
 
@@ -23,7 +23,7 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**Finish release-grade verification and publish `v1.3.1-beta.2` as a prerelease without changing Stable `v1.3.0` or the already-published `v1.3.1-beta.1`.**
+**`v1.3.1-beta.2` is published. Physical controller + HidHide + real-game acceptance remains parked until hardware exists; non-hardware follow-up can continue from controller identity/diagnostic UX and richer Router selection/policy only when a concrete workflow justifies it.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -323,9 +323,9 @@ Important new coverage:
 - deleted legacy Layer 1 survives real XML save/reload;
 - Runtime Observation/Diagnostics expose Layer + takeover platform state without initializing ViGEm in isolated host.
 
-### Input Lab beta.2 candidate result
+### Input Lab beta.2 release result
 
-Latest run against the `1.3.1-beta.2` candidate:
+Latest run against the final `1.3.1-beta.2` release tree:
 
 - all 18 pre-XInput real `SendInput` / ordinary-concurrency / complex-Hold checks PASS;
 - Runtime Observation in the real-input lanes identifies the executable as `InputStitch 1.3.1-beta.2` and reports Base-only / no isolated virtual slot without initializing ViGEm just for observation;
@@ -363,7 +363,7 @@ This verifies the Windows/ViGEm connection-order mechanism at the current four-s
 - GitHub reported SHA-256 digest for all five assets;
 - `releases/latest` remains Stable `v1.3.0`.
 
-Do not mutate this release/tag while publishing beta.2.
+Do not mutate this release/tag.
 
 ### beta.2 CI backup-ordering issue found and fixed
 
@@ -380,20 +380,21 @@ Fix in `ConfigStore`:
 
 Deterministic regression coverage now forces all rapid saves to observe one frozen UTC value and separately simulates a cold directory containing a future-dated valid backup while the new process clock is rolled back to 2001. Both paths retain chronological save order. Productivity coverage is now **360 PASS**.
 
-A new non-publishing GitHub verification must pass after this fix before beta.2 publication is retried.
+A new non-publishing GitHub verification commit `cfe906c` passed the full `windows-2022` verify after this fix. The final no-source-change publish trigger `fbb9cef` then passed the same verify and published beta.2.
 
-## beta.2 release gates
+### Published beta.2 verification
 
-1. Remove all temporary diagnostic markers.
-2. `git diff --check` clean (line-ending warnings are not errors).
-3. Full regression passes with final `ReleaseInfo` metadata.
-4. Rebuild x64/x86 + Source.zip + beta manifest + checksums.
-5. Verify ProductVersion/FileVersion/PE architecture/manifest/SHA-256.
-6. Run Input Lab; expected current laptop result is still 18 checks, failures=0, then environment BLOCKED at ViGEm→XInput.
-7. Re-run neutral four-slot probe and require `EXPECTED_ORDER=True`.
-8. Commit/push a non-publishing CI verification if needed.
-9. `[publish-beta]` only after GitHub `windows-2022` verify is green.
-10. Confirm `v1.3.1-beta.2` is `prerelease=true`, five assets exist, and `releases/latest` still points to `v1.3.0`.
+All beta.2 release gates are satisfied:
+
+- tag: `v1.3.1-beta.2`;
+- tag commit: `fbb9cefc6efdbbd1e0f1d9efb036de019b07723f`;
+- GitHub workflow `34383569935`: `completed / success`;
+- Release is public, `prerelease=true`, `draft=false`;
+- x64, x86, Source.zip, `InputStitch-beta.xml`, `SHA256SUMS.txt` are present;
+- GitHub reports SHA-256 digests for all five assets;
+- `releases/latest` still resolves to Stable `v1.3.0` (`prerelease=false`).
+
+`v1.3.1-beta.2` is now immutable release history. Future work must use a new version/tag.
 
 ## Public documentation rule
 

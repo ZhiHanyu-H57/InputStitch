@@ -10,7 +10,7 @@ Updated: 2026-09-10
 
 - Current Stable: `v1.3.0`
 - Previous prerelease: `v1.3.1-beta.1` — published and immutable
-- Current prerelease candidate: `v1.3.1-beta.2`
+- Current prerelease: `v1.3.1-beta.2` — published and immutable
 - Branch: `main`
 - Stable `v1.3.0` remains the recommended rollback baseline and must not be overwritten by this Beta.
 
@@ -168,18 +168,18 @@ Input Lab final run:
 
 ## Release discipline
 
-`v1.3.1-beta.1` is already published as a **prerelease** and must remain immutable. `v1.3.1-beta.2` is the next prerelease candidate; Stable `v1.3.0` and `releases/latest` must remain unchanged.
+`v1.3.1-beta.1` and `v1.3.1-beta.2` are published **prereleases** and must remain immutable. Stable `v1.3.0` and `releases/latest` remain unchanged.
 
-Beta.2 release gates:
+Beta.2 release gates completed:
 
 1. public Chinese text remains plain-language first, technical detail later;
 2. PLAN / ROADMAP / HANDOFF / design notes match flexible Layer + takeover-health implementation;
 3. x64/x86 and Source.zip are rebuilt from the final beta.2 tree;
 4. full regression, settings smoke, Input Lab pre-XInput checks and neutral four-slot probe pass/retain their documented environment-only blocker;
 5. local release verification checks ProductVersion/FileVersion, PE architecture, Beta manifest and SHA-256;
-6. GitHub `windows-2022` verify must pass before `[publish-beta]` may create `v1.3.1-beta.2`;
-7. the published release must be `prerelease=true`, with all five assets/digests present;
-8. `releases/latest` must still resolve to Stable `v1.3.0`.
+6. after the first publish attempt exposed nondeterministic backup retention, `ConfigStore` was fixed and deterministic same-clock + cold-start clock-rollback tests were added; non-publishing commit `cfe906c` then passed GitHub `windows-2022` verify;
+7. final no-source-change publish commit `fbb9cef` passed workflow `34383569935` and created `v1.3.1-beta.2` as `prerelease=true`;
+8. all five remote assets have GitHub SHA-256 digests, and `releases/latest` still resolves to Stable `v1.3.0`.
 
 ## Non-negotiable design constraints
 
