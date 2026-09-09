@@ -14,20 +14,20 @@ See [Product positioning and competitive strategy](docs/PRODUCT_STRATEGY.md) for
 
 ## Download
 
-**Stable: v1.3.0.** This release promotes the validated Input Ownership + universal Concurrent Macro Runtime to the recommended Stable channel: distinct ordinary timed/Toggle macros, Advanced/complex Hold timelines, and Parallel Held Mappings can run concurrently with source-local cleanup and per-Hold release tracking. Modifier-chord Hold and Shift-friendly bare-key triggering are included in Stable 1.3.0.
+**Stable: v1.4.0.** This release promotes the validated controller-input/routing and flexible-Layer work from the 1.3.1 Beta line into the recommended Stable channel. InputStitch now combines deterministic concurrent macros, keyboard/mouse/controller triggers, optional virtual-controller output, named mapping layers, runtime observation, safer configuration/update handling, and experimental fail-safe controller takeover in one release.
 
-**Current prerelease: v1.3.1-beta.2.** It keeps the controller-input/merge/takeover foundation from beta.1, expands mapping layers into arbitrary named layers with keyboard/mouse/controller switch shortcuts, and adds continuous takeover health monitoring with fail-safe disengage/recovery. Stable v1.3.0 and `releases/latest` remain unchanged. See [development roadmap and release policy](ROADMAP.md).
+**Controller takeover remains Experimental in Stable 1.4.0.** Its transaction, rollback, recovery, slot-acquisition and runtime-health logic are implemented and heavily tested, but final physical-controller + HidHide + target-game acceptance remains pending because the development machine has no physical XInput test controller. The rest of the 1.4.0 feature set is not blocked by that hardware-only validation gap.
 
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
 | Windows architecture | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.3.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.3.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x86.exe) |
-| Complete source code | [InputStitch-1.3.0-Source.zip](../../releases/latest/download/InputStitch-1.3.0-Source.zip) |
+| 64-bit Windows (x64) | [InputStitch-1.4.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.0-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.4.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.0-Windows-x86.exe) |
+| Complete source code | [InputStitch-1.4.0-Source.zip](../../releases/latest/download/InputStitch-1.4.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
-Current `v1.3.1-beta.2` prerelease artifacts:
+Previous `v1.3.1-beta.2` prerelease artifacts remain available for historical comparison/testing:
 
 | Beta artifact | Direct download |
 | --- | --- |

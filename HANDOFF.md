@@ -6,11 +6,11 @@ Updated: 2026-09-10
 
 ## Current versions
 
-- Current Stable: `v1.3.0`
+- Current Stable: `v1.4.0`
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
 - Current prerelease: `v1.3.1-beta.2` — published successfully as a public GitHub prerelease
 - Branch: `main`
-- Stable rollback baseline: `v1.3.0`
+- Previous Stable rollback reference: `v1.3.0`
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
 For the commit containing this handoff itself, use:
@@ -23,7 +23,7 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**`v1.3.1-beta.2` is published. The post-beta.2 plan has been structurally reprioritized after a 2026 competitive review: next non-hardware work is Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.0` is the current Stable line. It promotes the validated controller-input/routing and flexible-Layer work from the 1.3.1 Beta line while keeping Controller Takeover explicitly Experimental. The post-1.4.0 plan is Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 

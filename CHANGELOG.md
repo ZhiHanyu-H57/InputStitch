@@ -3,6 +3,32 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.4.0
+
+**正式版：把 1.3.1 Beta 线中已经验证的手柄输入/汇总、多映射层、运行观察、更新与配置安全能力纳入 Stable。实验性手柄接管继续保留，但仍明确标记为 Experimental。**
+
+### 正式纳入 Stable
+
+- XInput 手柄按键/扳机可以直接触发键盘、鼠标、虚拟手柄或混合宏；Hold 运行绑定真正启动它的手柄来源。
+- 多个外部 XInput 手柄可以通过 Router 汇总到 InputStitch 虚拟 Xbox，并继续使用 Output Ownership 的确定性合并与 source-local cleanup。
+- 虚拟手柄类型支持“**不创建虚拟手柄**”，键鼠宏与手柄触发键鼠宏无需创建 ViGEm 设备。
+- Base + 任意多个可命名 Layer 正式进入 Stable；所有宏类型均可分层，每个 Layer 都可绑定键盘、鼠标或手柄切换快捷键。
+- Layer 删除/切换只停止和释放该 Layer 自己的来源；修复删除旧 Layer 1 后重启又被默认值重新创建的问题。
+- 运行观察/诊断显示 RunId、SourceId、当前 Layer、merged output、虚拟槽位、Router、接管健康和恢复状态。
+- 更新下载增加有限超时/重试和半包清理；完整下载并验证后安装阶段可离线完成。
+- 配置备份排序改为严格单调时间戳，快速同一墙钟时间、时钟回拨或程序重启时仍稳定保留真正最近的 5 个有效备份。
+
+### 仍然是 Experimental
+
+- `工具 → 手柄接管（实验）` 继续保留：0 号槽位取得、HidHide 事务/回滚、崩溃恢复和运行期健康监控均已实现。
+- 由于当前开发机没有实体 XInput 测试手柄，**实体手柄 + HidHide + 实际游戏只看到受控 0 号虚拟手柄**的最终硬件验收仍未完成，因此不会把接管宣传成完全硬件成熟的正式能力。
+
+### 验证基线
+
+- 52 项 Controlled Replacement、39 项 Layer、360 项配置/易用性和 **303,716 项 Output Ownership / 并发合并检查**继续通过。
+- Input Lab 真实键鼠/并发 lane：18 PASS / failures=0；之后仍是已知本机 ViGEm→XInput 环境预检 BLOCKED。
+- 四槽位中立 ViGEm 探针继续验证 `外部 0/1/2 + InputStitch 3 → InputStitch 0 + 外部 1/2/3`。
+
 ## 1.3.1-beta.2（测试版）
 
 **一句话概括：现在映射层可以自由新增、命名、删除和快捷切换；实验性手柄接管也会在运行中持续自检，确认异常后自动退出接管并尝试恢复原手柄。**

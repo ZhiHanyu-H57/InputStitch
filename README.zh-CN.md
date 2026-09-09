@@ -16,22 +16,20 @@ InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式�
 
 ### 正式版
 
-**当前正式版：v1.3.0。** 如果你只想稳定使用，优先下载正式版。
+**当前正式版：v1.4.0。** 这一版把 1.3.1 Beta 线里已经验证的手柄输入/汇总、多映射层、运行观察、更新与配置安全改进正式纳入 Stable。实验性手柄接管也保留，但仍明确标记为“实验性”。
 
 | Windows 架构 | 下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.3.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.3.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.3.0-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.3.0-Source.zip](../../releases/latest/download/InputStitch-1.3.0-Source.zip) |
+| 64 位 Windows（x64） | [InputStitch-1.4.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.0-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.4.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.0-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.4.0-Source.zip](../../releases/latest/download/InputStitch-1.4.0-Source.zip) |
 | 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
-### 当前测试版
+### 历史测试版
 
-**v1.3.1-beta.2：多映射层与接管运行自检测试版。**
+**v1.3.1-beta.2** 是 1.4.0 发布前的最后一个公开测试版，仍保留供历史对照和问题复现使用。
 
-一句话概括：**现在可以自由新增、命名、删除和快捷切换映射层；实验性手柄接管也会在运行中持续检查 0 号槽位、手柄汇总和 HidHide 状态，确认异常后自动退出接管并尝试恢复原手柄。**
-
-测试版不会替换正式版的自动更新通道，需要用户主动下载和测试：
+**1.4.0 正式版已经接收了其中经过验证的多映射层、XInput 手柄输入/汇总和接管运行自检等能力。** 实验性手柄接管的最终“实体手柄 + HidHide + 实际游戏”验收仍未完成，因此这个入口在 1.4.0 Stable 中继续保留 Experimental 标记，而不会被描述为完全硬件成熟。
 
 | 测试版文件 | 下载 |
 | --- | --- |

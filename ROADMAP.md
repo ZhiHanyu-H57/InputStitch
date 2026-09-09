@@ -6,11 +6,11 @@ Updated: 2026-09-10
 
 ## Current position / 当前阶段
 
-Current Stable: **v1.3.0**
+Current Stable: **v1.4.0**
 Previous prerelease: **v1.3.1-beta.1** — published and immutable
 Current prerelease: **v1.3.1-beta.2** — published and immutable
 
-Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runtime milestone. The current `1.3.1-beta.2` tree keeps the controller-input/aggregation/slot-acquisition foundation from beta.1, expands Layer into arbitrary named layers with switch bindings, and adds continuous takeover health monitoring with automatic fail-safe disengage/recovery.
+Stable `v1.4.0` promotes the validated controller-input/aggregation and flexible-Layer work from the 1.3.1 Beta line into the recommended Stable channel. Controller takeover remains explicitly Experimental until physical-controller + HidHide + target-game acceptance is available.
 
 一句话：**1.3.0 解决“多个宏同时运行且互不误伤”；beta.1 把手柄触发、汇总和安全取得 0 号接入统一平台；beta.2 继续把映射层做成可自由管理的多层系统，并让实验性接管在运行中持续自检、异常时自动退出恢复。**
 
@@ -355,11 +355,13 @@ v1.3.0-beta.1
    ↓
 v1.3.0-beta.2
    ↓
-v1.3.0 Stable   ← current recommended Stable
+v1.3.0 Stable   ← previous Stable / rollback reference
    ↓
 v1.3.1-beta.1  ← published prerelease; slot acquisition implemented
    ↓
 v1.3.1-beta.2  ← current published prerelease; flexible layers + takeover health monitoring
+   ↓
+v1.4.0 Stable   ← current recommended Stable; takeover remains Experimental
    ↓
 output backend abstraction + Device Identity + Router source policy + Analog Transform
    ↓
@@ -378,7 +380,7 @@ controlled replacement hardware maturity
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
 - `v1.3.1-beta.2` is published as a GitHub **prerelease**; keep it immutable.
-- Do not change `v1.3.0` or `releases/latest`.
+- Keep historical `v1.3.0` immutable. `v1.4.0` is the current Stable line and should own `releases/latest` after publication.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
 - Runtime changes require the complete regression suite before commit.
