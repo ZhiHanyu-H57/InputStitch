@@ -12,7 +12,7 @@ The application is built with Windows Forms and .NET Framework 4.7.2. Its interf
 
 **Stable: v1.3.0.** This release promotes the validated Input Ownership + universal Concurrent Macro Runtime to the recommended Stable channel: distinct ordinary timed/Toggle macros, Advanced/complex Hold timelines, and Parallel Held Mappings can run concurrently with source-local cleanup and per-Hold release tracking. Modifier-chord Hold and Shift-friendly bare-key triggering are included in Stable 1.3.0.
 
-**Current prerelease: v1.3.1-beta.1.** It adds physical/virtual XInput controller triggers, multi-controller merging, a **Do not create a virtual controller** preference, mapping-layer eligibility for every macro type, and an experimental controller-takeover path that safely acquires XInput slot 0 before any selected original controller is hidden. Stable v1.3.0 and `releases/latest` remain unchanged. See [development roadmap and release policy](ROADMAP.md).
+**Current prerelease: v1.3.1-beta.2.** It keeps the controller-input/merge/takeover foundation from beta.1, expands mapping layers into arbitrary named layers with keyboard/mouse/controller switch shortcuts, and adds continuous takeover health monitoring with fail-safe disengage/recovery. Stable v1.3.0 and `releases/latest` remain unchanged. See [development roadmap and release policy](ROADMAP.md).
 
 Download a ready-to-run executable from the [latest GitHub Release](../../releases/latest):
 
@@ -23,15 +23,15 @@ Download a ready-to-run executable from the [latest GitHub Release](../../releas
 | Complete source code | [InputStitch-1.3.0-Source.zip](../../releases/latest/download/InputStitch-1.3.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
-Current `v1.3.1-beta.1` prerelease artifacts:
+Current `v1.3.1-beta.2` prerelease artifacts:
 
 | Beta artifact | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.3.1-beta.1-Windows-x64.exe](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.3.1-beta.1-Windows-x86.exe](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Windows-x86.exe) |
-| Complete Beta source | [InputStitch-1.3.1-beta.1-Source.zip](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Source.zip) |
-| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.1-beta.1/InputStitch-beta.xml) |
-| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.1-beta.1/SHA256SUMS.txt) |
+| 64-bit Windows (x64) | [InputStitch-1.3.1-beta.2-Windows-x64.exe](../../releases/download/v1.3.1-beta.2/InputStitch-1.3.1-beta.2-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.3.1-beta.2-Windows-x86.exe](../../releases/download/v1.3.1-beta.2/InputStitch-1.3.1-beta.2-Windows-x86.exe) |
+| Complete Beta source | [InputStitch-1.3.1-beta.2-Source.zip](../../releases/download/v1.3.1-beta.2/InputStitch-1.3.1-beta.2-Source.zip) |
+| Beta manifest | [InputStitch-beta.xml](../../releases/download/v1.3.1-beta.2/InputStitch-beta.xml) |
+| Beta checksums | [SHA256SUMS.txt](../../releases/download/v1.3.1-beta.2/SHA256SUMS.txt) |
 
 InputStitch supports Windows only. There is no macOS or Linux executable. If you are unsure which Windows build to use, choose x64 on a modern 64-bit installation.
 
@@ -77,13 +77,23 @@ Use the gear button to open settings, including **Language / 语言**, virtual c
 
 The stick editor uses direction and strength: `0°` is forward, `90°` is right, `-90°` is left, and `±180°` is backward. Existing X/Y values remain backward compatible and are preserved unless the user actually edits direction or strength. For a key-to-controller hold mapping, Quick Create → Held Mapping is the easiest path. In 1.3.0-beta.1, qualifying Held Mappings are independent ownership sources: releasing one removes only its contribution, while the remaining stick/trigger/button sources stay active and are re-merged.
 
-## Experimental controller takeover in v1.3.1-beta.1
+## Experimental controller takeover in v1.3.1-beta.2
 
 Controller merging by itself does not suppress original devices. **Tools → Controller takeover (Experimental)** adds the controlled-replacement path. If the InputStitch virtual Xbox is not already XInput slot 0, takeover first stops managed controller output, temporarily re-enumerates all present external XUSB controllers, reconnects InputStitch first, and requires a hard slot-0 check. It then restores every external controller and re-verifies their device identities, Router visibility, and slot 0 before HidHide is allowed to hide any selected original device.
 
 The slot-reordering scope and the hiding scope are intentionally different: every external XUSB controller may need a short re-enumeration so slot 0 becomes available, but only explicitly selected external device identities are passed to HidHide. Any failure stops the transaction and attempts recovery; InputStitch never hides the old slot-0 controller first and merely hopes the virtual controller will move into slot 0.
 
+Beta.2 adds continuous takeover health monitoring after activation. A background monitor checks the target slot, Router readiness, the expected routed XInput sources, HidHide cloak state, selected hidden-device membership, and the InputStitch HidHide application whitelist. One transient failure is tolerated; two consecutive failures trigger a single fail-safe disengage. InputStitch then restores its HidHide changes, stops Router, clears managed routed output, and disables controller merging so restored original input is not doubled by routed input. Recovery data is retained if restoration cannot complete.
+
 The current XInput backend supports at most **three external controllers + one InputStitch virtual Xbox** at the same time. A neutral four-controller ViGEm probe on the development machine verified the real ordering transition from `external 0/1/2 + InputStitch 3` to `InputStitch 0 + external 1/2/3` without submitting button, stick, or trigger input. Final physical-controller + HidHide + real-game takeover still requires hardware acceptance; the current development laptop does not have HidHide or a physical XInput test controller installed/connected.
+
+## Flexible mapping layers in v1.3.1-beta.2
+
+Base is always eligible, and you may now create any number of additional named layers. **Manage layers...** can add, rename, or delete layers; deleting one moves its macros safely back to Base and deleting the currently active layer first returns to Base-only.
+
+Every layer, including Base, may have its own keyboard, mouse, or controller switch trigger. Base's switch trigger means “return to Base-only.” Only one non-Base layer is active at a time, so the eligible set is always Base plus the current named layer. Switching layers reuses the existing concurrent runtime: old-layer runs stop and release only their own sources, while Base and unrelated ownership remain intact. Newly eligible triggers that were already physically held still require release + press before they may start.
+
+The Layer XML format now replaces the saved layer list instead of appending it into constructor defaults. Truly old configurations with no layer data still migrate to Base + Layer 1, but once a modern configuration has saved an explicit list, deleting legacy Layer 1 survives save/restart instead of being recreated by default initialization.
 
 ## Virtual keyboard and idle input
 

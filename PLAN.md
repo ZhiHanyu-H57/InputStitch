@@ -2,18 +2,19 @@
 
 # Current Development Plan
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 ## Current milestone
 
-**`v1.3.1-beta.1` — 手柄输入 / 多手柄汇总 / 全类型 Layer / 受控接管安全基础**
+**`v1.3.1-beta.2` — 任意多 Layer / 快捷切层 / 接管运行自检与自动恢复**
 
 - Current Stable: `v1.3.0`
-- Current prerelease: `v1.3.1-beta.1` — published
+- Previous prerelease: `v1.3.1-beta.1` — published and immutable
+- Current prerelease candidate: `v1.3.1-beta.2`
 - Branch: `main`
 - Stable `v1.3.0` remains the recommended rollback baseline and must not be overwritten by this Beta.
 
-## What is implemented in 1.3.1-beta.1
+## What is implemented in 1.3.1-beta.2
 
 ### 1. Physical XInput input and controller triggers — implemented
 
@@ -67,19 +68,24 @@ When “do not create” is selected:
 
 Fresh-install default remains Xbox 360 for compatibility. Changing that default is a separate product decision.
 
-### 5. Layer — implemented for every macro type
+### 5. Layer — flexible named layers implemented for every macro type
 
-Current Layer v1 model:
+Current Layer model:
 
 - mandatory Base layer, always eligible;
-- one additional active layer (`Layer 1`) at a time;
+- any number of additional user-defined layers with stable IDs and editable names;
+- one non-Base layer is active at a time, so eligibility is always Base + current layer;
 - active layer is runtime-only and resets to Base-only after restart;
 - every macro type can belong to a layer: ordinary timed, Toggle, Advanced/complex Hold and Parallel Held Mapping;
+- each layer, including Base, may have a keyboard/mouse/controller switch trigger; the Base trigger returns to Base-only;
+- user-facing management supports add, rename and delete;
+- deleting a layer stops its active runs, moves assigned macros back to Base, and deleting the active layer first returns runtime state to Base-only;
 - duplicate triggers still use normal list priority inside the currently eligible set;
 - leaving a layer stops that layer's active runs and removes only those sources;
-- a trigger already physically held when a layer becomes eligible must release and press again before it can start.
+- a trigger already physically held when a layer becomes eligible must release and press again before it can start;
+- XML serialization now replaces the explicit layer list, so deleted legacy Layer 1 does not reappear after restart; truly old configs with no layer data still migrate to Base + Layer 1.
 
-### 6. Controlled Replacement — experimental safety foundation implemented, full takeover NOT complete
+### 6. Controlled Replacement — experimental transaction + runtime health monitoring implemented, hardware acceptance NOT complete
 
 Implemented:
 
@@ -93,6 +99,10 @@ Implemented:
 - HidHide Begin is unreachable unless slot acquisition, target-slot verification, Router preparation and external-source verification all succeed;
 - preserve pre-existing HidHide hidden devices, app whitelist and cloak state;
 - verify Router/target slot/source visibility after hiding;
+- after activation, a background health monitor continuously checks target slot, Router readiness, expected XInput source visibility, HidHide cloak state, requested hidden-device membership and the InputStitch application whitelist;
+- one transient health failure is tolerated; two consecutive failures dispatch one fail-safe disengage;
+- confirmed health failure restores InputStitch-owned HidHide changes, stops/disables Router, clears managed routed output and keeps recovery data if restoration cannot complete, preventing restored original input + routed duplicate input;
+- runtime observation/diagnostics expose active layer, virtual slot, Router/takeover health, expected sources and recovery warnings without creating a virtual device merely for observation;
 - rollback only InputStitch-owned changes on activation failure;
 - recovery journal is persisted before the first HidHide mutation so an abnormal exit can be repaired next launch;
 - Emergency Stop and normal shutdown attempt to restore original controller visibility first;
@@ -108,25 +118,30 @@ Not complete / not yet claimed:
 
 ## Immediate next engineering work
 
-1. Validate the implemented slot-acquisition + HidHide pipeline with one or more **physical** XInput controllers on a machine where HidHide is installed.
+Hardware acceptance is explicitly **blocked until a physical XInput controller is available**; do not substitute more virtual devices and claim that as physical acceptance.
+
+When hardware becomes available:
+
+1. Validate the implemented slot-acquisition + HidHide + runtime-health pipeline with one or more physical XInput controllers on a machine where HidHide is installed.
 2. Prove the selected original controller disappears from an ordinary observer/target while InputStitch remains whitelisted and keeps reading/routing it.
-3. Add continuous health monitoring while Controlled Replacement is active. Any loss of routed source, target slot or hiding backend health should disengage and restore visibility when possible.
-4. Exercise physical starting layouts with InputStitch initially in slots 0/1/2/3 and up to three external XInput sources.
+3. Exercise physical starting layouts with InputStitch initially in slots 0/1/2/3 and up to three external XInput sources.
+4. Intentionally break one runtime invariant (for example slot, Router or HidHide state) and verify the new automatic disengage restores visibility without doubled routed input.
 5. Only after those real-device/game checks are proven, call the feature “full controller takeover/replacement.”
-6. After XInput takeover is mature, evaluate broader controller backends only when concrete use requires them.
+
+Non-hardware work may continue independently: improve controller-source identity/diagnostics, Router policy/selection UX, Layer ordering/presets only when a concrete workflow justifies them, and evaluate broader controller backends only when real use requires them.
 
 ## Current automated evidence
 
-Latest clean regression on 2026-09-09:
+Latest clean regression on 2026-09-10:
 
 - 323 keyboard/trigger checks;
 - 58 Idle Gamepad assertions;
 - 26 XInput input checks;
 - 28 Gamepad Router checks;
-- 39 Controlled Replacement cross-stage transaction/recovery checks (fake backend; HidHide not invoked);
+- 52 Controlled Replacement transaction/runtime-health/recovery checks (fake backend; HidHide not invoked);
 - 27 slot-acquisition/PnP recovery checks (fake PnP/XInput; no real device disabled);
 - 15 optional-virtual-controller preference checks (`no ViGEm device created`);
-- 24 Layer checks;
+- 39 flexible-Layer/XML/observation checks;
 - 7 macro-timing checks;
 - modifier safety suite: PASS;
 - release-channel policy: PASS;
@@ -153,18 +168,18 @@ Input Lab final run:
 
 ## Release discipline
 
-`v1.3.1-beta.1` is published as a **prerelease**, not Stable. Keep that release immutable.
+`v1.3.1-beta.1` is already published as a **prerelease** and must remain immutable. `v1.3.1-beta.2` is the next prerelease candidate; Stable `v1.3.0` and `releases/latest` must remain unchanged.
 
-Publication completed with all release gates satisfied:
+Beta.2 release gates:
 
-1. public Chinese text is plain-language first, technical detail later;
-2. PLAN / ROADMAP / HANDOFF / design notes match the implementation;
-3. x64/x86 and Source.zip were rebuilt from the final release tree;
-4. local release verification, full regression, Input Lab pre-XInput checks and neutral four-slot probe were run;
-5. GitHub `windows-2022` verify passed on the final release-trigger commit;
-6. `v1.3.1-beta.1` was published as a public GitHub prerelease;
-7. all five remote assets are present with GitHub SHA-256 digests;
-8. `releases/latest` remains Stable `v1.3.0`.
+1. public Chinese text remains plain-language first, technical detail later;
+2. PLAN / ROADMAP / HANDOFF / design notes match flexible Layer + takeover-health implementation;
+3. x64/x86 and Source.zip are rebuilt from the final beta.2 tree;
+4. full regression, settings smoke, Input Lab pre-XInput checks and neutral four-slot probe pass/retain their documented environment-only blocker;
+5. local release verification checks ProductVersion/FileVersion, PE architecture, Beta manifest and SHA-256;
+6. GitHub `windows-2022` verify must pass before `[publish-beta]` may create `v1.3.1-beta.2`;
+7. the published release must be `prerelease=true`, with all five assets/digests present;
+8. `releases/latest` must still resolve to Stable `v1.3.0`.
 
 ## Non-negotiable design constraints
 

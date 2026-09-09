@@ -172,6 +172,69 @@ internal static class ControlledReplacementTests
                 "Stop preserves HidHide state that existed before InputStitch began replacement");
         }
 
+        // Runtime health verification: once Active, every safety dependency remains observable.
+        bool runtimeRouterReady = true;
+        bool runtimeSourceHealthy = true;
+        int runtimeSlot = 0;
+        FakeBackend runtimeHealthBackend = new FakeBackend();
+        using (ControlledReplacementCoordinator c = new ControlledReplacementCoordinator(runtimeHealthBackend,
+            delegate { return runtimeRouterReady; }, delegate { return runtimeSlot; }, delegate { return true; },
+            delegate { return runtimeSourceHealthy; }, @"C:\Apps\InputStitch.exe", null))
+        {
+            Check(c.Begin(new string[] { "A" }, 0).State == ControlledReplacementState.Active, "runtime-health fixture activates");
+            Check(c.ProbeHealth(0).Healthy, "active replacement health probe accepts healthy Router/source/slot/HidHide state");
+
+            runtimeSlot = 1;
+            Check(!c.ProbeHealth(0).Healthy && c.ProbeHealth(0).Reason.IndexOf("target XInput slot", StringComparison.OrdinalIgnoreCase) >= 0,
+                "runtime health detects virtual slot loss");
+            runtimeSlot = 0;
+            runtimeRouterReady = false;
+            Check(!c.ProbeHealth(0).Healthy, "runtime health detects Router loss");
+            runtimeRouterReady = true;
+            runtimeSourceHealthy = false;
+            Check(!c.ProbeHealth(0).Healthy, "runtime health detects routed source visibility loss");
+            runtimeSourceHealthy = true;
+            runtimeHealthBackend.Cloak = false;
+            Check(!c.ProbeHealth(0).Healthy, "runtime health detects HidHide cloak being turned off");
+            runtimeHealthBackend.Cloak = true;
+            runtimeHealthBackend.Hidden.Remove("A");
+            Check(!c.ProbeHealth(0).Healthy, "runtime health detects a selected original controller no longer hidden");
+            runtimeHealthBackend.Hidden.Add("A");
+            runtimeHealthBackend.Apps.Remove(@"C:\Apps\InputStitch.exe");
+            Check(!c.ProbeHealth(0).Healthy, "runtime health detects InputStitch HidHide whitelist loss");
+            runtimeHealthBackend.Apps.Add(@"C:\Apps\InputStitch.exe");
+            Check(c.ProbeHealth(0).Healthy, "runtime health returns to healthy when every invariant is restored");
+            c.Stop();
+        }
+
+        // The background monitor tolerates one transient probe failure, resets the streak after a
+        // healthy sample, and signals exactly once only after the configured consecutive threshold.
+        bool monitorActive = true;
+        bool monitorHealthy = false;
+        int monitorSignals = 0;
+        ControlledReplacementHealthSnapshot signaledSnapshot = null;
+        using (ControlledReplacementHealthMonitor monitor = new ControlledReplacementHealthMonitor(
+            delegate { return monitorActive; },
+            delegate { return monitorHealthy ? ControlledReplacementHealthSnapshot.Ok("ok") : ControlledReplacementHealthSnapshot.Fail("injected unhealthy"); },
+            delegate(ControlledReplacementHealthSnapshot snapshot) { monitorSignals++; signaledSnapshot = snapshot; },
+            60000, 2))
+        {
+            monitor.Start();
+            monitor.CheckNow();
+            Check(monitorSignals == 0 && monitor.ConsecutiveFailures == 1, "one transient takeover health failure does not disengage");
+            monitorHealthy = true;
+            monitor.CheckNow();
+            Check(monitorSignals == 0 && monitor.ConsecutiveFailures == 0, "healthy sample resets takeover health failure streak");
+            monitorHealthy = false;
+            monitor.CheckNow();
+            monitor.CheckNow();
+            Check(monitorSignals == 1 && signaledSnapshot != null && !signaledSnapshot.Healthy,
+                "two consecutive takeover health failures signal automatic disengage exactly once");
+            monitor.CheckNow();
+            Check(monitorSignals == 1, "health monitor cannot signal duplicate recovery after threshold is reached");
+            monitorActive = false;
+        }
+
         int dynamicSlot = 0;
         FakeBackend slotLoss = new FakeBackend();
         slotLoss.OnHide = delegate { dynamicSlot = 1; };

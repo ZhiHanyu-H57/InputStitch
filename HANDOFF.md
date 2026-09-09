@@ -2,15 +2,16 @@
 
 # Current Development State
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 ## Current versions
 
 - Current Stable: `v1.3.0`
-- Current prerelease: `v1.3.1-beta.1` — published successfully as a public GitHub prerelease
+- Published prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
+- Current prerelease candidate: `v1.3.1-beta.2`
 - Branch: `main`
 - Stable rollback baseline: `v1.3.0`
-- Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` releases are immutable.
+- Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` releases are immutable.
 
 For the commit containing this handoff itself, use:
 
@@ -22,193 +23,282 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**Validate the published `v1.3.1-beta.1` controller-takeover path on physical XInput hardware + HidHide + a real target game, then add continuous takeover health monitoring.**
+**Finish release-grade verification and publish `v1.3.1-beta.2` as a prerelease without changing Stable `v1.3.0` or the already-published `v1.3.1-beta.1`.**
 
-Stable `v1.3.0` completed Input Ownership + universal Concurrent Macro Runtime. The current Beta extends that common architecture with physical XInput input, controller triggers, keyboard/mouse hybrid mapping, multi-controller aggregation, all-macro Layer eligibility, optional virtual-controller creation, and an experimental fail-safe Controlled Replacement foundation.
+Beta.2 adds two major non-hardware improvements on top of beta.1:
 
-Safe target-slot acquisition is now implemented as a recoverable transaction. InputStitch never hides a physical slot-0 controller and merely hopes the virtual pad will move into slot 0. The next major engineering problem is **real-device acceptance**: prove the implemented PnP re-enumeration + HidHide + Router pipeline with physical controllers and a target game.
+1. flexible arbitrary named Layer management + keyboard/mouse/controller layer-switch bindings;
+2. continuous Controlled Replacement health monitoring + automatic fail-safe disengage/recovery.
 
-## Completed in the current 1.3.1-beta.1 tree
+Physical-controller + HidHide + real-game acceptance is explicitly blocked because the development machine has no physical XInput controller and no HidHide environment. Do **not** substitute more virtual devices and claim that as physical acceptance.
 
-### Physical / virtual XInput input
+## Architecture baseline inherited from v1.3.0 / beta.1
 
-- `XInputInputService` polls XInput user slots `0..3`.
-- InputStitch's own ViGEm Xbox user slot is dynamically excluded to prevent feedback.
-- Startup/reconnect uses a baseline-first rule so controls already held do not create phantom Down edges.
-- Disconnect generates release edges for held buttons/triggers.
-- Digital buttons/D-pad and LT/RT are first-class trigger inputs.
-- LT/RT use 80% activation / 70% release hysteresis.
-- Configured controller triggers default to “any visible XInput controller.”
-- Hold dispatch pins the runtime trigger to the actual controller slot that started it so a different controller cannot stop it.
+Stable `v1.3.0` completed Input Ownership + universal Concurrent Macro Runtime. The 1.3.1 Beta line extends the same common runtime rather than creating controller-specific or Layer-specific execution engines.
 
-### Controller → keyboard/mouse/hybrid macro mapping
-
-Controller triggers enter the same existing pipeline as keyboard/mouse triggers:
+Core flow:
 
 ```text
-XInput physical edge
-    ↓
-Trigger selection
-    ↓
-Concurrent Macro Runtime / Parallel Held
-    ↓
+physical keyboard/mouse/XInput edge
+        ↓
+trigger selection + Layer eligibility
+        ↓
+Concurrent Macro Runtime / Parallel Held Mapping
+        ↓
 Output Ownership
-    ↓
+        ↓
 keyboard / mouse / virtual controller
 ```
 
-No controller-specific second macro engine exists. Controller triggers can run keyboard, mouse, virtual-gamepad or mixed macros in timed/Toggle/Hold forms.
+Router sources also enter Output Ownership independently:
 
-Without hiding, this is augmentation: the original controller may still be visible to the game.
+```text
+external XInput slot N
+        ↓
+router:xinput:N
+        ↓
+Output Ownership merge
+        ↓
+InputStitch virtual Xbox
+```
+
+## Completed in current beta.2 tree
+
+### Physical / virtual XInput input
+
+- `XInputInputService` polls XInput slots `0..3`.
+- InputStitch's own ViGEm Xbox slot is dynamically excluded to prevent feedback.
+- Startup/reconnect establishes a baseline before emitting edges.
+- Disconnect generates release edges for held buttons/triggers.
+- Digital buttons/D-pad and LT/RT are first-class macro trigger inputs.
+- LT/RT use 80% activation / 70% release hysteresis.
+- Configured controller trigger means “this control on any visible XInput controller.”
+- Hold dispatch pins the run to the actual controller slot that started it.
+
+### Controller → keyboard/mouse/hybrid mapping
+
+Controller triggers reuse the ordinary Trigger → Runtime → Ownership path and can execute:
+
+- keyboard output;
+- mouse output;
+- virtual-controller output;
+- mixed keyboard + mouse + virtual-controller macros;
+- timed / Toggle / finite or infinite Hold / lightweight Held Mapping behavior.
+
+Without HidHide takeover this remains augmentation: the original controller can still be visible to the game.
 
 ### Gamepad Router / aggregation
 
-- `GamepadRouterService` mirrors every non-own visible XInput source.
-- Each source uses its own `router:xinput:N` ownership ID.
-- Whole-state routing covers buttons, D-pad, both sticks and both triggers.
-- Source replacement is atomic through `OutputOwnershipManager.ReplacePersistentSource`.
+- `GamepadRouterService` mirrors every visible non-own XInput source.
+- Each source has an independent `router:xinput:N` ownership ID.
+- Whole state includes buttons, D-pad, both sticks and both triggers.
+- State replacement is atomic through Output Ownership.
 - Identical frames are no-ops.
-- Multiple controllers and macros merge through the existing Output Ownership rules.
-- Disconnect/recenter only clears that controller's contribution.
-- Emergency Stop disables Router so the next polling tick cannot immediately reassert routed state.
+- Disconnect/recenter clears only that source's contribution.
+- Emergency Stop disables Router so a later polling tick cannot immediately reassert state.
 
-Router by itself does **not** hide original controller input. Until Controlled Replacement is active and verified, games can see original + routed input simultaneously.
+Router alone is **not interception**. Original + routed input may both reach a game until Controlled Replacement is active.
 
 ### Optional virtual-controller creation
 
-The virtual-controller type dropdown now has three choices:
+Virtual-controller preference has three values:
 
 1. Xbox 360
 2. PS4 / DualShock 4
-3. **Do not create a virtual controller / 不创建虚拟手柄**
-
-`VirtualGamepadTypes.None` is a real persisted state, not a UI-only toggle.
+3. `None` / **Do not create a virtual controller / 不创建虚拟手柄**
 
 When None is selected:
 
-- saved gamepad-output macros do not cause ViGEm creation at startup;
-- editing/saving a virtual-gamepad step does not connect ViGEm;
-- keyboard/mouse macros remain available;
+- startup does not create ViGEm just because gamepad-output macros are saved;
+- editing/saving a gamepad step does not connect ViGEm;
+- keyboard/mouse macros still work;
 - external XInput controllers can still trigger keyboard/mouse macros;
-- running a macro that actually requires virtual-controller output is refused with a user-facing explanation rather than silently creating ViGEm;
-- Idle Gamepad is disabled because it requires virtual output;
-- Router/Controlled Replacement requires Xbox output and therefore cannot stay in None.
+- incompatible runtime actions are refused rather than silently overriding the preference;
+- Idle Gamepad is disabled;
+- Router/Controlled Replacement cannot stay in None because they require Xbox output.
 
-Router temporarily forces Xbox in Settings. If the user had selected None or PS4 before checking Router, unchecking Router restores the previous selection.
+Fresh-install default remains Xbox 360 for compatibility.
 
-Fresh-install default still remains Xbox 360 for backward compatibility; changing the default is a separate product decision.
+### Flexible Layer system — beta.2
 
-### Layer v1 — all macro types
+Layer remains an eligibility/grouping feature on top of the common trigger/runtime/output architecture.
 
-Implemented model:
+Current model:
 
-- mandatory Base layer, always eligible;
-- one additional active Layer 1;
-- active layer is runtime-only and resets to Base-only after restart;
-- `MacroDefinition.MappingLayerId` applies to ordinary timed/Toggle, Advanced/complex Hold and Parallel Held Mapping;
-- duplicate triggers keep normal list priority inside the eligible set;
-- switch removes/stops sources belonging only to the old layer before publishing new eligibility;
-- worker-backed sources are suspended immediately during a layer stop transition so they cannot briefly reassert old-layer output;
-- a trigger already held when its layer becomes newly eligible must release + press before activation.
+- Base layer is mandatory and always eligible;
+- any number of additional layers can exist;
+- non-Base layers have stable IDs and editable user names;
+- one non-Base layer is active at a time, so eligibility is Base + active layer;
+- active layer remains runtime-only and resets to Base-only after restart;
+- every macro type participates: ordinary timed, Toggle, Advanced/complex Hold, Parallel Held Mapping;
+- main UI exposes **Manage layers... / 管理映射层…**;
+- user can add, rename and delete layers;
+- deleting the active layer first returns runtime state to Base-only;
+- macros assigned to a deleted layer move safely back to Base;
+- each layer, including Base, may have a keyboard/mouse/controller switch trigger;
+- Base switch trigger means “return to Base-only”;
+- layer-switch trigger has priority over ordinary macro matching but does not suppress the physical foreground-app input;
+- leaving a layer stops/removes only old-layer sources;
+- newly eligible triggers already physically held are blocked until release + fresh press;
+- duplicate normal triggers retain normal macro-list priority inside the eligible set.
 
-### Macro timing drift bug — fixed
+#### Layer XML compatibility fix
 
-Input Lab exposed an existing timer bug: `WaitOrStopWithUiSafety` subtracted the requested 10 ms wait slice instead of actual elapsed time. On this Windows machine, scheduler overshoot accumulated and a requested 900 ms Press could last around 1.7 s.
+Old public collection-field XML behavior appended deserialized Layer data into constructor defaults. That meant deleting legacy Layer 1 could make it reappear after restart.
 
-It now uses `Stopwatch` monotonic elapsed time while preserving the rule that UI-safety pause time does not count toward macro timing.
+Current solution:
 
-A dedicated regression suite (`MacroTimingTests`) locks this behavior.
+- runtime still uses `List<MappingLayerDefinition>`;
+- XML uses a replacing array proxy;
+- truly old XML with no Layer element still gets constructor default Base + Layer 1;
+- once modern XML contains an explicit Layer list, that saved list replaces defaults and is authoritative;
+- deleting Layer 1 survives a real serialize → deserialize → normalize round trip.
 
-### Update network interruption handling — hardened
+### Macro timing drift bug — fixed earlier in beta.1 line
 
-Stable-channel built-in update networking now has bounded retry/timeout behavior:
+`WaitOrStopWithUiSafety` now uses monotonic `Stopwatch` elapsed time rather than subtracting requested sleep slices. This fixed the case where nominal 900 ms output could become roughly 1.7 s on this Windows scheduler.
 
-- connection/DNS/receive/send/timeout failures use at most 3 attempts total (initial + 2 retries);
-- each synchronous WebClient request runs on a background task and uses an 8-second connect/read-write inactivity timeout, so the UI stays responsive and a dead connection cannot wait indefinitely;
-- every download retry deletes the previous partial executable before starting again;
-- final download failure also removes the partial executable and never enters the install transaction;
-- non-transient validation/TLS trust failures are not blindly retried;
-- automatic background **check-stage** failures stay silent, but once the user has accepted an available update, download/install-preparation failures are explicitly shown;
-- after the new executable is fully downloaded and SHA-256/version-verified, installation is local and no longer depends on GitHub/network availability.
+### Update network interruption handling — hardened earlier in beta.1 line
 
-`UpdateNetworkTests` locks these cases with injected network failures only; no real network request is made.
+Stable-channel updater now uses bounded timeout/retry behavior:
 
-### Controlled Replacement safety foundation — experimental
+- transient connect/DNS/send/receive/timeout failures: maximum 3 attempts total;
+- 8 s connect/read-write inactivity timeout per attempt;
+- synchronous WebClient request runs in background task so UI stays responsive;
+- every retry deletes the previous partial executable;
+- final failure leaves no partial executable and never enters install transaction;
+- background check-stage failures remain silent;
+- after user accepts an update, download failure is explicitly shown;
+- once EXE is fully downloaded and SHA-256/version verified, installation is fully local and no longer needs GitHub/network access.
 
-Implemented in `ControlledReplacement.cs`:
+### Controlled Replacement transaction — beta.1 foundation
 
-- `IDeviceHidingBackend` abstraction;
-- HidHide CLI implementation;
-- game-controller device enumeration/parser;
-- existing hidden-device/app-whitelist/cloak-state inspection;
-- explicit app registration/unregistration;
-- explicit selected-device hide/unhide;
-- hard precondition: hiding backend available;
-- hard precondition: Router ready;
-- `SlotAcquisition.cs` owns a separate recoverable slot-0 transaction before HidHide;
-- if InputStitch is not already slot 0, every present external XUSB controller may be temporarily re-enumerated, InputStitch reconnects first and must hard-verify slot 0, then every external XUSB identity must return before hiding is reachable;
-- slot-reordering scope is deliberately broader than hide scope: unselected external XUSB devices can be temporarily cycled to free slot 0, while only explicitly selected external identities are forwarded to HidHide;
-- PnP disable is non-persistent and protected by `slot-acquisition-recovery.xml`, independent from `controlled-replacement-recovery.xml`;
-- more than three external XUSB controllers is refused before PnP mutation because current XInput routing must fit InputStitch + externals into four slots;
-- `ControlledTakeoverPipeline` makes HidHide Begin unreachable unless acquisition succeeds, InputStitch is really still slot 0, Router/source preparation succeeds and selected external identities remain valid;
-- hard precondition: one or more user-selected device instance paths;
-- post-hide verification that Router still works, target slot is unchanged and expected XInput sources remain visible to InputStitch;
-- rollback of only InputStitch-added hide/app/cloak changes;
-- preservation of pre-existing user HidHide configuration;
-- recovery journal persisted **before** the first hiding mutation;
-- next-launch recovery of an abnormal-exit journal;
-- Emergency Stop and normal shutdown attempt to restore controller visibility;
-- Tools → **Controller takeover (Experimental) / 手柄接管（实验）** UI;
-- nothing is hidden automatically and HidHide is never installed automatically.
+Implemented:
 
-This is not full takeover yet. Current developer machine has ViGEmBus but no HidHide, so real device hiding has not been accepted on this laptop.
+- `IDeviceHidingBackend` + HidHide CLI backend;
+- device enumeration/parser;
+- explicit user-selected devices; nothing hidden automatically;
+- pre-hide Router requirement;
+- separate `SlotAcquisition.cs` recoverable slot-0 transaction;
+- InputStitch disconnects its own virtual Xbox once for self-identity filtering;
+- if needed, every present external XUSB source is temporarily re-enumerated;
+- InputStitch reconnects first and must hard-verify target slot 0;
+- every external XUSB identity must return before hiding is reachable;
+- slot-reordering scope can be broader than hiding scope, but only selected external identities reach HidHide;
+- PnP disable is non-persistent;
+- `slot-acquisition-recovery.xml` is separate from `controlled-replacement-recovery.xml`;
+- >3 external XUSB sources is refused before PnP mutation because current XInput backend has four total slots;
+- `ControlledTakeoverPipeline` makes HidHide Begin unreachable until acquisition, target-slot, Router/source preparation and external identity checks pass;
+- post-hide Router/slot/source visibility validation;
+- preserve pre-existing hidden-device/app-whitelist/cloak state;
+- recovery journal is written before first HidHide mutation;
+- rollback only InputStitch-owned changes;
+- next-launch abnormal-exit recovery;
+- Emergency Stop and normal shutdown attempt visibility restoration first.
 
-## Not completed yet
+### Continuous takeover health monitoring — beta.2
 
-### Controlled Replacement / physical acceptance
+New `ControlledReplacementHealthMonitor` runs potentially slow HidHide health checks away from the WinForms/XInput polling thread.
 
-- physical XInput controller PnP disable/enable acceptance on real hardware;
-- broader device identity correlation beyond the current XUSB/HidHide `xusbDeviceInstancePath` route;
-- real HidHide hardware validation;
-- continuous takeover health watchdog;
-- proof against actual target games that original devices are hidden and only the routed virtual device remains game-visible;
-- safe post-launch rebinding for games that cache controller indices.
+While takeover is Active, it verifies:
 
-### Broader controller platform
+- InputStitch virtual Xbox remains target slot 0;
+- Router is still ready;
+- all expected routed XInput source slots remain visible to InputStitch;
+- HidHide backend remains available;
+- HidHide cloak remains active;
+- every selected original controller remains in hidden-device state;
+- InputStitch remains in HidHide application whitelist.
 
-- DirectInput/HID/GameInput sources;
-- >4 XInput-equivalent controller sources;
-- Windows-connected DualShock/DualSense input backend beyond current XInput-class scope;
+Failure policy:
+
+- one transient unhealthy sample is tolerated;
+- a healthy sample resets failure streak;
+- two consecutive failures signal exactly one fail-safe disengage;
+- monitor stops before recovery to prevent duplicate rollback;
+- `StopControlledReplacement()` restores InputStitch-owned HidHide state;
+- Router is stopped and disabled after fail-safe restore;
+- Output Ownership is cleared and virtual output is neutralized;
+- disabling Router prevents restored original input + routed duplicate input;
+- if restore fails, recovery journal remains and user receives an explicit warning.
+
+Activation source-health still uses a short settle + active poll. Ongoing background health reads the XInput snapshot last updated by the normal 10 ms UI polling timer; it does not generate controller edges from the background thread.
+
+### Runtime observation / diagnostics — beta.2
+
+Runtime Observation now displays:
+
+- user-facing active Layer name;
+- virtual Xbox slot;
+- Router status + routed source count;
+- Controlled Replacement state;
+- health-monitor active/inactive state;
+- last health result;
+- consecutive failure count;
+- expected routed XInput source slots;
+- normal macro runs / held mappings / ownership sources / merged output.
+
+Diagnostics additionally list:
+
+- every Layer ID, name and switch trigger;
+- Layer count;
+- Controlled Replacement state/message;
+- health-monitor state/result;
+- expected routed sources;
+- replacement-recovery warning;
+- slot-acquisition-recovery warning.
+
+Observation is side-effect free. `ObservedVirtualGamepadConnected/Type/Slot` return neutral values in the isolated UI host instead of touching `GamepadOutput`; opening diagnostics in tests therefore does not load/initialize ViGEm.
+
+## Hardware acceptance still blocked
+
+The development machine has no physical XInput controller and no HidHide environment. Therefore the following remain unverified on real hardware:
+
+- physical XInput PnP disable/enable;
+- actual HidHide hiding of an original physical controller;
+- InputStitch remaining whitelisted/readable while an ordinary target loses the original device;
+- a real game seeing only the routed InputStitch slot-0 virtual controller;
+- runtime health fail-safe under real physical slot/HidHide faults;
+- safe behavior for games that cache controller index/device state.
+
+Do not use more ViGEm virtual devices to claim these are complete.
+
+## Broader platform work not yet implemented
+
+- DirectInput / HID / GameInput input backends;
+- >4 XInput-equivalent sources;
+- Windows-connected DualShock/DualSense input backend outside current XInput-class scope;
 - gyro-to-mouse;
-- arbitrary named Layer management / Layer-switch hotkeys;
-- richer routing conditions/groups.
+- broader per-device identity UI;
+- richer routing conditions/groups;
+- optional Layer ordering/presets only if a concrete workflow justifies them.
 
-## Known limitations that are intentional
+## Known intentional limitations
 
 - XInput exposes at most four user slots.
-- InputStitch currently uses XInput user slots as the first controller input backend; this is not a universal HID enumerator.
-- Guide/Home behavior through ordinary XInput APIs is not promised across every controller/driver.
-- Router aggregation does not equal interception; without HidHide the original source remains visible to games.
-- Controlled Replacement may temporarily re-enumerate all present external XUSB controllers to acquire slot 0, but it hides only explicitly selected external identities; any failure before the final HidHide gate restores/stops instead of hiding first.
-- “Do not create virtual controller” disables virtual output only; it intentionally does **not** disable external XInput controller triggers.
+- Current controller input backend is XInput, not universal HID enumeration.
+- Guide/Home behavior through ordinary XInput is not guaranteed across every controller/driver.
+- Router aggregation is not interception without HidHide.
+- Controlled Replacement may temporarily re-enumerate all external XUSB controllers to acquire slot 0 but only hides selected external identities.
+- `VirtualGamepadTypes.None` disables virtual output only; external XInput triggers remain available.
 - One `MacroDefinition` still has at most one active worker-backed run.
-- Single-step remains exclusive because it is a diagnostic mode.
+- Single-step remains exclusive diagnostic mode.
 - Duplicate normal triggers use macro-list priority.
 - Beta and Stable share `%APPDATA%\InputStitch`; do not run them simultaneously.
 
 ## Current verification evidence
 
-Clean regression after all current changes:
+Latest clean source regression after beta.2 runtime changes:
 
 ```text
 Keyboard                 323 PASS
 Idle Gamepad              58 PASS
 XInput Input              26 PASS
 Gamepad Router            28 PASS
-Controlled Replacement    39 PASS (cross-stage fake backend; HidHide not invoked)
+Controlled Replacement    52 PASS (fake backend/parser; HidHide not invoked)
 Slot Acquisition          27 PASS (fake PnP/XInput; no real device disabled)
 No-Virtual preference     15 PASS (no ViGEm device created)
-Layer                     24 PASS
+Flexible Layer            39 PASS (isolated UI/fake backend/XML round trip)
 Macro timing               7 PASS
 Modifier Safety              PASS
 Release policy               PASS
@@ -221,32 +311,38 @@ Settings smoke zh/en normal+narrow PASS
 Legacy XML / gamepad-vector smoke PASS
 ```
 
-`v1.3.1-beta.1` x64/x86 release build verification also passes ProductVersion/FileVersion, PE architecture, Beta manifest and SHA-256 checks.
+Important new coverage:
 
-### Input Lab final result
+- takeover runtime health: slot loss, Router loss, expected source loss, cloak off, hidden-device removal, whitelist loss;
+- one transient failure tolerated; healthy sample resets streak; two consecutive failures signal one recovery;
+- arbitrary named layers can coexist;
+- keyboard layer-switch target selection;
+- Base may have its own return shortcut;
+- deleting active arbitrary layer returns to Base;
+- deleting layer moves macros to Base;
+- deleted legacy Layer 1 survives real XML save/reload;
+- Runtime Observation/Diagnostics expose Layer + takeover platform state without initializing ViGEm in isolated host.
 
-Latest run on 2026-09-09:
+### Input Lab beta.2 candidate result
 
-- keyboard SendInput lane PASS;
-- mouse X2 Press/Up timing PASS;
-- ordinary F7→K + F8→X2 concurrency PASS;
-- stopping keyboard run leaves mouse run active PASS;
-- Advanced Hold F9→K + F10→X2 concurrency PASS;
-- releasing F9 leaves F10/X2 active PASS;
-- releasing F10 clears X2 PASS;
-- all **18 pre-XInput checks PASS**;
+Latest run against the `1.3.1-beta.2` candidate:
+
+- all 18 pre-XInput real `SendInput` / ordinary-concurrency / complex-Hold checks PASS;
+- Runtime Observation in the real-input lanes identifies the executable as `InputStitch 1.3.1-beta.2` and reports Base-only / no isolated virtual slot without initializing ViGEm just for observation;
 - `failures=0`;
-- controller preflight then returns the known laptop environment blocker because the ViGEm Xbox enumerates but local XInput does not reflect the submitted report:
+- controller preflight then hits the known laptop ViGEm→XInput observation environment blocker:
 
 ```text
 SUMMARY: BLOCKED | checks=18 | failures=0
 ```
 
-This must remain an environment `BLOCKED`, not be converted to a fake product pass or failure.
+This remains environment `BLOCKED`, not a product pass/failure. Do not reinstall system drivers solely to force it green without a separate troubleshooting decision.
 
 ### Real neutral slot-order probe
 
-`tools/InputLab/run-slot-order-probe.ps1` creates four temporary neutral ViGEm Xbox devices and submits no button/stick/trigger report. Latest result on this laptop:
+`tools/InputLab/run-slot-order-probe.ps1` creates four temporary neutral ViGEm Xbox devices and submits no button/stick/trigger report.
+
+Verified real ordering:
 
 ```text
 initial: InputStitch test device = 3; external test devices = 0/1/2
@@ -254,41 +350,55 @@ re-enumerated with InputStitch first: InputStitch = 0; external = 1/2/3
 EXPECTED_ORDER=True
 ```
 
-This validates the real Windows/ViGEm connection-order mechanism used by slot acquisition at the current four-slot maximum. It does **not** replace physical PnP + HidHide + game acceptance.
+This verifies the Windows/ViGEm connection-order mechanism at the current four-slot maximum but does not replace physical PnP + HidHide + game acceptance.
 
-### Published prerelease verification
+### Published beta.1 verification
 
-`v1.3.1-beta.1` was published after a separate diagnostic CI pass and a final `[publish-beta]` workflow pass.
+`v1.3.1-beta.1` was published after local verification, a diagnostic GitHub CI pass, and a final `[publish-beta]` workflow pass.
 
-- release tag: `v1.3.1-beta.1`;
+- tag: `v1.3.1-beta.1`;
 - tag commit: `303704878669ddad8f65bbcf2fe9374a2d83a00d`;
-- GitHub Release is public, `prerelease=true`, `draft=false`;
-- x64, x86, Source.zip, `InputStitch-beta.xml` and `SHA256SUMS.txt` are all present;
-- GitHub reported SHA-256 digests for all five assets;
-- `releases/latest` remains Stable `v1.3.0` (`prerelease=false`), so publishing the Beta did not replace the Stable channel.
+- Release is public, `prerelease=true`, `draft=false`;
+- x64, x86, Source.zip, `InputStitch-beta.xml`, `SHA256SUMS.txt` present;
+- GitHub reported SHA-256 digest for all five assets;
+- `releases/latest` remains Stable `v1.3.0`.
 
-The first publish-trigger workflow on commit `e0a833a` was safely blocked by CI during the regression step. The test runner was then hardened so Windows PowerShell 5.1 captures native stderr without terminating before `$LASTEXITCODE` can be inspected, and failures now emit a specific GitHub annotation. Diagnostic commit `3bab4c9` passed the same GitHub `windows-2022` verification. The final release-trigger commit `3037048` then passed and published the Beta.
+Do not mutate this release/tag while publishing beta.2.
+
+## beta.2 release gates
+
+1. Remove all temporary diagnostic markers.
+2. `git diff --check` clean (line-ending warnings are not errors).
+3. Full regression passes with final `ReleaseInfo` metadata.
+4. Rebuild x64/x86 + Source.zip + beta manifest + checksums.
+5. Verify ProductVersion/FileVersion/PE architecture/manifest/SHA-256.
+6. Run Input Lab; expected current laptop result is still 18 checks, failures=0, then environment BLOCKED at ViGEm→XInput.
+7. Re-run neutral four-slot probe and require `EXPECTED_ORDER=True`.
+8. Commit/push a non-publishing CI verification if needed.
+9. `[publish-beta]` only after GitHub `windows-2022` verify is green.
+10. Confirm `v1.3.1-beta.2` is `prerelease=true`, five assets exist, and `releases/latest` still points to `v1.3.0`.
 
 ## Public documentation rule
 
-The user explicitly requested that public Simplified Chinese documentation and update notices avoid jargon-first writing.
+Public Simplified Chinese README/update text must be ordinary-user-first:
 
-Use this order:
+1. first sentence: what users can now do;
+2. practical behavior and limitations in plain Chinese;
+3. only then technical names such as XInput, ViGEm, Output Ownership, SourceId.
 
-1. first sentence: what ordinary users can now do;
-2. practical behavior / limitations in plain Chinese;
-3. only then technical names such as XInput, ViGEm, Output Ownership, SourceId, etc.
+Technical design notes may use internal English type/API names freely.
 
-Technical design notes may use internal English API/type names freely.
+## Next step after beta.2
 
-## Next step
+Hardware-dependent acceptance remains parked until a physical controller exists. When available:
 
-1. validate the implemented slot-acquisition transaction with physical XInput controllers starting from InputStitch slots 0/1/2/3;
-2. validate HidHide on a machine where it is installed and prove InputStitch remains whitelisted/readable while ordinary target applications lose the selected original controller;
-3. verify a real target game sees the routed slot-0 virtual controller and no selected original device;
-4. add continuous takeover health monitoring and fail-safe disengage;
-5. only then consider full controller takeover mature;
-6. later expand controller backends/Layers only from evidence-based need.
+1. validate physical starting layouts with InputStitch initially in slots 0/1/2/3;
+2. validate HidHide while InputStitch remains whitelisted/readable;
+3. prove a real game loses selected original devices and sees the routed slot-0 virtual controller;
+4. intentionally break slot/Router/HidHide state and verify the new health monitor restores without doubled input;
+5. only then call controller takeover hardware-mature.
+
+Non-hardware work may continue independently from concrete use cases: controller identity/diagnostic UX, routing selection/policies, or broader input backends.
 
 ## Important design constraints
 
@@ -296,13 +406,15 @@ Technical design notes may use internal English API/type names freely.
 - Emergency Stop remains absolute priority.
 - Output backend failure remains fail-closed.
 - InputStitch's own ViGEm output must never become an external trigger/router source.
-- Respect `VirtualGamepadTypes.None`; no incompatible feature may silently recreate ViGEm.
-- Controlled Replacement: **target slot not verified → no physical device hide**.
-- Hiding must be explicit and recoverable; preserve user pre-existing HidHide state.
-- Do not write a new kernel filter driver while a mature external solution is sufficient.
-- Layer remains an eligibility/grouping layer on top of the common runtime, never a separate execution engine.
+- Respect `VirtualGamepadTypes.None`; incompatible features may refuse but must not silently recreate ViGEm.
+- Controlled Replacement: **target slot not verified → no original-device hide**.
+- Active takeover health failure must not leave Router generating duplicate routed input after originals are restored.
+- Hiding must be explicit and recoverable; preserve pre-existing HidHide state.
+- Do not write a kernel filter driver while a mature external hiding solution is sufficient.
+- Layer remains eligibility/grouping on top of the common runtime, never a second execution engine.
+- Observation/diagnostics must not create/connect virtual devices merely to inspect status.
 - Stable and Beta release/update channels remain separate.
-- Run complete regression before every runtime-changing commit.
+- Complete regression before every runtime-changing commit.
 
 ## Resume checklist on another computer
 
@@ -317,4 +429,4 @@ Technical design notes may use internal English API/type names freely.
 8. Confirm expected version and working-tree baseline before editing
 ```
 
-If the machine is new to InputStitch development, verify Git, .NET Framework 4.7.2 reference assemblies/build path, embedded ViGEm client dependency and GitHub authentication before release work.
+On a new development machine, verify Git, .NET Framework 4.7.2 reference assemblies/build path, embedded ViGEm client dependency and GitHub authentication before release work.

@@ -2,16 +2,17 @@
 
 # InputStitch Roadmap / 开发路线
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 ## Current position / 当前阶段
 
 Current Stable: **v1.3.0**
-Current prerelease: **v1.3.1-beta.1** — published
+Previous prerelease: **v1.3.1-beta.1** — published and immutable
+Current prerelease candidate: **v1.3.1-beta.2**
 
-Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runtime milestone. The current `1.3.1-beta.1` branch extends that common runtime into controller input, multi-controller routing, mapping layers, optional virtual-controller creation and an experimental fail-safe controlled-replacement foundation.
+Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runtime milestone. The current `1.3.1-beta.2` tree keeps the controller-input/aggregation/slot-acquisition foundation from beta.1, expands Layer into arbitrary named layers with switch bindings, and adds continuous takeover health monitoring with automatic fail-safe disengage/recovery.
 
-一句话：**1.3.0 已经解决“多个宏同时运行且互不误伤”；已发布的 1.3.1-beta.1 把手柄触发、汇总、映射层和实验性安全接管正式接入这套统一平台。**
+一句话：**1.3.0 解决“多个宏同时运行且互不误伤”；beta.1 把手柄触发、汇总和安全取得 0 号接入统一平台；beta.2 继续把映射层做成可自由管理的多层系统，并让实验性接管在运行中持续自检、异常时自动退出恢复。**
 
 ## Completed milestones / 已完成里程碑
 
@@ -38,7 +39,7 @@ Stable `v1.3.0` completed the Input Ownership + universal Concurrent Macro Runti
 
 Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` tags and releases remain immutable.
 
-## v1.3.1-beta.1 — current prerelease / 当前测试版
+## v1.3.1-beta.2 — current prerelease candidate / 当前测试版候选
 
 ### A. Physical XInput controller input — implemented
 
@@ -84,19 +85,24 @@ The no-output choice is persistent and respected:
 
 Fresh-install default remains Xbox360 unless a later product decision changes it.
 
-### E. Layer / mapping layer — implemented for all macro types
+### E. Layer / mapping layer — arbitrary named layers + switch bindings implemented
 
 Current model:
 
 - Base always active;
-- one additional active Layer 1;
+- any number of additional named layers can exist;
+- one non-Base layer is active at a time;
 - active layer is runtime-only;
 - ordinary timed, Toggle, Advanced/complex Hold and Parallel Held Mapping can all belong to a layer;
+- every layer, including Base, may have a keyboard/mouse/controller switch trigger;
+- add / rename / delete are exposed in the main UI;
+- deleting a layer moves its macros to Base; deleting the active layer first returns to Base-only;
 - list priority remains authoritative inside the eligible set;
 - leaving a layer stops only that layer's active sources;
-- newly eligible triggers that were already held require release + press.
+- newly eligible triggers that were already held require release + press;
+- modern XML uses an authoritative replacement list so deleting legacy Layer 1 survives restart, while truly old configs without layer data still migrate to Base + Layer 1.
 
-### F. Controlled Replacement safety foundation — experimental, partially implemented
+### F. Controlled Replacement transaction + runtime health — experimental, hardware acceptance pending
 
 Implemented:
 
@@ -110,6 +116,10 @@ Implemented:
 - non-persistent Windows Configuration Manager disable/enable operations with a dedicated slot-acquisition recovery journal;
 - independent hard gates after acquisition: target slot, Router and external source identity/visibility must all still be valid before HidHide Begin is reachable;
 - post-hide Router/slot/source-health verification;
+- continuous background health monitoring while takeover is active: target slot, Router readiness, expected XInput source visibility, HidHide cloak state, selected hidden-device membership and InputStitch whitelist;
+- one transient failure is tolerated; two consecutive failures dispatch a single fail-safe recovery;
+- confirmed runtime failure restores InputStitch-owned HidHide changes, stops/disables Router and clears managed routed output so restored original input is not doubled by routed input;
+- Runtime Observation/diagnostics expose layer, virtual slot, Router/takeover health, expected sources and recovery warnings without initializing ViGEm merely for observation;
 - rollback of InputStitch-owned changes;
 - preservation of pre-existing HidHide state;
 - crash-recovery journal written before mutation;
@@ -123,10 +133,9 @@ Not completed:
 - reliable identity mapping beyond the current XUSB/HidHide `xusbDeviceInstancePath` path for arbitrary hardware;
 - real HidHide hardware validation on the current development laptop;
 - proof that a specific game sees only the routed controller;
-- continuous in-session health watchdog for hiding/slot/source loss;
 - non-XInput controller backends.
 
-Therefore **do not describe 1.3.1-beta.1 as complete controller takeover**.
+Therefore **do not describe 1.3.1-beta.2 as fully hardware-validated controller takeover**.
 
 ## Highest-priority next work / 下一步最高优先级
 
@@ -174,16 +183,16 @@ On a machine with HidHide installed, prove all of the following:
 - crash/restart recovery restores InputStitch-owned changes;
 - pre-existing HidHide configuration is preserved.
 
-### 4. Continuous takeover health monitoring
+### 4. Physical fault-injection acceptance for the implemented health monitor
 
-While Controlled Replacement is active, monitor:
+The runtime health watchdog is now implemented and automatically disengages after confirmed consecutive failures. When physical hardware becomes available, validate that real-world failures behave the same way:
 
-- Router health;
-- expected physical source visibility to InputStitch;
-- target virtual slot;
-- hiding backend state.
+- target virtual slot changes unexpectedly;
+- Router becomes unavailable;
+- a whitelisted original XInput source stops being visible to InputStitch;
+- HidHide cloak/hidden-device/application-whitelist state is changed externally.
 
-Unexpected loss should fail safe and restore the original device when possible.
+Each confirmed fault must restore InputStitch-owned hiding changes when possible, stop routed output, and avoid original + routed doubled input.
 
 ### 5. Broader controller platform — later / 按真实需求推进
 
@@ -193,15 +202,14 @@ After XInput takeover is mature, consider:
 - DirectInput / HID / GameInput;
 - Windows-connected DualShock / DualSense;
 - per-device identity UI;
-- more than one named Layer;
-- Layer-switch bindings;
+- optional Layer ordering/presets only if a concrete workflow demonstrates a need;
 - conditions / groups / richer routing policies.
 
 Gyro-to-mouse is a separate later project because it requires sensor calibration/filtering and should not be mixed into basic routing.
 
 ## Validation status / 验证状态
 
-Latest clean 2026-09-09 automated regression:
+Latest clean 2026-09-10 automated regression:
 
 | Area | Result |
 |---|---:|
@@ -209,10 +217,10 @@ Latest clean 2026-09-09 automated regression:
 | Idle Gamepad | 58 pass |
 | XInput input | 26 pass |
 | Gamepad Router | 28 pass |
-| Controlled Replacement cross-stage transaction/recovery | 39 pass |
+| Controlled Replacement transaction/runtime health/recovery | 52 pass |
 | Slot acquisition / PnP recovery | 27 pass; fake PnP/XInput, no real device disabled |
 | Optional virtual-controller preference | 15 pass; no ViGEm device created |
-| Layer | 24 pass |
+| Flexible Layer / XML / observation | 39 pass |
 | Macro timing | 7 pass |
 | Updater | 43 pass |
 | UI safety / diagnostics | 23 pass |
@@ -240,19 +248,22 @@ v1.3.0-beta.2
    ↓
 v1.3.0 Stable   ← current recommended Stable
    ↓
-v1.3.1-beta.1  ← current published prerelease; slot acquisition implemented
+v1.3.1-beta.1  ← published prerelease; slot acquisition implemented
    ↓
-physical PnP + real HidHide + target-game acceptance
+v1.3.1-beta.2  ← current candidate; flexible layers + takeover health monitoring
    ↓
-controlled replacement maturity
+physical PnP + real HidHide + target-game acceptance (blocked until hardware exists)
    ↓
-broader controller platform / richer layers as justified
+controlled replacement hardware maturity
+   ↓
+broader controller platform / richer routing as justified
 ```
 
 ## Release discipline / 发布纪律
 
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
+- `v1.3.1-beta.2` is the next prerelease candidate and must pass the same local + GitHub verify gates before publication.
 - Do not change `v1.3.0` or `releases/latest`.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.

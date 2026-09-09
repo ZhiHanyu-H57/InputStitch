@@ -1,8 +1,8 @@
 # Physical Gamepad Input + Hybrid Controller Routing design note
 
-Status: **XInput input, controller triggers, hybrid macros and multi-controller aggregation are implemented in `v1.3.1-beta.1`; Controlled Replacement is experimental and incomplete.**
+Status: **The 1.3.1 Beta line implements XInput input, controller triggers, hybrid macros, multi-controller aggregation, recoverable slot-0 acquisition and experimental HidHide Controlled Replacement. `v1.3.1-beta.2` adds continuous takeover health monitoring and fail-safe automatic disengage; physical-controller + HidHide + game acceptance is still pending.**
 
-状态：**`v1.3.1-beta.1` 已实现 XInput 手柄输入、手柄触发、混合宏和多手柄汇总；受控接管目前仍是实验性、不完整状态。**
+状态：**1.3.1 Beta 已实现 XInput 手柄输入、手柄触发、混合宏、多手柄汇总、可恢复的 0 号槽位取得和实验性 HidHide 接管；`v1.3.1-beta.2` 又加入接管运行自检与异常自动脱离恢复。由于当前没有实体测试手柄和 HidHide 环境，最终硬件验收仍未完成。**
 
 ## Product goal / 产品目标
 
@@ -347,16 +347,43 @@ Before claiming full takeover, test on a suitable machine that:
 7. pre-existing HidHide configuration is preserved;
 8. a real target game sees only the intended controller path.
 
-## Continuous health monitoring — next
+## Continuous takeover health monitoring — implemented in beta.2
 
-Activation-time verification is not enough for long sessions. Future active takeover should periodically validate:
+Activation-time verification is not enough for long sessions. `ControlledReplacementHealthMonitor` now runs potentially slow HidHide checks on a background timer rather than the WinForms/XInput polling thread.
 
-- expected routed source remains visible to InputStitch;
-- Router remains enabled/healthy;
-- InputStitch virtual pad remains target slot;
-- hiding backend remains active as expected.
+While takeover is Active it validates:
 
-Unexpected loss should fail safe and restore visibility where possible.
+- HidHide backend remains available;
+- Router remains enabled/ready;
+- InputStitch virtual Xbox remains the required target slot 0;
+- every XInput source expected after takeover remains visible to InputStitch;
+- HidHide cloak remains active;
+- every user-selected original controller remains in hidden-device state;
+- InputStitch remains in the HidHide application whitelist.
+
+The activation check and the ongoing check deliberately use different source-health mechanics:
+
+- activation performs a short settle, actively polls XInput, and proves the hidden originals remain readable before declaring Active;
+- ongoing monitoring reads the latest XInput snapshot maintained by the normal 10 ms UI poll and does **not** call `Poll()` on the background thread, so controller edge generation stays single-threaded.
+
+Failure policy:
+
+```text
+unhealthy once → record failure, keep takeover active
+healthy next   → reset streak
+unhealthy twice consecutively → signal one fail-safe disengage
+```
+
+On confirmed failure the monitor stops first, then UI-thread recovery:
+
+1. calls Controlled Replacement Stop to restore InputStitch-owned HidHide changes;
+2. stops and disables Router;
+3. clears managed Output Ownership state;
+4. neutralizes virtual-controller output;
+5. persists Router disabled so restored original input is not simultaneously duplicated by aggregation;
+6. retains the recovery journal and warns the user if visibility restoration itself cannot complete.
+
+The one-failure tolerance reduces false disengagement from short device-enumeration/HidHide CLI transients while two consecutive failures still fail closed.
 
 ## Broader platform later
 
@@ -376,10 +403,10 @@ Current relevant suites:
 
 - `XInputInputTests`: 26 checks;
 - `GamepadRouterTests`: 28 checks;
-- `ControlledReplacementTests`: 39 checks using fake backend/parser only, including the cross-stage “HidHide Begin must remain unreachable” gates;
+- `ControlledReplacementTests`: **52 checks** using fake backend/parser only, covering activation/rollback gates plus runtime slot/Router/source/HidHide health and consecutive-failure monitor behavior;
 - `SlotAcquisitionTests`: 27 checks using fake PnP/XInput only; no real device is disabled;
 - `VirtualGamepadPreferenceTests`: 15 checks, explicitly no ViGEm device created;
-- `LayerTests`: 24 checks;
+- `LayerTests`: **39 checks** including arbitrary named layers, switch targets, deletion migration, real XML round trip and side-effect-free observation;
 - `OutputOwnershipTests`: 303,716 checks.
 
 Developer-only real neutral probe:

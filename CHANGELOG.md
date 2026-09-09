@@ -3,6 +3,40 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.3.1-beta.2（测试版）
+
+**一句话概括：现在映射层可以自由新增、命名、删除和快捷切换；实验性手柄接管也会在运行中持续自检，确认异常后自动退出接管并尝试恢复原手柄。**
+
+### 面向用户的变化
+
+- 映射层不再固定为“基础层 + 映射层 1”。基础层始终有效，除此之外可以创建任意多个自定义层，并给每个层起自己的名字。
+- 主界面新增“管理映射层…”入口，可新增、重命名、删除层。删除层时其中的宏会自动移回基础层；删除当前活动层会先安全切回“仅基础层”。
+- 每个层（包括基础层）都可以录制自己的切换快捷键；快捷键可以来自键盘、鼠标或手柄。基础层快捷键表示回到“仅基础层”。
+- 切换层仍使用统一并发运行时：旧层正在运行的宏会停止并只释放自己的输出；基础层和其他来源不会被一起清掉。新层中原本就按住的触发仍要先松开再重新按，避免切层瞬间误触发。
+- 修复 Layer XML 保存/加载问题：用户删除旧“映射层 1”后，保存并重启不会再因为默认配置初始化而把它偷偷创建回来；真正的旧配置没有 Layer 数据时仍会兼容迁移成“基础层 + 映射层 1”。
+- 实验性手柄接管增加运行期健康监控：后台持续检查虚拟 Xbox 是否仍在 0 号、手柄汇总是否就绪、原 XInput 来源是否可读，以及 HidHide 的总开关、隐藏设备和 InputStitch 白名单是否仍符合接管条件。
+- 一次瞬时健康检查失败不会立刻退出；连续两次失败才确认异常。确认异常后会自动尝试恢复 InputStitch 自己造成的 HidHide 变化、停止手柄汇总并清理受管输出，避免原手柄恢复可见后出现“原输入 + 汇总输入”的双输入。
+- “运行观察”和详细诊断现在会显示当前映射层名称、虚拟 Xbox 槽位、手柄汇总、接管状态、最近一次健康检查、连续失败次数、预期 XInput 来源以及两套恢复日志状态。
+- 观察/诊断本身不会为了读状态而创建虚拟手柄；隔离 UI 测试宿主也不会因为打开运行观察而加载 ViGEm。
+
+### 仍需明确的限制
+
+- 当前开发机没有实体 XInput 手柄和 HidHide，所以“实体原手柄 + HidHide + 实际游戏最终只看到 InputStitch 受控 0 号虚拟手柄”的最终硬件验收仍然搁置。
+- 现有四槽位中立 ViGEm 探针只验证 Windows/ViGEm 的真实槽位重排顺序，不会被当作实体手柄验收的替代品。
+
+### 自动验证
+
+- Controlled Replacement 专项扩大到 **52 项**，新增运行期槽位/Router/XInput 来源/HidHide 状态检查，以及“单次失败不退出、连续两次才触发一次恢复”的监控测试。
+- Layer 专项扩大到 **39 项**，覆盖任意命名多层、层快捷键解析、活动层删除回 Base、宏迁移、真实 XML 保存/重载和运行观察/诊断。
+- 原有 323 项键盘测试、58 项闲置手柄测试、26 项 XInput 输入测试、28 项多手柄汇总测试、27 项 0 号槽位取得测试、15 项虚拟手柄偏好测试、7 项宏计时测试、43 项更新安装测试、18 项更新网络测试、23 项界面安全/诊断测试、358 项配置/易用性测试和 **303,716 项输出合并/并发测试**继续通过。
+
+### Technical notes
+
+- `ControlledReplacementHealthMonitor` runs potentially slow HidHide checks away from the WinForms/XInput polling thread and requires consecutive failures before dispatching one fail-safe recovery.
+- Runtime health verifies target slot, Router readiness, expected XInput source visibility, cloak state, requested hidden-device membership and the InputStitch application whitelist.
+- Layer definitions now include an optional switch trigger; Base remains mandatory while the number and names of non-Base layers are user-managed.
+- Layer XML uses a replacing serialization proxy so modern explicit layer lists are authoritative while truly old configs without layer data retain the legacy default migration.
+
 ## 1.3.1-beta.1（测试版）
 
 **一句话概括：现在可以直接用手柄触发宏、把多个手柄汇总到 InputStitch 自己的虚拟手柄，并在实验性接管模式下先安全取得 0 号槽位，再把所选原手柄交给 InputStitch 统一转发。**

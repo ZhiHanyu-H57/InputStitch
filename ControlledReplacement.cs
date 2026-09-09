@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml.Serialization;
 using System.Windows.Forms;
 
@@ -668,15 +669,123 @@ namespace InputStitch
         }
     }
 
+    internal sealed class ControlledReplacementHealthSnapshot
+    {
+        public bool Healthy;
+        public string Reason = "";
+        public DateTime CheckedUtc = DateTime.UtcNow;
+
+        internal static ControlledReplacementHealthSnapshot Ok(string reason)
+        {
+            return new ControlledReplacementHealthSnapshot { Healthy = true, Reason = reason ?? "healthy", CheckedUtc = DateTime.UtcNow };
+        }
+
+        internal static ControlledReplacementHealthSnapshot Fail(string reason)
+        {
+            return new ControlledReplacementHealthSnapshot { Healthy = false, Reason = reason ?? "unhealthy", CheckedUtc = DateTime.UtcNow };
+        }
+    }
+
+    // Runs potentially slow HidHide health checks away from the WinForms UI thread.
+    // A transient single failure is tolerated; two consecutive failures disengage takeover once.
+    internal sealed class ControlledReplacementHealthMonitor : IDisposable
+    {
+        private readonly Func<bool> isActive;
+        private readonly Func<ControlledReplacementHealthSnapshot> probe;
+        private readonly Action<ControlledReplacementHealthSnapshot> unhealthyConfirmed;
+        private readonly int intervalMs;
+        private readonly int failureThreshold;
+        private System.Threading.Timer timer;
+        private int inFlight;
+        private int consecutiveFailures;
+        private int failureSignaled;
+        private readonly object stateSync = new object();
+        private ControlledReplacementHealthSnapshot lastSnapshot = ControlledReplacementHealthSnapshot.Ok("not-started");
+
+        internal ControlledReplacementHealthMonitor(Func<bool> replacementActive,
+            Func<ControlledReplacementHealthSnapshot> healthProbe,
+            Action<ControlledReplacementHealthSnapshot> onUnhealthyConfirmed,
+            int intervalMilliseconds, int consecutiveFailureThreshold)
+        {
+            if (replacementActive == null || healthProbe == null || onUnhealthyConfirmed == null)
+                throw new ArgumentNullException("controlled replacement health monitor dependency");
+            isActive = replacementActive;
+            probe = healthProbe;
+            unhealthyConfirmed = onUnhealthyConfirmed;
+            intervalMs = Math.Max(100, intervalMilliseconds);
+            failureThreshold = Math.Max(1, consecutiveFailureThreshold);
+        }
+
+        internal bool Monitoring { get { return timer != null; } }
+        internal int ConsecutiveFailures { get { return Volatile.Read(ref consecutiveFailures); } }
+        internal ControlledReplacementHealthSnapshot LastSnapshot
+        {
+            get { lock (stateSync) return lastSnapshot; }
+        }
+
+        internal void Start()
+        {
+            Stop();
+            Interlocked.Exchange(ref consecutiveFailures, 0);
+            Interlocked.Exchange(ref failureSignaled, 0);
+            lock (stateSync) lastSnapshot = ControlledReplacementHealthSnapshot.Ok("monitoring-started");
+            timer = new System.Threading.Timer(delegate { CheckNow(); }, null, intervalMs, intervalMs);
+        }
+
+        internal void Stop()
+        {
+            System.Threading.Timer old = Interlocked.Exchange(ref timer, null);
+            if (old != null) old.Dispose();
+            Interlocked.Exchange(ref consecutiveFailures, 0);
+        }
+
+        // Internal so the fake-backend suite can deterministically exercise the exact monitor logic.
+        internal void CheckNow()
+        {
+            if (Interlocked.Exchange(ref inFlight, 1) != 0) return;
+            try
+            {
+                if (!isActive())
+                {
+                    Interlocked.Exchange(ref consecutiveFailures, 0);
+                    lock (stateSync) lastSnapshot = ControlledReplacementHealthSnapshot.Ok("takeover-inactive");
+                    return;
+                }
+
+                ControlledReplacementHealthSnapshot snapshot;
+                try { snapshot = probe() ?? ControlledReplacementHealthSnapshot.Fail("health probe returned no result"); }
+                catch (Exception ex) { snapshot = ControlledReplacementHealthSnapshot.Fail("health probe failed: " + ex.Message); }
+                lock (stateSync) lastSnapshot = snapshot;
+
+                if (snapshot.Healthy)
+                {
+                    Interlocked.Exchange(ref consecutiveFailures, 0);
+                    return;
+                }
+
+                int failures = Interlocked.Increment(ref consecutiveFailures);
+                if (failures < failureThreshold) return;
+                if (Interlocked.Exchange(ref failureSignaled, 1) != 0) return;
+                Stop();
+                unhealthyConfirmed(snapshot);
+            }
+            finally { Interlocked.Exchange(ref inFlight, 0); }
+        }
+
+        public void Dispose() { Stop(); }
+    }
+
     internal sealed class ControlledReplacementCoordinator : IDisposable
     {
         private readonly IDeviceHidingBackend backend;
         private readonly Func<bool> routerReady;
         private readonly Func<int> virtualSlot;
         private readonly Func<bool> sourceHealth;
+        private readonly Func<bool> runtimeSourceHealth;
         private readonly string applicationPath;
         private readonly IControlledReplacementJournal journal;
         private readonly List<string> addedHiddenDevices = new List<string>();
+        private readonly List<string> activeRequestedDevices = new List<string>();
         private bool addedApplication;
         private bool initialCloak;
         private bool snapshotTaken;
@@ -691,6 +800,11 @@ namespace InputStitch
 
         internal ControlledReplacementCoordinator(IDeviceHidingBackend hidingBackend, Func<bool> isRouterReady,
             Func<int> ownVirtualSlot, Func<bool> routedSourceHealth, string executablePath, IControlledReplacementJournal recoveryJournal)
+            : this(hidingBackend, isRouterReady, ownVirtualSlot, routedSourceHealth, routedSourceHealth, executablePath, recoveryJournal) { }
+
+        internal ControlledReplacementCoordinator(IDeviceHidingBackend hidingBackend, Func<bool> isRouterReady,
+            Func<int> ownVirtualSlot, Func<bool> activationSourceHealth, Func<bool> ongoingSourceHealth,
+            string executablePath, IControlledReplacementJournal recoveryJournal)
         {
             if (hidingBackend == null) throw new ArgumentNullException("hidingBackend");
             if (isRouterReady == null) throw new ArgumentNullException("isRouterReady");
@@ -698,7 +812,8 @@ namespace InputStitch
             backend = hidingBackend;
             routerReady = isRouterReady;
             virtualSlot = ownVirtualSlot;
-            sourceHealth = routedSourceHealth;
+            sourceHealth = activationSourceHealth;
+            runtimeSourceHealth = ongoingSourceHealth ?? activationSourceHealth;
             applicationPath = executablePath ?? "";
             journal = recoveryJournal;
             State = ControlledReplacementState.Idle;
@@ -731,6 +846,8 @@ namespace InputStitch
             State = ControlledReplacementState.Activating;
             LastMessage = "activating";
             addedHiddenDevices.Clear();
+            activeRequestedDevices.Clear();
+            activeRequestedDevices.AddRange(requested);
             addedApplication = false;
             snapshotTaken = false;
             try
@@ -780,6 +897,39 @@ namespace InputStitch
             }
         }
 
+        internal ControlledReplacementHealthSnapshot ProbeHealth(int targetSlot)
+        {
+            if (!Active) return ControlledReplacementHealthSnapshot.Ok("takeover-inactive");
+            try
+            {
+                if (!backend.IsAvailable) return ControlledReplacementHealthSnapshot.Fail("device-hiding backend is unavailable");
+                if (!routerReady()) return ControlledReplacementHealthSnapshot.Fail("controller Router is not ready");
+                int slot = virtualSlot();
+                if (slot != targetSlot)
+                    return ControlledReplacementHealthSnapshot.Fail("virtual controller left target XInput slot " + targetSlot.ToString() + " (current " + slot.ToString() + ")");
+                if (runtimeSourceHealth != null && !runtimeSourceHealth())
+                    return ControlledReplacementHealthSnapshot.Fail("one or more routed XInput sources are no longer visible to InputStitch");
+                if (!backend.GetCloakActive()) return ControlledReplacementHealthSnapshot.Fail("HidHide cloak is no longer active");
+
+                ISet<string> hidden = backend.GetHiddenDevices();
+                foreach (string requested in activeRequestedDevices)
+                    if (!hidden.Contains(requested))
+                        return ControlledReplacementHealthSnapshot.Fail("selected original controller is no longer hidden: " + requested);
+
+                if (!string.IsNullOrWhiteSpace(applicationPath))
+                {
+                    ISet<string> apps = backend.GetAllowedApplications();
+                    if (!apps.Contains(applicationPath))
+                        return ControlledReplacementHealthSnapshot.Fail("InputStitch is no longer in the HidHide application whitelist");
+                }
+                return ControlledReplacementHealthSnapshot.Ok("router/source/slot/hiding state healthy");
+            }
+            catch (Exception ex)
+            {
+                return ControlledReplacementHealthSnapshot.Fail("health verification failed: " + ex.Message);
+            }
+        }
+
         public ControlledReplacementResult Stop()
         {
             if (!Active && !snapshotTaken) return Result(ControlledReplacementState.Idle, "Controlled replacement is already off.");
@@ -798,6 +948,7 @@ namespace InputStitch
                 catch (Exception ex) { errors.Add("unhide " + addedHiddenDevices[i] + ": " + ex.Message); }
             }
             addedHiddenDevices.Clear();
+            activeRequestedDevices.Clear();
 
             if (snapshotTaken)
             {

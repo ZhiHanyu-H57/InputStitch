@@ -23,19 +23,19 @@ InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式�
 
 ### 当前测试版
 
-**v1.3.1-beta.1：手柄输入、手柄汇总与映射层测试版。**
+**v1.3.1-beta.2：多映射层与接管运行自检测试版。**
 
-一句话概括：**现在可以直接用连接到电脑的手柄触发宏，把多个手柄的操作汇总到 InputStitch 自己的虚拟手柄，并让所有类型的宏都能按映射层启用或停用。**
+一句话概括：**现在可以自由新增、命名、删除和快捷切换映射层；实验性手柄接管也会在运行中持续检查 0 号槽位、手柄汇总和 HidHide 状态，确认异常后自动退出接管并尝试恢复原手柄。**
 
 测试版不会替换正式版的自动更新通道，需要用户主动下载和测试：
 
 | 测试版文件 | 下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.3.1-beta.1-Windows-x64.exe](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.3.1-beta.1-Windows-x86.exe](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.3.1-beta.1-Source.zip](../../releases/download/v1.3.1-beta.1/InputStitch-1.3.1-beta.1-Source.zip) |
-| 更新清单 | [InputStitch-beta.xml](../../releases/download/v1.3.1-beta.1/InputStitch-beta.xml) |
-| 文件校验值 | [SHA256SUMS.txt](../../releases/download/v1.3.1-beta.1/SHA256SUMS.txt) |
+| 64 位 Windows（x64） | [InputStitch-1.3.1-beta.2-Windows-x64.exe](../../releases/download/v1.3.1-beta.2/InputStitch-1.3.1-beta.2-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.3.1-beta.2-Windows-x86.exe](../../releases/download/v1.3.1-beta.2/InputStitch-1.3.1-beta.2-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.3.1-beta.2-Source.zip](../../releases/download/v1.3.1-beta.2/InputStitch-1.3.1-beta.2-Source.zip) |
+| 更新清单 | [InputStitch-beta.xml](../../releases/download/v1.3.1-beta.2/InputStitch-beta.xml) |
+| 文件校验值 | [SHA256SUMS.txt](../../releases/download/v1.3.1-beta.2/SHA256SUMS.txt) |
 
 如果不确定架构，现代 Windows 电脑通常选择 x64。EXE 是便携式程序，放在有写入权限的文件夹中即可运行。系统需要 .NET Framework 4.7.2 或兼容的更高版本。
 
@@ -126,14 +126,19 @@ Windows 的 Xbox 兼容手柄接口通常用 0、1、2、3 四个槽位表示最
 
 当前 XInput 后端最多允许 **InputStitch 1 个 + 外部 XInput 手柄 3 个**同时可路由；超过这个范围会在修改设备前拒绝接管。真正把原设备对普通程序隐藏仍依赖用户自行安装的 HidHide。本功能已经通过自动事务/回滚测试，并在本机用 4 个中立 ViGEm 测试手柄验证了“外部 0/1/2 + InputStitch 3 → InputStitch 0 + 外部 1/2/3”的真实槽位重排顺序；但**实体手柄 + HidHide + 实际游戏的完整接管仍需要真实硬件验收**。
 
-### 映射层（v1.3.1-beta.1）
+`beta.2` 又增加了**接管运行自检**。接管已经启动以后，InputStitch 会在后台持续检查：自己的虚拟 Xbox 是否仍在 0 号、手柄汇总是否仍就绪、原 XInput 来源是否仍可读、HidHide 总开关是否仍开启、所选原设备是否仍被隐藏，以及 InputStitch 自己是否仍在 HidHide 白名单。一次瞬时异常不会立刻退出；连续两次异常才确认失效。确认失效后会自动尝试恢复 HidHide 状态、停止手柄汇总并清理受管输出，避免原手柄恢复后又同时收到一份汇总输入。
+
+### 映射层（v1.3.1-beta.2）
 
 映射层可以理解成“同一套输入里可以随时切换的另一组规则”。
 
-第一版提供：
+现在的模型是：
 
 - **基础层**：始终有效；
-- **映射层 1**：可以在运行时启用或关闭。
+- **自定义映射层**：可以创建任意多个，并给每个层起自己的名字；
+- 运行时一次只激活一个额外层，所以当前有效集合始终是“基础层 + 当前活动层”。
+
+点“**管理映射层…**”可以新增、重命名或删除层。删除一个层时，其中的宏会自动移回基础层；如果删掉的正是当前活动层，会先安全切回“仅基础层”。
 
 每一个宏都可以选择属于哪一层，包括：
 
@@ -142,11 +147,13 @@ Windows 的 Xbox 兼容手柄接口通常用 0、1、2、3 四个槽位表示最
 - 复杂的按住运行宏；
 - 轻量的持续按住映射。
 
+每个层（包括基础层）都可以录制自己的**切换快捷键**。快捷键可以来自键盘、鼠标或手柄。基础层的快捷键表示“回到仅基础层”。
+
 切换映射层时，旧层里仍在运行的宏会停止，并只释放旧层自己的输出。基础层继续保留。
 
 如果你切到一个新层时，那个层的触发键本来就已经按着，InputStitch 不会因为按键自动重复或手柄轮询而突然启动它；必须先松开，再重新按下。这是为了避免切层瞬间出现意外输入。
 
-当前激活的映射层只是运行时状态，重启程序后重新回到“仅基础层”。
+当前激活的映射层只是运行时状态，重启程序后重新回到“仅基础层”。新版还修复了一个配置问题：用户删除旧的“映射层 1”后，保存并重新启动时它不会再被默认配置偷偷创建回来。真正的旧配置如果从来没有 Layer 数据，则仍会自动兼容成“基础层 + 映射层 1”。
 
 ## 快速开始
 
@@ -156,7 +163,7 @@ Windows 的 Xbox 兼容手柄接口通常用 0、1、2、3 四个槽位表示最
 4. 录制触发方式，并选择“按一次启动/停止”或“按住运行、松开停止”。
 5. 如需手柄输出，在设置中选择 Xbox 360 或 PS4 / DualShock 4 并检测连接；如果只用键鼠宏/手柄触发，可以选择“不创建虚拟手柄”。
 6. 如需手柄汇总，在设置中开启对应测试选项，并检查 InputStitch 显示的虚拟 Xbox 手柄槽位。
-7. 如需映射层，为宏选择所属层，并在主界面切换当前映射层。
+7. 如需映射层，为宏选择所属层；可用“管理映射层…”新增/命名/删除层，并为每个层录制快捷切换方式。
 8. 正式使用前先确认紧急停止键能够正常工作。
 
 ## 多个宏同时运行时怎么合并
@@ -252,8 +259,8 @@ build.bat
 
 - Windows 的 Xbox 兼容手柄输入使用 **XInput** 接口；它最多暴露 4 个用户槽位。
 - InputStitch 的虚拟 Xbox/PS4 手柄由 **ViGEmBus** 提供。
-- v1.3.1-beta.1 已完成“读取其他手柄 → 统一处理 → 汇总到自身虚拟 Xbox 手柄”的路由部分。
-- “隐藏原设备 → 保证游戏只看到 InputStitch → 必要时确保 InputStitch 占用目标槽位”的完整受控替换尚未完成，目前这台开发机也没有安装用于设备隐藏的 HidHide。
+- v1.3.1-beta.1 已完成“读取其他手柄 → 统一处理 → 汇总到自身虚拟 Xbox 手柄”，并加入可恢复的 0 号槽位取得与 HidHide 接管事务。
+- v1.3.1-beta.2 又加入接管运行自检和自动脱离恢复；当前代码链已经覆盖“取得 0 号 → 隐藏 → 持续监控 → 异常恢复”。但这台开发机没有实体测试手柄和 HidHide，所以“实体原手柄 + HidHide + 实际游戏”的最终硬件验收仍未完成。
 - 更详细的内部设计见 [手柄输入与路由设计](docs/GAMEPAD_INPUT_ROUTING.md) 和 [映射层设计](docs/LAYER_DESIGN.md)。这些文档面向开发者，因此会使用更多英文 API 和内部类型名。
 
 开发计划见 [ROADMAP.md](ROADMAP.md)。

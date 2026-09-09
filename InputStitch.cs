@@ -1238,6 +1238,8 @@ namespace InputStitch
         public string Id = MappingLayerIds.Base;
         public string Name = "基础层";
         public bool IsBase = true;
+        // Optional physical shortcut that activates this layer. Base means returning to Base-only.
+        public TriggerSpec SwitchTrigger;
     }
 
     [Serializable]
@@ -1282,7 +1284,19 @@ namespace InputStitch
     {
         public string FormatVersion = AppInfo.ConfigFormatVersion;
         public List<MacroDefinition> Macros = new List<MacroDefinition>();
+        // Runtime code keeps a List, but XML uses a replacing proxy. This matters because XmlSerializer
+        // appends into pre-initialized public collection fields; without the proxy, deleting the legacy
+        // default Layer 1 would make it reappear after restart. Old XML with no MappingLayers element
+        // still keeps the constructor default Base + Layer 1 for backward compatibility.
+        [XmlIgnore]
         public List<MappingLayerDefinition> MappingLayers = CreateDefaultMappingLayers();
+        [XmlArray("MappingLayers")]
+        [XmlArrayItem("MappingLayerDefinition")]
+        public MappingLayerDefinition[] MappingLayersXml
+        {
+            get { return MappingLayers == null ? new MappingLayerDefinition[0] : MappingLayers.ToArray(); }
+            set { MappingLayers = value == null ? new List<MappingLayerDefinition>() : new List<MappingLayerDefinition>(value); }
+        }
         // Scan-code SendInput is substantially more game-friendly than virtual-key SendInput.
         public bool UseScanCodeInput = true;
         public bool ActivateTargetWindowOnUiRun = false;
@@ -4768,6 +4782,7 @@ namespace InputStitch
         private ComboBox triggerModeBox;
         private ComboBox mappingLayerBox;
         private ComboBox activeLayerBox;
+        private Button layerManageButton;
         private CheckBox suppressBox;
         private CheckBox infiniteBox;
         private NumericUpDown repeatBox;
@@ -4819,9 +4834,10 @@ namespace InputStitch
         private bool loadingUi;
         private bool pauseHotkeys;
         private bool manualTriggerSuspend;
-        private enum CaptureMode { None, Trigger, StepInput, PanicTrigger }
+        private enum CaptureMode { None, Trigger, StepInput, PanicTrigger, LayerSwitch }
         private CaptureMode captureMode = CaptureMode.None;
         private InputEventInfo pendingModifierCapture;
+        private MappingLayerDefinition layerSwitchCaptureTarget;
         private Action<InputSpec> stepCaptureCallback;
         private MacroDefinition nameEditingMacro;
         private System.Windows.Forms.Timer foregroundTimer;
@@ -4851,6 +4867,8 @@ namespace InputStitch
         private XInputSlotAcquisitionCoordinator slotAcquisition;
         private ControlledReplacementCoordinator controlledReplacement;
         private ControlledTakeoverPipeline controlledTakeoverPipeline;
+        private ControlledReplacementHealthMonitor controlledReplacementHealthMonitor;
+        private string controlledReplacementHealthStatus = "inactive";
         private int[] replacementExpectedControllerSlots = new int[0];
         private string replacementRecoveryWarning = "";
         private string slotAcquisitionRecoveryWarning = "";
@@ -5009,6 +5027,7 @@ namespace InputStitch
                 delegate { return config.GamepadRouterEnabled && gamepadRouter != null && gamepadRouter.Enabled && GamepadOutput.OwnXboxUserIndex >= 0; },
                 delegate { return GamepadOutput.OwnXboxUserIndex; },
                 ValidateControlledReplacementSourceHealth,
+                ValidateControlledReplacementRuntimeSourceHealth,
                 Application.ExecutablePath,
                 replacementJournal);
             controlledTakeoverPipeline = new ControlledTakeoverPipeline(
@@ -5016,6 +5035,12 @@ namespace InputStitch
                 delegate { return GamepadOutput.OwnXboxUserIndex; },
                 PrepareControlledTakeoverForHiding,
                 delegate(IEnumerable<string> paths, int targetSlot) { return controlledReplacement.Begin(paths, targetSlot); });
+            controlledReplacementHealthMonitor = new ControlledReplacementHealthMonitor(
+                delegate { return controlledReplacement != null && controlledReplacement.Active; },
+                delegate { return controlledReplacement == null ? ControlledReplacementHealthSnapshot.Ok("takeover-unavailable") : controlledReplacement.ProbeHealth(0); },
+                HandleControlledReplacementHealthFailure,
+                1000,
+                2);
             gamepadInputTimer = new System.Windows.Forms.Timer();
             gamepadInputTimer.Interval = 10;
             gamepadInputTimer.Tick += delegate
@@ -5404,9 +5429,13 @@ namespace InputStitch
             activeLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
             activeLayerBox.Dock = DockStyle.Fill;
             activeLayerBox.SelectedIndexChanged += ActiveLayerBox_SelectedIndexChanged;
+            layerManageButton = new Button();
+            layerManageButton.AutoSize = true;
+            layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
+            layerManageButton.Click += delegate { ShowLayerManagementMenu(); };
             triggerLayout.Controls.Add(activeLayerLabel, 0, 3);
             triggerLayout.Controls.Add(activeLayerBox, 1, 3);
-            triggerLayout.SetColumnSpan(activeLayerBox, 2);
+            triggerLayout.Controls.Add(layerManageButton, 2, 3);
 
             Label mappingLayerLabel = MakeFieldLabel("此宏属于：");
             mappingLayerBox = new ComboBox();
@@ -5859,6 +5888,7 @@ namespace InputStitch
             }
             if (runtimeObservationMenuItem != null) runtimeObservationMenuItem.Text = Localizer.IsEnglish ? "Runtime observation..." : "运行观察...";
             if (controllerTakeoverMenuItem != null) controllerTakeoverMenuItem.Text = Localizer.IsEnglish ? "Controller takeover (Experimental)..." : "手柄接管（实验）...";
+            if (layerManageButton != null) layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
             if (diagnosticsMenuItem != null) diagnosticsMenuItem.Text = Localizer.T("诊断信息...");
             if (openConfigFolderMenuItem != null) openConfigFolderMenuItem.Text = Localizer.T("打开配置文件夹");
             if (openLogMenuItem != null) openLogMenuItem.Text = Localizer.T("打开日志文件夹");
@@ -6453,6 +6483,29 @@ namespace InputStitch
             sb.AppendLine(Localizer.IsEnglish ? "Runtime observation" : "运行观察");
             sb.AppendLine(new string('-', 56));
 
+            MappingLayerDefinition activeLayer = FindMappingLayer(activeMappingLayerId);
+            string layerText = activeMappingLayerId.Length == 0
+                ? (Localizer.IsEnglish ? "Base only" : "仅基础层")
+                : (Localizer.IsEnglish ? "Base + " : "基础层 + ") + (activeLayer == null ? activeMappingLayerId : activeLayer.Name);
+            sb.AppendLine((Localizer.IsEnglish ? "Layer: " : "映射层：") + layerText);
+            sb.AppendLine((Localizer.IsEnglish ? "Virtual Xbox slot: " : "虚拟 Xbox 槽位：") + ObservedVirtualXboxSlot().ToString());
+            sb.AppendLine((Localizer.IsEnglish ? "Controller merge: " : "手柄汇总：") +
+                (gamepadRouter == null ? (Localizer.IsEnglish ? "unavailable" : "不可用") :
+                    (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : (Localizer.IsEnglish ? "off" : "关闭"))));
+            string takeoverState = controlledReplacement == null ? "unavailable" : controlledReplacement.State.ToString();
+            sb.AppendLine((Localizer.IsEnglish ? "Controller takeover: " : "手柄接管：") + takeoverState);
+            if (controlledReplacementHealthMonitor != null)
+            {
+                ControlledReplacementHealthSnapshot health = controlledReplacementHealthMonitor.LastSnapshot;
+                sb.AppendLine((Localizer.IsEnglish ? "Takeover health: " : "接管健康监控：") +
+                    (controlledReplacementHealthMonitor.Monitoring ? (Localizer.IsEnglish ? "monitoring" : "监控中") : (Localizer.IsEnglish ? "inactive" : "未运行")) +
+                    "; " + (health == null ? controlledReplacementHealthStatus : (health.Healthy ? "OK: " : "FAIL: ") + health.Reason) +
+                    "; failures=" + controlledReplacementHealthMonitor.ConsecutiveFailures.ToString());
+            }
+            if (replacementExpectedControllerSlots != null && replacementExpectedControllerSlots.Length != 0)
+                sb.AppendLine((Localizer.IsEnglish ? "Expected routed XInput sources: " : "预期被路由的 XInput 来源：") + string.Join(",", replacementExpectedControllerSlots));
+            sb.AppendLine();
+
             List<string> runLines = new List<string>();
             List<string> heldMappings = new List<string>();
             string stopReason;
@@ -6523,11 +6576,34 @@ namespace InputStitch
             sb.AppendLine("Hooks: " + (hooks == null ? Localizer.T("未安装") : Localizer.T("已安装")));
             sb.AppendLine("ScanCodeInput: " + (config != null && config.UseScanCodeInput ? Localizer.T("开启") : (Localizer.IsEnglish ? "Off" : "关闭")));
             sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
-            sb.AppendLine("VirtualGamepadConnected: " + (GamepadOutput.IsConnected ? GamepadOutput.ConnectedType : Localizer.T("否")));
-            sb.AppendLine("VirtualXboxSlot: " + GamepadOutput.OwnXboxUserIndex.ToString());
+            sb.AppendLine("VirtualGamepadConnected: " + (ObservedVirtualGamepadConnected() ? ObservedVirtualGamepadType() : Localizer.T("否")));
+            sb.AppendLine("VirtualXboxSlot: " + ObservedVirtualXboxSlot().ToString());
             sb.AppendLine("GamepadRouter: " + (gamepadRouter == null ? "unavailable" :
                 (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : "disabled")));
-            sb.AppendLine("ActiveMappingLayer: " + (activeMappingLayerId.Length == 0 ? MappingLayerIds.Base : MappingLayerIds.Base + "+" + activeMappingLayerId));
+            sb.AppendLine("ControlledReplacement: " + (controlledReplacement == null ? "unavailable" : controlledReplacement.State.ToString() + "; " + controlledReplacement.LastMessage));
+            if (controlledReplacementHealthMonitor != null)
+            {
+                ControlledReplacementHealthSnapshot health = controlledReplacementHealthMonitor.LastSnapshot;
+                sb.AppendLine("TakeoverHealthMonitoring: " + (controlledReplacementHealthMonitor.Monitoring ? "active" : "inactive") +
+                    "; consecutiveFailures=" + controlledReplacementHealthMonitor.ConsecutiveFailures.ToString() +
+                    "; last=" + (health == null ? controlledReplacementHealthStatus : (health.Healthy ? "OK: " : "FAIL: ") + health.Reason));
+            }
+            sb.AppendLine("ExpectedRoutedXInputSources: " + (replacementExpectedControllerSlots == null || replacementExpectedControllerSlots.Length == 0 ? "none" : string.Join(",", replacementExpectedControllerSlots)));
+            sb.AppendLine("ReplacementRecoveryWarning: " + (string.IsNullOrWhiteSpace(replacementRecoveryWarning) ? "none" : replacementRecoveryWarning));
+            sb.AppendLine("SlotAcquisitionRecoveryWarning: " + (string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning) ? "none" : slotAcquisitionRecoveryWarning));
+            MappingLayerDefinition diagnosticActiveLayer = FindMappingLayer(activeMappingLayerId);
+            sb.AppendLine("ActiveMappingLayer: " + (activeMappingLayerId.Length == 0 ? "Base only" : "Base + " + (diagnosticActiveLayer == null ? activeMappingLayerId : diagnosticActiveLayer.Name)));
+            sb.AppendLine("MappingLayerCount: " + (config == null || config.MappingLayers == null ? "0" : config.MappingLayers.Count.ToString()));
+            if (config != null && config.MappingLayers != null)
+            {
+                foreach (MappingLayerDefinition layer in config.MappingLayers)
+                {
+                    if (layer == null) continue;
+                    sb.AppendLine("Layer[" + layer.Id + "]: " + (layer.Name ?? "") +
+                        "; Base=" + layer.IsBase.ToString() +
+                        "; Switch=" + (layer.SwitchTrigger == null ? "none" : InputNames.FormatTrigger(layer.SwitchTrigger)));
+                }
+            }
             sb.AppendLine("PanicTrigger: " + InputNames.FormatTrigger(config == null ? null : config.PanicTrigger));
             sb.AppendLine("GlobalTriggersSuspended: " + (manualTriggerSuspend ? Localizer.T("是") : Localizer.T("否")));
             sb.AppendLine("UIProtectionPause: " + (uiSafetyPauseRequested ? Localizer.T("是") + " - " + Localizer.Dynamic(uiSafetyPauseReason) : Localizer.T("否")));
@@ -6562,6 +6638,29 @@ namespace InputStitch
             }
             sb.AppendLine("TriggerConflicts: " + GetTriggerConflictSummary());
             return sb.ToString();
+        }
+
+        private bool ObservedVirtualGamepadConnected()
+        {
+            if (isolatedUiHost) return false;
+            try { return GamepadOutput.IsConnected; }
+            catch { return false; }
+        }
+
+        private string ObservedVirtualGamepadType()
+        {
+            if (isolatedUiHost) return "";
+            try { return GamepadOutput.ConnectedType; }
+            catch { return ""; }
+        }
+
+        private int ObservedVirtualXboxSlot()
+        {
+            // Observation must never initialize or connect a virtual device. The isolated UI/test
+            // host deliberately avoids the embedded ViGEm dependency, so report no slot there.
+            if (isolatedUiHost) return -1;
+            try { return GamepadOutput.OwnXboxUserIndex; }
+            catch { return -1; }
         }
 
         private void ApplyStatusVisuals()
@@ -7298,10 +7397,14 @@ namespace InputStitch
         {
             if (layer == null) return "";
             if (string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase))
-                return Localizer.IsEnglish ? "Base layer" : "基础层（始终启用）";
-            if (string.Equals(layer.Id, MappingLayerIds.Layer1, StringComparison.OrdinalIgnoreCase))
-                return Localizer.IsEnglish ? "Layer 1" : "映射层 1";
-            return layer.Name ?? layer.Id;
+            {
+                string baseName = Localizer.IsEnglish ? "Base layer" : "基础层（始终启用）";
+                if (layer.SwitchTrigger != null) baseName += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]";
+                return baseName;
+            }
+            string name = string.IsNullOrWhiteSpace(layer.Name) ? layer.Id : layer.Name;
+            if (layer.SwitchTrigger != null) name += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]";
+            return name;
         }
 
         private void RefreshLayerChoiceLists()
@@ -7334,6 +7437,144 @@ namespace InputStitch
             finally { loadingUi = oldLoading; }
         }
 
+        private MappingLayerDefinition FindMappingLayer(string id)
+        {
+            if (config == null || config.MappingLayers == null) return null;
+            string wanted = string.IsNullOrWhiteSpace(id) ? MappingLayerIds.Base : id;
+            foreach (MappingLayerDefinition layer in config.MappingLayers)
+                if (layer != null && string.Equals(layer.Id, wanted, StringComparison.OrdinalIgnoreCase)) return layer;
+            return null;
+        }
+
+        private MappingLayerDefinition CurrentLayerManagementTarget()
+        {
+            LayerChoice choice = activeLayerBox == null ? null : activeLayerBox.SelectedItem as LayerChoice;
+            return FindMappingLayer(choice == null ? activeMappingLayerId : choice.Id);
+        }
+
+        private string PromptLayerName(string title, string initialValue)
+        {
+            using (Form dialog = new Form())
+            {
+                dialog.Text = title;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MinimizeBox = false;
+                dialog.MaximizeBox = false;
+                dialog.ClientSize = new Size(420, 118);
+                dialog.Font = Font;
+                Label label = new Label { Left = 14, Top = 14, Width = 390, Text = Localizer.IsEnglish ? "Layer name:" : "映射层名称：" };
+                TextBox input = new TextBox { Left = 14, Top = 38, Width = 390, Text = initialValue ?? "" };
+                Button ok = new Button { Text = Localizer.IsEnglish ? "OK" : "确定", DialogResult = DialogResult.OK, Left = 248, Top = 76, Width = 76 };
+                Button cancel = new Button { Text = Localizer.IsEnglish ? "Cancel" : "取消", DialogResult = DialogResult.Cancel, Left = 328, Top = 76, Width = 76 };
+                dialog.Controls.Add(label); dialog.Controls.Add(input); dialog.Controls.Add(ok); dialog.Controls.Add(cancel);
+                dialog.AcceptButton = ok; dialog.CancelButton = cancel;
+                dialog.Shown += delegate { input.Focus(); input.SelectAll(); };
+                if (dialog.ShowDialog(this) != DialogResult.OK) return null;
+                string value = (input.Text ?? "").Trim();
+                return value.Length == 0 ? null : value;
+            }
+        }
+
+        private void AddMappingLayer()
+        {
+            int number = config == null || config.MappingLayers == null ? 1 : Math.Max(1, config.MappingLayers.Count);
+            string defaultName = (Localizer.IsEnglish ? "Layer " : "映射层 ") + number.ToString();
+            string name = PromptLayerName(Localizer.IsEnglish ? "Add mapping layer" : "新增映射层", defaultName);
+            if (string.IsNullOrWhiteSpace(name)) return;
+            NormalizeMappingLayers(config);
+            config.MappingLayers.Add(new MappingLayerDefinition { Id = "layer-" + Guid.NewGuid().ToString("N"), Name = name, IsBase = false });
+            SaveConfig();
+            RefreshLayerChoiceLists();
+            SetStatusSafe((Localizer.IsEnglish ? "Added mapping layer: " : "已新增映射层：") + name);
+        }
+
+        private void RenameMappingLayer(MappingLayerDefinition layer)
+        {
+            if (layer == null || layer.IsBase) return;
+            string name = PromptLayerName(Localizer.IsEnglish ? "Rename mapping layer" : "重命名映射层", layer.Name);
+            if (string.IsNullOrWhiteSpace(name)) return;
+            layer.Name = name;
+            SaveConfig();
+            RefreshLayerChoiceLists();
+            RefreshMacroList(macroList == null ? 0 : macroList.SelectedIndex);
+        }
+
+        private void DeleteMappingLayer(MappingLayerDefinition layer)
+        {
+            if (layer == null || layer.IsBase || config == null || config.MappingLayers == null) return;
+            DialogResult confirm = MessageBox.Show(this,
+                Localizer.IsEnglish
+                    ? "Delete layer '" + layer.Name + "'? Macros assigned to it will move back to Base."
+                    : "删除映射层“" + layer.Name + "”？属于该层的宏会自动移回基础层。",
+                AppInfo.ProductName, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.OK) return;
+            RemoveMappingLayerCore(layer);
+            SaveConfig();
+            RefreshMacroList(macroList == null ? 0 : macroList.SelectedIndex);
+            SetStatusSafe(Localizer.IsEnglish ? "Mapping layer deleted; its macros moved to Base." : "映射层已删除；其中的宏已移回基础层。");
+        }
+
+        private void RemoveMappingLayerCore(MappingLayerDefinition layer)
+        {
+            if (layer == null || layer.IsBase || config == null || config.MappingLayers == null) return;
+            if (string.Equals(activeMappingLayerId, layer.Id, StringComparison.OrdinalIgnoreCase)) SwitchActiveMappingLayer("");
+            foreach (MacroDefinition macro in config.Macros)
+            {
+                if (macro == null || !string.Equals(MacroLayerId(macro), layer.Id, StringComparison.OrdinalIgnoreCase)) continue;
+                StopMacroForDefinitionChange(macro, "mapping-layer-delete");
+                macro.MappingLayerId = MappingLayerIds.Base;
+            }
+            config.MappingLayers.Remove(layer);
+        }
+
+        private void BeginLayerSwitchCapture(MappingLayerDefinition layer)
+        {
+            if (layer == null) return;
+            captureMode = CaptureMode.LayerSwitch;
+            pendingModifierCapture = null;
+            stepCaptureCallback = null;
+            layerSwitchCaptureTarget = layer;
+            SetStatusSafe((Localizer.IsEnglish ? "Press the shortcut for layer '" : "请按下映射层“") +
+                (layer.IsBase ? (Localizer.IsEnglish ? "Base" : "基础层") : layer.Name) +
+                (Localizer.IsEnglish ? "' (Esc cancels)." : "”的切换快捷键（Esc 取消）。"));
+            UpdateUiSafetyPauseState();
+        }
+
+        private void ShowLayerManagementMenu()
+        {
+            MappingLayerDefinition target = CurrentLayerManagementTarget();
+            ContextMenuStrip menu = new ContextMenuStrip();
+            ToolStripMenuItem add = new ToolStripMenuItem(Localizer.IsEnglish ? "Add layer..." : "新增映射层…");
+            add.Click += delegate { AddMappingLayer(); };
+            menu.Items.Add(add);
+            ToolStripMenuItem rename = new ToolStripMenuItem(Localizer.IsEnglish ? "Rename current layer..." : "重命名当前层…");
+            rename.Enabled = target != null && !target.IsBase;
+            rename.Click += delegate { RenameMappingLayer(target); };
+            menu.Items.Add(rename);
+            ToolStripMenuItem remove = new ToolStripMenuItem(Localizer.IsEnglish ? "Delete current layer" : "删除当前层");
+            remove.Enabled = target != null && !target.IsBase;
+            remove.Click += delegate { DeleteMappingLayer(target); };
+            menu.Items.Add(remove);
+            menu.Items.Add(new ToolStripSeparator());
+            ToolStripMenuItem shortcut = new ToolStripMenuItem(Localizer.IsEnglish ? "Set switch shortcut..." : "设置当前层切换快捷键…");
+            shortcut.Enabled = target != null;
+            shortcut.Click += delegate { BeginLayerSwitchCapture(target); };
+            menu.Items.Add(shortcut);
+            ToolStripMenuItem clearShortcut = new ToolStripMenuItem(Localizer.IsEnglish ? "Clear switch shortcut" : "清除当前层切换快捷键");
+            clearShortcut.Enabled = target != null && target.SwitchTrigger != null;
+            clearShortcut.Click += delegate
+            {
+                if (target == null) return;
+                target.SwitchTrigger = null;
+                SaveConfig();
+                RefreshLayerChoiceLists();
+            };
+            menu.Items.Add(clearShortcut);
+            menu.Closed += delegate { menu.Dispose(); };
+            menu.Show(layerManageButton, new Point(0, layerManageButton.Height));
+        }
+
         private static string MacroLayerId(MacroDefinition macro)
         {
             return macro == null || string.IsNullOrWhiteSpace(macro.MappingLayerId) ? MappingLayerIds.Base : macro.MappingLayerId;
@@ -7351,6 +7592,25 @@ namespace InputStitch
         private bool IsMacroLayerEligible(MacroDefinition macro)
         {
             return IsMacroLayerEligibleFor(macro, activeMappingLayerId);
+        }
+
+        private MappingLayerDefinition SelectLayerSwitchTarget(InputEventInfo inputEvent)
+        {
+            if (config == null || config.MappingLayers == null || inputEvent == null || inputEvent.Input == null) return null;
+            foreach (MappingLayerDefinition layer in config.MappingLayers)
+                if (layer != null && layer.SwitchTrigger != null && ModifierSafetyPolicy.TriggerMatchesExactly(layer.SwitchTrigger, inputEvent)) return layer;
+
+            MappingLayerDefinition best = null;
+            int bestSpecificity = -1;
+            foreach (MappingLayerDefinition layer in config.MappingLayers)
+            {
+                if (layer == null || layer.SwitchTrigger == null) continue;
+                if (!ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(layer.SwitchTrigger, inputEvent)) continue;
+                if (!ModifierSafetyPolicy.TriggerRequiredModifiersMatch(layer.SwitchTrigger, inputEvent)) continue;
+                int specificity = ModifierSafetyPolicy.TriggerSpecificity(layer.SwitchTrigger);
+                if (specificity > bestSpecificity) { best = layer; bestSpecificity = specificity; }
+            }
+            return best;
         }
 
         private MacroDefinition SelectEligibleTriggerMacro(InputEventInfo inputEvent)
@@ -7418,9 +7678,11 @@ namespace InputStitch
             }
             runtimeTrace.Add("layer-switch", newLayerId.Length == 0 ? "base-only" : newLayerId);
             RefreshRuntimeCapabilityUi();
+            MappingLayerDefinition activeLayerDefinition = FindMappingLayer(newLayerId);
+            string activeLayerName = activeLayerDefinition == null ? newLayerId : (string.IsNullOrWhiteSpace(activeLayerDefinition.Name) ? activeLayerDefinition.Id : activeLayerDefinition.Name);
             SetStatusSafe(newLayerId.Length == 0
                 ? (Localizer.IsEnglish ? "Layer: Base only." : "映射层：当前仅启用基础层。")
-                : (Localizer.IsEnglish ? "Active layer: " : "当前映射层：") + newLayerId + (Localizer.IsEnglish ? "." : "。"));
+                : (Localizer.IsEnglish ? "Active layer: " : "当前映射层：") + activeLayerName + (Localizer.IsEnglish ? "." : "。"));
         }
 
         private void ActiveLayerBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -8419,8 +8681,6 @@ namespace InputStitch
             }
             if (!ids.Contains(MappingLayerIds.Base))
                 value.MappingLayers.Insert(0, new MappingLayerDefinition { Id = MappingLayerIds.Base, Name = "基础层", IsBase = true });
-            if (!ids.Contains(MappingLayerIds.Layer1))
-                value.MappingLayers.Add(new MappingLayerDefinition { Id = MappingLayerIds.Layer1, Name = "映射层 1", IsBase = false });
         }
 
         private static void NormalizeConfig(MacroConfig value)
@@ -8693,6 +8953,7 @@ namespace InputStitch
         {
             captureMode = CaptureMode.None;
             pendingModifierCapture = null;
+            layerSwitchCaptureTarget = null;
             stepCaptureCallback = null;
             if (captureTriggerButton != null)
             {
@@ -8810,7 +9071,7 @@ namespace InputStitch
             {
                 // Defer a physical modifier until it is released: Ctrl then K must still
                 // capture Ctrl+K, while pressing and releasing Shift alone captures Shift.
-                if ((captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger) &&
+                if ((captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger || captureMode == CaptureMode.LayerSwitch) &&
                     !completingModifierCapture && e.Input.Kind == InputKind.Keyboard &&
                     ModifierSafetyPolicy.IsModifierVirtualKey(e.Input.VirtualKey))
                 {
@@ -8877,6 +9138,26 @@ namespace InputStitch
                     return true;
                 }
 
+                if (captureMode == CaptureMode.LayerSwitch)
+                {
+                    MappingLayerDefinition layer = layerSwitchCaptureTarget;
+                    if (layer == null) { CancelCapture(); return true; }
+                    TriggerSpec trigger = TriggerFromInputEvent(e);
+                    layer.SwitchTrigger = trigger;
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            SaveConfig();
+                            CancelCapture();
+                            RefreshLayerChoiceLists();
+                            SetStatusSafe((Localizer.IsEnglish ? "Layer switch shortcut saved: " : "映射层切换快捷键已保存：") + InputNames.FormatTrigger(trigger));
+                        });
+                    }
+                    catch { CancelCapture(); }
+                    return true;
+                }
+
                 if (captureMode == CaptureMode.StepInput)
                 {
                     Action<InputSpec> cb = stepCaptureCallback;
@@ -8905,6 +9186,31 @@ namespace InputStitch
             // Refresh synchronously on a physical edge: a queued foreground/focus
             // notification must not leave the previous UI protection state cached.
             UpdateUiSafetyPauseState();
+
+            // Layer switching has priority over ordinary macro matching, but it does not suppress
+            // the physical input from the foreground application. This lets a game key also act as
+            // an InputStitch layer selector without creating a second macro engine.
+            if (!uiSafetyPauseRequested && !pauseHotkeys && !manualTriggerSuspend)
+            {
+                MappingLayerDefinition layerSwitch = SelectLayerSwitchTarget(e);
+                if (layerSwitch != null)
+                {
+                    string targetLayerId = layerSwitch.IsBase || string.Equals(layerSwitch.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase) ? "" : layerSwitch.Id;
+                    runtimeTrace.Add("layer-hotkey", targetLayerId.Length == 0 ? "base-only" : targetLayerId);
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            UpdateUiSafetyPauseState();
+                            if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None || recordingActive) return;
+                            SwitchActiveMappingLayer(targetLayerId);
+                            RefreshLayerChoiceLists();
+                        });
+                    }
+                    catch { }
+                    return false;
+                }
+            }
 
             MacroDefinition matchedMacro = SelectEligibleTriggerMacro(e);
 
@@ -8956,7 +9262,7 @@ namespace InputStitch
             InputEventInfo pending = pendingModifierCapture;
             if (pending != null && pending.Input != null && e.Input.Kind == InputKind.Keyboard &&
                 pending.Input.VirtualKey == e.Input.VirtualKey &&
-                (captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger))
+                (captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger || captureMode == CaptureMode.LayerSwitch))
             {
                 pendingModifierCapture = null;
                 HandleTerminalInputCore(pending, true);
@@ -9860,6 +10166,59 @@ namespace InputStitch
             return true;
         }
 
+        private bool ValidateControlledReplacementRuntimeSourceHealth()
+        {
+            if (gamepadInput == null || replacementExpectedControllerSlots == null || replacementExpectedControllerSlots.Length == 0) return false;
+            // Ongoing health checks run on a background timer. Do not call Poll here because the
+            // 10 ms UI timer owns edge generation; read only its latest four-slot snapshot.
+            int[] connected = gamepadInput.ConnectedUserIndices();
+            HashSet<int> visible = new HashSet<int>(connected);
+            foreach (int expected in replacementExpectedControllerSlots)
+                if (!visible.Contains(expected)) return false;
+            return true;
+        }
+
+        private void HandleControlledReplacementHealthFailure(ControlledReplacementHealthSnapshot snapshot)
+        {
+            string reason = snapshot == null ? "unknown takeover health failure" : snapshot.Reason;
+            controlledReplacementHealthStatus = "unhealthy: " + reason;
+            try { AppLog.Write("Controlled replacement health failure: " + reason); } catch { }
+            if (IsDisposed || Disposing) return;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    if (IsDisposed || Disposing || controlledReplacement == null || !controlledReplacement.Active) return;
+                    if (controlledReplacementHealthMonitor != null) controlledReplacementHealthMonitor.Stop();
+                    runtimeTrace.Add("takeover-health-failure", reason);
+                    ControlledReplacementResult restored = StopControlledReplacement();
+
+                    // Once original devices are restored, continuing to mirror them would produce
+                    // original + routed input at the same time. Disable Router as part of fail-safe
+                    // disengage. If restoration itself failed, the recovery journal remains intact.
+                    try { if (gamepadRouter != null) gamepadRouter.Stop("takeover-health-failure"); } catch { }
+                    if (config != null && config.GamepadRouterEnabled)
+                    {
+                        config.GamepadRouterEnabled = false;
+                        if (gamepadRouter != null) gamepadRouter.Configure(false);
+                        SaveConfig();
+                    }
+                    try { outputOwnership.ClearAll("takeover-health-failure"); } catch { }
+                    try { GamepadOutput.NeutralizeAll(); } catch { }
+
+                    string message = Localizer.IsEnglish
+                        ? "Controller takeover stopped automatically because its health check failed: " + reason
+                        : "手柄接管已因运行状态异常自动停止并尝试恢复原手柄：" + reason;
+                    if (restored != null && restored.State == ControlledReplacementState.Failed)
+                        message += (Localizer.IsEnglish ? " Restore warning: " : " 恢复警告：") + restored.Message;
+                    SetStatusSafe(message);
+                    if (restored != null && restored.State == ControlledReplacementState.Failed)
+                        LocalizedMessageBox.Show(this, message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                });
+            }
+            catch (Exception ex) { try { AppLog.Write("Could not dispatch takeover health recovery", ex); } catch { } }
+        }
+
         private bool PrepareControlledTakeoverForHiding()
         {
             replacementExpectedControllerSlots = new int[0];
@@ -9942,7 +10301,13 @@ namespace InputStitch
             GamepadOutput.NeutralizeAll();
 
             ControlledReplacementResult result = controlledTakeoverPipeline.Begin(selected, 0);
-            if (!result.Success)
+            if (result != null && result.State == ControlledReplacementState.Active)
+            {
+                controlledReplacementHealthStatus = "healthy: monitoring-started";
+                if (controlledReplacementHealthMonitor != null) controlledReplacementHealthMonitor.Start();
+                runtimeTrace.Add("takeover-health-monitor", "started");
+            }
+            else
             {
                 // The slot and hiding coordinators have already performed their own local rollback.
                 // Restore ordinary Router operation only after those rollback boundaries complete.
@@ -9953,6 +10318,8 @@ namespace InputStitch
 
         private ControlledReplacementResult StopControlledReplacement()
         {
+            if (controlledReplacementHealthMonitor != null) controlledReplacementHealthMonitor.Stop();
+            controlledReplacementHealthStatus = "inactive";
             if (controlledReplacement == null)
                 return new ControlledReplacementResult { State = ControlledReplacementState.Idle, Message = "Controlled replacement is already off." };
             ControlledReplacementResult result = controlledReplacement.Stop();
@@ -10811,6 +11178,7 @@ namespace InputStitch
             }
             try
             {
+                if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
                 if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
                 if (gamepadInputTimer != null)
                 {
