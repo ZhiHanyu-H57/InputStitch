@@ -118,6 +118,8 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'ReleaseInfo.cs')
     $compilerArguments += (Join-Path $projectRoot 'UpdateInstaller.cs')
     $compilerArguments += (Join-Path $projectRoot 'RuntimeDiagnostics.cs')
+    $compilerArguments += (Join-Path $projectRoot 'AtomicXmlFileStore.cs')
+    $compilerArguments += (Join-Path $projectRoot 'ConfigPackageSerializer.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConfigStore.cs')
     $compilerArguments += (Join-Path $projectRoot 'StepHistory.cs')
     $compilerArguments += (Join-Path $projectRoot 'QuickCreate.cs')
@@ -125,6 +127,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'OutputOwnership.cs')
     $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
+    $compilerArguments += (Join-Path $projectRoot 'XInputNative.cs')
     $compilerArguments += (Join-Path $projectRoot 'XInputInput.cs')
     $compilerArguments += (Join-Path $projectRoot 'GamepadRouter.cs')
     $compilerArguments += (Join-Path $projectRoot 'ControlledReplacement.cs')
@@ -161,6 +164,8 @@ function New-SourceArchive {
         'ReleaseInfo.cs',
         'UpdateInstaller.cs',
         'RuntimeDiagnostics.cs',
+        'AtomicXmlFileStore.cs',
+        'ConfigPackageSerializer.cs',
         'ConfigStore.cs',
         'StepHistory.cs',
         'QuickCreate.cs',
@@ -168,6 +173,7 @@ function New-SourceArchive {
         'OutputOwnership.cs',
         'VirtualKeyboard.cs',
         'IdleGamepad.cs',
+        'XInputNative.cs',
         'XInputInput.cs',
         'GamepadRouter.cs',
         'ControlledReplacement.cs',

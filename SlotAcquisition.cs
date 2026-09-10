@@ -4,7 +4,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
-using System.Xml.Serialization;
 
 namespace InputStitch
 {
@@ -23,48 +22,28 @@ namespace InputStitch
 
     internal sealed class FileSlotAcquisitionJournal : ISlotAcquisitionJournal
     {
-        private readonly string path;
+        private readonly AtomicXmlFileStore<SlotAcquisitionRecoveryRecord> store;
 
         internal FileSlotAcquisitionJournal(string journalPath)
         {
             if (string.IsNullOrWhiteSpace(journalPath)) throw new ArgumentException("A slot-acquisition recovery journal path is required.");
-            path = Path.GetFullPath(journalPath);
+            store = new AtomicXmlFileStore<SlotAcquisitionRecoveryRecord>(Path.GetFullPath(journalPath));
         }
 
         public SlotAcquisitionRecoveryRecord Load()
         {
-            if (!File.Exists(path)) return null;
-            using (FileStream stream = File.OpenRead(path))
-                return (SlotAcquisitionRecoveryRecord)new XmlSerializer(typeof(SlotAcquisitionRecoveryRecord)).Deserialize(stream);
+            return store.Load();
         }
 
         public void Save(SlotAcquisitionRecoveryRecord record)
         {
             if (record == null) throw new ArgumentNullException("record");
-            string directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            string staged = path + ".tmp";
-            try
-            {
-                using (FileStream stream = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    new XmlSerializer(typeof(SlotAcquisitionRecoveryRecord)).Serialize(stream, record);
-                    stream.Flush(true);
-                }
-                using (FileStream stream = File.OpenRead(staged))
-                    new XmlSerializer(typeof(SlotAcquisitionRecoveryRecord)).Deserialize(stream);
-                if (File.Exists(path)) File.Replace(staged, path, null);
-                else File.Move(staged, path);
-            }
-            finally
-            {
-                try { if (File.Exists(staged)) File.Delete(staged); } catch { }
-            }
+            store.Save(record);
         }
 
         public void Clear()
         {
-            if (File.Exists(path)) File.Delete(path);
+            store.Clear();
         }
     }
 

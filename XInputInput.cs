@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace InputStitch
 {
@@ -79,7 +78,7 @@ namespace InputStitch
         private readonly SlotState[] slots = new SlotState[4];
         private readonly Func<int> ownXboxSlot;
         private readonly Func<int, XInputPadState> readState;
-        private int xinputLibrary;
+        private readonly XInputNativeReader xinput = new XInputNativeReader();
         private bool disposed;
         private int excludedIndex = -1;
         private string lastEdge = "none";
@@ -254,8 +253,8 @@ namespace InputStitch
 
         private XInputPadState ReadNativeState(int index)
         {
-            XINPUT_STATE native;
-            bool connected = TryXInput((uint)index, out native);
+            XInputNativeState native;
+            bool connected = xinput.TryGetState((uint)index, out native);
             if (!connected) return new XInputPadState();
             return new XInputPadState
             {
@@ -270,31 +269,6 @@ namespace InputStitch
             };
         }
 
-        private bool TryXInput(uint index, out XINPUT_STATE state)
-        {
-            state = new XINPUT_STATE();
-            if (xinputLibrary == -1) return false;
-            try
-            {
-                if (xinputLibrary == 0 || xinputLibrary == 4)
-                {
-                    try { uint result = XInputGetState14(index, out state); xinputLibrary = 4; return result == 0; }
-                    catch (DllNotFoundException) { xinputLibrary = 3; }
-                    catch (EntryPointNotFoundException) { xinputLibrary = 3; }
-                }
-                if (xinputLibrary == 3)
-                {
-                    try { uint result = XInputGetState13(index, out state); return result == 0; }
-                    catch (DllNotFoundException) { xinputLibrary = 9; }
-                    catch (EntryPointNotFoundException) { xinputLibrary = 9; }
-                }
-                return XInputGetState91(index, out state) == 0;
-            }
-            catch (DllNotFoundException) { xinputLibrary = -1; }
-            catch (EntryPointNotFoundException) { xinputLibrary = -1; }
-            return false;
-        }
-
         public void Dispose()
         {
             if (disposed) return;
@@ -306,30 +280,5 @@ namespace InputStitch
             }
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct XINPUT_GAMEPAD
-        {
-            public ushort Buttons;
-            public byte LeftTrigger;
-            public byte RightTrigger;
-            public short ThumbLX;
-            public short ThumbLY;
-            public short ThumbRX;
-            public short ThumbRY;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct XINPUT_STATE
-        {
-            public uint PacketNumber;
-            public XINPUT_GAMEPAD Gamepad;
-        }
-
-        [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
-        private static extern uint XInputGetState14(uint index, out XINPUT_STATE state);
-        [DllImport("xinput1_3.dll", EntryPoint = "XInputGetState")]
-        private static extern uint XInputGetState13(uint index, out XINPUT_STATE state);
-        [DllImport("xinput9_1_0.dll", EntryPoint = "XInputGetState")]
-        private static extern uint XInputGetState91(uint index, out XINPUT_STATE state);
     }
 }

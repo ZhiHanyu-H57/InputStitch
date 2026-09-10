@@ -233,7 +233,7 @@ internal static class IdleGamepadTests
     private static void SensorSignatures()
     {
         bool active; ulong signature;
-        IdleManualActivitySensor.XINPUT_GAMEPAD pad = new IdleManualActivitySensor.XINPUT_GAMEPAD();
+        XInputNativeGamepad pad = new XInputNativeGamepad();
         IdleManualActivitySensor.XboxSignature(pad, out active);
         Check(!active, "neutral Xbox input is idle");
         pad.ThumbLX = 7849; pad.ThumbRY = -8689; pad.LeftTrigger = 30;

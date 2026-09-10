@@ -587,7 +587,7 @@ namespace InputStitch
         private readonly bool[] xboxConnected = new bool[4];
         private readonly ulong[] xboxSignatures = new ulong[4];
         private long nextPoll;
-        private int xinputLibrary;
+        private readonly XInputNativeReader xinput = new XInputNativeReader();
         private bool rawRegistered;
         private IntPtr registeredWindow;
 
@@ -640,8 +640,8 @@ namespace InputStitch
             for (int index = 0; index < 4; index++)
             {
                 if (index == excluded) { xboxConnected[index] = false; continue; }
-                XINPUT_STATE state;
-                bool connected = TryXInput((uint)index, out state);
+                XInputNativeState state;
+                bool connected = xinput.TryGetState((uint)index, out state);
                 if (!connected)
                 {
                     if (xboxConnected[index]) active = true;
@@ -659,7 +659,7 @@ namespace InputStitch
             return active;
         }
 
-        internal static ulong XboxSignature(XINPUT_GAMEPAD pad, out bool active)
+        internal static ulong XboxSignature(XInputNativeGamepad pad, out bool active)
         {
             bool left = Math.Abs((int)pad.ThumbLX) > 7849 || Math.Abs((int)pad.ThumbLY) > 7849;
             bool right = Math.Abs((int)pad.ThumbRX) > 8689 || Math.Abs((int)pad.ThumbRY) > 8689;
@@ -670,31 +670,6 @@ namespace InputStitch
             // held axes refresh continuously, while center jitter stays inactive.
             return (ulong)pad.Buttons | ((ulong)lt << 16) | ((ulong)rt << 24) |
                 (left ? 1UL << 32 : 0) | (right ? 1UL << 33 : 0);
-        }
-
-        private bool TryXInput(uint index, out XINPUT_STATE state)
-        {
-            state = new XINPUT_STATE();
-            if (xinputLibrary == -1) return false;
-            try
-            {
-                if (xinputLibrary == 0 || xinputLibrary == 4)
-                {
-                    try { uint result = XInputGetState14(index, out state); xinputLibrary = 4; return result == 0; }
-                    catch (DllNotFoundException) { xinputLibrary = 3; }
-                    catch (EntryPointNotFoundException) { xinputLibrary = 3; }
-                }
-                if (xinputLibrary == 3)
-                {
-                    try { uint result = XInputGetState13(index, out state); return result == 0; }
-                    catch (DllNotFoundException) { xinputLibrary = 9; }
-                    catch (EntryPointNotFoundException) { xinputLibrary = 9; }
-                }
-                return XInputGetState91(index, out state) == 0;
-            }
-            catch (DllNotFoundException) { xinputLibrary = -1; }
-            catch (EntryPointNotFoundException) { xinputLibrary = -1; }
-            return false;
         }
 
         public void AttachWindow(IntPtr handle)
@@ -846,15 +821,6 @@ namespace InputStitch
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        internal struct XINPUT_GAMEPAD
-        {
-            public ushort Buttons;
-            public byte LeftTrigger, RightTrigger;
-            public short ThumbLX, ThumbLY, ThumbRX, ThumbRY;
-        }
-        [StructLayout(LayoutKind.Sequential)]
-        private struct XINPUT_STATE { public uint PacketNumber; public XINPUT_GAMEPAD Gamepad; }
-        [StructLayout(LayoutKind.Sequential)]
         private struct RAWINPUTDEVICE { public ushort UsagePage, Usage; public uint Flags; public IntPtr Target; }
         [StructLayout(LayoutKind.Sequential)]
         private struct RAWINPUTHEADER { public uint Type, Size; public IntPtr Device, WParam; }
@@ -868,9 +834,6 @@ namespace InputStitch
             [FieldOffset(12)] public uint ProductId;
         }
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
-        [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")] private static extern uint XInputGetState14(uint index, out XINPUT_STATE state);
-        [DllImport("xinput1_3.dll", EntryPoint = "XInputGetState")] private static extern uint XInputGetState13(uint index, out XINPUT_STATE state);
-        [DllImport("xinput9_1_0.dll", EntryPoint = "XInputGetState")] private static extern uint XInputGetState91(uint index, out XINPUT_STATE state);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] devices, uint count, uint size);
         [DllImport("user32.dll")] private static extern uint GetRawInputData(IntPtr rawInput, uint command, IntPtr data, ref uint size, uint headerSize);
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetRawInputDeviceInfoW")]

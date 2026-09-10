@@ -32,6 +32,8 @@
     <Compile Include="ReleaseInfo.cs" />
     <Compile Include="UpdateInstaller.cs" />
     <Compile Include="RuntimeDiagnostics.cs" />
+    <Compile Include="AtomicXmlFileStore.cs" />
+    <Compile Include="ConfigPackageSerializer.cs" />
     <Compile Include="ConfigStore.cs" />
     <Compile Include="StepHistory.cs" />
     <Compile Include="QuickCreate.cs" />
@@ -39,6 +41,7 @@
     <Compile Include="OutputOwnership.cs" />
     <Compile Include="VirtualKeyboard.cs" />
     <Compile Include="IdleGamepad.cs" />
+    <Compile Include="XInputNative.cs" />
     <Compile Include="XInputInput.cs" />
     <Compile Include="GamepadRouter.cs" />
     <Compile Include="ControlledReplacement.cs" />

@@ -6,7 +6,6 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Xml.Serialization;
 using System.Windows.Forms;
 
 namespace InputStitch
@@ -279,49 +278,28 @@ namespace InputStitch
 
     internal sealed class FileControlledReplacementJournal : IControlledReplacementJournal
     {
-        private readonly string path;
+        private readonly AtomicXmlFileStore<ControlledReplacementRecoveryRecord> store;
 
         internal FileControlledReplacementJournal(string journalPath)
         {
             if (string.IsNullOrWhiteSpace(journalPath)) throw new ArgumentException("A recovery journal path is required.");
-            path = Path.GetFullPath(journalPath);
+            store = new AtomicXmlFileStore<ControlledReplacementRecoveryRecord>(Path.GetFullPath(journalPath));
         }
 
         public ControlledReplacementRecoveryRecord Load()
         {
-            if (!File.Exists(path)) return null;
-            using (FileStream stream = File.OpenRead(path))
-                return (ControlledReplacementRecoveryRecord)new XmlSerializer(typeof(ControlledReplacementRecoveryRecord)).Deserialize(stream);
+            return store.Load();
         }
 
         public void Save(ControlledReplacementRecoveryRecord record)
         {
             if (record == null) throw new ArgumentNullException("record");
-            string directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            string staged = path + ".tmp";
-            try
-            {
-                using (FileStream stream = new FileStream(staged, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    new XmlSerializer(typeof(ControlledReplacementRecoveryRecord)).Serialize(stream, record);
-                    stream.Flush(true);
-                }
-                // Validate the staged bytes before they replace the previous recovery record.
-                using (FileStream stream = File.OpenRead(staged))
-                    new XmlSerializer(typeof(ControlledReplacementRecoveryRecord)).Deserialize(stream);
-                if (File.Exists(path)) File.Replace(staged, path, null);
-                else File.Move(staged, path);
-            }
-            finally
-            {
-                try { if (File.Exists(staged)) File.Delete(staged); } catch { }
-            }
+            store.Save(record);
         }
 
         public void Clear()
         {
-            if (File.Exists(path)) File.Delete(path);
+            store.Clear();
         }
     }
 

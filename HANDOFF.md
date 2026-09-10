@@ -9,7 +9,7 @@ Updated: 2026-09-10
 - Current Stable: `v1.4.1`
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
-- Branch: `main`
+- Branch: `refactor/no-functional-change-1` — local no-feature-change refactor branch; `main` remains the published v1.4.1 baseline.
 - Previous Stable rollback reference: `v1.4.0`
 - Developer test tool: `Input Lab v0.3.1` — independent version; source-built/packageable x64 viewer.
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
@@ -23,6 +23,10 @@ git log -1 --oneline -- HANDOFF.md
 Do not put a self-referential commit hash in this file.
 
 ## Working on
+
+**Current local work is a no-functional-change architecture cleanup before further feature growth.** The first refactor pass centralizes duplicated native XInput fallback access in `XInputNativeReader`, centralizes the two recovery-journal atomic XML write paths in `AtomicXmlFileStore<T>`, and moves config/package serialization plus compatibility normalization out of `MainForm` into `ConfigPackageSerializer`. Existing `MainForm` private entrypoints are retained as thin wrappers so current reflection tests and internal call sites keep the same surface. No configuration format, macro semantics, controller routing policy, UI behavior, or release metadata is intentionally changed.
+
+Verification for this refactor checkpoint: full `tests/Run-Tests.ps1` passes after all source moves, including Layer/Productivity/Updater/UI safety and 303,716 Output Ownership checks; all zh-CN/en-US Settings smoke tests pass; `build.ps1` produces and verifies both Windows x64/x86 v1.4.1 executables plus the source archive. The old duplicated `TryXInput` implementations and the duplicated per-journal staged XML write implementations are no longer present in their consumer files.
 
 **`v1.4.1` is the current Stable line. It is a UI-lifecycle hotfix over 1.4.0: transient ContextMenuStrip instances are disposed only after the current ToolStrip message turn, and shutdown no longer synchronously disposes menus that WinForms may still reference. The post-1.4.x plan remains Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
