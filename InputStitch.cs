@@ -6458,7 +6458,8 @@ namespace InputStitch
                 // Emergency Stop is intentionally stronger than ordinary ownership cleanup.
                 // A second native neutral report is harmless and protects against an output
                 // backend that failed after ownership bookkeeping was already cleared.
-                GamepadOutput.NeutralizeAll();
+                try { GamepadOutput.NeutralizeAll(); }
+                catch (Exception ex) { AppLog.Write("Emergency stop gamepad neutralize failed; continuing fail-safe cleanup", ex); }
                 ReconcileHookState("emergency-stop");
                 if (replacementRestoreFailed)
                     statusLabel.Text = Localizer.IsEnglish

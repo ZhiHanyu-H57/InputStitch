@@ -83,7 +83,7 @@ namespace InputStitch.Tools.InputLab
         internal InputLabForm(int initialView, bool automationMode)
         {
             this.automationMode = automationMode;
-            Text = "InputStitch Input Lab v0.3.0";
+            Text = "InputStitch Input Lab v0.3.1";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(980, 700);
             Size = new Size(1220, 840);
@@ -730,7 +730,7 @@ namespace InputStitch.Tools.InputLab
                     if (NativeInput.IsLowerIntegrityKeyboard(data.flags)) detail += ", lower-IL";
                     if (repeat) detail += ", repeat";
                     LogEvent("Keyboard", keyName, down ? "DOWN" : "UP", detail);
-                    if (automationMode && injected && vk == (int)Keys.K)
+                    if (automationMode && injected)
                         return new IntPtr(1);
                 }
             }
@@ -777,8 +777,6 @@ namespace InputStitch.Tools.InputLab
                 {
                     ushort button = NativeInput.HighWordUnsigned(data.mouseData);
                     HandleMouseButton(button == 1 ? "X1" : "X2", message == NativeInput.WM_XBUTTONDOWN, injected, data.flags);
-                    if (automationMode && injected && button == 2)
-                        return new IntPtr(1);
                 }
                 else if (message == NativeInput.WM_MOUSEWHEEL)
                 {
@@ -794,6 +792,8 @@ namespace InputStitch.Tools.InputLab
                     UpdateWheelText();
                     LogEvent("Mouse", "Wheel H", delta > 0 ? "RIGHT" : "LEFT", "delta=" + Signed(delta) + ", total=" + horizontalWheelTotal.ToString() + ", " + (injected ? "injected" : "physical/system"));
                 }
+                // Automated acceptance observes injected output but must not leak it into the user desktop.
+                if (automationMode && injected) return new IntPtr(1);
             }
             return NativeInput.CallNextHookEx(mouseHook, nCode, wParam, lParam);
         }
@@ -1052,6 +1052,19 @@ namespace InputStitch.Tools.InputLab
             return keyLabels.TryGetValue(vk, out label) && label.BackColor != IdleColor;
         }
 
+        internal void ApplyKeyVisualStateForSelfTest(int vk, bool down, bool injected)
+        {
+            if (InvokeRequired)
+            {
+                Invoke((MethodInvoker)delegate { ApplyKeyVisualStateForSelfTest(vk, down, injected); });
+                return;
+            }
+            if (down) keysDown.Add(vk); else keysDown.Remove(vk);
+            lastHookKeyboardVirtualKey = vk;
+            lastHookKeyboardDown = down;
+            if (injected) injectedKeyboardEventCount++;
+            SetKeyState(vk, down, injected);
+        }
         private static string Signed(int value)
         {
             return value > 0 ? "+" + value.ToString() : value.ToString();

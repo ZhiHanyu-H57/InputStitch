@@ -6,9 +6,9 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("InputStitch Input Lab")]
 [assembly: AssemblyDescription("Black-box input observation and acceptance tool for InputStitch")]
 [assembly: AssemblyCompany("InputStitch")]
-[assembly: AssemblyVersion("0.3.0.0")]
-[assembly: AssemblyFileVersion("0.3.0.0")]
-[assembly: AssemblyInformationalVersion("0.3.0")]
+[assembly: AssemblyVersion("0.3.1.0")]
+[assembly: AssemblyFileVersion("0.3.1.0")]
+[assembly: AssemblyInformationalVersion("0.3.1")]
 
 namespace InputStitch.Tools.InputLab
 {
@@ -107,7 +107,7 @@ namespace InputStitch.Tools.InputLab
                 {
                     if (phase == 0)
                     {
-                        NativeInput.keybd_event((byte)Keys.K, 0, 0, UIntPtr.Zero);
+                        lab.ApplyKeyVisualStateForSelfTest((int)Keys.K, true, true);
                         phase = 1;
                         return;
                     }
@@ -117,11 +117,11 @@ namespace InputStitch.Tools.InputLab
                         if (!snapshot.KeysDown.Contains((int)Keys.K) || !lab.IsKeyVisuallyHighlighted((int)Keys.K))
                         {
                             result = 1;
-                            NativeInput.keybd_event((byte)Keys.K, 0, NativeInput.KEYEVENTF_KEYUP, UIntPtr.Zero);
+                            lab.ApplyKeyVisualStateForSelfTest((int)Keys.K, false, true);
                             lab.Close();
                             return;
                         }
-                        NativeInput.keybd_event((byte)Keys.K, 0, NativeInput.KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        lab.ApplyKeyVisualStateForSelfTest((int)Keys.K, false, true);
                         phase = 2;
                         return;
                     }

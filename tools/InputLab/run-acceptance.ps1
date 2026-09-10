@@ -1,10 +1,15 @@
 [CmdletBinding()]
 param(
-    [string]$ReportPath = ''
+    [string]$ReportPath = '',
+    [switch]$AllowRealOutput
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if (-not $AllowRealOutput) {
+    throw 'Input Lab ownership acceptance intentionally emits real SendInput/virtual-controller output. Re-run with -AllowRealOutput only when the desktop is idle and no other InputStitch instance is active.'
+}
 
 $toolRoot = $PSScriptRoot
 $projectRoot = Split-Path (Split-Path $toolRoot -Parent) -Parent

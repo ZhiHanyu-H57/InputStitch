@@ -172,7 +172,7 @@ Additional real neutral-device evidence:
 
 Input Lab final run:
 
-- Input Lab manual viewer is now independently versioned as `v0.3.0`, with a larger keyboard visualization, visible quick-tap afterglow, target-window `WM_KEY*` / `WM_MOUSE*` observation and versioned standalone packaging;
+- Input Lab manual viewer is now independently versioned as `v0.3.1`, retaining the larger keyboard, quick-tap afterglow, target-window `WM_KEY*` / `WM_MOUSE*` observation and standalone packaging while hardening automated-test desktop isolation;
 - the v0.3.0 window-message and keyboard-visual self-tests PASS;
 - full black-box acceptance completed **77/77 PASS, failures=0** in three consecutive runs on this laptop on 2026-09-10;
 - the older intermittent ViGEm→XInput environment blocker did not reproduce in those three runs, but `SUMMARY: BLOCKED` remains a valid environment-only result if it returns later.

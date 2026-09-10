@@ -11,7 +11,7 @@ Updated: 2026-09-10
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
 - Branch: `main`
 - Previous Stable rollback reference: `v1.4.0`
-- Developer test tool: `Input Lab v0.3.0` — independent version; source-built/packageable x64 viewer.
+- Developer test tool: `Input Lab v0.3.1` — independent version; source-built/packageable x64 viewer.
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
 For the commit containing this handoff itself, use:
@@ -542,3 +542,16 @@ Do not spend the next phase chasing controller-model count, gyro/touchpad/vendor
 ```
 
 On a new development machine, verify Git, .NET Framework 4.7.2 reference assemblies/build path, embedded ViGEm client dependency and GitHub authentication before release work.
+### Input Lab v0.3.1 interactive-safety hotfix (2026-09-10)
+
+During local development verification, the operator observed unexpected keyboard characters and reported that an apparent repeating macro could not be stopped normally. The running InputStitch/InputLab processes were checked and no matching process remained; a one-time system-wide KeyUp/MouseUp neutralization was then issued to clear possible stale input state. The exact source of every unexpected character was not proven.
+
+Safety changes made in response:
+
+- removed `keybd_event` from the Input Lab keyboard-visual self-test; the visual self-test is now entirely in-process and emits no Windows keyboard input;
+- automation-mode Input Lab hooks now swallow every injected keyboard and mouse event after observing it, replacing the former K/X2-only special case;
+- `run-acceptance.ps1` now requires explicit `-AllowRealOutput`; use it only with an idle desktop and no other InputStitch instance;
+- the normal packaging path still runs only the self-contained window-message and keyboard-visual self-tests; it does not invoke the real-output ownership acceptance host;
+- `MainForm.EmergencyStop` now isolates a final `GamepadOutput.NeutralizeAll()` exception so hook reconciliation/status completion still runs even if the optional virtual-gamepad backend is unavailable.
+
+Verification after the code change: Input Lab builds successfully; `--self-test-window-messages` exits 0; `--self-test-keyboard-visual` exits 0; a source scan finds no remaining `keybd_event`/`KEYEVENTF_KEYUP` symbols under `tools/InputLab`; the normal InputStitch x64/x86 build passes. The first normal full-regression attempt encountered one transient fake-backend OutputOwnership concurrency assertion; the same 303,716-check ownership suite then passed three consecutive immediate reruns. A fresh full-regression rerun subsequently passed completely, including `PASS output ownership: 303716 checks`, all Settings Smoke cases, old-XML compatibility and gamepad-vector smoke; no real input or virtual devices were used.

@@ -1,18 +1,17 @@
-# Input Lab v0.3.0
+# Input Lab v0.3.1
 
-Input Lab v0.3.0 makes the manual black-box tester much easier to use and adds a missing observation lane.
+Input Lab v0.3.1 is a safety hotfix for automated verification on an interactive Windows desktop.
 
 ## What changed
 
-- Added a target-window Win32 message lane for keyboard and mouse (`WM_KEY*` / `WM_MOUSE*`). This shows whether Input Lab itself, including focused child controls, actually received a normal window message.
-- Kept the existing low-level hook, Raw Input and XInput lanes so the same input can be compared across APIs.
-- Redesigned the keyboard view into a larger six-row layout that uses substantially more of the window and places navigation/arrow keys in more familiar positions.
-- Increased keycap size and contrast.
-- Fixed the practical visibility problem where a quick tap could change to the active color and return to idle too quickly to see. Held keys remain strongly highlighted; releases now retain a 180 ms visual afterglow.
-- Added independent `0.3.0` file/product version metadata.
-- Added built-in self-tests for target-window message observation and keyboard highlight behavior.
-- Added a packaging script that creates a standalone x64 EXE, ZIP and SHA-256 checksums.
+- Removed the system-wide `keybd_event` call from the keyboard-visual self-test. The self-test now drives the viewer's observation/highlight state in-process and emits no real keyboard input.
+- Generalized automation-mode containment: all injected keyboard and mouse events observed by Input Lab's low-level hooks are swallowed after observation, instead of special-casing only `K` and mouse `X2`.
+- Kept `package.ps1` limited to the self-contained window-message and keyboard-visual tests; packaging does not run the real-output ownership acceptance host.
+- Added an explicit `-AllowRealOutput` opt-in gate to `run-acceptance.ps1` so the real-output black-box test cannot be launched accidentally.
+- Hardened InputStitch Emergency Stop so a failure in the optional virtual-gamepad neutralization step is logged but cannot prevent the final hook-state reconciliation and status update.
 
-## Scope and limitations
+## Safety boundary
 
-Input Lab is still a developer/test utility, not a game input emulator. It observes low-level hooks, Raw Input, ordinary target-window messages and XInput, but it does not yet emulate or observe DirectInput/HID/DS4, GameInput, anti-cheat behavior, privilege-boundary behavior, exclusive-fullscreen behavior or game-specific input stacks.
+`run-acceptance.ps1` remains an explicit developer black-box acceptance test. It intentionally exercises real `SendInput` and ViGEm/XInput output paths and now refuses to start unless `-AllowRealOutput` is supplied. Use that opt-in only while the desktop is idle and no other InputStitch instance is active.
+
+The interactive-session incident that prompted this hotfix did not yield enough evidence to attribute every observed keystroke to one exact code path. v0.3.1 therefore treats automated desktop-input containment as a general invariant rather than claiming a single proven root cause.
