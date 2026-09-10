@@ -43,7 +43,9 @@ jobs:
           }
       - name: Run repository regression
         shell: powershell
-        run: ./tests/Run-Tests.ps1
+        run: |
+          ./build.ps1
+          ./tests/Run-Tests.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: InputLab-${{ steps.version.outputs.version }}-Windows-x64
