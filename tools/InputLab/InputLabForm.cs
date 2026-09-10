@@ -10,8 +10,6 @@ namespace InputStitch.Tools.InputLab
     internal sealed class InputLabForm : Form, IMessageFilter
     {
         private readonly Dictionary<int, Label> keyLabels = new Dictionary<int, Label>();
-        private readonly Dictionary<int, long> keyHighlightUntil = new Dictionary<int, long>();
-        private readonly Dictionary<int, bool> keyLastInjected = new Dictionary<int, bool>();
         private readonly Dictionary<int, long> keyLastHookEventAt = new Dictionary<int, long>();
         private readonly Dictionary<int, bool> keyLastHookEventDown = new Dictionary<int, bool>();
         private readonly Dictionary<string, Label> mouseLabels = new Dictionary<string, Label>(StringComparer.OrdinalIgnoreCase);
@@ -72,10 +70,7 @@ namespace InputStitch.Tools.InputLab
         private static readonly Color IdleColor = Color.FromArgb(242, 244, 247);
         private static readonly Color ActiveColor = Color.FromArgb(116, 214, 139);
         private static readonly Color InjectedColor = Color.FromArgb(107, 178, 246);
-        private static readonly Color RecentActiveColor = Color.FromArgb(221, 244, 226);
-        private static readonly Color RecentInjectedColor = Color.FromArgb(219, 235, 252);
         private static readonly Color TextColor = Color.FromArgb(32, 38, 48);
-        private const int KeyReleaseGlowMilliseconds = 180;
         private const int RawKeyboardHookDedupMilliseconds = 60;
 
         internal InputLabForm(int initialView)
@@ -211,57 +206,121 @@ namespace InputStitch.Tools.InputLab
         private Control BuildKeyboardPanel()
         {
             GroupBox group = CreateGroup("Keyboard — low-level hook + Raw Input fallback");
+            Panel host = new Panel();
+            host.Dock = DockStyle.Fill;
+            host.AutoScroll = true;
+
+            // A shared quarter-key grid keeps every row on the same geometry.
+            // Main block = 15u (60 quarter-columns), gap = 0.75u, navigation block = 3u.
+            const int quarterWidth = 15;
+            const int mainColumns = 60;
+            const int gapColumns = 3;
+            const int navigationColumns = 12;
+            const int totalColumns = mainColumns + gapColumns + navigationColumns;
+            const int rowHeight = 60;
+
             TableLayoutPanel layout = new TableLayoutPanel();
-            layout.Dock = DockStyle.Fill;
-            layout.Padding = new Padding(14, 12, 14, 12);
+            layout.Location = new Point(14, 12);
+            layout.Size = new Size(totalColumns * quarterWidth, 6 * rowHeight);
             layout.RowCount = 6;
-            layout.ColumnCount = 1;
-            layout.AutoScroll = true;
-            for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
+            layout.ColumnCount = totalColumns;
+            layout.Margin = new Padding(0);
+            layout.Padding = new Padding(0);
+            layout.GrowStyle = TableLayoutPanelGrowStyle.FixedSize;
+            for (int i = 0; i < totalColumns; i++)
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, quarterWidth));
+            for (int i = 0; i < 6; i++)
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
 
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {27,"Esc",64},{112,"F1",58},{113,"F2",58},{114,"F3",58},{115,"F4",58},{116,"F5",58},{117,"F6",58},{118,"F7",58},{119,"F8",58},{120,"F9",58},{121,"F10",64},{122,"F11",64},{123,"F12",64}
-            }), 0, 0);
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {192,"`",52},{49,"1",52},{50,"2",52},{51,"3",52},{52,"4",52},{53,"5",52},{54,"6",52},{55,"7",52},{56,"8",52},{57,"9",52},{48,"0",52},{189,"-",52},{187,"=",52},{8,"Backspace",102},{45,"Ins",58},{36,"Home",68},{33,"PgUp",68}
-            }), 0, 1);
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {9,"Tab",78},{81,"Q",56},{87,"W",56},{69,"E",56},{82,"R",56},{84,"T",56},{89,"Y",56},{85,"U",56},{73,"I",56},{79,"O",56},{80,"P",56},{219,"[",56},{221,"]",56},{220,"\\",72},{46,"Del",58},{35,"End",68},{34,"PgDn",68}
-            }), 0, 2);
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {20,"Caps Lock",96},{65,"A",58},{83,"S",58},{68,"D",58},{70,"F",58},{71,"G",58},{72,"H",58},{74,"J",58},{75,"K",58},{76,"L",58},{186,";",58},{222,"'",58},{13,"Enter",112}
-            }), 0, 3);
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {160,"LShift",122},{90,"Z",58},{88,"X",58},{67,"C",58},{86,"V",58},{66,"B",58},{78,"N",58},{77,"M",58},{188,",",58},{190,".",58},{191,"/",58},{161,"RShift",138},{38,"↑",58}
-            }), 0, 4);
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {162,"LCtrl",82},{91,"LWin",76},{164,"LAlt",72},{32,"Space",300},{165,"RAlt",72},{92,"RWin",76},{93,"Menu",72},{163,"RCtrl",82},{37,"←",58},{40,"↓",58},{39,"→",58}
-            }), 0, 5);
+            // Function row. Group spacing is explicit and F12 ends at the main-block edge.
+            AddKeyboardKey(layout, 0, 0, 4, 27, "Esc");
+            AddKeyboardKey(layout, 0, 8, 4, 112, "F1");
+            AddKeyboardKey(layout, 0, 12, 4, 113, "F2");
+            AddKeyboardKey(layout, 0, 16, 4, 114, "F3");
+            AddKeyboardKey(layout, 0, 20, 4, 115, "F4");
+            AddKeyboardKey(layout, 0, 26, 4, 116, "F5");
+            AddKeyboardKey(layout, 0, 30, 4, 117, "F6");
+            AddKeyboardKey(layout, 0, 34, 4, 118, "F7");
+            AddKeyboardKey(layout, 0, 38, 4, 119, "F8");
+            AddKeyboardKey(layout, 0, 44, 4, 120, "F9");
+            AddKeyboardKey(layout, 0, 48, 4, 121, "F10");
+            AddKeyboardKey(layout, 0, 52, 4, 122, "F11");
+            AddKeyboardKey(layout, 0, 56, 4, 123, "F12");
 
-            group.Controls.Add(layout);
+            // Number row: 13×1u + 2u Backspace = exactly 15u.
+            int column = 0;
+            int[] numberVks = { 192, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 189, 187 };
+            string[] numberText = { "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
+            for (int i = 0; i < numberVks.Length; i++, column += 4)
+                AddKeyboardKey(layout, 1, column, 4, numberVks[i], numberText[i]);
+            AddKeyboardKey(layout, 1, 52, 8, 8, "Backspace");
+
+            // Q row: 1.5u Tab + 12×1u + 1.5u Backslash = exactly 15u.
+            AddKeyboardKey(layout, 2, 0, 6, 9, "Tab");
+            int[] qVks = { 81, 87, 69, 82, 84, 89, 85, 73, 79, 80, 219, 221 };
+            string[] qText = { "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]" };
+            column = 6;
+            for (int i = 0; i < qVks.Length; i++, column += 4)
+                AddKeyboardKey(layout, 2, column, 4, qVks[i], qText[i]);
+            AddKeyboardKey(layout, 2, 54, 6, 220, "\\");
+
+            // Home row: 1.75u Caps + 11×1u + 2.25u Enter = exactly 15u.
+            AddKeyboardKey(layout, 3, 0, 7, 20, "Caps Lock");
+            int[] homeVks = { 65, 83, 68, 70, 71, 72, 74, 75, 76, 186, 222 };
+            string[] homeText = { "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'" };
+            column = 7;
+            for (int i = 0; i < homeVks.Length; i++, column += 4)
+                AddKeyboardKey(layout, 3, column, 4, homeVks[i], homeText[i]);
+            AddKeyboardKey(layout, 3, 51, 9, 13, "Enter");
+
+            // Shift row: 2.25u + 10×1u + 2.75u = exactly 15u.
+            AddKeyboardKey(layout, 4, 0, 9, 160, "LShift");
+            int[] shiftVks = { 90, 88, 67, 86, 66, 78, 77, 188, 190, 191 };
+            string[] shiftText = { "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/" };
+            column = 9;
+            for (int i = 0; i < shiftVks.Length; i++, column += 4)
+                AddKeyboardKey(layout, 4, column, 4, shiftVks[i], shiftText[i]);
+            AddKeyboardKey(layout, 4, 49, 11, 161, "RShift");
+
+            // Bottom row: standard 15u total, with the right Ctrl edge matching the rows above.
+            AddKeyboardKey(layout, 5, 0, 5, 162, "LCtrl");
+            AddKeyboardKey(layout, 5, 5, 5, 91, "LWin");
+            AddKeyboardKey(layout, 5, 10, 5, 164, "LAlt");
+            AddKeyboardKey(layout, 5, 15, 25, 32, "Space");
+            AddKeyboardKey(layout, 5, 40, 5, 165, "RAlt");
+            AddKeyboardKey(layout, 5, 45, 5, 92, "RWin");
+            AddKeyboardKey(layout, 5, 50, 5, 93, "Menu");
+            AddKeyboardKey(layout, 5, 55, 5, 163, "RCtrl");
+
+            // Shared 3×2 navigation grid and inverted-T arrow cluster.
+            int nav = mainColumns + gapColumns;
+            AddKeyboardKey(layout, 1, nav, 4, 45, "Ins");
+            AddKeyboardKey(layout, 1, nav + 4, 4, 36, "Home");
+            AddKeyboardKey(layout, 1, nav + 8, 4, 33, "PgUp");
+            AddKeyboardKey(layout, 2, nav, 4, 46, "Del");
+            AddKeyboardKey(layout, 2, nav + 4, 4, 35, "End");
+            AddKeyboardKey(layout, 2, nav + 8, 4, 34, "PgDn");
+            AddKeyboardKey(layout, 4, nav + 4, 4, 38, "↑");
+            AddKeyboardKey(layout, 5, nav, 4, 37, "←");
+            AddKeyboardKey(layout, 5, nav + 4, 4, 40, "↓");
+            AddKeyboardKey(layout, 5, nav + 8, 4, 39, "→");
+
+            host.Controls.Add(layout);
+            host.AutoScrollMinSize = new Size(layout.Right + 14, layout.Bottom + 12);
+            group.Controls.Add(host);
             return group;
         }
 
-        private FlowLayoutPanel CreateKeyRow(object[,] keys)
+        private void AddKeyboardKey(TableLayoutPanel layout, int row, int column, int span, int vk, string text)
         {
-            FlowLayoutPanel row = new FlowLayoutPanel();
-            row.Dock = DockStyle.Fill;
-            row.WrapContents = false;
-            row.AutoScroll = true;
-            row.Padding = new Padding(0, 3, 0, 3);
-            int count = keys.GetLength(0);
-            for (int i = 0; i < count; i++)
-            {
-                int vk = (int)keys[i, 0];
-                string text = (string)keys[i, 1];
-                int width = (int)keys[i, 2];
-                Label label = CreateStateLabel(text, width, 50);
-                label.Font = new Font(Font.FontFamily, 10F, FontStyle.Bold);
-                label.Tag = vk;
-                keyLabels[vk] = label;
-                row.Controls.Add(label);
-            }
-            return row;
+            Label label = CreateStateLabel(text, 1, 1);
+            label.Dock = DockStyle.Fill;
+            label.Margin = new Padding(2, 3, 2, 3);
+            label.Font = new Font(Font.FontFamily, 10F, FontStyle.Bold);
+            label.Tag = vk;
+            keyLabels[vk] = label;
+            layout.Controls.Add(label, column, row);
+            if (span > 1) layout.SetColumnSpan(label, span);
         }
 
         private Control BuildMousePanel()
@@ -852,7 +911,6 @@ namespace InputStitch.Tools.InputLab
             bool foreground = NativeInput.GetForegroundWindow() == Handle;
             foregroundStatus.Text = foreground ? "TARGET: FOREGROUND" : "TARGET: BACKGROUND";
             foregroundStatus.ForeColor = foreground ? Color.FromArgb(30, 130, 60) : Color.FromArgb(175, 95, 25);
-            RefreshKeyHighlights();
             PollXInput();
         }
 
@@ -966,45 +1024,7 @@ namespace InputStitch.Tools.InputLab
         {
             Label label;
             if (!keyLabels.TryGetValue(vk, out label)) return;
-
-            keyLastInjected[vk] = injected;
-            keyHighlightUntil[vk] = down ? long.MaxValue : clock.ElapsedMilliseconds + KeyReleaseGlowMilliseconds;
             ApplyStateColor(label, down, injected);
-            if (!down) label.BackColor = injected ? RecentInjectedColor : RecentActiveColor;
-        }
-
-        private void RefreshKeyHighlights()
-        {
-            if (keyHighlightUntil.Count == 0) return;
-            long now = clock.ElapsedMilliseconds;
-            List<int> expired = null;
-            foreach (KeyValuePair<int, long> pair in keyHighlightUntil)
-            {
-                Label label;
-                if (!keyLabels.TryGetValue(pair.Key, out label)) continue;
-                if (keysDown.Contains(pair.Key))
-                {
-                    bool injected;
-                    keyLastInjected.TryGetValue(pair.Key, out injected);
-                    ApplyStateColor(label, true, injected);
-                }
-                else if (pair.Value > now)
-                {
-                    bool injected;
-                    keyLastInjected.TryGetValue(pair.Key, out injected);
-                    label.BackColor = injected ? RecentInjectedColor : RecentActiveColor;
-                }
-                else
-                {
-                    label.BackColor = IdleColor;
-                    if (expired == null) expired = new List<int>();
-                    expired.Add(pair.Key);
-                }
-            }
-            if (expired != null)
-            {
-                foreach (int vk in expired) keyHighlightUntil.Remove(vk);
-            }
         }
 
         private static void ApplyStateColor(Label label, bool down, bool injected)

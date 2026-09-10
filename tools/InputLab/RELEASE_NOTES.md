@@ -7,7 +7,8 @@ Input Lab v0.3.1 combines automated-verification safety hardening with keyboard-
 - Removed the system-wide `keybd_event` call from the keyboard-visual self-test. The self-test now exercises the Raw Input visual fallback in-process and emits no real keyboard input.
 - Physical keyboard Raw Input now uses a passive background sink and drives the keyboard visualization when the low-level keyboard hook misses an event. Recent hook observations are de-duplicated so injected-event coloring is not overwritten by the Raw Input fallback.
 - Normalized left/right Shift, Ctrl and Alt on the Raw Input visualization path.
-- Replaced six percentage-height keyboard rows with compact fixed-height rows, eliminating the large vertical gaps that appeared in taller windows.
+- Rebuilt the keyboard on a shared quarter-key grid. Backspace/Backslash/Enter/Right Shift/Right Ctrl now share one right edge; Ins/Home/PgUp and Del/End/PgDn form a strict 3×2 block; the arrow keys use a true inverted-T layout.
+- Removed the 180 ms release afterglow. Keyboard visualization now represents exact current state: key-down highlights, key-up clears immediately.
 - Generalized automation-mode containment: all injected keyboard and mouse events observed by Input Lab's low-level hooks are swallowed after observation, instead of special-casing only `K` and mouse `X2`.
 - Kept `package.ps1` limited to the self-contained window-message and keyboard-visual tests; packaging does not run the real-output ownership acceptance host.
 - Added an explicit `-AllowRealOutput` opt-in gate to `run-acceptance.ps1` so the real-output black-box test cannot be launched accidentally.

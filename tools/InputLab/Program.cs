@@ -128,18 +128,12 @@ namespace InputStitch.Tools.InputLab
                     if (phase == 2)
                     {
                         ObservationSnapshot snapshot = lab.CaptureObservation();
-                        if (snapshot.KeysDown.Contains((int)Keys.K) || !lab.IsKeyVisuallyHighlighted((int)Keys.K))
-                        {
-                            result = 1;
-                            lab.Close();
-                            return;
-                        }
-                        timer.Interval = 230;
-                        phase = 3;
+                        result = !snapshot.KeysDown.Contains((int)Keys.K) && !lab.IsKeyVisuallyHighlighted((int)Keys.K) ? 0 : 1;
+                        lab.Close();
                         return;
                     }
 
-                    result = lab.IsKeyVisuallyHighlighted((int)Keys.K) ? 1 : 0;
+                    result = 1;
                     lab.Close();
                 };
                 timer.Start();
