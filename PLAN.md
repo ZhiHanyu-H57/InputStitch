@@ -122,15 +122,18 @@ Not complete / not yet claimed:
 
 Hardware acceptance remains explicitly **blocked until a physical XInput controller is available**. Keep it as a parallel P0 validation lane; do not substitute more virtual devices and claim that as physical acceptance.
 
+The first platform-foundation item is now completed on `refactor/no-functional-change-1`:
+
+- **Virtual Output Backend abstraction — completed without intended behavior change.** `GamepadOutput` remains the stable facade, while concrete ViGEm Xbox/DS4 creation, report mapping and driver-specific failure translation now live behind `IVirtualGamepadBackend` in `VigemVirtualGamepadBackend`. ViGEm remains the only production backend. Fake-backend coverage verifies connection reuse/type switching, unchanged output forwarding, neutralization, fail-closed send failure and `None` refusal without creating a real virtual device.
+
 The active non-hardware engineering order is now:
 
-1. **Virtual Output Backend abstraction** — introduce a ViGEm-independent output boundary with no behavior change; keep ViGEm as the only production backend initially.
-2. **Persistent Device Identity / Device Manager** — establish durable `DeviceKey` + inventory/diagnostics so slot number becomes a transient attribute rather than identity.
-3. **Router source selection / per-device policy** — explicitly select routed sources and prepare per-source transform/merge policy.
-4. **Analog Transform Engine** — reusable deadzone, curve, scaling, inversion, zones and merge policies.
-5. **Activator + Condition Engine** — unify press/release/held/short/long/double/toggle/turbo and deterministic Layer/device/app/axis conditions.
-6. After those foundations, improve Layer ergonomics (Momentary/Hold-to-Layer before more complex modes), profile/context behavior, and then evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
-7. Only after the output backend interface is stable should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
+1. **Persistent Device Identity / Device Manager** — establish durable `DeviceKey` + inventory/diagnostics so slot number becomes a transient attribute rather than identity.
+2. **Router source selection / per-device policy** — explicitly select routed sources and prepare per-source transform/merge policy.
+3. **Analog Transform Engine** — reusable deadzone, curve, scaling, inversion, zones and merge policies.
+4. **Activator + Condition Engine** — unify press/release/held/short/long/double/toggle/turbo and deterministic Layer/device/app/axis conditions.
+5. After those foundations, improve Layer ergonomics (Momentary/Hold-to-Layer before more complex modes), profile/context behavior, and then evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
+6. Only after the output backend interface is stable should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
 
 When physical hardware becomes available in parallel:
 

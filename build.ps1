@@ -125,6 +125,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'QuickCreate.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConcurrentRuntime.cs')
     $compilerArguments += (Join-Path $projectRoot 'OutputOwnership.cs')
+    $compilerArguments += (Join-Path $projectRoot 'VirtualGamepadBackend.cs')
     $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
     $compilerArguments += (Join-Path $projectRoot 'XInputNative.cs')
@@ -171,6 +172,7 @@ function New-SourceArchive {
         'QuickCreate.cs',
         'ConcurrentRuntime.cs',
         'OutputOwnership.cs',
+        'VirtualGamepadBackend.cs',
         'VirtualKeyboard.cs',
         'IdleGamepad.cs',
         'XInputNative.cs',

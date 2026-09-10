@@ -24,11 +24,13 @@ Do not put a self-referential commit hash in this file.
 
 ## Working on
 
-**Current local work is a no-functional-change architecture cleanup before further feature growth.** The first refactor pass centralizes duplicated native XInput fallback access in `XInputNativeReader`, centralizes the two recovery-journal atomic XML write paths in `AtomicXmlFileStore<T>`, and moves config/package serialization plus compatibility normalization out of `MainForm` into `ConfigPackageSerializer`. Existing `MainForm` private entrypoints are retained as thin wrappers so current reflection tests and internal call sites keep the same surface. No configuration format, macro semantics, controller routing policy, UI behavior, or release metadata is intentionally changed.
+**Current local work is a no-functional-change architecture cleanup before further feature growth.** The first refactor pass centralizes duplicated native XInput fallback access in `XInputNativeReader`, centralizes the two recovery-journal atomic XML write paths in `AtomicXmlFileStore<T>`, and moves config/package serialization plus compatibility normalization out of `MainForm` into `ConfigPackageSerializer`. Existing `MainForm` private entrypoints are retained as thin wrappers so current reflection tests and internal call sites keep the same surface.
 
-Verification for this refactor checkpoint: full `tests/Run-Tests.ps1` passes after all source moves, including Layer/Productivity/Updater/UI safety and 303,716 Output Ownership checks; all zh-CN/en-US Settings smoke tests pass; `build.ps1` produces and verifies both Windows x64/x86 v1.4.1 executables plus the source archive. The old duplicated `TryXInput` implementations and the duplicated per-journal staged XML write implementations are no longer present in their consumer files.
+The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
-**`v1.4.1` is the current Stable line. It is a UI-lifecycle hotfix over 1.4.0: transient ContextMenuStrip instances are disposed only after the current ToolStrip message turn, and shutdown no longer synchronously disposes menus that WinForms may still reference. The post-1.4.x plan remains Virtual Output Backend abstraction → persistent Device Identity → Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+Verification for this checkpoint: full `tests/Run-Tests.ps1` passes after all source moves, including Layer/Productivity/Updater/UI safety and 303,716 Output Ownership checks; `VirtualGamepadPreferenceTests` now has 23 checks including fake-backend connection/switch/send/neutralize/fail-closed/disabled-output coverage without creating a real ViGEm device; all zh-CN/en-US Settings smoke tests pass; `build.ps1` produces and verifies both Windows x64/x86 v1.4.1 executables plus the source archive. No configuration format, macro semantics, controller routing policy, UI behavior, output timing or release metadata is intentionally changed.
+
+**`v1.4.1` is the current Stable line. The next active non-hardware platform item after this refactor is Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -492,15 +494,14 @@ Technical design notes may use internal English type/API names freely.
 
 ## Next step after beta.2
 
-Active non-hardware order:
+Virtual Output Backend abstraction is completed on the current refactor branch. Active non-hardware order is now:
 
-1. introduce a virtual-output backend boundary and keep ViGEm as the first implementation with behavior unchanged;
-2. build persistent `DeviceKey` / Device Manager inventory and diagnostics;
-3. change Router from “all visible external XInput sources” to explicit source selection + per-device policy;
-4. introduce reusable Analog Transform primitives (deadzone/curve/scaling/inversion/zones/merge policy);
-5. generalize Activator + Condition semantics rather than adding more one-off trigger modes;
-6. then improve Layer ergonomics, profile/context behavior and evaluate `IInputProvider` + SDL3;
-7. only after the output interface is stable, prototype/compare a second virtual-output backend.
+1. build persistent `DeviceKey` / Device Manager inventory and diagnostics;
+2. change Router from “all visible external XInput sources” to explicit source selection + per-device policy;
+3. introduce reusable Analog Transform primitives (deadzone/curve/scaling/inversion/zones/merge policy);
+4. generalize Activator + Condition semantics rather than adding more one-off trigger modes;
+5. then improve Layer ergonomics, profile/context behavior and evaluate `IInputProvider` + SDL3;
+6. only after the output interface has remained stable through these changes, prototype/compare a second virtual-output backend when justified.
 
 Hardware-dependent acceptance remains parked in parallel until a physical controller exists. When available:
 

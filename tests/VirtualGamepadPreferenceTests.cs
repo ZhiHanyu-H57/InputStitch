@@ -7,6 +7,48 @@ using InputStitch;
 
 internal static class VirtualGamepadPreferenceTests
 {
+    private sealed class FakeVirtualBackend : IVirtualGamepadBackend
+    {
+        public string ConnectedType { get; private set; }
+        public bool IsConnected { get; private set; }
+        public int OwnXboxUserIndex
+        {
+            get { return IsConnected && ConnectedType == VirtualGamepadTypes.Xbox360 ? 2 : -1; }
+        }
+
+        public int ConnectCount;
+        public int DisconnectCount;
+        public int SendCount;
+        public int NeutralizeCount;
+        public InputSpec LastInput;
+        public bool LastDown;
+        public bool FailSend;
+
+        public void Connect(string normalizedType)
+        {
+            ConnectCount++;
+            ConnectedType = normalizedType;
+            IsConnected = true;
+        }
+
+        public void Send(InputSpec input, bool down)
+        {
+            SendCount++;
+            LastInput = input;
+            LastDown = down;
+            if (FailSend) throw new GamepadOutputException(GamepadFailureKind.Other, "fake send failure", null);
+        }
+
+        public void NeutralizeAll() { NeutralizeCount++; }
+
+        public void Disconnect()
+        {
+            DisconnectCount++;
+            ConnectedType = "";
+            IsConnected = false;
+        }
+    }
+
     private static int checks;
 
     private static void Check(bool condition, string message)
@@ -68,6 +110,52 @@ internal static class VirtualGamepadPreferenceTests
             catch (GamepadOutputException ex) { disabledThrown = ex.FailureKind == GamepadFailureKind.OutputDisabled; }
             Check(disabledThrown && !GamepadOutput.IsConnected,
                 "explicit connection is refused while None is selected without touching ViGEm");
+
+            FakeVirtualBackend fake = new FakeVirtualBackend();
+            using (GamepadOutput.OverrideBackendForTests(fake))
+            {
+                GamepadOutput.Configure(VirtualGamepadTypes.Xbox360);
+                GamepadOutput.EnsureConnected();
+                Check(fake.ConnectCount == 1 && fake.DisconnectCount == 1 && GamepadOutput.IsConnected &&
+                    GamepadOutput.ConnectedType == VirtualGamepadTypes.Xbox360 && GamepadOutput.OwnXboxUserIndex == 2,
+                    "GamepadOutput delegates first Xbox connection and status to the virtual-output backend");
+
+                GamepadOutput.EnsureConnected();
+                Check(fake.ConnectCount == 1 && fake.DisconnectCount == 1,
+                    "ensuring the already-selected connected backend does not reconnect it");
+
+                InputSpec output = new InputSpec { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.LeftStick, GamepadX = 25, GamepadY = -40 };
+                GamepadOutput.Send(output, true);
+                Check(fake.SendCount == 1 && object.ReferenceEquals(fake.LastInput, output) && fake.LastDown,
+                    "gamepad output state is forwarded unchanged through the backend boundary");
+                GamepadOutput.NeutralizeAll();
+                Check(fake.NeutralizeCount == 1,
+                    "neutralization is delegated through the backend boundary");
+
+                GamepadOutput.Configure(VirtualGamepadTypes.DualShock4);
+                Check(fake.IsConnected && fake.ConnectCount == 1 && GamepadOutput.ConnectedType == VirtualGamepadTypes.Xbox360,
+                    "changing the preference alone retains the existing controller until connection is explicitly ensured");
+                GamepadOutput.EnsureConnected();
+                Check(fake.ConnectCount == 2 && fake.DisconnectCount == 2 && GamepadOutput.ConnectedType == VirtualGamepadTypes.DualShock4 &&
+                    GamepadOutput.OwnXboxUserIndex == -1,
+                    "ensuring a different preferred type disconnects the old backend session before reconnecting");
+
+                fake.FailSend = true;
+                bool sendFailure = false;
+                try { GamepadOutput.Send(output, false); }
+                catch (GamepadOutputException ex) { sendFailure = ex.FailureKind == GamepadFailureKind.Other; }
+                Check(sendFailure && !GamepadOutput.IsConnected && fake.DisconnectCount == 3,
+                    "backend send failure preserves fail-closed disconnect behavior");
+
+                int connectsBeforeDisabled = fake.ConnectCount;
+                GamepadOutput.Configure(VirtualGamepadTypes.None);
+                bool fakeDisabledThrown = false;
+                try { GamepadOutput.EnsureConnected(); }
+                catch (GamepadOutputException ex) { fakeDisabledThrown = ex.FailureKind == GamepadFailureKind.OutputDisabled; }
+                Check(fakeDisabledThrown && fake.ConnectCount == connectsBeforeDisabled && !GamepadOutput.IsConnected,
+                    "disabled output is rejected by the facade before a concrete backend connection is attempted");
+            }
+            GamepadOutput.Configure(VirtualGamepadTypes.None);
 
             MacroConfig disabledConfig = new MacroConfig();
             disabledConfig.GamepadDeviceType = VirtualGamepadTypes.None;

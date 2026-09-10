@@ -168,19 +168,15 @@ When hardware becomes available, verify:
 
 Do not substitute additional virtual devices and call this hardware acceptance.
 
-### P1 — Virtual Output Backend abstraction
+### Completed foundation — Virtual Output Backend abstraction
 
-ViGEmBus remains the current supported virtual-controller backend, but upstream is retired and archived. New platform code must therefore stop assuming:
+Completed on `refactor/no-functional-change-1` as a no-feature-change refactor. `GamepadOutput` remains the stable synchronized facade used by macro execution, Output Ownership, Router, Idle and takeover code, while concrete virtual-controller operations now go through `IVirtualGamepadBackend`.
 
-```text
-virtual controller output == ViGEm
-```
+`VigemVirtualGamepadBackend` is the only production implementation and owns all direct `Nefarius.ViGEm.Client` types, Xbox/DS4 report mapping, connection lifecycle and ViGEm-specific failure translation. Outside the embedded dependency loader and user-facing driver guidance, higher-level product code no longer needs concrete ViGEm controller types.
 
-Introduce a backend boundary such as `IGamepadOutputBackend` so macro execution, Output Ownership, Router, Idle and takeover logic do not depend directly on ViGEm implementation details.
+Regression coverage uses an injected fake backend to verify first connection, same-type reuse, Xbox→DS4 switching, unchanged `InputSpec` forwarding, neutralization, send-failure fail-closed disconnect and `VirtualGamepadTypes.None` refusal without creating a real ViGEm device. Full regression and x64/x86 Release verification pass with ViGEm still the sole shipped backend.
 
-The first goal is **abstraction without behavior change**. Keep ViGEm as the only production backend until the interface and regression coverage are stable.
-
-After that, evaluate alternatives such as HIDMaestro or VIIPER's standalone server/API. Backend selection must consider deployment, signing/security, x86/x64 support and licensing—not just device features. Do not link an incompatible-license backend into InputStitch casually.
+Do not add a second backend merely to prove the interface exists. When a concrete need justifies it, evaluate alternatives such as HIDMaestro or VIIPER's standalone server/API with deployment, signing/security, x86/x64 support and licensing considered alongside device features.
 
 ### P1 — Persistent Device Identity / Device Manager
 

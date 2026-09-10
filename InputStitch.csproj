@@ -39,6 +39,7 @@
     <Compile Include="QuickCreate.cs" />
     <Compile Include="ConcurrentRuntime.cs" />
     <Compile Include="OutputOwnership.cs" />
+    <Compile Include="VirtualGamepadBackend.cs" />
     <Compile Include="VirtualKeyboard.cs" />
     <Compile Include="IdleGamepad.cs" />
     <Compile Include="XInputNative.cs" />
