@@ -81,3 +81,16 @@ jobs:
             --notes-file tools/InputLab/RELEASE_NOTES.md `
             --prerelease `
             --verify-tag
+      - name: Remove superseded Input Lab v0.3.0 release
+        if: github.ref_name == 'inputlab-v0.3.1'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view inputlab-v0.3.0 *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete inputlab-v0.3.0 --cleanup-tag --yes
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to remove superseded Input Lab v0.3.0 release/tag.' }
+          } else {
+            Write-Host 'Input Lab v0.3.0 release is already absent; no cleanup needed.'
+          }
