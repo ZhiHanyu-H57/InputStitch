@@ -7037,64 +7037,37 @@ namespace InputStitch
 
         private bool HasConfiguredTarget()
         {
-            return !string.IsNullOrWhiteSpace(config.TargetProcessName)
-                || !string.IsNullOrWhiteSpace(config.TargetWindowTitle)
-                || !string.IsNullOrWhiteSpace(config.TargetWindowClass);
+            return TargetWindowPolicy.HasConfiguredTarget(config);
         }
 
         private static bool IdleKeyboardMouseScopeMatches(bool hasConfiguredTarget, string targetProcessName, string foregroundProcessName, bool exactTargetWindow)
         {
-            if (!hasConfiguredTarget) return true;
-            if (exactTargetWindow) return true;
-            if (string.IsNullOrWhiteSpace(targetProcessName)) return false;
-            return string.Equals(targetProcessName.Trim(), (foregroundProcessName ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+            return TargetWindowPolicy.IdleKeyboardMouseScopeMatches(hasConfiguredTarget, targetProcessName, foregroundProcessName, exactTargetWindow);
         }
 
         private static bool ShouldPauseIdleForMissingTarget(bool hasConfiguredIdleTarget, bool resolvedTargetAvailable)
         {
-            return hasConfiguredIdleTarget && !resolvedTargetAvailable;
+            return TargetWindowPolicy.ShouldPauseIdleForMissingTarget(hasConfiguredIdleTarget, resolvedTargetAvailable);
         }
 
         private bool HasConfiguredIdleTarget()
         {
-            IdleGamepadOptions idle = config == null ? null : config.IdleGamepad;
-            return idle != null && (!string.IsNullOrWhiteSpace(idle.TargetProcessName)
-                || !string.IsNullOrWhiteSpace(idle.TargetWindowTitle)
-                || !string.IsNullOrWhiteSpace(idle.TargetWindowClass));
+            return TargetWindowPolicy.HasConfiguredIdleTarget(config);
         }
 
         private bool IsIdleKeyboardMouseActivityInScope(IntPtr foreground)
         {
-            IdleGamepadOptions idle = config == null ? null : config.IdleGamepad;
-            bool hasTarget = idle != null && HasConfiguredIdleTarget();
-            bool exactTarget = foreground != IntPtr.Zero && idleTargetWindowHandle != IntPtr.Zero && foreground == idleTargetWindowHandle;
-            string foregroundProcess = "";
-            if (hasTarget && !exactTarget && !string.IsNullOrWhiteSpace(idle.TargetProcessName) && NativeWindowFocus.IsUsableExternalWindow(foreground))
-            {
-                TargetWindowIdentity info = NativeWindowFocus.Describe(foreground);
-                if (info != null) foregroundProcess = info.ProcessName ?? "";
-            }
-            return IdleKeyboardMouseScopeMatches(hasTarget, idle == null ? "" : idle.TargetProcessName, foregroundProcess, exactTarget);
+            return TargetWindowPolicy.IsIdleKeyboardMouseActivityInScope(config, foreground, idleTargetWindowHandle);
         }
 
         private void ResolveIdleTargetWindowFromConfig()
         {
-            if (NativeWindowFocus.IsUsableExternalWindow(idleTargetWindowHandle)) return;
-            idleTargetWindowHandle = IntPtr.Zero;
-            if (config == null || config.IdleGamepad == null || !HasConfiguredIdleTarget()) return;
-            idleTargetWindowHandle = NativeWindowFocus.ResolveConfiguredTarget(
-                config.IdleGamepad.TargetProcessName,
-                config.IdleGamepad.TargetWindowTitle,
-                config.IdleGamepad.TargetWindowClass);
+            idleTargetWindowHandle = TargetWindowPolicy.ResolveIdleTargetWindow(config, idleTargetWindowHandle);
         }
 
         private void ResolveTargetWindowFromConfig()
         {
-            if (NativeWindowFocus.IsUsableExternalWindow(targetWindowHandle)) return;
-            targetWindowHandle = NativeWindowFocus.ResolveConfiguredTarget(
-                config.TargetProcessName,
-                config.TargetWindowTitle,
-                config.TargetWindowClass);
+            targetWindowHandle = TargetWindowPolicy.ResolveTargetWindow(config, targetWindowHandle);
         }
 
         private IntPtr GetResolvedTargetWindow()
@@ -8399,25 +8372,7 @@ namespace InputStitch
 
         private string FindBoundProfileForProcess(string processName)
         {
-            try
-            {
-                if (!Directory.Exists(profilesDir)) return "";
-                string[] files = Directory.GetFiles(profilesDir, "*.mpprofile");
-                Array.Sort(files, StringComparer.OrdinalIgnoreCase);
-                foreach (string file in files)
-                {
-                    try
-                    {
-                        ProfilePackage p = DeserializeProfilePackageOrLegacy(file);
-                        if (p != null && !string.IsNullOrWhiteSpace(p.BoundProcessName) &&
-                            string.Equals(p.BoundProcessName, processName, StringComparison.OrdinalIgnoreCase))
-                            return file;
-                    }
-                    catch (Exception ex) { AppLog.Write("Profile metadata read failed: " + file, ex); }
-                }
-            }
-            catch (Exception ex) { AppLog.Write("Profile scan failed", ex); }
-            return "";
+            return ProfileCatalog.FindBoundProfileForProcess(profilesDir, processName);
         }
 
         private void MoveSelectedMacro(int delta)

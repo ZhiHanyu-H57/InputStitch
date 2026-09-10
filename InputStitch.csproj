@@ -34,6 +34,8 @@
     <Compile Include="RuntimeDiagnostics.cs" />
     <Compile Include="AtomicXmlFileStore.cs" />
     <Compile Include="ConfigPackageSerializer.cs" />
+    <Compile Include="ProfileCatalog.cs" />
+    <Compile Include="TargetWindowPolicy.cs" />
     <Compile Include="ConfigStore.cs" />
     <Compile Include="StepHistory.cs" />
     <Compile Include="QuickCreate.cs" />

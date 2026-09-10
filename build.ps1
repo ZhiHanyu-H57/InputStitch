@@ -120,6 +120,8 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'RuntimeDiagnostics.cs')
     $compilerArguments += (Join-Path $projectRoot 'AtomicXmlFileStore.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConfigPackageSerializer.cs')
+    $compilerArguments += (Join-Path $projectRoot 'ProfileCatalog.cs')
+    $compilerArguments += (Join-Path $projectRoot 'TargetWindowPolicy.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConfigStore.cs')
     $compilerArguments += (Join-Path $projectRoot 'StepHistory.cs')
     $compilerArguments += (Join-Path $projectRoot 'QuickCreate.cs')
@@ -167,6 +169,8 @@ function New-SourceArchive {
         'RuntimeDiagnostics.cs',
         'AtomicXmlFileStore.cs',
         'ConfigPackageSerializer.cs',
+        'ProfileCatalog.cs',
+        'TargetWindowPolicy.cs',
         'ConfigStore.cs',
         'StepHistory.cs',
         'QuickCreate.cs',
