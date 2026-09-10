@@ -34,6 +34,8 @@
     <Compile Include="RuntimeDiagnostics.cs" />
     <Compile Include="AtomicXmlFileStore.cs" />
     <Compile Include="ConfigPackageSerializer.cs" />
+    <Compile Include="UpdateSourcePolicy.cs" />
+    <Compile Include="UpdateUiCoordinator.cs" />
     <Compile Include="ProfileCatalog.cs" />
     <Compile Include="TargetWindowPolicy.cs" />
     <Compile Include="ConfigStore.cs" />

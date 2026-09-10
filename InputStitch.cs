@@ -33,7 +33,10 @@ namespace InputStitch
         public const string ConfigFormatVersion = "3";
         public const string MacroPackageFormatVersion = "3";
         public const string ProfileFormatVersion = "3";
-        public const string UpdateManifestUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml";
+        public const string UpdateManifestUrl = "https://download.zhihanyu.com/latest/InputStitch-update.xml";
+        public const string UpdateManifestFallbackUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml";
+        public const string UpdateDownloadHost = "download.zhihanyu.com";
+        public const string UpdateGithubReleaseBaseUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/download";
         public const string LatestReleaseUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest";
         public const string ProjectUrl = "https://github.com/ZhiHanyu-H57/InputStitch";
         public const string ViGEmBusReleaseUrl = "https://github.com/nefarius/ViGEmBus/releases/latest";
@@ -126,10 +129,10 @@ namespace InputStitch
             { "发现可用更新", "Update Available" },
             { "安装更新", "Install Update" },
             { "稍后", "Later" },
-            { "GitHub 上发现可用更新。是否下载并安装？", "An update is available on GitHub. Download and install it?" },
+            { "发现可用更新。是否下载并安装？", "An update is available. Download and install it?" },
             { "更新已下载并通过 SHA-256 校验。InputStitch 将关闭、替换程序文件并重新启动。是否现在安装？", "The update was downloaded and passed SHA-256 verification. InputStitch will close, replace the program file, and restart. Install now?" },
             { "无法安装更新。", "The update could not be installed." },
-            { "网络访问仅用于从官方 GitHub Release 检查和下载更新；下载后必须通过 SHA-256 校验。", "Network access is used only to check and download updates from the official GitHub Release; every download must pass SHA-256 verification." },
+            { "更新优先从 InputStitch 官网检查和下载；如果官网不可用，会自动尝试官方 GitHub Release。下载后必须通过 SHA-256 校验。", "Updates are checked and downloaded from the InputStitch website first; if it is unavailable, the official GitHub Release is tried automatically. Every download must pass SHA-256 verification." },
             { "恢复默认", "Restore Defaults" },
             { "宏信息", "Macro Details" },
             { "触发与循环", "Trigger and Repetition" },
@@ -699,35 +702,20 @@ namespace InputStitch
             if (!ReleaseInfo.AutomaticChecksAllowed)
                 throw new InvalidOperationException("Beta builds use manual downloads from the GitHub Releases page.");
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            Uri manifestUri = new Uri(AppInfo.UpdateManifestUrl + "?cache=" + DateTime.UtcNow.Ticks.ToString());
-            string xml = await DownloadStringWithRetryAsync(manifestUri, DownloadStringOnceAsync);
-
-            UpdateManifest manifest;
-            XmlSerializer serializer = new XmlSerializer(typeof(UpdateManifest));
-            using (StringReader reader = new StringReader(xml))
-                manifest = serializer.Deserialize(reader) as UpdateManifest;
-            if (manifest == null) throw new InvalidDataException("The update manifest is invalid.");
+            string architecture = Environment.Is64BitProcess ? "x64" : "x86";
+            IList<Uri> manifestUris = UpdateSourcePolicy.ManifestUris(DateTime.UtcNow.Ticks.ToString());
+            UpdateManifest manifest = await ExecuteWithSourceFallbackAsync<UpdateManifest>(manifestUris, async delegate(Uri manifestUri)
+            {
+                string xml = await DownloadStringWithRetryAsync(manifestUri, DownloadStringOnceAsync);
+                return DeserializeAndValidateManifest(xml, architecture);
+            });
+            UpdateAsset asset = FindAsset(manifest, architecture);
 
             Version remoteVersion;
             Version currentVersion;
             if (!System.Version.TryParse(manifest.Version, out remoteVersion) ||
                 !System.Version.TryParse(AppInfo.Version, out currentVersion))
                 throw new InvalidDataException("The update manifest contains an invalid version.");
-
-            string architecture = Environment.Is64BitProcess ? "x64" : "x86";
-            UpdateAsset asset = null;
-            if (manifest.Assets != null)
-            {
-                foreach (UpdateAsset candidate in manifest.Assets)
-                {
-                    if (candidate != null && string.Equals(candidate.Architecture, architecture, StringComparison.OrdinalIgnoreCase))
-                    {
-                        asset = candidate;
-                        break;
-                    }
-                }
-            }
-            ValidateAsset(asset, architecture);
 
             string currentHash = ComputeSha256(Application.ExecutablePath);
             bool newerVersion = remoteVersion > currentVersion;
@@ -744,26 +732,34 @@ namespace InputStitch
 
         public static async Task<string> DownloadAsync(UpdateCheckResult update)
         {
-            if (update == null || update.Asset == null || !update.IsAvailable)
+            if (update == null || update.Asset == null || update.Manifest == null || !update.IsAvailable)
                 throw new InvalidOperationException("No update is available.");
-            ValidateAsset(update.Asset, Environment.Is64BitProcess ? "x64" : "x86");
+            string architecture = Environment.Is64BitProcess ? "x64" : "x86";
+            ValidateAsset(update.Asset, architecture, update.Manifest.Version);
             Directory.CreateDirectory(UpdatesDirectory);
             string destination = Path.Combine(UpdatesDirectory, Guid.NewGuid().ToString("N") + ".exe");
             try
             {
-                await DownloadFileWithRetryAsync(new Uri(update.Asset.Url), destination, DownloadFileOnceAsync);
-                string hash = ComputeSha256(destination);
-                if (!string.Equals(hash, update.Asset.Sha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("The downloaded update failed SHA-256 verification.");
-                FileVersionInfo version = FileVersionInfo.GetVersionInfo(destination);
-                if (!string.Equals(version.ProductName, AppInfo.ProductName, StringComparison.Ordinal) ||
-                    !string.Equals(version.ProductVersion, update.Manifest.Version, StringComparison.Ordinal))
-                    throw new InvalidDataException("The downloaded file is not the expected InputStitch build.");
+                IList<Uri> sources = UpdateSourcePolicy.AssetUris(update);
+                await ExecuteWithSourceFallbackAsync<bool>(sources, async delegate(Uri source)
+                {
+                    try
+                    {
+                        await DownloadFileWithRetryAsync(source, destination, DownloadFileOnceAsync);
+                        ValidateDownloadedUpdate(destination, update);
+                        return true;
+                    }
+                    catch
+                    {
+                        TryDeleteFile(destination);
+                        throw;
+                    }
+                });
                 return destination;
             }
             catch
             {
-                try { if (File.Exists(destination)) File.Delete(destination); } catch { }
+                TryDeleteFile(destination);
                 throw;
             }
         }
@@ -945,6 +941,25 @@ namespace InputStitch
             }
         }
 
+        internal static async Task<T> ExecuteWithSourceFallbackAsync<T>(IList<Uri> sources, Func<Uri, Task<T>> operation)
+        {
+            if (sources == null || sources.Count == 0) throw new ArgumentNullException("sources");
+            if (operation == null) throw new ArgumentNullException("operation");
+            Exception last = null;
+            for (int i = 0; i < sources.Count; i++)
+            {
+                Uri source = sources[i];
+                try { return await operation(source); }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    if (i + 1 >= sources.Count) throw;
+                    AppLog.Write("Update source failed; trying fallback: " + (source == null ? "<null>" : source.Host), ex);
+                }
+            }
+            throw last ?? new WebException("Update source operation failed.");
+        }
+
         internal static async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> operation)
         {
             if (operation == null) throw new ArgumentNullException("operation");
@@ -1008,15 +1023,59 @@ namespace InputStitch
             }
         }
 
-        private static void ValidateAsset(UpdateAsset asset, string architecture)
+        private static UpdateManifest DeserializeAndValidateManifest(string xml, string architecture)
+        {
+            UpdateManifest manifest;
+            XmlSerializer serializer = new XmlSerializer(typeof(UpdateManifest));
+            using (StringReader reader = new StringReader(xml ?? ""))
+                manifest = serializer.Deserialize(reader) as UpdateManifest;
+            if (manifest == null) throw new InvalidDataException("The update manifest is invalid.");
+            Version remoteVersion;
+            if (!System.Version.TryParse(manifest.Version, out remoteVersion))
+                throw new InvalidDataException("The update manifest contains an invalid version.");
+            UpdateAsset asset = FindAsset(manifest, architecture);
+            ValidateAsset(asset, architecture, manifest.Version);
+            return manifest;
+        }
+
+        private static UpdateAsset FindAsset(UpdateManifest manifest, string architecture)
+        {
+            UpdateAsset asset = null;
+            if (manifest != null && manifest.Assets != null)
+            {
+                foreach (UpdateAsset candidate in manifest.Assets)
+                {
+                    if (candidate != null && string.Equals(candidate.Architecture, architecture, StringComparison.OrdinalIgnoreCase))
+                    {
+                        asset = candidate;
+                        break;
+                    }
+                }
+            }
+            if (asset == null)
+                throw new InvalidDataException("The update manifest does not contain an asset for " + architecture + ".");
+            return asset;
+        }
+
+        private static void ValidateDownloadedUpdate(string destination, UpdateCheckResult update)
+        {
+            string hash = ComputeSha256(destination);
+            if (!string.Equals(hash, update.Asset.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The downloaded update failed SHA-256 verification.");
+            FileVersionInfo version = FileVersionInfo.GetVersionInfo(destination);
+            if (!string.Equals(version.ProductName, AppInfo.ProductName, StringComparison.Ordinal) ||
+                !string.Equals(version.ProductVersion, update.Manifest.Version, StringComparison.Ordinal))
+                throw new InvalidDataException("The downloaded file is not the expected InputStitch build.");
+        }
+
+        private static void ValidateAsset(UpdateAsset asset, string architecture, string version)
         {
             if (asset == null || string.IsNullOrWhiteSpace(asset.Url) || string.IsNullOrWhiteSpace(asset.Sha256))
                 throw new InvalidDataException("The update manifest does not contain an asset for " + architecture + ".");
             Uri uri;
-            if (!Uri.TryCreate(asset.Url, UriKind.Absolute, out uri) || uri.Scheme != Uri.UriSchemeHttps ||
-                !string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
-                !uri.AbsolutePath.StartsWith("/ZhiHanyu-H57/InputStitch/releases/", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("The update asset URL is not an official InputStitch GitHub Release URL.");
+            if (!Uri.TryCreate(asset.Url, UriKind.Absolute, out uri) ||
+                !UpdateSourcePolicy.IsOfficialAssetUri(uri, version, asset.FileName, architecture))
+                throw new InvalidDataException("The update asset URL is not an official InputStitch download URL.");
             string hash = asset.Sha256.Trim();
             if (hash.Length != 64)
                 throw new InvalidDataException("The update manifest contains an invalid SHA-256 value.");
@@ -4375,7 +4434,7 @@ namespace InputStitch
             updateRow.Controls.Add(updateModeBox, 1, 0);
             updatesLayout.Controls.Add(updateRow);
             Label updateHint = new Label();
-            updateHint.Text = Localizer.T("网络访问仅用于从官方 GitHub Release 检查和下载更新；下载后必须通过 SHA-256 校验。");
+            updateHint.Text = Localizer.T("更新优先从 InputStitch 官网检查和下载；如果官网不可用，会自动尝试官方 GitHub Release。下载后必须通过 SHA-256 校验。");
             if (!ReleaseInfo.AutomaticChecksAllowed)
                 updateHint.Text = Localizer.IsEnglish
                     ? "Beta build: automatic update checks are disabled. Check manually to open GitHub Releases and download a test build. Your stable update preference is preserved."
@@ -4585,7 +4644,7 @@ namespace InputStitch
         private LinkLabel saveWarning;
         private string saveFailure = "";
         private readonly bool isolatedUiHost;
-        private bool updateCheckBusy;
+        private UpdateUiCoordinator updateUiCoordinator;
 
         private ListBox macroList;
         private TextBox nameBox;
@@ -6037,73 +6096,11 @@ namespace InputStitch
             }
         }
 
-        private async void CheckForUpdatesAsync(IWin32Window owner, bool automatic)
+        private void CheckForUpdatesAsync(IWin32Window owner, bool automatic)
         {
-            if (!ReleaseInfo.AutomaticChecksAllowed)
-            {
-                if (!automatic)
-                {
-                    string message = Localizer.IsEnglish
-                        ? "Beta updates are downloaded manually. Open the official GitHub Releases page? Back up your configuration before testing; stable releases are not replaced."
-                        : "测试版通过手动下载更新。是否打开官方 GitHub Releases 页面？测试前请备份配置；正式版不会被替换。";
-                    if (MessageBox.Show(owner, message, AppInfo.ProductName, MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
-                    {
-                        try { Process.Start(new ProcessStartInfo(ReleaseInfo.ReleasesUrl) { UseShellExecute = true }); }
-                        catch (Exception ex) { MessageBox.Show(owner, ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning); }
-                    }
-                }
-                return;
-            }
-            if (updateCheckBusy) return;
-            updateCheckBusy = true;
-            string previousStatus = statusLabel == null ? "" : statusLabel.Text;
-            string updateStage = "check";
-            try
-            {
-                if (statusLabel != null) statusLabel.Text = Localizer.T("正在检查更新…");
-                UpdateCheckResult update = await UpdateManager.CheckAsync();
-                if (!update.IsAvailable)
-                {
-                    if (!automatic)
-                        LocalizedMessageBox.Show(owner, Localizer.T("已是最新版本。"), AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                string prompt = Localizer.T("GitHub 上发现可用更新。是否下载并安装？") +
-                    "\r\n\r\n" + (Localizer.IsEnglish ? "Architecture: " : "架构：") + update.Asset.Architecture +
-                    "\r\n" + (Localizer.IsEnglish ? "Release: " : "发布版本：") + update.Manifest.Version;
-                DialogResult choice = LocalizedMessageBox.Show(owner, prompt, Localizer.T("发现可用更新"),
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
-                if (choice != DialogResult.OK) return;
-
-                updateStage = "download";
-                if (statusLabel != null) statusLabel.Text = Localizer.T("正在下载并验证更新…");
-                string downloaded = await UpdateManager.DownloadAsync(update);
-                updateStage = "install";
-                EmergencyStop("software-update");
-                SaveConfig();
-                UpdateManager.BeginInstall(downloaded, update.Asset.Sha256);
-                Form ownerForm = owner as Form;
-                if (ownerForm != null && ownerForm != this && !ownerForm.IsDisposed) ownerForm.Close();
-                Close();
-            }
-            catch (Exception ex)
-            {
-                AppLog.Write("Update stage failed: " + updateStage, ex);
-                if (!automatic || updateStage != "check")
-                {
-                    string heading = updateStage == "download" ? Localizer.T("下载更新失败。") :
-                        updateStage == "install" ? Localizer.T("准备安装更新失败。") : Localizer.T("检查更新失败。");
-                    LocalizedMessageBox.Show(owner, heading + "\r\n\r\n" + ex.Message,
-                        AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-            }
-            finally
-            {
-                updateCheckBusy = false;
-                if (statusLabel != null && !statusLabel.IsDisposed && !IsDisposed && !Disposing)
-                    statusLabel.Text = previousStatus;
-            }
+            if (updateUiCoordinator == null)
+                updateUiCoordinator = new UpdateUiCoordinator(this, statusLabel, EmergencyStop, delegate { SaveConfig(); });
+            updateUiCoordinator.CheckForUpdatesAsync(owner, automatic);
         }
 
         private void UpdateTargetSectionVisibility()
@@ -6879,7 +6876,7 @@ namespace InputStitch
                 }
 
                 idleGamepad.SetBusy(idleTargetMissing || HasAnyActiveRuntime() || recordingActive || captureMode != CaptureMode.None ||
-                    uiSafetyModalDepth > 0 || manualTriggerSuspend || updateCheckBusy);
+                    uiSafetyModalDepth > 0 || manualTriggerSuspend || (updateUiCoordinator != null && updateUiCoordinator.Busy));
                 idleGamepad.Tick(currentIdleScope);
             }
 

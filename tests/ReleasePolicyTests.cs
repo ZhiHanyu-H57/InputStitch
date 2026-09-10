@@ -10,7 +10,8 @@ internal static class ReleasePolicyTests
             bool prerelease = ReleaseInfo.Version.IndexOf("-beta.", StringComparison.Ordinal) >= 0;
             if (ReleaseInfo.IsPrerelease != prerelease) throw new Exception("Channel/version mismatch");
             if (ReleaseInfo.AutomaticChecksAllowed == prerelease) throw new Exception("Automatic-check policy disagrees with release channel");
-            if (AppInfo.UpdateManifestUrl != "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml") throw new Exception("Stable endpoint changed");
+            if (AppInfo.UpdateManifestUrl != "https://download.zhihanyu.com/latest/InputStitch-update.xml") throw new Exception("Primary stable endpoint changed");
+            if (AppInfo.UpdateManifestFallbackUrl != "https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download/InputStitch-update.xml") throw new Exception("Fallback stable endpoint changed");
             string actual = ((AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(typeof(AppInfo).Assembly, typeof(AssemblyInformationalVersionAttribute))).InformationalVersion;
             if (actual != ReleaseInfo.Version) throw new Exception("Display/assembly version mismatch");
             if (prerelease)

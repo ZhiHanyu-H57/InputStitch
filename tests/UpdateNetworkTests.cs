@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Threading.Tasks;
@@ -34,6 +35,61 @@ internal static class UpdateNetworkTests
             Check(UpdateManager.IsTransientNetworkException(new WebException("receive", WebExceptionStatus.ReceiveFailure)), "mid-transfer receive failure is transient");
             Check(!UpdateManager.IsTransientNetworkException(new WebException("trust", WebExceptionStatus.TrustFailure)), "TLS trust failure is not blindly retried");
             Check(!UpdateManager.IsTransientNetworkException(new InvalidDataException("bad manifest")), "validation errors are not network retries");
+
+            IList<Uri> manifestUris = UpdateSourcePolicy.ManifestUris("test-cache");
+            Check(manifestUris.Count == 2 && manifestUris[0].Host == "download.zhihanyu.com" && manifestUris[1].Host == "github.com",
+                "stable update checks prefer the website manifest and retain GitHub as fallback");
+            Check(manifestUris[0].Query.Contains("test-cache") && manifestUris[1].Query.Contains("test-cache"),
+                "both manifest sources receive the same cache-busting token");
+
+            UpdateCheckResult sourcePlan = new UpdateCheckResult
+            {
+                Manifest = new UpdateManifest { Version = "1.4.2" },
+                Asset = new UpdateAsset
+                {
+                    Architecture = "x64",
+                    FileName = "InputStitch-1.4.2-Windows-x64.exe",
+                    Url = "https://download.zhihanyu.com/releases/v1.4.2/InputStitch-1.4.2-Windows-x64.exe",
+                    Sha256 = new string('a', 64)
+                },
+                IsAvailable = true
+            };
+            IList<Uri> assetUris = UpdateSourcePolicy.AssetUris(sourcePlan);
+            Check(assetUris.Count == 2 && assetUris[0].Host == "download.zhihanyu.com" && assetUris[1].Host == "github.com",
+                "update downloads prefer the website asset and derive a GitHub release fallback");
+            Check(assetUris[1].AbsolutePath == "/ZhiHanyu-H57/InputStitch/releases/download/v1.4.2/InputStitch-1.4.2-Windows-x64.exe",
+                "GitHub fallback is pinned to the checked release version rather than mutable latest");
+            Check(UpdateSourcePolicy.IsOfficialAssetUri(assetUris[0], "1.4.2", sourcePlan.Asset.FileName, "x64"),
+                "versioned website asset is accepted as an official update source");
+            Check(UpdateSourcePolicy.IsOfficialAssetUri(assetUris[1], "1.4.2", sourcePlan.Asset.FileName, "x64"),
+                "versioned GitHub fallback asset is accepted as an official update source");
+            Check(!UpdateSourcePolicy.IsOfficialAssetUri(new Uri("https://example.com/releases/v1.4.2/InputStitch-1.4.2-Windows-x64.exe"), "1.4.2", sourcePlan.Asset.FileName, "x64"),
+                "third-party asset hosts remain rejected");
+            ExpectFailure(delegate
+            {
+                UpdateSourcePolicy.ValidateArchitectureFileName("InputStitch-1.4.3-Windows-x64.exe", "x64", "1.4.2");
+            }, "asset file name from a different release version");
+
+            int sourceAttempts = 0;
+            string fallbackResult = UpdateManager.ExecuteWithSourceFallbackAsync<string>(manifestUris, delegate(Uri uri)
+            {
+                sourceAttempts++;
+                if (uri.Host == "download.zhihanyu.com") throw new InvalidDataException("primary manifest unavailable or invalid");
+                return Task.FromResult("github-ok");
+            }).GetAwaiter().GetResult();
+            Check(sourceAttempts == 2 && fallbackResult == "github-ok",
+                "a failed website source falls through to GitHub even when the failure is not retryable network noise");
+
+            sourceAttempts = 0;
+            ExpectFailure(delegate
+            {
+                UpdateManager.ExecuteWithSourceFallbackAsync<string>(manifestUris, delegate(Uri uri)
+                {
+                    sourceAttempts++;
+                    throw new WebException(uri.Host + " unavailable", WebExceptionStatus.ConnectFailure);
+                }).GetAwaiter().GetResult();
+            }, "both update sources fail");
+            Check(sourceAttempts == 2, "dual-source failure is surfaced only after both website and GitHub have been tried");
 
             int attempts = 0;
             string result = UpdateManager.ExecuteWithRetryAsync<string>(delegate

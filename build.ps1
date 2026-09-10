@@ -120,6 +120,8 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'RuntimeDiagnostics.cs')
     $compilerArguments += (Join-Path $projectRoot 'AtomicXmlFileStore.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConfigPackageSerializer.cs')
+    $compilerArguments += (Join-Path $projectRoot 'UpdateSourcePolicy.cs')
+    $compilerArguments += (Join-Path $projectRoot 'UpdateUiCoordinator.cs')
     $compilerArguments += (Join-Path $projectRoot 'ProfileCatalog.cs')
     $compilerArguments += (Join-Path $projectRoot 'TargetWindowPolicy.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConfigStore.cs')
@@ -169,6 +171,8 @@ function New-SourceArchive {
         'RuntimeDiagnostics.cs',
         'AtomicXmlFileStore.cs',
         'ConfigPackageSerializer.cs',
+        'UpdateSourcePolicy.cs',
+        'UpdateUiCoordinator.cs',
         'ProfileCatalog.cs',
         'TargetWindowPolicy.cs',
         'ConfigStore.cs',
@@ -212,7 +216,7 @@ function New-UpdateManifest {
         [Parameter(Mandatory = $true)][string]$X86Path
     )
     $manifestOutputPath = Join-Path $distDirectory $releaseInfo.ManifestName
-    $downloadBase = if ($releaseInfo.IsPrerelease) { "https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$releaseVersion" } else { 'https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download' }
+    $downloadBase = if ($releaseInfo.IsPrerelease) { "https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$releaseVersion" } else { "https://download.zhihanyu.com/releases/v$releaseVersion" }
     $x64Name = Split-Path $X64Path -Leaf
     $x86Name = Split-Path $X86Path -Leaf
     $x64Hash = (Get-FileHash -LiteralPath $X64Path -Algorithm SHA256).Hash.ToLowerInvariant()
