@@ -76,7 +76,7 @@ foreach ($architecture in @('x64', 'x86')) {
     if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) { throw "The update manifest references a missing file: $($asset.FileName)" }
     $assetHash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ([string]$asset.Sha256 -ne $assetHash) { throw "The update manifest hash is invalid for $architecture." }
-    $downloadBase = if($beta){"https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$ExpectedVersion"}else{"https://download.zhihanyu.com/releases/v$ExpectedVersion"}
+    $downloadBase = if($beta){"https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$ExpectedVersion"}else{'https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download'}
     if ([string]$asset.Url -ne "$downloadBase/$($asset.FileName)") {
         throw "The update manifest URL is invalid for $architecture."
     }

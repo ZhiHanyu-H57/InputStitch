@@ -14,9 +14,8 @@ import mimetypes
 import os
 from pathlib import Path
 import sys
+import xml.etree.ElementTree as ET
 
-import boto3
-from botocore.exceptions import ClientError
 
 
 def sha256_file(path: Path) -> str:
@@ -54,7 +53,52 @@ def content_type(path: Path) -> str:
     return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
 
+def build_r2_stable_manifest(source: Path, destination: Path, version: str) -> None:
+    """Create the R2-only /latest manifest while preserving the GitHub release manifest.
+
+    Older stable clients (including v1.4.1) only accept GitHub asset URLs. The
+    canonical release artifact therefore remains GitHub-based for upgrade
+    compatibility, while this derived R2 copy points new clients at immutable
+    versioned R2 objects first.
+    """
+    tree = ET.parse(source)
+    root = tree.getroot()
+    if root.tag != "InputStitchUpdate":
+        raise RuntimeError("Unexpected stable update manifest root element.")
+    manifest_version = (root.findtext("Version") or "").strip()
+    if manifest_version != version:
+        raise RuntimeError(
+            f"Stable update manifest version mismatch: {manifest_version!r} != {version!r}"
+        )
+
+    assets = root.findall("Asset")
+    if len(assets) != 2:
+        raise RuntimeError("Stable update manifest must contain exactly two architecture assets.")
+    seen_architectures: set[str] = set()
+    for asset in assets:
+        architecture = (asset.get("Architecture") or "").lower()
+        file_name = asset.get("FileName") or ""
+        if architecture not in {"x64", "x86"} or architecture in seen_architectures:
+            raise RuntimeError("Stable update manifest contains invalid architecture entries.")
+        expected_name = f"InputStitch-{version}-Windows-{architecture}.exe"
+        if file_name != expected_name:
+            raise RuntimeError(
+                f"Unexpected Stable asset file name for {architecture}: {file_name!r}"
+            )
+        if not (asset.get("Sha256") or "").strip():
+            raise RuntimeError(f"Stable asset {file_name} has no SHA-256 value.")
+        asset.set(
+            "Url",
+            f"https://download.zhihanyu.com/releases/v{version}/{file_name}",
+        )
+        seen_architectures.add(architecture)
+
+    tree.write(destination, encoding="utf-8", xml_declaration=True)
+
+
 def head_object(client, bucket: str, key: str):
+    from botocore.exceptions import ClientError
+
     try:
         return client.head_object(Bucket=bucket, Key=key)
     except ClientError as exc:
@@ -106,6 +150,8 @@ def put_object(
 
 
 def main() -> int:
+    import boto3
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", required=True, type=Path)
     parser.add_argument("--version", required=True)
@@ -175,7 +221,6 @@ def main() -> int:
             f"InputStitch-{version}-Windows-x64.exe": "InputStitch-Windows-x64.exe",
             f"InputStitch-{version}-Windows-x86.exe": "InputStitch-Windows-x86.exe",
             f"InputStitch-{version}-Source.zip": "InputStitch-Source.zip",
-            "InputStitch-update.xml": "InputStitch-update.xml",
             "SHA256SUMS.txt": "SHA256SUMS.txt",
         }
         for source_name, alias_name in aliases.items():
@@ -189,6 +234,25 @@ def main() -> int:
                 immutable=False,
                 download_name=source_name,
             )
+
+        # Do not reuse the GitHub-published manifest for the R2 /latest alias.
+        # Legacy Stable clients still need that GitHub manifest to contain GitHub
+        # asset URLs, while new clients should receive an R2-first manifest here.
+        r2_manifest_path = dist / ".r2-InputStitch-update.xml"
+        build_r2_stable_manifest(paths["InputStitch-update.xml"], r2_manifest_path, version)
+        try:
+            put_object(
+                client,
+                args.bucket,
+                "latest/InputStitch-update.xml",
+                r2_manifest_path,
+                sha256_file(r2_manifest_path),
+                cache_control="public, max-age=300",
+                immutable=False,
+                download_name="InputStitch-update.xml",
+            )
+        finally:
+            r2_manifest_path.unlink(missing_ok=True)
 
         version_path = dist / ".r2-version.txt"
         version_path.write_text(version + "\n", encoding="utf-8")

@@ -3,6 +3,20 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.4.2
+
+**更新链路迁移 + 内部架构整理：Stable 现在优先从 `download.zhihanyu.com` 检查和下载更新，官网失败时自动回退 GitHub；同时完成多项无语义变化的拆分与去重。**
+
+- Stable 更新清单主入口改为 `https://download.zhihanyu.com/latest/InputStitch-update.xml`。
+- R2 `/latest` 清单使用版本锁定的 `download.zhihanyu.com/releases/v<version>/...` EXE；下载失败、SHA-256 失败或产品/版本验证失败时自动尝试同一版本的 GitHub Release 文件。
+- GitHub Release 中继续发布 GitHub-URL 版本的 `InputStitch-update.xml`，保证现有 1.4.1 客户端仍能跨过迁移点升级到 1.4.2；R2 镜像阶段单独派生官网版清单。
+- 第三方下载主机仍被拒绝；清单文件名必须严格匹配版本与 x64/x86 架构；SHA-256 和 PE 产品/版本验证保持强制。
+- 更新网络回归增加官网优先、GitHub fallback、双源失败、版本绑定等覆盖。
+- 去除 `IdleGamepad` / `XInputInput` 中重复的原生 XInput fallback，实现集中到 `XInputNativeReader`。
+- 将恢复日志的原子 XML 写入集中到 `AtomicXmlFileStore<T>`；配置/宏包/方案序列化集中到 `ConfigPackageSerializer`。
+- 新增 `IVirtualGamepadBackend` / `VigemVirtualGamepadBackend`，把 ViGEm 具体实现从 `GamepadOutput` 上层边界中隔离；当前仍只有 ViGEm 一个生产后端。
+- 继续从 `MainForm` 抽出 `TargetWindowPolicy`、`ProfileCatalog` 和 `UpdateUiCoordinator`；宏执行、Held Mapping、Layer、Output Ownership、Router、配置格式与 Controller Takeover 语义不变。
+
 ## 1.4.1
 
 **界面稳定性 Hotfix：修复映射层管理菜单在 WinForms 仍处理当前菜单点击时过早释放 `ContextMenuStrip`，从而抛出 `ObjectDisposedException` 的问题。**

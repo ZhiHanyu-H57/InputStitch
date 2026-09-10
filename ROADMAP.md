@@ -6,7 +6,7 @@ Updated: 2026-09-10
 
 ## Current position / 当前阶段
 
-Current Stable: **v1.4.1**
+Current Stable: **v1.4.2**
 Previous prerelease: **v1.3.1-beta.1** — published and immutable
 Latest historical prerelease: **v1.3.1-beta.2** — published and immutable
 
@@ -359,11 +359,13 @@ v1.3.1-beta.1  ← published prerelease; slot acquisition implemented
    ↓
 v1.3.1-beta.2  ← current published prerelease; flexible layers + takeover health monitoring
    ↓
-v1.4.0 Stable   ← previous Stable / rollback reference
+v1.4.0 Stable
    ↓
-v1.4.1 Stable   ← current recommended Stable; UI lifecycle hotfix, takeover remains Experimental
+v1.4.1 Stable   ← previous Stable / rollback reference; UI lifecycle hotfix
    ↓
-output backend abstraction + Device Identity + Router source policy + Analog Transform
+v1.4.2 Stable   ← current recommended Stable; website-first updater + architecture cleanup, takeover remains Experimental
+   ↓
+Device Identity + Router source policy + Analog Transform
    ↓
 Activator / Condition + profile/context improvements
    ↓
@@ -380,7 +382,7 @@ controlled replacement hardware maturity
 - Beta uses the isolated Beta manifest/channel.
 - `v1.3.1-beta.1` is published as a GitHub **prerelease**; keep it immutable.
 - `v1.3.1-beta.2` is published as a GitHub **prerelease**; keep it immutable.
-- Keep historical Stable releases immutable. `v1.4.0` is the previous Stable rollback reference; `v1.4.1` is the current Stable line and now owns `releases/latest`.
+- Keep historical Stable releases immutable. `v1.4.1` is the previous Stable rollback reference; `v1.4.2` is the current Stable line and owns `releases/latest`.
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
 - Runtime changes require the complete regression suite before commit.

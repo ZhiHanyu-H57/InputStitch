@@ -6,11 +6,11 @@ Updated: 2026-09-10
 
 ## Current versions
 
-- Current Stable: `v1.4.1`
+- Current Stable: `v1.4.2`
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
-- Branch: `refactor/no-functional-change-1` — local no-feature-change refactor branch; `main` remains the published v1.4.1 baseline.
-- Previous Stable rollback reference: `v1.4.0`
+- Branch: `main` after the reviewed 1.4.2 release merge; the former `refactor/no-functional-change-1` work is incorporated in this Stable line.
+- Previous Stable rollback reference: `v1.4.1`
 - Developer test tool: `Input Lab v0.3.1` — independent version; source-built/packageable x64 viewer.
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
@@ -30,11 +30,11 @@ The same refactor branch now also completes the planned **Virtual Output Backend
 
 A further low-risk `MainForm` cleanup moves target-window / Idle target-scope matching and resolution policy into `TargetWindowPolicy`, and moves bound-profile directory scanning into `ProfileCatalog`. The original private `MainForm` method signatures remain as thin wrappers for compatibility with existing reflection tests and internal call sites. The updater UI workflow is also moved out of `MainForm` into `UpdateUiCoordinator`; `MainForm.CheckForUpdatesAsync(...)` remains a thin entrypoint and Idle Gamepad still treats an active update check as a busy condition. These passes deliberately do not touch Macro Runtime, Held Mapping, Output Ownership, trigger dispatch or output timing.
 
-Stable update transport now prefers the project download domain end-to-end. The manifest is checked first at `https://download.zhihanyu.com/latest/InputStitch-update.xml`; any download/parse/validation failure falls back to the official GitHub `latest` manifest. Stable manifests point executable assets at immutable `https://download.zhihanyu.com/releases/v<version>/...` objects. If that executable retrieval or its integrity/product validation fails, the updater retries the same checked version from the official GitHub Release asset. Only after both sources fail does the pre-existing check/download failure UI run. SHA-256 and product/version validation remain mandatory, and third-party asset hosts remain rejected.
+Stable update transport now prefers the project download domain end-to-end. The manifest is checked first at `https://download.zhihanyu.com/latest/InputStitch-update.xml`; any download/parse/validation failure falls back to the official GitHub `latest` manifest. The R2 `/latest` manifest points executable assets at immutable `https://download.zhihanyu.com/releases/v<version>/...` objects. If that executable retrieval or its integrity/product validation fails, the updater retries the same checked version from the official GitHub Release asset. The GitHub-published `InputStitch-update.xml` intentionally keeps GitHub asset URLs so existing v1.4.1 clients—which only trust that historical URL shape—can still upgrade across the migration boundary. `Publish-R2.py` derives the R2-specific manifest copy during mirroring. Only after both sources fail does the pre-existing check/download failure UI run. SHA-256 and product/version validation remain mandatory, and third-party asset hosts remain rejected.
 
-Verification for this checkpoint: full `tests/Run-Tests.ps1` passes after all source moves, including Layer/Productivity/Updater/UI safety and 303,716 Output Ownership checks; `UpdateNetworkTests` has 29 checks covering source ordering, R2→GitHub fallback, dual failure, bounded retry and partial-file cleanup without network access; `VirtualGamepadPreferenceTests` has 23 checks; all zh-CN/en-US Settings smoke tests pass; `build.ps1` produces and verifies both Windows x64/x86 v1.4.1 executables plus the source archive, and the generated stable manifest contains version-pinned `download.zhihanyu.com` asset URLs. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; the updater transport/source hint is the intentional behavior change.
+1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.1` is the current Stable line. The next active non-hardware platform item after this refactor is Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.2` is the current Stable line. The next active non-hardware platform item is Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 

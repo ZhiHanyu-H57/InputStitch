@@ -42,6 +42,13 @@ jobs:
       - name: Build and verify both Windows architectures
         shell: powershell
         run: ./build.ps1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify R2 Stable manifest derivation
+        if: steps.version.outputs.prerelease == 'false'
+        shell: powershell
+        run: python scripts/Verify-R2-Manifest.py --manifest dist/InputStitch-update.xml --version '${{ steps.version.outputs.version }}'
       - name: Run isolated regression and layout smoke tests
         shell: powershell
         run: ./tests/Run-Tests.ps1

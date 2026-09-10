@@ -216,7 +216,10 @@ function New-UpdateManifest {
         [Parameter(Mandatory = $true)][string]$X86Path
     )
     $manifestOutputPath = Join-Path $distDirectory $releaseInfo.ManifestName
-    $downloadBase = if ($releaseInfo.IsPrerelease) { "https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$releaseVersion" } else { "https://download.zhihanyu.com/releases/v$releaseVersion" }
+    # Keep the GitHub-published Stable manifest on GitHub asset URLs for legacy updaters
+    # (including v1.4.1) that only trust the historical GitHub release path. The R2 mirror
+    # rewrites its /latest manifest copy to version-pinned download.zhihanyu.com URLs.
+    $downloadBase = if ($releaseInfo.IsPrerelease) { "https://github.com/ZhiHanyu-H57/InputStitch/releases/download/v$releaseVersion" } else { 'https://github.com/ZhiHanyu-H57/InputStitch/releases/latest/download' }
     $x64Name = Split-Path $X64Path -Leaf
     $x86Name = Split-Path $X86Path -Leaf
     $x64Hash = (Get-FileHash -LiteralPath $X64Path -Algorithm SHA256).Hash.ToLowerInvariant()
