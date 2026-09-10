@@ -1,16 +1,17 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN" data-lang="zh">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#070a12">
-  <meta name="description" content="InputStitch — 面向 Windows 的精确输入编排与宏平台。统一键盘、鼠标与手柄输入，支持确定性并发、映射层、虚拟手柄输出与运行观察。">
-  <title>InputStitch — Windows 精确输入编排与宏平台</title>
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="description" content="InputStitch — Windows 键盘、鼠标与手柄输入映射和宏工具。支持并发映射、Output Ownership、映射层、虚拟手柄输出与运行观察。">
+  <title>InputStitch — Windows 输入映射与宏工具</title>
   <link rel="icon" href="assets/InputStitch.ico">
-  <link rel="stylesheet" href="assets/style.css?v=20260910-2">
+  <link rel="stylesheet" href="assets/style.css?v=20260910-3">
 </head>
-<body>
-  <div hidden data-title-zh="InputStitch — Windows 精确输入编排与宏平台" data-title-en="InputStitch — Deterministic input orchestration for Windows"></div>
+<body class="home-redesign">
+  <div hidden data-title-zh="InputStitch — Windows 输入映射与宏工具" data-title-en="InputStitch — Input mapping and macros for Windows"></div>
+
   <header class="site-header">
     <div class="container nav">
       <a class="brand" href="/" aria-label="InputStitch home">
@@ -29,203 +30,190 @@
   </header>
 
   <main>
-    <section class="hero">
-      <div class="container hero-grid">
-        <div>
-          <div class="eyebrow"><span class="dot"></span><span class="lang-zh">Stable · v1.4.1 · Windows</span><span class="lang-en">Stable · v1.4.1 · Windows</span></div>
-          <h1>
-            <span class="lang-zh"><span class="gradient">把每一次输入，编排成你想要的动作。</span></span>
-            <span class="lang-en"><span class="gradient">Stitch every input into the action you want.</span></span>
-          </h1>
-          <p class="hero-lead lang-zh">InputStitch 是面向 Windows 的精确输入编排与宏平台。把键盘、鼠标和手柄统一进一套可并发、可观察、可恢复的运行系统——从最简单的“按这个 → 输出那个”，到多宏、多来源和虚拟手柄的复杂组合。</p>
-          <p class="hero-lead lang-en">InputStitch is a deterministic input orchestration and macro platform for Windows. Bring keyboard, mouse and controllers into one concurrent, observable and recoverable runtime—from a simple “press this → send that” mapping to multi-source automation and virtual gamepad output.</p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="/download"><span>↓</span><span class="lang-zh">下载 64 位正式版</span><span class="lang-en">Download Stable x64</span></a>
-            <a class="btn btn-secondary" href="/guide"><span>↗</span><span class="lang-zh">5 分钟上手</span><span class="lang-en">Get started in 5 min</span></a>
+    <section class="home-hero">
+      <div class="container home-hero-grid">
+        <div class="home-hero-copy">
+          <div class="release-label"><span class="release-status"></span>InputStitch 1.4.1 Stable · Windows</div>
+          <h1>InputStitch</h1>
+          <p class="home-subtitle lang-zh">Windows 键盘、鼠标与手柄输入映射和宏工具。</p>
+          <p class="home-subtitle lang-en">Keyboard, mouse and controller mapping for Windows.</p>
+          <p class="home-summary lang-zh">把按键、鼠标操作和 XInput 手柄输入映射成键鼠动作或虚拟手柄输出。多个映射可以同时运行，软件会分别追踪每个来源的状态，避免一个宏结束时误释放另一个宏仍在保持的输出。</p>
+          <p class="home-summary lang-en">Map keyboard, mouse and XInput controls to keyboard, mouse or virtual-controller output. Multiple mappings can run at the same time while InputStitch tracks each source independently, so one macro ending does not release another macro's output.</p>
+
+          <div class="home-actions">
+            <a class="home-btn home-btn-primary" href="/download"><span class="lang-zh">下载正式版</span><span class="lang-en">Download stable</span></a>
+            <a class="home-btn" href="/guide"><span class="lang-zh">使用说明</span><span class="lang-en">User guide</span></a>
           </div>
-          <div class="hero-meta">
-            <span>◆ <span class="lang-zh">便携 EXE</span><span class="lang-en">Portable EXE</span></span>
-            <span>◆ <span class="lang-zh">中 / English</span><span class="lang-en">中文 / English</span></span>
-            <span>◆ .NET Framework 4.7.2+</span>
-          </div>
-        </div>
-
-        <div class="orchestration" aria-label="Input orchestration illustration">
-          <div class="orchestration-title">INPUT → OWNERSHIP → OUTPUT</div>
-          <div class="flow">
-            <svg class="flow-connections" viewBox="0 0 1000 380" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="flowStroke" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#4ea9e8" stop-opacity="0.58"/>
-                  <stop offset="0.5" stop-color="#79dcff" stop-opacity="0.95"/>
-                  <stop offset="1" stop-color="#5bc9ff" stop-opacity="0.72"/>
-                </linearGradient>
-                <filter id="flowGlow" x="-30%" y="-30%" width="160%" height="160%">
-                  <feGaussianBlur stdDeviation="4" result="blur"/>
-                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
-              </defs>
-              <g class="connection-lines" stroke="url(#flowStroke)" stroke-width="2.2" stroke-linecap="round" vector-effect="non-scaling-stroke">
-                <line x1="320" y1="62" x2="430" y2="137"/>
-                <line x1="320" y1="173" x2="400" y2="173"/>
-                <line x1="320" y1="284" x2="430" y2="209"/>
-                <line x1="570" y1="137" x2="680" y2="62"/>
-                <line x1="600" y1="173" x2="680" y2="173"/>
-                <line x1="570" y1="209" x2="680" y2="284"/>
-              </g>
-              <g class="connection-nodes" fill="#74e7ff" filter="url(#flowGlow)">
-                <circle cx="320" cy="62" r="6"/><circle cx="430" cy="137" r="6"/>
-                <circle cx="320" cy="173" r="6"/><circle cx="400" cy="173" r="6"/>
-                <circle cx="320" cy="284" r="6"/><circle cx="430" cy="209" r="6"/>
-                <circle cx="570" cy="137" r="6"/><circle cx="680" cy="62" r="6"/>
-                <circle cx="600" cy="173" r="6"/><circle cx="680" cy="173" r="6"/>
-                <circle cx="570" cy="209" r="6"/><circle cx="680" cy="284" r="6"/>
-              </g>
-            </svg>
-
-            <div class="flow-card input-1"><strong>Keyboard</strong><span>Shift + E</span></div>
-            <div class="flow-card input-2"><strong>Mouse</strong><span>Side Button 4</span></div>
-            <div class="flow-card input-3"><strong>XInput</strong><span>RT · 80%</span></div>
-
-            <div class="flow-core">
-              <div class="core-orb"><span class="core-bolt" aria-hidden="true"></span></div>
-              <strong>Output Ownership</strong>
-              <span>deterministic merge</span>
-            </div>
-
-            <div class="flow-card output-1"><strong>Keyboard</strong><span>K · held</span></div>
-            <div class="flow-card output-2"><strong>Mouse</strong><span>Click + wheel</span></div>
-            <div class="flow-card output-3"><strong>Virtual Pad</strong><span>Stick · RT · A</span></div>
+          <div class="home-inline-links">
+            <a href="https://github.com/ZhiHanyu-H57/InputStitch" target="_blank" rel="noreferrer">GitHub</a>
+            <span>Portable EXE</span>
+            <span>.NET Framework 4.7.2+</span>
+            <span>中文 / English</span>
           </div>
         </div>
-      </div>
-    </section>
 
-    <section class="logo-strip">
-      <div class="container strip">
-        <div class="stat"><strong>3 <span class="lang-zh">类输入</span><span class="lang-en">input families</span></strong><span class="lang-zh">键盘 · 鼠标 · XInput 手柄</span><span class="lang-en">Keyboard · Mouse · XInput</span></div>
-        <div class="stat"><strong><span class="lang-zh">确定性并发</span><span class="lang-en">Deterministic concurrency</span></strong><span class="lang-zh">来源独立，不互相误释放</span><span class="lang-en">Source-local ownership and cleanup</span></div>
-        <div class="stat"><strong><span class="lang-zh">任意映射层</span><span class="lang-en">Named layers</span></strong><span class="lang-zh">基础层 + 当前活动层</span><span class="lang-en">Base + active layer</span></div>
-        <div class="stat"><strong><span class="lang-zh">运行可观察</span><span class="lang-en">Observable runtime</span></strong><span class="lang-zh">知道“为什么这个输出还在”</span><span class="lang-en">See why an output is active</span></div>
-      </div>
-    </section>
-
-    <section class="section alt" id="features">
-      <div class="container">
-        <div class="section-head">
-          <div><div class="kicker">Core capabilities</div><h2><span class="lang-zh">简单任务要简单，复杂任务也要可控。</span><span class="lang-en">Simple when it should be. Deterministic when it gets complex.</span></h2></div>
-          <p class="lang-zh">InputStitch 不以“功能数量”作为唯一目标，而是把并发、状态合并、安全停止和可解释性做成运行架构的一部分。</p>
-          <p class="lang-en">InputStitch is built around concurrency, state ownership, safe cleanup and explainable runtime behavior—not just a checklist of remapping features.</p>
-        </div>
-
-        <div class="feature-grid">
-          <article class="card feature">
-            <div class="iconbox">⌨</div>
-            <h3><span class="lang-zh">键鼠宏与精确时序</span><span class="lang-en">Keyboard & mouse timelines</span></h3>
-            <p class="lang-zh">录制或手动编辑按键、鼠标键、侧键和滚轮；逐步设置按住时间、间隔、次数、Toggle 或 Hold。</p>
-            <p class="lang-en">Record or edit keys, mouse buttons, side buttons and wheel actions with per-step hold time, delay, repeat, Toggle and Hold behavior.</p>
-          </article>
-          <article class="card feature">
-            <div class="iconbox">∞</div>
-            <h3><span class="lang-zh">真正的多宏并发</span><span class="lang-en">Real concurrent macros</span></h3>
-            <p class="lang-zh">多个普通时序宏、复杂 Hold 和 Held Mapping 可以同时运行，各自拥有独立 RunId / SourceId 与停止状态。</p>
-            <p class="lang-en">Timed macros, advanced Holds and Held Mappings can run at once with independent run/source identity and stop state.</p>
-          </article>
-          <article class="card feature">
-            <div class="iconbox">◎</div>
-            <h3><span class="lang-zh">确定性 Output Ownership</span><span class="lang-en">Deterministic Output Ownership</span></h3>
-            <p class="lang-zh">一个宏结束时只释放自己的贡献，不会把另一个仍在保持的按键、扳机、摇杆或方向键一起清掉。</p>
-            <p class="lang-en">When one source ends, it removes only its own contribution instead of neutralizing outputs still owned by another source.</p>
-          </article>
-          <article class="card feature">
-            <div class="iconbox">◫</div>
-            <h3><span class="lang-zh">映射层</span><span class="lang-en">Mapping layers</span></h3>
-            <p class="lang-zh">创建任意多个命名映射层，为键盘、鼠标或手柄设置切换触发；基础层始终有效，活动层按需叠加。</p>
-            <p class="lang-en">Create named layers with keyboard, mouse or controller switch triggers. Base stays eligible while one active layer is added.</p>
-          </article>
-          <article class="card feature">
-            <div class="iconbox">🎮</div>
-            <h3><span class="lang-zh">虚拟手柄与手柄触发</span><span class="lang-en">Controller triggers & virtual output</span></h3>
-            <p class="lang-zh">XInput 手柄可以触发键鼠/混合宏；需要时输出 Xbox 360 或 DualShock 4，不需要时可完全关闭虚拟手柄创建。</p>
-            <p class="lang-en">Use XInput controls as triggers and optionally output Xbox 360 or DualShock 4. Keyboard/mouse-only mode can create no virtual pad at all.</p>
-          </article>
-          <article class="card feature">
-            <div class="iconbox">◉</div>
-            <h3><span class="lang-zh">运行观察与单步调试</span><span class="lang-en">Runtime observation & stepping</span></h3>
-            <p class="lang-zh">查看当前运行实例、来源、合并后的输出和活动映射层；普通时序宏还能单步执行，复杂行为不再靠猜。</p>
-            <p class="lang-en">Inspect active runs, sources, merged output and layers. Step through ordinary timelines to debug behavior deliberately.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="container showcase">
-        <div class="showcase-copy">
-          <div class="kicker">One runtime, many sources</div>
-          <h2><span class="lang-zh">不是“后来的宏覆盖前面的宏”。</span><span class="lang-en">Not “the newest macro wins.”</span></h2>
-          <p class="lang-zh">InputStitch 记录每一个来源正在要求什么，再把它们按明确规则合并。这样多个输入同时存在时，结果仍然可预测。</p>
-          <p class="lang-en">InputStitch tracks what every source currently owns, then combines those contributions with explicit rules. Concurrent input remains predictable.</p>
-          <ul class="check-list">
-            <li><span class="lang-zh">两个宏同时按住同一按键，一个结束不会提前松开。</span><span class="lang-en">Two macros can hold the same key without releasing each other.</span></li>
-            <li><span class="lang-zh">多个模拟扳机来源保留更大的有效力度。</span><span class="lang-en">Analog trigger contributions merge deterministically.</span></li>
-            <li><span class="lang-zh">摇杆向量合并后限制在合法范围。</span><span class="lang-en">Stick vectors merge and normalize into valid range.</span></li>
-            <li><span class="lang-zh">紧急停止仍是全局最高优先级。</span><span class="lang-en">Emergency Stop remains the global highest-priority escape hatch.</span></li>
-          </ul>
-          <a class="btn btn-secondary" href="/guide#concurrency"><span class="lang-zh">了解并发与安全机制 →</span><span class="lang-en">Learn concurrency & safety →</span></a>
-        </div>
-        <div class="window-frame">
-          <div class="window-caption"><i></i><i></i><i></i></div>
+        <figure class="home-app-shot">
           <img src="assets/app-main.png" alt="InputStitch main interface">
-        </div>
+          <figcaption><span class="lang-zh">InputStitch 1.4.1 主界面</span><span class="lang-en">InputStitch 1.4.1 main window</span></figcaption>
+        </figure>
       </div>
     </section>
 
-    <section class="section alt">
+    <section class="home-facts" aria-label="Product summary">
+      <div class="container home-facts-grid">
+        <div><strong><span class="lang-zh">输入</span><span class="lang-en">Inputs</span></strong><span>Keyboard · Mouse · XInput</span></div>
+        <div><strong><span class="lang-zh">输出</span><span class="lang-en">Outputs</span></strong><span>Keyboard · Mouse · Virtual Pad</span></div>
+        <div><strong><span class="lang-zh">并发</span><span class="lang-en">Concurrency</span></strong><span><span class="lang-zh">多个映射同时运行</span><span class="lang-en">Multiple mappings at once</span></span></div>
+        <div><strong><span class="lang-zh">虚拟手柄</span><span class="lang-en">Virtual pad</span></strong><span><span class="lang-zh">按需启用</span><span class="lang-en">Optional</span></span></div>
+      </div>
+    </section>
+
+    <section class="home-section" id="what-it-does">
       <div class="container">
-        <div class="section-head">
-          <div><div class="kicker">Quick Create</div><h2><span class="lang-zh">从模板开始，不必先理解整个编辑器。</span><span class="lang-en">Start from intent, not from an empty editor.</span></h2></div>
-          <p class="lang-zh">常见需求可以从快捷创建进入：按住映射、顺序执行、重复动作。创建后仍能在主界面继续精调。</p>
-          <p class="lang-en">Common workflows begin with Quick Create: held mapping, ordered sequence or repeat. Fine-tune the result later in the full editor.</p>
+        <div class="home-section-intro">
+          <h2><span class="lang-zh">它能做什么</span><span class="lang-en">What it does</span></h2>
+          <p class="lang-zh">InputStitch 的核心不是“录一段按键再播放”，而是把不同输入和输出放进同一套可并发、可观察的运行系统。</p>
+          <p class="lang-en">InputStitch is more than recording and replaying keystrokes. It puts different input and output types into one concurrent, observable runtime.</p>
         </div>
-        <div class="template-grid">
-          <article class="card template-card"><img src="assets/quick-held.png" alt="Held Mapping Quick Create"><div class="template-copy"><h3><span class="lang-zh">按住映射</span><span class="lang-en">Held Mapping</span></h3><p><span class="lang-zh">触发键按着多久，输出就维持多久。</span><span class="lang-en">Keep an output active while the trigger is physically held.</span></p></div></article>
-          <article class="card template-card"><img src="assets/quick-sequence.png" alt="Sequence Quick Create"><div class="template-copy"><h3><span class="lang-zh">顺序执行</span><span class="lang-en">Sequence</span></h3><p><span class="lang-zh">把多个动作按精确时序串成一条流程。</span><span class="lang-en">Chain several actions into a precise timeline.</span></p></div></article>
-          <article class="card template-card"><img src="assets/quick-repeat.png" alt="Repeat Quick Create"><div class="template-copy"><h3><span class="lang-zh">重复动作</span><span class="lang-en">Repeat</span></h3><p><span class="lang-zh">固定次数或持续循环，按你的触发方式停止。</span><span class="lang-en">Repeat a defined action finitely or continuously.</span></p></div></article>
+
+        <div class="capability-list">
+          <article class="capability-row">
+            <div class="capability-index">01</div>
+            <div>
+              <h3><span class="lang-zh">键盘、鼠标和手柄互相映射</span><span class="lang-en">Map keyboard, mouse and controller input</span></h3>
+              <p class="lang-zh">键盘键、鼠标键、侧键、滚轮和 XInput 控件都可以作为触发来源。输出可以是键盘、鼠标，或者 Xbox 360 / DualShock 4 虚拟手柄。</p>
+              <p class="lang-en">Keys, mouse buttons, side buttons, wheel input and XInput controls can all be triggers. Output can target keyboard, mouse, Xbox 360 or DualShock 4 virtual controllers.</p>
+            </div>
+            <div class="mapping-sample" aria-label="Mapping examples"><code>Shift + E → K (held)</code><code>Mouse 4 → click + wheel</code><code>RT 80% → virtual stick</code></div>
+          </article>
+
+          <article class="capability-row">
+            <div class="capability-index">02</div>
+            <div>
+              <h3><span class="lang-zh">多个宏可以真正同时运行</span><span class="lang-en">Run several mappings at the same time</span></h3>
+              <p class="lang-zh">普通时序宏、复杂 Hold 和 Held Mapping 可以并发运行。每次运行都有独立的来源和停止状态，而不是“后启动的宏覆盖前面的宏”。</p>
+              <p class="lang-en">Timed sequences, advanced Holds and Held Mappings can run concurrently. Each run keeps its own source and stop state instead of replacing whatever started earlier.</p>
+            </div>
+            <div class="mapping-sample"><code>Held A ─┐</code><code>Held B ─┼─ simultaneous</code><code>Sequence ─┘</code></div>
+          </article>
+
+          <article class="capability-row">
+            <div class="capability-index">03</div>
+            <div>
+              <h3><span class="lang-zh">复杂状态可以看见，也可以安全停下</span><span class="lang-en">Inspect state and stop safely</span></h3>
+              <p class="lang-zh">运行观察会显示当前运行实例、来源、映射层和合并后的输出。普通时序宏支持单步执行；默认紧急停止为 Ctrl + Shift + F12。</p>
+              <p class="lang-en">Runtime Observation shows active runs, sources, layers and merged output. Ordinary sequences can be stepped through, and the default Emergency Stop is Ctrl + Shift + F12.</p>
+            </div>
+            <div class="mapping-sample"><code>RunId / SourceId</code><code>Active layer</code><code>Ctrl + Shift + F12</code></div>
+          </article>
         </div>
       </div>
     </section>
 
-    <section class="section">
+    <section class="home-section home-section-muted" id="quick-create">
       <div class="container">
-        <div class="section-head">
-          <div><div class="kicker">Design principles</div><h2><span class="lang-zh">可靠性不是口号，是架构。</span><span class="lang-en">Reliability is architectural.</span></h2></div>
-          <p class="lang-zh">从配置保存、更新，到宏停止和实验性手柄接管，InputStitch 尽量遵循同一个原则：先准备与验证，再改变状态；失败就回滚或恢复。</p>
-          <p class="lang-en">From configuration and updates to macro cleanup and experimental controller takeover, InputStitch follows a consistent pattern: prepare, verify, mutate, verify, recover.</p>
+        <div class="home-section-intro narrow">
+          <h2><span class="lang-zh">从常见操作开始</span><span class="lang-en">Start with common actions</span></h2>
+          <p class="lang-zh">Quick Create 把最常见的三种需求直接做成模板。创建后仍然可以进入完整编辑器继续调整。</p>
+          <p class="lang-en">Quick Create covers three common jobs directly. The result can still be edited in the full editor afterwards.</p>
         </div>
-        <div class="principles">
-          <article class="card principle"><div class="num">01 · SOURCE-LOCAL</div><h3><span class="lang-zh">来源局部清理</span><span class="lang-en">Source-local cleanup</span></h3><p><span class="lang-zh">普通运行结束只清理自己的输出贡献，全局中和只留给真正的全局紧急停止。</span><span class="lang-en">Ordinary completion cleans only that source. Global neutralization is reserved for an actual global stop.</span></p></article>
-          <article class="card principle"><div class="num">02 · OBSERVABLE</div><h3><span class="lang-zh">复杂状态必须能解释</span><span class="lang-en">Complex state must be explainable</span></h3><p><span class="lang-zh">运行观察显示宏实例、来源、层、路由和最终输出，减少“它为什么还按着”的黑箱感。</span><span class="lang-en">Runtime Observation exposes runs, sources, layers, routing and merged output so persistent state is not a black box.</span></p></article>
-          <article class="card principle"><div class="num">03 · OPTIONAL</div><h3><span class="lang-zh">虚拟手柄不是强制依赖</span><span class="lang-en">Virtual gamepad is optional</span></h3><p><span class="lang-zh">只做键鼠宏时，可以选择“不创建虚拟手柄”，不因为保存过手柄步骤就强行初始化 ViGEm。</span><span class="lang-en">Keyboard/mouse workflows can explicitly create no virtual controller instead of initializing ViGEm unnecessarily.</span></p></article>
-          <article class="card principle"><div class="num">04 · FAIL-SAFE</div><h3><span class="lang-zh">高风险操作先验证</span><span class="lang-en">Fail-safe before mutation</span></h3><p><span class="lang-zh">实验性设备接管采用事务、健康监测与恢复日志；实体硬件验收未完成的部分也明确保留 Experimental 标记。</span><span class="lang-en">Experimental takeover uses transactions, health checks and recovery journals, while unvalidated hardware behavior remains explicitly Experimental.</span></p></article>
+
+        <div class="quick-layout">
+          <figure class="quick-main">
+            <img src="assets/quick-held.png" alt="Held Mapping Quick Create">
+            <figcaption>
+              <h3><span class="lang-zh">按住映射</span><span class="lang-en">Held Mapping</span></h3>
+              <p class="lang-zh">触发键按着多久，输出就保持多久。适合把鼠标侧键、手柄键等转换成持续按住的键盘或手柄输入。</p>
+              <p class="lang-en">Keep an output active for as long as the trigger is physically held.</p>
+            </figcaption>
+          </figure>
+
+          <div class="quick-side">
+            <figure>
+              <img src="assets/quick-sequence.png" alt="Sequence Quick Create">
+              <figcaption><h3><span class="lang-zh">顺序执行</span><span class="lang-en">Sequence</span></h3><p><span class="lang-zh">把多个动作按时间顺序串起来。</span><span class="lang-en">Chain actions into a timed sequence.</span></p></figcaption>
+            </figure>
+            <figure>
+              <img src="assets/quick-repeat.png" alt="Repeat Quick Create">
+              <figcaption><h3><span class="lang-zh">重复动作</span><span class="lang-en">Repeat</span></h3><p><span class="lang-zh">固定次数重复，或持续循环直到停止。</span><span class="lang-en">Repeat an action a fixed number of times or continuously.</span></p></figcaption>
+            </figure>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="container cta">
-      <h2><span class="lang-zh">先从一个简单映射开始。</span><span class="lang-en">Start with one simple mapping.</span></h2>
-      <p class="lang-zh">下载便携版，第一次使用不需要安装器。只做键盘/鼠标宏也不需要额外虚拟手柄驱动；需要虚拟手柄输出时，再按教程安装 ViGEmBus。</p>
-      <p class="lang-en">Download the portable executable—no installer is required. Keyboard/mouse automation needs no virtual gamepad driver; add ViGEmBus only when you actually need virtual controller output.</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="/download">↓ <span class="lang-zh">下载 InputStitch 1.4.1</span><span class="lang-en">Download InputStitch 1.4.1</span></a>
-        <a class="btn btn-secondary" href="/guide"><span class="lang-zh">阅读使用说明</span><span class="lang-en">Read the guide</span> →</a>
+    <section class="home-section" id="ownership">
+      <div class="container ownership-layout">
+        <div class="ownership-copy">
+          <h2><span class="lang-zh">两个宏同时按住 K，谁负责松开？</span><span class="lang-en">Two macros are holding K. Who releases it?</span></h2>
+          <p class="lang-zh">这是 InputStitch 做 Output Ownership 的原因。每个来源只清理自己的贡献；只要还有另一个来源要求 K 保持按下，最终输出就不会松开。</p>
+          <p class="lang-en">That is why InputStitch tracks Output Ownership. Each source removes only its own contribution. If another source still owns K, the merged output stays pressed.</p>
+          <ul class="plain-list">
+            <li><span class="lang-zh">数字按键按来源计数，不互相误释放。</span><span class="lang-en">Digital buttons are reference-counted by source.</span></li>
+            <li><span class="lang-zh">扳机和摇杆按明确规则合并到合法范围。</span><span class="lang-en">Triggers and sticks merge by explicit rules into valid ranges.</span></li>
+            <li><span class="lang-zh">真正的全局中和只留给紧急停止。</span><span class="lang-en">Global neutralization is reserved for Emergency Stop.</span></li>
+          </ul>
+          <a class="text-link" href="/guide#concurrency"><span class="lang-zh">查看并发与安全说明 →</span><span class="lang-en">Read concurrency and safety details →</span></a>
+        </div>
+
+        <div class="ownership-terminal" role="img" aria-label="Output Ownership example">
+          <div class="terminal-title">OUTPUT OWNERSHIP · EXAMPLE</div>
+          <div class="terminal-row"><span>source: held-mapping-07</span><strong>K = down</strong></div>
+          <div class="terminal-row"><span>source: sequence-12</span><strong>K = down</strong></div>
+          <div class="terminal-rule"></div>
+          <div class="terminal-row result"><span>merged output</span><strong>K = down</strong></div>
+          <div class="terminal-event">sequence-12 ends</div>
+          <div class="terminal-row result"><span>remaining owner</span><strong>K = down</strong></div>
+          <div class="terminal-note"><span class="lang-zh">不会因为一个来源结束就提前发送 KeyUp。</span><span class="lang-en">No premature KeyUp when one source ends.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section home-section-muted" id="advanced">
+      <div class="container">
+        <div class="home-section-intro narrow">
+          <h2><span class="lang-zh">映射层、手柄与运行状态</span><span class="lang-en">Layers, controllers and runtime state</span></h2>
+        </div>
+
+        <div class="detail-list">
+          <article class="detail-row">
+            <h3><span class="lang-zh">映射层</span><span class="lang-en">Mapping layers</span></h3>
+            <div><p class="lang-zh">可以创建任意命名的映射层，并用键盘、鼠标或手柄触发切换。Base 始终有效，同时最多叠加一个当前活动层。</p><p class="lang-en">Create named layers and switch them with keyboard, mouse or controller triggers. Base remains eligible while one named layer can be active on top.</p></div>
+          </article>
+          <article class="detail-row">
+            <h3><span class="lang-zh">手柄输入与虚拟输出</span><span class="lang-en">Controller input and virtual output</span></h3>
+            <div><p class="lang-zh">XInput 手柄可以直接触发键鼠或混合宏。需要时创建 Xbox 360 / DualShock 4 虚拟手柄；只做键鼠自动化时可以完全不创建虚拟手柄，也不需要 ViGEmBus。</p><p class="lang-en">XInput controllers can trigger keyboard/mouse or mixed macros. Create an Xbox 360 or DualShock 4 virtual controller only when needed; keyboard/mouse-only workflows can skip ViGEmBus entirely.</p></div>
+          </article>
+          <article class="detail-row">
+            <h3><span class="lang-zh">实验性手柄接管</span><span class="lang-en">Experimental controller takeover</span></h3>
+            <div><p class="lang-zh">设备接管已经有事务、健康监测与恢复日志基础，但实体手柄 + HidHide + 真实游戏的完整验收尚未完成，因此仍明确标记为 Experimental。</p><p class="lang-en">Controller takeover has transactional setup, health checks and recovery journals, but full physical-controller + HidHide + real-game acceptance is not complete, so it remains explicitly Experimental.</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section home-spec-section">
+      <div class="container home-spec-layout">
+        <div>
+          <h2><span class="lang-zh">当前版本</span><span class="lang-en">Current release</span></h2>
+          <p class="lang-zh">InputStitch 1.4.1 是 1.4.0 的界面生命周期稳定性修复版，不改变功能和配置格式。</p>
+          <p class="lang-en">InputStitch 1.4.1 is a UI-lifecycle stability hotfix over 1.4.0 with no feature or configuration-format changes.</p>
+          <div class="home-actions"><a class="home-btn home-btn-primary" href="/download"><span class="lang-zh">下载 InputStitch 1.4.1</span><span class="lang-en">Download InputStitch 1.4.1</span></a><a class="home-btn" href="/guide"><span class="lang-zh">第一次使用</span><span class="lang-en">First-time setup</span></a></div>
+        </div>
+        <dl class="home-specs">
+          <div><dt><span class="lang-zh">系统</span><span class="lang-en">OS</span></dt><dd>Windows</dd></div>
+          <div><dt><span class="lang-zh">架构</span><span class="lang-en">Architectures</span></dt><dd>x64 / x86</dd></div>
+          <div><dt><span class="lang-zh">安装方式</span><span class="lang-en">Install</span></dt><dd>Portable EXE</dd></div>
+          <div><dt><span class="lang-zh">运行时</span><span class="lang-en">Runtime</span></dt><dd>.NET Framework 4.7.2+</dd></div>
+          <div><dt><span class="lang-zh">下载</span><span class="lang-en">Downloads</span></dt><dd>Cloudflare R2</dd></div>
+        </dl>
       </div>
     </section>
   </main>
 
-  <footer>
+  <footer class="home-footer">
     <div class="container footer-grid">
-      <div>© <span data-year>2026</span> InputStitch · <span class="lang-zh">面向 Windows 的精确输入编排与宏平台</span><span class="lang-en">Deterministic input orchestration for Windows</span></div>
+      <div>© <span data-year>2026</span> InputStitch</div>
       <div class="footer-links"><a href="/guide"><span class="lang-zh">使用说明</span><span class="lang-en">Guide</span></a><a href="/download"><span class="lang-zh">下载</span><span class="lang-en">Download</span></a><a href="https://github.com/ZhiHanyu-H57/InputStitch" target="_blank" rel="noreferrer">GitHub</a></div>
     </div>
   </footer>
