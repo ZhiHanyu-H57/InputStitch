@@ -486,6 +486,27 @@ The older log also contained historical 1.3.0 `Nefarius.ViGEm.Client` resolution
 
 `v1.4.1` is now immutable Stable release history. Future release work must use a new version/tag.
 
+### Published Stable 1.4.2 verification
+
+`v1.4.2` moves Stable update transport to the project download domain first, preserves GitHub as automatic fallback, and ships the completed no-semantic-change refactor series (shared XInput/XML infrastructure, config/package serialization, virtual output backend boundary, target/profile policy extraction and update UI coordination).
+
+Release evidence:
+
+- non-publishing candidate commit: `2763bbc`; GitHub workflow `34485723355`: `completed / success`, including the new Python 3.12 R2-manifest derivation gate;
+- final no-source-change publish commit / exact tag target: `47b0d9204de3674ff6d15c5bc685eb2288a4d6d6`;
+- publish workflow `34486009244`: `completed / success`; `verify`, `publish-stable` and `mirror-stable-r2` all succeeded, while Beta jobs were skipped;
+- tag/release: `v1.4.2`, `draft=false`, `prerelease=false`, five expected assets present;
+- published x64 SHA-256 `d293f94def9f12e8af00fdf611aadc6fb167c030ff95460e6dfaf746d910faf2`, 756,224 bytes, `ProductVersion=1.4.2`, `FileVersion=1.4.2.0`;
+- published x86 SHA-256 `cd62b48df3aa6d65df023f3773e1ac7667b3e8b517fe582e805b3c63dce91a4a`, 757,248 bytes, `ProductVersion=1.4.2`, `FileVersion=1.4.2.0`;
+- Source.zip SHA-256 `2e7f4af5a2c57b6f0a8bb383753657b45239802f01ceef0e40936a0f8a94bafa`; GitHub `InputStitch-update.xml` SHA-256 `c798abba127087f1f8b0c18e2fcd1f0df82a27ec7350916004350a287437d69c`;
+- live GitHub Stable manifest advertises 1.4.2 with GitHub `releases/latest/download` asset URLs, preserving the URL policy expected by the real 1.4.1 updater;
+- live R2 `/latest/InputStitch-update.xml` advertises the same 1.4.2 file names and SHA-256 values but version-pinned `https://download.zhihanyu.com/releases/v1.4.2/...` asset URLs;
+- direct downloads of both versioned R2 and versioned GitHub x64/x86 assets produced identical hashes; the website `/latest/InputStitch-Windows-x64.exe` alias also matches the x64 manifest hash and reports 1.4.2 / 1.4.2.0;
+- a real in-memory `v1.4.1` x64 assembly probe calling its original `UpdateManager.CheckAsync()` returned `RemoteVersion=1.4.2`, `IsAvailable=True`, and an accepted official GitHub x64 asset URL;
+- a real `v1.4.2` x64 assembly probe calling `UpdateManager.CheckAsync()` resolved the primary manifest/asset through `download.zhihanyu.com`; its compiled fallback manifest constant remains the official GitHub Stable manifest.
+
+`v1.4.2` is now immutable Stable release history. Future release changes must use a new version/tag rather than replacing this release.
+
 ## Public documentation rule
 
 Public Simplified Chinese README/update text must be ordinary-user-first:
@@ -496,9 +517,9 @@ Public Simplified Chinese README/update text must be ordinary-user-first:
 
 Technical design notes may use internal English type/API names freely.
 
-## Next step after beta.2
+## Next platform step after v1.4.2
 
-Virtual Output Backend abstraction is completed on the current refactor branch. Active non-hardware order is now:
+Virtual Output Backend abstraction and the first architecture-cleanup series are completed in v1.4.2. Active non-hardware order is now:
 
 1. build persistent `DeviceKey` / Device Manager inventory and diagnostics;
 2. change Router from “all visible external XInput sources” to explicit source selection + per-device policy;
