@@ -107,7 +107,7 @@ namespace InputStitch.Tools.InputLab
                 {
                     if (phase == 0)
                     {
-                        lab.ApplyKeyVisualStateForSelfTest((int)Keys.K, true, true);
+                        lab.ApplyRawKeyboardVisualStateForSelfTest((int)Keys.K, true);
                         phase = 1;
                         return;
                     }
@@ -117,11 +117,11 @@ namespace InputStitch.Tools.InputLab
                         if (!snapshot.KeysDown.Contains((int)Keys.K) || !lab.IsKeyVisuallyHighlighted((int)Keys.K))
                         {
                             result = 1;
-                            lab.ApplyKeyVisualStateForSelfTest((int)Keys.K, false, true);
+                            lab.ApplyRawKeyboardVisualStateForSelfTest((int)Keys.K, false);
                             lab.Close();
                             return;
                         }
-                        lab.ApplyKeyVisualStateForSelfTest((int)Keys.K, false, true);
+                        lab.ApplyRawKeyboardVisualStateForSelfTest((int)Keys.K, false);
                         phase = 2;
                         return;
                     }

@@ -12,6 +12,8 @@ namespace InputStitch.Tools.InputLab
         private readonly Dictionary<int, Label> keyLabels = new Dictionary<int, Label>();
         private readonly Dictionary<int, long> keyHighlightUntil = new Dictionary<int, long>();
         private readonly Dictionary<int, bool> keyLastInjected = new Dictionary<int, bool>();
+        private readonly Dictionary<int, long> keyLastHookEventAt = new Dictionary<int, long>();
+        private readonly Dictionary<int, bool> keyLastHookEventDown = new Dictionary<int, bool>();
         private readonly Dictionary<string, Label> mouseLabels = new Dictionary<string, Label>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ushort, Label> gamepadLabels = new Dictionary<ushort, Label>();
         private readonly HashSet<int> keysDown = new HashSet<int>();
@@ -74,6 +76,7 @@ namespace InputStitch.Tools.InputLab
         private static readonly Color RecentInjectedColor = Color.FromArgb(219, 235, 252);
         private static readonly Color TextColor = Color.FromArgb(32, 38, 48);
         private const int KeyReleaseGlowMilliseconds = 180;
+        private const int RawKeyboardHookDedupMilliseconds = 60;
 
         internal InputLabForm(int initialView)
             : this(initialView, false)
@@ -207,14 +210,14 @@ namespace InputStitch.Tools.InputLab
 
         private Control BuildKeyboardPanel()
         {
-            GroupBox group = CreateGroup("Keyboard — global low-level hook");
+            GroupBox group = CreateGroup("Keyboard — low-level hook + Raw Input fallback");
             TableLayoutPanel layout = new TableLayoutPanel();
             layout.Dock = DockStyle.Fill;
             layout.Padding = new Padding(14, 12, 14, 12);
             layout.RowCount = 6;
             layout.ColumnCount = 1;
             layout.AutoScroll = true;
-            for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 6F));
+            for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
 
             layout.Controls.Add(CreateKeyRow(new object[,] {
                 {27,"Esc",64},{112,"F1",58},{113,"F2",58},{114,"F3",58},{115,"F4",58},{116,"F5",58},{117,"F6",58},{118,"F7",58},{119,"F8",58},{120,"F9",58},{121,"F10",64},{122,"F11",64},{123,"F12",64}
@@ -245,14 +248,14 @@ namespace InputStitch.Tools.InputLab
             row.Dock = DockStyle.Fill;
             row.WrapContents = false;
             row.AutoScroll = true;
-            row.Padding = new Padding(0, 8, 0, 4);
+            row.Padding = new Padding(0, 3, 0, 3);
             int count = keys.GetLength(0);
             for (int i = 0; i < count; i++)
             {
                 int vk = (int)keys[i, 0];
                 string text = (string)keys[i, 1];
                 int width = (int)keys[i, 2];
-                Label label = CreateStateLabel(text, width, 54);
+                Label label = CreateStateLabel(text, width, 50);
                 label.Font = new Font(Font.FontFamily, 10F, FontStyle.Bold);
                 label.Tag = vk;
                 keyLabels[vk] = label;
@@ -513,7 +516,10 @@ namespace InputStitch.Tools.InputLab
             devices[0].hwndTarget = Handle;
             devices[1].usUsagePage = 0x01;
             devices[1].usUsage = 0x06; // keyboard
-            devices[1].dwFlags = automationMode ? NativeInput.RIDEV_INPUTSINK : 0;
+            // Keep the keyboard Raw Input lane alive even when another system surface (for example Start)
+            // briefly takes foreground. It is passive and is also used as a visual fallback when WH_KEYBOARD_LL
+            // is installed but does not deliver an event on a particular machine.
+            devices[1].dwFlags = NativeInput.RIDEV_INPUTSINK;
             devices[1].hwndTarget = Handle;
             rawInputRegistered = NativeInput.RegisterRawInputDevices(devices, (uint)devices.Length,
                 (uint)Marshal.SizeOf(typeof(NativeInput.RAWINPUTDEVICE)));
@@ -523,7 +529,7 @@ namespace InputStitch.Tools.InputLab
             else
                 LogEvent("Lab", "Raw Input", "READY", automationMode
                     ? "Background keyboard/mouse Raw Input comparison enabled for acceptance."
-                    : "Foreground keyboard/mouse Raw Input comparison enabled.");
+                    : "Keyboard Raw Input background sink enabled; mouse Raw Input remains foreground-only.");
         }
 
         private void UpdateHookStatus()
@@ -662,10 +668,12 @@ namespace InputStitch.Tools.InputLab
                     NativeInput.RAWKEYBOARD raw = (NativeInput.RAWKEYBOARD)Marshal.PtrToStructure(payload, typeof(NativeInput.RAWKEYBOARD));
                     rawKeyboardEventCount++;
                     bool up = (raw.Flags & NativeInput.RI_KEY_BREAK) != 0 || raw.Message == NativeInput.WM_KEYUP || raw.Message == NativeInput.WM_SYSKEYUP;
-                    if (up) rawKeysDown.Remove(raw.VKey); else rawKeysDown.Add(raw.VKey);
-                    lastRawKeyboardVirtualKey = raw.VKey;
+                    int visualVk = NormalizeRawKeyboardVirtualKey(raw);
+                    if (up) rawKeysDown.Remove(visualVk); else rawKeysDown.Add(visualVk);
+                    lastRawKeyboardVirtualKey = visualVk;
                     lastRawKeyboardDown = !up;
-                    LogEvent("Raw Keyboard", ((Keys)raw.VKey).ToString() + " (VK " + raw.VKey.ToString() + ")", up ? "UP" : "DOWN",
+                    ApplyRawKeyboardVisualFallback(visualVk, !up);
+                    LogEvent("Raw Keyboard", ((Keys)visualVk).ToString() + " (VK " + visualVk.ToString() + ")", up ? "UP" : "DOWN",
                         "make=0x" + raw.MakeCode.ToString("X2") + ", flags=0x" + raw.Flags.ToString("X2") + ", device=" + header.hDevice.ToString());
                 }
                 else if (header.dwType == NativeInput.RIM_TYPEMOUSE)
@@ -707,6 +715,35 @@ namespace InputStitch.Tools.InputLab
             if (down) rawMouseButtonsDown.Add(name); else rawMouseButtonsDown.Remove(name);
             LogEvent("Raw Mouse", name, down ? "DOWN" : "UP", "device=" + device.ToString());
         }
+
+        private static int NormalizeRawKeyboardVirtualKey(NativeInput.RAWKEYBOARD raw)
+        {
+            int vk = raw.VKey;
+            if (vk == (int)Keys.ShiftKey)
+                return raw.MakeCode == 0x36 ? (int)Keys.RShiftKey : (int)Keys.LShiftKey;
+            if (vk == (int)Keys.ControlKey)
+                return (raw.Flags & NativeInput.RI_KEY_E0) != 0 ? (int)Keys.RControlKey : (int)Keys.LControlKey;
+            if (vk == (int)Keys.Menu)
+                return (raw.Flags & NativeInput.RI_KEY_E0) != 0 ? (int)Keys.RMenu : (int)Keys.LMenu;
+            return vk;
+        }
+
+        private void ApplyRawKeyboardVisualFallback(int vk, bool down)
+        {
+            if (vk <= 0 || vk == 255 || !keyLabels.ContainsKey(vk)) return;
+
+            long hookAt;
+            bool hookDown;
+            bool duplicateOfHook = keyLastHookEventAt.TryGetValue(vk, out hookAt) &&
+                keyLastHookEventDown.TryGetValue(vk, out hookDown) &&
+                hookDown == down &&
+                clock.ElapsedMilliseconds - hookAt <= RawKeyboardHookDedupMilliseconds;
+            if (duplicateOfHook) return;
+
+            if (down) keysDown.Add(vk); else keysDown.Remove(vk);
+            SetKeyState(vk, down, false);
+        }
+
         private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode == NativeInput.HC_ACTION)
@@ -722,6 +759,8 @@ namespace InputStitch.Tools.InputLab
                     if (injected) injectedKeyboardEventCount++;
                     lastHookKeyboardVirtualKey = vk;
                     lastHookKeyboardDown = down;
+                    keyLastHookEventAt[vk] = clock.ElapsedMilliseconds;
+                    keyLastHookEventDown[vk] = down;
                     bool repeat = down && keysDown.Contains(vk);
                     if (down) keysDown.Add(vk); else keysDown.Remove(vk);
                     SetKeyState(vk, down, injected);
@@ -1052,18 +1091,14 @@ namespace InputStitch.Tools.InputLab
             return keyLabels.TryGetValue(vk, out label) && label.BackColor != IdleColor;
         }
 
-        internal void ApplyKeyVisualStateForSelfTest(int vk, bool down, bool injected)
+        internal void ApplyRawKeyboardVisualStateForSelfTest(int vk, bool down)
         {
             if (InvokeRequired)
             {
-                Invoke((MethodInvoker)delegate { ApplyKeyVisualStateForSelfTest(vk, down, injected); });
+                Invoke((MethodInvoker)delegate { ApplyRawKeyboardVisualStateForSelfTest(vk, down); });
                 return;
             }
-            if (down) keysDown.Add(vk); else keysDown.Remove(vk);
-            lastHookKeyboardVirtualKey = vk;
-            lastHookKeyboardDown = down;
-            if (injected) injectedKeyboardEventCount++;
-            SetKeyState(vk, down, injected);
+            ApplyRawKeyboardVisualFallback(vk, down);
         }
         private static string Signed(int value)
         {

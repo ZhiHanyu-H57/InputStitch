@@ -4,9 +4,12 @@ Input Lab is a developer-only black-box input target for validating InputStitch 
 
 ## v0.3.1 safety hotfix
 
-v0.3.1 hardens automated testing after an interactive-session incident in which unexpected keyboard input was observed while development verification was being performed. The exact originating path was not proven, so the fix treats desktop isolation as a safety invariant rather than relying on one specific key/button case.
+v0.3.1 hardens automated testing and fixes keyboard visualization issues found during hands-on testing. The unexpected repeating keystrokes seen during development were later traced to a macro configured in the mouse driver, not Input Lab; the desktop-isolation hardening is retained as a safety invariant.
 
-- `--self-test-keyboard-visual` is now fully in-process: it changes the viewer's observation/highlight state directly and does **not** call `keybd_event`, `SendInput`, or another system-wide keyboard injection API.
+- `--self-test-keyboard-visual` is now fully in-process: it exercises the Raw Input keyboard-highlight fallback and does **not** call `keybd_event`, `SendInput`, or another system-wide keyboard injection API.
+- Physical keyboard Raw Input now runs as a passive background sink and can drive the keyboard visualization when the low-level keyboard hook misses an event; recent hook events still take precedence so injected-event coloring is preserved.
+- Left/right Shift, Ctrl and Alt are normalized for the Raw Input visualization path.
+- The six keyboard rows now use compact fixed heights instead of stretching to divide the entire tab height, so row spacing stays close to a physical keyboard when the window is enlarged.
 - In automation mode, the Input Lab low-level hooks swallow **all injected keyboard and mouse events** after observing them, instead of special-casing only keyboard `K` and mouse `X2`.
 - `package.ps1` remains safe for an interactive desktop: it builds the viewer and runs only the self-contained window-message and keyboard-visual self-tests.
 - `run-acceptance.ps1` remains a real-output black-box developer test. It intentionally exercises InputStitch's `SendInput` and ViGEm paths, refuses to start unless `-AllowRealOutput` is supplied, and should only be launched while the desktop is idle and no other InputStitch instance is active.
@@ -18,7 +21,7 @@ Manual observation:
 - Larger six-row keyboard visualization through a Windows low-level keyboard hook. Held keys use a stronger highlight; quick taps keep a 180 ms release afterglow so the state change remains visible.
 - Physical/system vs injected (`SendInput`) keyboard event distinction.
 - Mouse left/right/middle/X1/X2, wheel, position and optional movement logging through a low-level mouse hook.
-- Foreground Raw Input comparison for keyboard and mouse.
+- Raw Input comparison for keyboard and mouse; keyboard uses a passive background sink so it can also keep the visualization alive when foreground changes.
 - Target-window Win32 message lane for keyboard and mouse. It observes the `WM_KEY*` / `WM_MOUSE*` messages actually delivered to Input Lab or one of its child controls, including the destination control/HWND and message-specific metadata.
 - XInput controller observation for buttons, D-pad, LT/RT and both stick vectors.
 - High-resolution ordered event log for press/release timing and API-lane comparison.
@@ -83,7 +86,7 @@ To verify the keyboard visualization path itself **without injecting a real key 
 echo $LASTEXITCODE
 ```
 
-This self-test injects and swallows a `K` event inside the isolated Input Lab observer and checks the pressed highlight, release afterglow and eventual return to idle. Exit code `0` means all three phases behaved as expected.
+This self-test drives the Raw Input keyboard-visual fallback entirely inside Input Lab and checks the pressed highlight, release afterglow and eventual return to idle. It does not inject a real key into Windows. Exit code `0` means all three phases behaved as expected.
 
 ## Package a standalone download
 
@@ -166,7 +169,7 @@ The **Window Keyboard / Window Mouse** rows in the Event log answer a different 
 
 ## Important limitations
 
-Input Lab is not a complete game-API simulator. v0.3.0 covers low-level hooks, foreground Raw Input, target-window Win32 messages and XInput, but not yet:
+Input Lab is not a complete game-API simulator. v0.3.1 covers low-level hooks, Raw Input (including background keyboard observation), target-window Win32 messages and XInput, but not yet:
 
 - DirectInput/HID/DS4 observation;
 - GameInput;

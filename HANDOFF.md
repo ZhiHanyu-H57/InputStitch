@@ -544,7 +544,7 @@ Do not spend the next phase chasing controller-model count, gyro/touchpad/vendor
 On a new development machine, verify Git, .NET Framework 4.7.2 reference assemblies/build path, embedded ViGEm client dependency and GitHub authentication before release work.
 ### Input Lab v0.3.1 interactive-safety hotfix (2026-09-10)
 
-During local development verification, the operator observed unexpected keyboard characters and reported that an apparent repeating macro could not be stopped normally. The running InputStitch/InputLab processes were checked and no matching process remained; a one-time system-wide KeyUp/MouseUp neutralization was then issued to clear possible stale input state. The exact source of every unexpected character was not proven.
+During local development verification, the operator observed unexpected repeating keyboard characters. Passive low-level-hook and Raw Input probes traced the repeating W/E/S events to the `HID\\VID_35BB&PID_D3FC&MI_00` HECATE HID path, and the operator then confirmed the actual cause was a macro configured in the mouse driver. This was not an InputStitch/InputLab SendInput loop. The safety changes below are retained because interactive automated tests should still contain injected desktop input.
 
 Safety changes made in response:
 
@@ -555,3 +555,17 @@ Safety changes made in response:
 - `MainForm.EmergencyStop` now isolates a final `GamepadOutput.NeutralizeAll()` exception so hook reconciliation/status completion still runs even if the optional virtual-gamepad backend is unavailable.
 
 Verification after the code change: Input Lab builds successfully; `--self-test-window-messages` exits 0; `--self-test-keyboard-visual` exits 0; a source scan finds no remaining `keybd_event`/`KEYEVENTF_KEYUP` symbols under `tools/InputLab`; the normal InputStitch x64/x86 build passes. The first normal full-regression attempt encountered one transient fake-backend OutputOwnership concurrency assertion; the same 303,716-check ownership suite then passed three consecutive immediate reruns. A fresh full-regression rerun subsequently passed completely, including `PASS output ownership: 303716 checks`, all Settings Smoke cases, old-XML compatibility and gamepad-vector smoke; no real input or virtual devices were used.
+
+### Input Lab v0.3.1 keyboard-visual follow-up (2026-09-10)
+
+Hands-on testing then found a separate viewer bug: mouse buttons highlighted correctly, but most physical keyboard presses were visible in the observation lanes without visibly highlighting their keycaps; the first Windows-key press could also open Start without highlighting. The keyboard layout also used six percentage-height rows, causing large vertical gaps in a tall window.
+
+Fixes:
+
+- keyboard Raw Input now uses a passive `RIDEV_INPUTSINK` lane in normal viewer mode and drives keycap state when the low-level keyboard hook has no matching recent event;
+- recent low-level-hook events are de-duplicated against the Raw Input fallback so hook-derived injected/physical coloring remains authoritative when available;
+- Raw Input left/right Shift, Ctrl and Alt are normalized before visualization;
+- keyboard rows use fixed 60 px heights with 50 px keycaps and compact vertical padding instead of dividing the whole tab height equally;
+- the keyboard-visual self-test now exercises the Raw Input fallback path entirely in-process and still emits no real keyboard input.
+
+Verification: `--self-test-window-messages=0`; `--self-test-keyboard-visual=0`; direct `PrintWindow` capture of the 1220x840 Input Lab window confirmed compact row spacing; the complete `tests/Run-Tests.ps1` suite passed including 303,716 OutputOwnership checks and explicitly used no real input or virtual devices; the normal InputStitch 1.4.1 x64/x86 release build/verification also passed. Do not run `run-acceptance.ps1 -AllowRealOutput` merely to verify this viewer fix.

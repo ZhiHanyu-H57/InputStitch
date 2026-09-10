@@ -32,6 +32,7 @@ namespace InputStitch.Tools.InputLab
         internal const uint RIM_TYPEMOUSE = 0;
         internal const uint RIM_TYPEKEYBOARD = 1;
         internal const ushort RI_KEY_BREAK = 0x0001;
+        internal const ushort RI_KEY_E0 = 0x0002;
         internal const ushort RI_MOUSE_LEFT_BUTTON_DOWN = 0x0001;
         internal const ushort RI_MOUSE_LEFT_BUTTON_UP = 0x0002;
         internal const ushort RI_MOUSE_RIGHT_BUTTON_DOWN = 0x0004;
