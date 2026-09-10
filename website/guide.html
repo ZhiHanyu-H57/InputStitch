@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070a12">
+  <meta name="description" content="InputStitch 使用说明：安装、第一次创建宏、按住映射、顺序/重复、映射层、手柄输出、并发与安全。">
+  <title>InputStitch 使用说明</title>
+  <link rel="icon" href="assets/InputStitch.ico">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div hidden data-title-zh="InputStitch 使用说明" data-title-en="InputStitch User Guide"></div>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html"><img src="assets/InputStitch.ico" alt="InputStitch"><span>InputStitch <small>v1.4.1</small></span></a>
+      <button class="mobile-menu" data-mobile-menu aria-expanded="false" aria-label="Menu">☰</button>
+      <nav class="nav-links">
+        <a href="index.html"><span class="lang-zh">首页</span><span class="lang-en">Home</span></a>
+        <a class="active" href="guide.html"><span class="lang-zh">使用说明</span><span class="lang-en">Guide</span></a>
+        <a href="https://github.com/ZhiHanyu-H57/InputStitch" target="_blank" rel="noreferrer">GitHub ↗</a>
+        <button class="lang-switch" data-lang-toggle>EN</button>
+        <a class="nav-download" href="download.html"><span class="lang-zh">下载</span><span class="lang-en">Download</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">InputStitch</a> / <span class="lang-zh">使用说明</span><span class="lang-en">Guide</span></div>
+        <div class="eyebrow"><span class="dot"></span><span class="lang-zh">从第一次启动到复杂映射</span><span class="lang-en">From first launch to advanced mappings</span></div>
+        <h1><span class="lang-zh">使用说明</span><span class="lang-en">User guide</span></h1>
+        <p class="lang-zh">推荐第一次使用时先完成“安装与启动 → 创建第一个宏 → 测试紧急停止”三部分。只做键盘/鼠标宏时，不需要安装虚拟手柄驱动。</p>
+        <p class="lang-en">For your first run, complete “Install & launch → Create your first macro → Test Emergency Stop” first. Keyboard/mouse-only automation does not require a virtual gamepad driver.</p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:24px">
+      <div class="container docs-layout">
+        <aside class="docs-nav" aria-label="Guide navigation">
+          <strong><span class="lang-zh">目录</span><span class="lang-en">Contents</span></strong>
+          <a class="active" href="#install"><span class="lang-zh">1. 安装与启动</span><span class="lang-en">1. Install</span></a>
+          <a href="#first-macro"><span class="lang-zh">2. 第一个宏</span><span class="lang-en">2. First macro</span></a>
+          <a href="#modes"><span class="lang-zh">3. 三种常用模式</span><span class="lang-en">3. Common modes</span></a>
+          <a href="#gamepad"><span class="lang-zh">4. 手柄</span><span class="lang-en">4. Controller</span></a>
+          <a href="#layers"><span class="lang-zh">5. 映射层</span><span class="lang-en">5. Layers</span></a>
+          <a href="#concurrency"><span class="lang-zh">6. 并发与安全</span><span class="lang-en">6. Concurrency</span></a>
+          <a href="#troubleshooting"><span class="lang-zh">7. 常见问题</span><span class="lang-en">7. Troubleshooting</span></a>
+        </aside>
+
+        <div class="docs">
+          <section class="doc-section" id="install">
+            <div class="kicker">01 · Install</div>
+            <h2><span class="lang-zh">安装与启动</span><span class="lang-en">Install & launch</span></h2>
+            <p class="lang-zh">InputStitch 以便携 EXE 提供，不需要安装器。现代 Windows 电脑通常选择 x64 版本；系统需要 .NET Framework 4.7.2 或兼容的更高版本。</p>
+            <p class="lang-en">InputStitch ships as a portable EXE with no installer. Most modern Windows systems should use x64. .NET Framework 4.7.2 or a compatible newer version is required.</p>
+
+            <div class="stepbox"><div class="stepnum">1</div><div><h3><span class="lang-zh">下载正式版</span><span class="lang-en">Download Stable</span></h3><p><span class="lang-zh">进入下载页，64 位 Windows 选择 <span class="code">InputStitch-1.4.1-Windows-x64.exe</span>。</span><span class="lang-en">Open Downloads and choose <span class="code">InputStitch-1.4.1-Windows-x64.exe</span> for 64-bit Windows.</span></p></div></div>
+            <div class="stepbox"><div class="stepnum">2</div><div><h3><span class="lang-zh">放到可写文件夹</span><span class="lang-en">Place it in a writable folder</span></h3><p><span class="lang-zh">例如你的工具目录或桌面子文件夹。程序本身是便携式的，但配置会保存在用户 AppData 的 InputStitch 目录中。</span><span class="lang-en">For example, use a tools folder or a dedicated desktop folder. The executable is portable; user configuration is stored under the InputStitch AppData directory.</span></p></div></div>
+            <div class="stepbox"><div class="stepnum">3</div><div><h3><span class="lang-zh">先确认紧急停止</span><span class="lang-en">Verify Emergency Stop first</span></h3><p><span class="lang-zh">默认紧急停止是 <span class="code">Ctrl + Shift + F12</span>。正式使用前先确认这个组合键能够触发全局停止并释放受管输入。</span><span class="lang-en">The default Emergency Stop is <span class="code">Ctrl + Shift + F12</span>. Verify it before relying on any long-running or held mapping.</span></p></div></div>
+
+            <div class="tip"><span class="lang-zh">只做键盘和鼠标输出时，不需要 ViGEmBus。你还可以在“设置 → 输入与安全 → 虚拟手柄输出”中选择“不创建虚拟手柄”。</span><span class="lang-en">Keyboard/mouse output does not require ViGEmBus. You can explicitly choose “Do not create a virtual controller” under Settings → Input & Safety → Virtual controller output.</span></div>
+          </section>
+
+          <section class="doc-section" id="first-macro">
+            <div class="kicker">02 · First macro</div>
+            <h2><span class="lang-zh">创建你的第一个宏</span><span class="lang-en">Create your first macro</span></h2>
+            <p class="lang-zh">最容易理解的例子：按下一个触发键后，让 InputStitch 输出一次键盘 <span class="code">K</span>。</p>
+            <p class="lang-en">The simplest example: press one trigger and have InputStitch output the keyboard key <span class="code">K</span>.</p>
+
+            <ol>
+              <li><span class="lang-zh">点击左侧 <strong>新增</strong> 创建一个宏并命名。</span><span class="lang-en">Click <strong>New</strong> in the macro list and give the macro a name.</span></li>
+              <li><span class="lang-zh">在“触发与循环”区域点击 <strong>录制触发键</strong>，按下你想用的键、鼠标键或支持的手柄控制。</span><span class="lang-en">Under Trigger & Loop, choose <strong>Capture Trigger</strong> and press the desired keyboard, mouse or supported controller input.</span></li>
+              <li><span class="lang-zh">在“执行步骤”区域添加一个键盘步骤，选择 <span class="code">K</span>，设置按住时间和步骤后间隔。</span><span class="lang-en">Add a keyboard step under Execution Steps, select <span class="code">K</span>, then configure hold time and post-step delay.</span></li>
+              <li><span class="lang-zh">保存方案，然后用 <strong>执行所选宏</strong> 或真实触发键测试。</span><span class="lang-en">Save the profile, then test with <strong>Run selected macro</strong> or the real trigger.</span></li>
+            </ol>
+
+            <div class="doc-image"><img src="assets/app-main.png" alt="InputStitch main window"></div>
+            <div class="tip"><span class="lang-zh">编辑复杂时序时可以使用“单步执行 / 下一步”，逐步检查每个动作，不必一次跑完整条宏。</span><span class="lang-en">For complex timelines, use Single-step / Next Step to inspect one action at a time instead of running the whole macro.</span></div>
+          </section>
+
+          <section class="doc-section" id="modes">
+            <div class="kicker">03 · Common modes</div>
+            <h2><span class="lang-zh">三种最常用的创建方式</span><span class="lang-en">Three common creation modes</span></h2>
+            <p class="lang-zh">不知道主编辑器每个字段是什么意思时，可以先从快捷创建进入。三个模板对应三类最常见需求。</p>
+            <p class="lang-en">If the full editor feels too dense, start with Quick Create. Its templates map directly to the three most common intents.</p>
+
+            <h3><span class="lang-zh">按住映射</span><span class="lang-en">Held Mapping</span></h3>
+            <p class="lang-zh">触发键按着多久，输出就保持多久；松开触发键时，只释放这个映射自己的输出。适合“鼠标侧键 → 键盘键”“手柄 LB → 鼠标左键”等直接映射。</p>
+            <p class="lang-en">Keep the output active exactly while the trigger is held. Releasing it removes only this mapping’s contribution. Useful for direct remaps such as mouse side button → keyboard key.</p>
+            <div class="doc-image"><img src="assets/quick-held.png" alt="Held Mapping Quick Create"></div>
+
+            <h3><span class="lang-zh">顺序执行</span><span class="lang-en">Sequence</span></h3>
+            <p class="lang-zh">多个动作按照“按住时间 + 步骤后间隔”串联，适合需要明确先后顺序的组合操作。普通时序宏可以与其他不同宏并发运行。</p>
+            <p class="lang-en">Chain actions using per-step hold duration and delay. Best for workflows that require explicit order. Ordinary timelines can run concurrently with other distinct macros.</p>
+
+            <h3><span class="lang-zh">重复动作</span><span class="lang-en">Repeat</span></h3>
+            <p class="lang-zh">用于固定次数循环或无限循环。无限循环可通过对应的 Toggle/Hold 逻辑停止，也始终可以用紧急停止终止全部受管输入。</p>
+            <p class="lang-en">Use a finite repeat count or an infinite loop. Stop using the selected Toggle/Hold semantics—or use Emergency Stop to terminate all managed input globally.</p>
+          </section>
+
+          <section class="doc-section" id="gamepad">
+            <div class="kicker">04 · Controller</div>
+            <h2><span class="lang-zh">手柄触发与虚拟手柄输出</span><span class="lang-en">Controller triggers & virtual output</span></h2>
+            <p class="lang-zh">Windows 可见的 XInput 手柄可以直接作为宏触发来源。虚拟手柄输出则是可选能力，两者不是一回事。</p>
+            <p class="lang-en">Visible XInput controllers can be used directly as macro triggers. Virtual gamepad output is a separate, optional capability.</p>
+
+            <table class="mini-table">
+              <thead><tr><th><span class="lang-zh">需求</span><span class="lang-en">Goal</span></th><th><span class="lang-zh">是否需要 ViGEmBus</span><span class="lang-en">ViGEmBus required?</span></th></tr></thead>
+              <tbody>
+                <tr><td><span class="lang-zh">键鼠 → 键鼠宏</span><span class="lang-en">Keyboard/mouse → keyboard/mouse</span></td><td><span class="lang-zh">否</span><span class="lang-en">No</span></td></tr>
+                <tr><td><span class="lang-zh">XInput 手柄 → 键鼠宏</span><span class="lang-en">XInput controller → keyboard/mouse</span></td><td><span class="lang-zh">否</span><span class="lang-en">No</span></td></tr>
+                <tr><td><span class="lang-zh">输出虚拟 Xbox / DS4</span><span class="lang-en">Output virtual Xbox / DS4</span></td><td><span class="lang-zh">是</span><span class="lang-en">Yes</span></td></tr>
+                <tr><td><span class="lang-zh">手柄汇总 / 实验性接管</span><span class="lang-en">Controller aggregation / experimental takeover</span></td><td><span class="lang-zh">是</span><span class="lang-en">Yes</span></td></tr>
+              </tbody>
+            </table>
+
+            <h3><span class="lang-zh">虚拟手柄类型</span><span class="lang-en">Virtual controller type</span></h3>
+            <p class="lang-zh">在设置中可选择 <strong>Xbox 360</strong>、<strong>PS4 / DualShock 4</strong>，或 <strong>不创建虚拟手柄</strong>。选择“不创建”后，键鼠宏和手柄触发键鼠宏仍然可用。</p>
+            <p class="lang-en">Settings lets you choose <strong>Xbox 360</strong>, <strong>PS4 / DualShock 4</strong>, or <strong>Do not create a virtual controller</strong>. Keyboard/mouse automation still works in the no-controller mode.</p>
+
+            <h3><span class="lang-zh">安装 ViGEmBus</span><span class="lang-en">Install ViGEmBus</span></h3>
+            <p class="lang-zh">InputStitch 不会静默安装第三方虚拟手柄驱动。缺少驱动时，按程序提示前往 ViGEmBus 原作者的官方 Release 页面安装，完成后重启 InputStitch。</p>
+            <p class="lang-en">InputStitch does not silently install the third-party virtual gamepad driver. If needed, follow the in-app link to the official ViGEmBus releases, install it, then restart InputStitch.</p>
+            <a class="btn btn-secondary" href="https://github.com/nefarius/ViGEmBus/releases/latest" target="_blank" rel="noreferrer">ViGEmBus Releases ↗</a>
+
+            <div class="tip warn"><span class="lang-zh"><strong>手柄接管仍是 Experimental。</strong> 自动事务、槽位重排、恢复与运行健康监测已经实现，但“实体手柄 + HidHide + 实际游戏”的完整硬件验收尚未完成。不要把它当作已经保证适用于所有游戏的设备隐藏方案。</span><span class="lang-en"><strong>Controller takeover remains Experimental.</strong> Transactions, slot acquisition, recovery and health monitoring exist, but full physical-controller + HidHide + real-game acceptance is still pending.</span></div>
+          </section>
+
+          <section class="doc-section" id="layers">
+            <div class="kicker">05 · Layers</div>
+            <h2><span class="lang-zh">映射层</span><span class="lang-en">Mapping layers</span></h2>
+            <p class="lang-zh">映射层适合“同一组实体按键，在不同状态下执行不同逻辑”。当前模型刻意保持简单：<strong>基础层始终有效 + 一次最多一个额外活动层</strong>。</p>
+            <p class="lang-en">Layers let the same physical controls mean different things in different contexts. The current model is deliberately simple: <strong>Base is always eligible + at most one additional active layer</strong>.</p>
+            <ol>
+              <li><span class="lang-zh">点击主界面的 <strong>管理映射层…</strong>。</span><span class="lang-en">Open <strong>Manage layers…</strong> from the main window.</span></li>
+              <li><span class="lang-zh">新增并命名一个层，例如“驾驶”“菜单”或“战斗”。</span><span class="lang-en">Create and name a layer such as “Driving”, “Menu”, or “Combat”.</span></li>
+              <li><span class="lang-zh">为该层录制键盘、鼠标或手柄切换触发。</span><span class="lang-en">Assign a keyboard, mouse or controller switch trigger.</span></li>
+              <li><span class="lang-zh">在每个宏的“此宏属于”中选择对应层。</span><span class="lang-en">Assign each macro to that layer using its layer selector.</span></li>
+            </ol>
+            <p class="lang-zh">离开某个层时，该层正在运行的宏会停止并只释放自己的输出；基础层继续保留。切入新层时，如果某个新触发键本来已经被按住，必须先松开再重新按下，避免切层瞬间误触发。</p>
+            <p class="lang-en">Leaving a layer stops only that layer’s active sources while Base remains. Inputs already physically held when a layer becomes eligible must be released and pressed again, preventing accidental activation during a layer switch.</p>
+          </section>
+
+          <section class="doc-section" id="concurrency">
+            <div class="kicker">06 · Concurrency & safety</div>
+            <h2><span class="lang-zh">多个宏同时运行时发生什么？</span><span class="lang-en">What happens when multiple macros run?</span></h2>
+            <p class="lang-zh">InputStitch 的核心不是“最后一次写入覆盖前面”，而是给每一个宏、路由来源和持续状态分配独立所有权，再计算最终输出。</p>
+            <p class="lang-en">InputStitch does not treat output as “last write wins.” Each macro, router source and persistent state contributes through independent ownership, and the final output is derived from those contributions.</p>
+            <ul>
+              <li><span class="lang-zh"><strong>数字按键：</strong>多个来源同时要求按下时，只要还有一个来源持有，它就不会被提前释放。</span><span class="lang-en"><strong>Digital buttons:</strong> if multiple sources hold the same control, it remains held until the last owner releases it.</span></li>
+              <li><span class="lang-zh"><strong>扳机：</strong>多个来源按明确规则合并，避免普通宏结束时把别人的模拟量清零。</span><span class="lang-en"><strong>Triggers:</strong> sources merge deterministically rather than resetting another source’s analog contribution.</span></li>
+              <li><span class="lang-zh"><strong>摇杆：</strong>向量合并并限制在合法范围内。</span><span class="lang-en"><strong>Sticks:</strong> vectors merge and normalize into valid output range.</span></li>
+              <li><span class="lang-zh"><strong>普通停止：</strong>只停止对应宏/来源。</span><span class="lang-en"><strong>Ordinary stop:</strong> stops only the selected source/run.</span></li>
+              <li><span class="lang-zh"><strong>紧急停止：</strong>全局最高优先级，一次释放全部受管输出。</span><span class="lang-en"><strong>Emergency Stop:</strong> global highest priority; releases all managed output.</span></li>
+            </ul>
+            <div class="tip"><span class="lang-zh">遇到“为什么这个键还在按住”“哪个宏正在输出”时，打开 <strong>工具 → 运行观察</strong>。它就是为解释运行态而设计的。</span><span class="lang-en">If you wonder “why is this still held?” or “which macro owns this output?”, open <strong>Tools → Runtime Observation</strong>.</span></div>
+          </section>
+
+          <section class="doc-section" id="troubleshooting">
+            <div class="kicker">07 · Troubleshooting</div>
+            <h2><span class="lang-zh">常见问题</span><span class="lang-en">Troubleshooting</span></h2>
+
+            <h3><span class="lang-zh">下载后直接运行即可吗？</span><span class="lang-en">Can I run the EXE directly?</span></h3>
+            <p class="lang-zh">可以。它是便携 EXE，不要求安装器。系统需满足 .NET Framework 4.7.2+。</p>
+            <p class="lang-en">Yes. It is portable and does not require an installer, provided .NET Framework 4.7.2+ is available.</p>
+
+            <h3><span class="lang-zh">我完全不用手柄，还要装 ViGEmBus 吗？</span><span class="lang-en">I never use controller output. Do I need ViGEmBus?</span></h3>
+            <p class="lang-zh">不需要。设置里选择“不创建虚拟手柄”即可。键鼠宏仍能正常工作。</p>
+            <p class="lang-en">No. Choose “Do not create a virtual controller.” Keyboard/mouse macros continue to work.</p>
+
+            <h3><span class="lang-zh">游戏看不到 InputStitch 的虚拟 Xbox 输出？</span><span class="lang-en">My game does not see the virtual Xbox output.</span></h3>
+            <p class="lang-zh">先确认 ViGEmBus 正常、InputStitch 已连接虚拟手柄，并注意部分游戏只在启动时枚举手柄；可先连接虚拟手柄，再启动游戏。对于只读取 XInput 0 号槽位的游戏，还要关注 InputStitch 虚拟 Xbox 当前槽位。</p>
+            <p class="lang-en">Verify ViGEmBus, confirm the virtual pad is connected, and remember some games enumerate controllers only at startup—connect first, then launch the game. Games that only read XInput slot 0 may also depend on the virtual Xbox slot assignment.</p>
+
+            <h3><span class="lang-zh">某个宏失控或一直循环怎么办？</span><span class="lang-en">A macro keeps looping or appears stuck. What do I do?</span></h3>
+            <p class="lang-zh">立即使用默认紧急停止 <span class="code">Ctrl + Shift + F12</span>。随后再通过运行观察确认宏类型、触发方式和循环设置。</p>
+            <p class="lang-en">Use the default Emergency Stop <span class="code">Ctrl + Shift + F12</span> immediately, then inspect trigger mode, repeat settings and Runtime Observation before trying again.</p>
+
+            <h3><span class="lang-zh">还需要更深入的技术说明？</span><span class="lang-en">Need deeper technical detail?</span></h3>
+            <p class="lang-zh">完整 README、开发路线、产品定位、已知限制和历史 Release 都保存在 GitHub 仓库中。</p>
+            <p class="lang-en">The repository contains the full README, roadmap, product strategy, known limitations and historical releases.</p>
+            <div class="hero-actions"><a class="btn btn-secondary" href="https://github.com/ZhiHanyu-H57/InputStitch/blob/main/README.zh-CN.md" target="_blank" rel="noreferrer"><span class="lang-zh">完整中文 README ↗</span><span class="lang-en">Full Chinese README ↗</span></a><a class="btn btn-secondary" href="https://github.com/ZhiHanyu-H57/InputStitch/blob/main/README.md" target="_blank" rel="noreferrer">English README ↗</a></div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="container footer-grid"><div>© <span data-year>2026</span> InputStitch</div><div class="footer-links"><a href="index.html"><span class="lang-zh">首页</span><span class="lang-en">Home</span></a><a href="download.html"><span class="lang-zh">下载</span><span class="lang-en">Download</span></a><a href="https://github.com/ZhiHanyu-H57/InputStitch" target="_blank" rel="noreferrer">GitHub</a></div></div></footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>
