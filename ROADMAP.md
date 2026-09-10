@@ -340,11 +340,13 @@ Latest clean 2026-09-10 automated regression:
 
 Input Lab final acceptance on this laptop:
 
-- 18 pre-XInput real `SendInput` / timed-concurrency / complex-Hold checks: **PASS**;
-- product assertion failures: **0**;
-- controller lane then returns the known local environment condition: `SUMMARY: BLOCKED | checks=18 | failures=0` because the ViGEm Xbox enumerates but its report is not reflected through local XInput.
+- manual viewer: **v0.3.0**, independently versioned from InputStitch;
+- larger six-row keyboard, stronger held-key indication and 180 ms release afterglow;
+- target-window `WM_KEY*` / `WM_MOUSE*` observation added beside low-level hook, Raw Input and XInput lanes;
+- built-in window-message and keyboard-visual self-tests: **PASS**;
+- three consecutive full black-box runs on 2026-09-10: **77/77 PASS, failures=0** each.
 
-Do not convert that environment blocker into a fake product pass, and do not reinstall system drivers solely to force the test green without a separate troubleshooting decision.
+The older intermittent ViGEm→XInput environment preflight blocker did not reproduce in those three runs. If it returns, keep treating `SUMMARY: BLOCKED` as environment-only rather than converting it into either a fake pass or a product failure.
 
 ## Release path / 版本路径
 

@@ -11,6 +11,7 @@ Updated: 2026-09-10
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
 - Branch: `main`
 - Previous Stable rollback reference: `v1.4.0`
+- Developer test tool: `Input Lab v0.3.0` — independent version; source-built/packageable x64 viewer.
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
 For the commit containing this handoff itself, use:
@@ -339,6 +340,32 @@ SUMMARY: BLOCKED | checks=18 | failures=0
 ```
 
 This remains environment `BLOCKED`, not a product pass/failure. Do not reinstall system drivers solely to force it green without a separate troubleshooting decision.
+
+### Input Lab v0.3.0 developer-tool milestone
+
+Input Lab now has its own explicit `0.3.0` version metadata and a versioned packaging path. This is separate from the InputStitch application version.
+
+Manual viewer changes:
+
+- added a target-window Win32 message lane that records `WM_KEY*` / `WM_MOUSE*` messages actually delivered to the Input Lab form or its child controls, including target HWND/control and message metadata;
+- redesigned the keyboard from the compact seven-row v0.2 layout into a larger six-row layout with larger keycaps and more familiar navigation/arrow placement;
+- strengthened held-key colors and added a 180 ms release afterglow so normal quick taps remain visibly highlighted instead of disappearing almost immediately;
+- added built-in `--self-test-window-messages` and `--self-test-keyboard-visual` checks;
+- added `tools/InputLab/package.ps1`, producing a versioned standalone x64 EXE, ZIP and SHA-256 checksums under `artifacts/InputLab/release/`;
+- added a dedicated GitHub workflow for Input Lab verification/artifacts and `inputlab-v*` prerelease publication. Input Lab releases must stay prerelease so they do not replace the Stable InputStitch `releases/latest` endpoint.
+
+Verification on 2026-09-10:
+
+```text
+window-message self-test:  PASS
+keyboard-visual self-test: PASS
+full InputStitch regression: PASS
+Input Lab acceptance run 1: SUMMARY: PASS | checks=77 | failures=0
+Input Lab acceptance run 2: SUMMARY: PASS | checks=77 | failures=0
+Input Lab acceptance run 3: SUMMARY: PASS | checks=77 | failures=0
+```
+
+The older laptop ViGEm→XInput preflight blocker has therefore not reproduced in these three consecutive v0.3.0 verification runs. Keep the historical `BLOCKED` handling because that environment issue was intermittent; do not erase the distinction between `BLOCKED` and `FAIL`.
 
 ### Real neutral slot-order probe
 

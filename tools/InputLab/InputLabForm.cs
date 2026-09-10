@@ -7,9 +7,11 @@ using System.Windows.Forms;
 
 namespace InputStitch.Tools.InputLab
 {
-    internal sealed class InputLabForm : Form
+    internal sealed class InputLabForm : Form, IMessageFilter
     {
         private readonly Dictionary<int, Label> keyLabels = new Dictionary<int, Label>();
+        private readonly Dictionary<int, long> keyHighlightUntil = new Dictionary<int, long>();
+        private readonly Dictionary<int, bool> keyLastInjected = new Dictionary<int, bool>();
         private readonly Dictionary<string, Label> mouseLabels = new Dictionary<string, Label>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ushort, Label> gamepadLabels = new Dictionary<ushort, Label>();
         private readonly HashSet<int> keysDown = new HashSet<int>();
@@ -53,7 +55,10 @@ namespace InputStitch.Tools.InputLab
         private XInputReader.XINPUT_STATE previousXInputState;
         private int rawKeyboardEventCount;
         private int rawMouseEventCount;
+        private int windowKeyboardEventCount;
+        private int windowMouseEventCount;
         private bool rawInputRegistered;
+        private bool messageFilterRegistered;
         private int injectedKeyboardEventCount;
         private int injectedMouseEventCount;
         private int lastHookKeyboardVirtualKey = -1;
@@ -63,9 +68,12 @@ namespace InputStitch.Tools.InputLab
         private readonly bool automationMode;
 
         private static readonly Color IdleColor = Color.FromArgb(242, 244, 247);
-        private static readonly Color ActiveColor = Color.FromArgb(197, 236, 205);
-        private static readonly Color InjectedColor = Color.FromArgb(203, 225, 250);
+        private static readonly Color ActiveColor = Color.FromArgb(116, 214, 139);
+        private static readonly Color InjectedColor = Color.FromArgb(107, 178, 246);
+        private static readonly Color RecentActiveColor = Color.FromArgb(221, 244, 226);
+        private static readonly Color RecentInjectedColor = Color.FromArgb(219, 235, 252);
         private static readonly Color TextColor = Color.FromArgb(32, 38, 48);
+        private const int KeyReleaseGlowMilliseconds = 180;
 
         internal InputLabForm(int initialView)
             : this(initialView, false)
@@ -75,7 +83,7 @@ namespace InputStitch.Tools.InputLab
         internal InputLabForm(int initialView, bool automationMode)
         {
             this.automationMode = automationMode;
-            Text = "InputStitch Input Lab v0.2";
+            Text = "InputStitch Input Lab v0.3.0";
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(980, 700);
             Size = new Size(1220, 840);
@@ -94,14 +102,24 @@ namespace InputStitch.Tools.InputLab
             {
                 InstallHooks();
                 InstallRawInput();
+                if (!automationMode)
+                {
+                    Application.AddMessageFilter(this);
+                    messageFilterRegistered = true;
+                }
                 refreshTimer.Start();
                 LogEvent("Lab", "Ready", "RUNNING", automationMode
                     ? "Background acceptance observer ready; foreground activation is disabled."
-                    : "Bring this window to foreground, then trigger InputStitch mappings.");
+                    : "Bring this window to foreground, then compare hook, Raw Input and target-window message lanes.");
             };
             FormClosed += delegate
             {
                 refreshTimer.Stop();
+                if (messageFilterRegistered)
+                {
+                    Application.RemoveMessageFilter(this);
+                    messageFilterRegistered = false;
+                }
                 if (keyboardHook != IntPtr.Zero) NativeInput.UnhookWindowsHookEx(keyboardHook);
                 if (mouseHook != IntPtr.Zero) NativeInput.UnhookWindowsHookEx(mouseHook);
             };
@@ -161,7 +179,7 @@ namespace InputStitch.Tools.InputLab
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
 
             Label title = new Label();
-            title.Text = "Black-box input target — keyboard, mouse and XInput";
+            title.Text = "Black-box input target — hooks, Raw Input, window messages and XInput";
             title.Font = new Font(Font.FontFamily, 13F, FontStyle.Bold);
             title.Dock = DockStyle.Fill;
             title.TextAlign = ContentAlignment.MiddleLeft;
@@ -192,33 +210,30 @@ namespace InputStitch.Tools.InputLab
             GroupBox group = CreateGroup("Keyboard — global low-level hook");
             TableLayoutPanel layout = new TableLayoutPanel();
             layout.Dock = DockStyle.Fill;
-            layout.Padding = new Padding(8);
-            layout.RowCount = 7;
+            layout.Padding = new Padding(14, 12, 14, 12);
+            layout.RowCount = 6;
             layout.ColumnCount = 1;
             layout.AutoScroll = true;
-            for (int i = 0; i < 7; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 43F));
+            for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 6F));
 
             layout.Controls.Add(CreateKeyRow(new object[,] {
-                {27,"Esc",44},{112,"F1",40},{113,"F2",40},{114,"F3",40},{115,"F4",40},{116,"F5",40},{117,"F6",40},{118,"F7",40},{119,"F8",40},{120,"F9",40},{121,"F10",44},{122,"F11",44},{123,"F12",44}
+                {27,"Esc",64},{112,"F1",58},{113,"F2",58},{114,"F3",58},{115,"F4",58},{116,"F5",58},{117,"F6",58},{118,"F7",58},{119,"F8",58},{120,"F9",58},{121,"F10",64},{122,"F11",64},{123,"F12",64}
             }), 0, 0);
             layout.Controls.Add(CreateKeyRow(new object[,] {
-                {192,"`",36},{49,"1",36},{50,"2",36},{51,"3",36},{52,"4",36},{53,"5",36},{54,"6",36},{55,"7",36},{56,"8",36},{57,"9",36},{48,"0",36},{189,"-",36},{187,"=",36},{8,"Back",62}
+                {192,"`",52},{49,"1",52},{50,"2",52},{51,"3",52},{52,"4",52},{53,"5",52},{54,"6",52},{55,"7",52},{56,"8",52},{57,"9",52},{48,"0",52},{189,"-",52},{187,"=",52},{8,"Backspace",102},{45,"Ins",58},{36,"Home",68},{33,"PgUp",68}
             }), 0, 1);
             layout.Controls.Add(CreateKeyRow(new object[,] {
-                {9,"Tab",54},{81,"Q",38},{87,"W",38},{69,"E",38},{82,"R",38},{84,"T",38},{89,"Y",38},{85,"U",38},{73,"I",38},{79,"O",38},{80,"P",38},{219,"[",38},{221,"]",38},{220,"\\",42}
+                {9,"Tab",78},{81,"Q",56},{87,"W",56},{69,"E",56},{82,"R",56},{84,"T",56},{89,"Y",56},{85,"U",56},{73,"I",56},{79,"O",56},{80,"P",56},{219,"[",56},{221,"]",56},{220,"\\",72},{46,"Del",58},{35,"End",68},{34,"PgDn",68}
             }), 0, 2);
             layout.Controls.Add(CreateKeyRow(new object[,] {
-                {20,"Caps",62},{65,"A",40},{83,"S",40},{68,"D",40},{70,"F",40},{71,"G",40},{72,"H",40},{74,"J",40},{75,"K",40},{76,"L",40},{186,";",40},{222,"'",40},{13,"Enter",72}
+                {20,"Caps Lock",96},{65,"A",58},{83,"S",58},{68,"D",58},{70,"F",58},{71,"G",58},{72,"H",58},{74,"J",58},{75,"K",58},{76,"L",58},{186,";",58},{222,"'",58},{13,"Enter",112}
             }), 0, 3);
             layout.Controls.Add(CreateKeyRow(new object[,] {
-                {160,"LShift",78},{90,"Z",42},{88,"X",42},{67,"C",42},{86,"V",42},{66,"B",42},{78,"N",42},{77,"M",42},{188,",",42},{190,".",42},{191,"/",42},{161,"RShift",82}
+                {160,"LShift",122},{90,"Z",58},{88,"X",58},{67,"C",58},{86,"V",58},{66,"B",58},{78,"N",58},{77,"M",58},{188,",",58},{190,".",58},{191,"/",58},{161,"RShift",138},{38,"↑",58}
             }), 0, 4);
             layout.Controls.Add(CreateKeyRow(new object[,] {
-                {162,"LCtrl",66},{91,"LWin",62},{164,"LAlt",58},{32,"Space",210},{165,"RAlt",58},{92,"RWin",62},{93,"Menu",58},{163,"RCtrl",66}
+                {162,"LCtrl",82},{91,"LWin",76},{164,"LAlt",72},{32,"Space",300},{165,"RAlt",72},{92,"RWin",76},{93,"Menu",72},{163,"RCtrl",82},{37,"←",58},{40,"↓",58},{39,"→",58}
             }), 0, 5);
-            layout.Controls.Add(CreateKeyRow(new object[,] {
-                {37,"←",48},{38,"↑",48},{40,"↓",48},{39,"→",48},{45,"Ins",48},{46,"Del",48},{36,"Home",52},{35,"End",48},{33,"PgUp",54},{34,"PgDn",54}
-            }), 0, 6);
 
             group.Controls.Add(layout);
             return group;
@@ -230,14 +245,15 @@ namespace InputStitch.Tools.InputLab
             row.Dock = DockStyle.Fill;
             row.WrapContents = false;
             row.AutoScroll = true;
-            row.Padding = new Padding(0, 3, 0, 0);
+            row.Padding = new Padding(0, 8, 0, 4);
             int count = keys.GetLength(0);
             for (int i = 0; i < count; i++)
             {
                 int vk = (int)keys[i, 0];
                 string text = (string)keys[i, 1];
                 int width = (int)keys[i, 2];
-                Label label = CreateStateLabel(text, width, 34);
+                Label label = CreateStateLabel(text, width, 54);
+                label.Font = new Font(Font.FontFamily, 10F, FontStyle.Bold);
                 label.Tag = vk;
                 keyLabels[vk] = label;
                 row.Controls.Add(label);
@@ -431,7 +447,7 @@ namespace InputStitch.Tools.InputLab
             tip.AutoSize = true;
             tip.Margin = new Padding(14, 9, 4, 4);
             tip.ForeColor = Color.DimGray;
-            tip.Text = "Injected=SendInput/other synthetic input; XInput is polled independently.";
+            tip.Text = "Window Msg = what Input Lab controls actually receive; injected flags exist only on the low-level hook lane.";
             actions.Controls.Add(tip);
             layout.Controls.Add(actions, 0, 0);
 
@@ -441,7 +457,7 @@ namespace InputStitch.Tools.InputLab
             eventLog.GridLines = true;
             eventLog.HideSelection = false;
             eventLog.Columns.Add("Time", 96);
-            eventLog.Columns.Add("Device", 82);
+            eventLog.Columns.Add("Device", 118);
             eventLog.Columns.Add("Input", 130);
             eventLog.Columns.Add("State", 92);
             eventLog.Columns.Add("Details", 720);
@@ -518,6 +534,7 @@ namespace InputStitch.Tools.InputLab
                 "   |   Mouse hook: " + (mouseOk ? "OK" : "FAILED") +
                 "   |   Raw Input: " + (rawInputRegistered ? "OK" : "not ready") +
                 " (K " + rawKeyboardEventCount.ToString() + " / M " + rawMouseEventCount.ToString() + ")" +
+                (automationMode ? "" : "   |   Window Msg: active (K " + windowKeyboardEventCount.ToString() + " / M " + windowMouseEventCount.ToString() + ")") +
                 "   |   XInput: active";
             hookStatus.ForeColor = keyboardOk && mouseOk && rawInputRegistered
                 ? Color.FromArgb(32, 120, 55) : Color.FromArgb(180, 95, 45);
@@ -527,6 +544,104 @@ namespace InputStitch.Tools.InputLab
         {
             if (m.Msg == NativeInput.WM_INPUT) HandleRawInput(m.LParam);
             base.WndProc(ref m);
+        }
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            if (automationMode || !IsTargetWindowInputMessage(m.Msg)) return false;
+
+            Control target = Control.FromHandle(m.HWnd);
+            if (target == null || !object.ReferenceEquals(target.FindForm(), this)) return false;
+
+            HandleTargetWindowMessage(m, target);
+            return false;
+        }
+
+        private static bool IsTargetWindowInputMessage(int message)
+        {
+            return message == NativeInput.WM_KEYDOWN || message == NativeInput.WM_KEYUP ||
+                message == NativeInput.WM_SYSKEYDOWN || message == NativeInput.WM_SYSKEYUP ||
+                message == NativeInput.WM_MOUSEMOVE ||
+                message == NativeInput.WM_LBUTTONDOWN || message == NativeInput.WM_LBUTTONUP ||
+                message == NativeInput.WM_RBUTTONDOWN || message == NativeInput.WM_RBUTTONUP ||
+                message == NativeInput.WM_MBUTTONDOWN || message == NativeInput.WM_MBUTTONUP ||
+                message == NativeInput.WM_XBUTTONDOWN || message == NativeInput.WM_XBUTTONUP ||
+                message == NativeInput.WM_MOUSEWHEEL || message == NativeInput.WM_MOUSEHWHEEL;
+        }
+
+        private void HandleTargetWindowMessage(Message m, Control target)
+        {
+            if (m.Msg == NativeInput.WM_KEYDOWN || m.Msg == NativeInput.WM_KEYUP ||
+                m.Msg == NativeInput.WM_SYSKEYDOWN || m.Msg == NativeInput.WM_SYSKEYUP)
+            {
+                windowKeyboardEventCount++;
+                bool up = m.Msg == NativeInput.WM_KEYUP || m.Msg == NativeInput.WM_SYSKEYUP;
+                int vk = unchecked((int)m.WParam.ToInt64()) & 0xFFFF;
+                long packed = m.LParam.ToInt64();
+                int repeat = (int)(packed & 0xFFFF);
+                int scan = (int)((packed >> 16) & 0xFF);
+                bool extended = ((packed >> 24) & 1) != 0;
+                bool altContext = ((packed >> 29) & 1) != 0;
+                bool previousDown = ((packed >> 30) & 1) != 0;
+                string details = TargetControlDetails(target, m.HWnd) +
+                    ", repeat=" + repeat.ToString() +
+                    ", scan=0x" + scan.ToString("X2") +
+                    (extended ? ", extended" : "") +
+                    (altContext ? ", alt-context" : "") +
+                    (previousDown ? ", previous-down" : "") +
+                    "; no injected flag in WM_KEY*";
+                LogEvent("Window Keyboard", ((Keys)vk).ToString() + " (VK " + vk.ToString() + ")", up ? "UP" : "DOWN", details);
+                UpdateHookStatus();
+                return;
+            }
+
+            if (m.Msg == NativeInput.WM_MOUSEMOVE && !logMouseMove.Checked) return;
+
+            uint wParam = unchecked((uint)m.WParam.ToInt64());
+            uint lParam = unchecked((uint)m.LParam.ToInt64());
+            short x = unchecked((short)(lParam & 0xFFFF));
+            short y = unchecked((short)((lParam >> 16) & 0xFFFF));
+            string input = "Move";
+            string state = "MOVE";
+            string extra = "";
+
+            if (m.Msg == NativeInput.WM_LBUTTONDOWN) { input = "Left"; state = "DOWN"; }
+            else if (m.Msg == NativeInput.WM_LBUTTONUP) { input = "Left"; state = "UP"; }
+            else if (m.Msg == NativeInput.WM_RBUTTONDOWN) { input = "Right"; state = "DOWN"; }
+            else if (m.Msg == NativeInput.WM_RBUTTONUP) { input = "Right"; state = "UP"; }
+            else if (m.Msg == NativeInput.WM_MBUTTONDOWN) { input = "Middle"; state = "DOWN"; }
+            else if (m.Msg == NativeInput.WM_MBUTTONUP) { input = "Middle"; state = "UP"; }
+            else if (m.Msg == NativeInput.WM_XBUTTONDOWN || m.Msg == NativeInput.WM_XBUTTONUP)
+            {
+                ushort xbutton = (ushort)((wParam >> 16) & 0xFFFF);
+                input = xbutton == 1 ? "X1" : (xbutton == 2 ? "X2" : "X" + xbutton.ToString());
+                state = m.Msg == NativeInput.WM_XBUTTONUP ? "UP" : "DOWN";
+                extra = ", xbutton=" + xbutton.ToString();
+            }
+            else if (m.Msg == NativeInput.WM_MOUSEWHEEL || m.Msg == NativeInput.WM_MOUSEHWHEEL)
+            {
+                short delta = unchecked((short)((wParam >> 16) & 0xFFFF));
+                input = m.Msg == NativeInput.WM_MOUSEWHEEL ? "Wheel V" : "Wheel H";
+                state = m.Msg == NativeInput.WM_MOUSEWHEEL
+                    ? (delta >= 0 ? "UP" : "DOWN")
+                    : (delta >= 0 ? "RIGHT" : "LEFT");
+                extra = ", delta=" + Signed(delta);
+            }
+
+            windowMouseEventCount++;
+            string coordinateSpace = (m.Msg == NativeInput.WM_MOUSEWHEEL || m.Msg == NativeInput.WM_MOUSEHWHEEL) ? "screen" : "client";
+            LogEvent("Window Mouse", input, state,
+                TargetControlDetails(target, m.HWnd) +
+                ", " + coordinateSpace + "=" + x.ToString() + "," + y.ToString() +
+                ", keyFlags=0x" + (wParam & 0xFFFF).ToString("X4") + extra +
+                "; no injected flag in WM_MOUSE*");
+            UpdateHookStatus();
+        }
+
+        private static string TargetControlDetails(Control target, IntPtr hwnd)
+        {
+            string name = string.IsNullOrEmpty(target.Name) ? target.GetType().Name : target.Name;
+            return "target=" + name + ", hwnd=0x" + hwnd.ToInt64().ToString("X");
         }
 
         private void HandleRawInput(IntPtr lParam)
@@ -698,6 +813,7 @@ namespace InputStitch.Tools.InputLab
             bool foreground = NativeInput.GetForegroundWindow() == Handle;
             foregroundStatus.Text = foreground ? "TARGET: FOREGROUND" : "TARGET: BACKGROUND";
             foregroundStatus.ForeColor = foreground ? Color.FromArgb(30, 130, 60) : Color.FromArgb(175, 95, 25);
+            RefreshKeyHighlights();
             PollXInput();
         }
 
@@ -810,7 +926,46 @@ namespace InputStitch.Tools.InputLab
         private void SetKeyState(int vk, bool down, bool injected)
         {
             Label label;
-            if (keyLabels.TryGetValue(vk, out label)) ApplyStateColor(label, down, injected);
+            if (!keyLabels.TryGetValue(vk, out label)) return;
+
+            keyLastInjected[vk] = injected;
+            keyHighlightUntil[vk] = down ? long.MaxValue : clock.ElapsedMilliseconds + KeyReleaseGlowMilliseconds;
+            ApplyStateColor(label, down, injected);
+            if (!down) label.BackColor = injected ? RecentInjectedColor : RecentActiveColor;
+        }
+
+        private void RefreshKeyHighlights()
+        {
+            if (keyHighlightUntil.Count == 0) return;
+            long now = clock.ElapsedMilliseconds;
+            List<int> expired = null;
+            foreach (KeyValuePair<int, long> pair in keyHighlightUntil)
+            {
+                Label label;
+                if (!keyLabels.TryGetValue(pair.Key, out label)) continue;
+                if (keysDown.Contains(pair.Key))
+                {
+                    bool injected;
+                    keyLastInjected.TryGetValue(pair.Key, out injected);
+                    ApplyStateColor(label, true, injected);
+                }
+                else if (pair.Value > now)
+                {
+                    bool injected;
+                    keyLastInjected.TryGetValue(pair.Key, out injected);
+                    label.BackColor = injected ? RecentInjectedColor : RecentActiveColor;
+                }
+                else
+                {
+                    label.BackColor = IdleColor;
+                    if (expired == null) expired = new List<int>();
+                    expired.Add(pair.Key);
+                }
+            }
+            if (expired != null)
+            {
+                foreach (int vk in expired) keyHighlightUntil.Remove(vk);
+            }
         }
 
         private static void ApplyStateColor(Label label, bool down, bool injected)
@@ -879,6 +1034,8 @@ namespace InputStitch.Tools.InputLab
             snapshot.RawInputRegistered = rawInputRegistered;
             snapshot.RawKeyboardEvents = rawKeyboardEventCount;
             snapshot.RawMouseEvents = rawMouseEventCount;
+            snapshot.WindowKeyboardEvents = windowKeyboardEventCount;
+            snapshot.WindowMouseEvents = windowMouseEventCount;
             snapshot.InjectedKeyboardEvents = injectedKeyboardEventCount;
             snapshot.InjectedMouseEvents = injectedMouseEventCount;
             snapshot.LastHookKeyboardVirtualKey = lastHookKeyboardVirtualKey;
@@ -886,6 +1043,13 @@ namespace InputStitch.Tools.InputLab
             snapshot.LastRawKeyboardVirtualKey = lastRawKeyboardVirtualKey;
             snapshot.LastRawKeyboardDown = lastRawKeyboardDown;
             return snapshot;
+        }
+
+        internal bool IsKeyVisuallyHighlighted(int vk)
+        {
+            if (InvokeRequired) return (bool)Invoke(new System.Func<int, bool>(IsKeyVisuallyHighlighted), vk);
+            Label label;
+            return keyLabels.TryGetValue(vk, out label) && label.BackColor != IdleColor;
         }
 
         private static string Signed(int value)

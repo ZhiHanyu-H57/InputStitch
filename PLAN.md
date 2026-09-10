@@ -172,9 +172,10 @@ Additional real neutral-device evidence:
 
 Input Lab final run:
 
-- all 18 pre-XInput real `SendInput` / ordinary-concurrency / complex-Hold checks PASS;
-- `failures=0`;
-- this laptop then reaches the known local ViGEm→XInput observation blocker and reports `SUMMARY: BLOCKED | checks=18 | failures=0` rather than a product failure.
+- Input Lab manual viewer is now independently versioned as `v0.3.0`, with a larger keyboard visualization, visible quick-tap afterglow, target-window `WM_KEY*` / `WM_MOUSE*` observation and versioned standalone packaging;
+- the v0.3.0 window-message and keyboard-visual self-tests PASS;
+- full black-box acceptance completed **77/77 PASS, failures=0** in three consecutive runs on this laptop on 2026-09-10;
+- the older intermittent ViGEm→XInput environment blocker did not reproduce in those three runs, but `SUMMARY: BLOCKED` remains a valid environment-only result if it returns later.
 
 ## Release discipline
 

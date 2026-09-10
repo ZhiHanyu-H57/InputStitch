@@ -14,6 +14,8 @@ namespace InputStitch.Tools.InputLab
         internal bool RawInputRegistered;
         internal int RawKeyboardEvents;
         internal int RawMouseEvents;
+        internal int WindowKeyboardEvents;
+        internal int WindowMouseEvents;
         internal int InjectedKeyboardEvents;
         internal int InjectedMouseEvents;
         internal int LastHookKeyboardVirtualKey = -1;

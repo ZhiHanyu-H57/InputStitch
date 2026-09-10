@@ -25,6 +25,7 @@ Before changing code in this repository, restore project context in this order:
 - Concurrent ordinary timed macros are now an explicit 1.3.0 priority. Implement them through a dedicated multi-run runtime design with independent RunId/SourceId/timing/stop state and deterministic overlap semantics; do not just start extra threads around the current singleton worker fields.
 - Runtime category/concurrency eligibility must have one authoritative classifier shared by execution, diagnostics and UI. Do not duplicate eligibility rules in the editor; option-B live feedback must be a view of the Concurrent Macro Runtime capability model.
 - Treat Stable and Beta release channels as separate. Beta must not replace `releases/latest` or `InputStitch-update.xml`.
+- Input Lab is independently versioned. Its release tags use `inputlab-v*` and its GitHub releases must remain prereleases so the developer tool can never replace the Stable InputStitch `releases/latest` endpoint.
 - Beta and Stable currently share `%APPDATA%\InputStitch`; do not design workflows that assume they can safely run simultaneously.
 - Do not commit build artifacts, temporary verification directories, or machine-specific paths.
 
@@ -44,6 +45,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\InputLab\run-accepta
 
 The Input Lab acceptance host uses isolated configuration and must not modify the user's normal `%APPDATA%\InputStitch\config.xml`.
 Treat `SUMMARY: BLOCKED` / exit code 2 as an environment-preflight result (for example ViGEm/XInput report propagation unavailable), not as an InputStitch assertion failure. Do not bypass the preflight merely to force a green report.
+
+For Input Lab viewer changes, also run `tools/InputLab/package.ps1`; it builds the viewer and executes the target-window-message and keyboard-visual self-tests before producing versioned standalone artifacts.
 
 For release-affecting changes, also build and run Release Verification using the repository scripts. Never publish a release only because compilation succeeded.
 

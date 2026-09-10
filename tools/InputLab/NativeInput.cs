@@ -51,6 +51,7 @@ namespace InputStitch.Tools.InputLab
         internal const uint LLKHF_ALTDOWN = 0x20;
         internal const uint LLMHF_INJECTED = 0x00000001;
         internal const uint LLMHF_LOWER_IL_INJECTED = 0x00000002;
+        internal const uint KEYEVENTF_KEYUP = 0x0002;
 
         internal delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -144,6 +145,13 @@ namespace InputStitch.Tools.InputLab
 
         [DllImport("user32.dll")]
         internal static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        internal static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
