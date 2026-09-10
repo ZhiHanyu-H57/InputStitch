@@ -94,3 +94,65 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/Publish-Stable.ps1
+
+  mirror-beta-r2:
+    needs: [verify, publish-beta]
+    if: ${{ always() && needs.publish-beta.result == 'success' }}
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: InputStitch-${{ needs.verify.outputs.version }}
+          path: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install R2 upload dependency
+        shell: powershell
+        run: python -m pip install --disable-pip-version-check boto3
+      - name: Mirror Beta assets to Cloudflare R2
+        shell: powershell
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+        run: |
+          python scripts/Publish-R2.py `
+            --dist dist `
+            --version '${{ needs.verify.outputs.version }}' `
+            --channel beta `
+            --bucket inputstitch-downloads `
+            --endpoint $env:R2_ENDPOINT_URL
+          if ($LASTEXITCODE -ne 0) { throw 'R2 Beta mirror failed.' }
+
+  mirror-stable-r2:
+    needs: [verify, publish-stable]
+    if: ${{ always() && needs.publish-stable.result == 'success' }}
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: InputStitch-${{ needs.verify.outputs.version }}
+          path: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install R2 upload dependency
+        shell: powershell
+        run: python -m pip install --disable-pip-version-check boto3
+      - name: Mirror Stable assets to Cloudflare R2
+        shell: powershell
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+        run: |
+          python scripts/Publish-R2.py `
+            --dist dist `
+            --version '${{ needs.verify.outputs.version }}' `
+            --channel stable `
+            --bucket inputstitch-downloads `
+            --endpoint $env:R2_ENDPOINT_URL
+          if ($LASTEXITCODE -ne 0) { throw 'R2 Stable mirror failed.' }

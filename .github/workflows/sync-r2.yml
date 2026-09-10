@@ -1,0 +1,61 @@
+name: Sync release assets to Cloudflare R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag to mirror, for example v1.4.1
+        required: true
+        type: string
+      channel:
+        description: Release channel
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - beta
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Download existing GitHub release assets
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Path r2-dist -Force | Out-Null
+          gh release download '${{ inputs.tag }}' --repo '${{ github.repository }}' --dir r2-dist
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download release assets.' }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install R2 upload dependency
+        shell: powershell
+        run: python -m pip install --disable-pip-version-check boto3
+
+      - name: Verify and mirror release to R2
+        shell: powershell
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+        run: |
+          $version = '${{ inputs.tag }}'.TrimStart('v')
+          python scripts/Publish-R2.py `
+            --dist r2-dist `
+            --version $version `
+            --channel '${{ inputs.channel }}' `
+            --bucket inputstitch-downloads `
+            --endpoint $env:R2_ENDPOINT_URL
+          if ($LASTEXITCODE -ne 0) { throw 'R2 mirror failed.' }
