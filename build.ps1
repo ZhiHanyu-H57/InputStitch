@@ -118,6 +118,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'ReleaseInfo.cs')
     $compilerArguments += (Join-Path $projectRoot 'UpdateInstaller.cs')
     $compilerArguments += (Join-Path $projectRoot 'RuntimeDiagnostics.cs')
+    $compilerArguments += (Join-Path $projectRoot 'RawKeyboardFallback.cs')
     $compilerArguments += (Join-Path $projectRoot 'AtomicXmlFileStore.cs')
     $compilerArguments += (Join-Path $projectRoot 'ConfigPackageSerializer.cs')
     $compilerArguments += (Join-Path $projectRoot 'UpdateSourcePolicy.cs')
@@ -169,6 +170,7 @@ function New-SourceArchive {
         'ReleaseInfo.cs',
         'UpdateInstaller.cs',
         'RuntimeDiagnostics.cs',
+        'RawKeyboardFallback.cs',
         'AtomicXmlFileStore.cs',
         'ConfigPackageSerializer.cs',
         'UpdateSourcePolicy.cs',

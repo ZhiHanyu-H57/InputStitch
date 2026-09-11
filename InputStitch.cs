@@ -1834,6 +1834,8 @@ namespace InputStitch
         private volatile int physicalModifierMask;
         private int staleStateRepairCount;
         private long physicalEventCount;
+        private readonly long[] keyboardDownEdgeAt = new long[256];
+        private readonly long[] keyboardUpEdgeAt = new long[256];
 
         public Func<InputEventInfo, bool> OnTerminalInput;
         public Action<InputEventInfo> OnTerminalInputReleased;
@@ -1883,6 +1885,7 @@ namespace InputStitch
                     {
                         Interlocked.Increment(ref physicalEventCount);
                         int vk = (int)data.vkCode;
+                        RecordKeyboardEdge(vk, isDown);
                         if (isUp)
                         {
                             physicalKeysDown.Remove(vk);
@@ -2008,6 +2011,57 @@ namespace InputStitch
         public long PhysicalEventCount
         {
             get { return Interlocked.Read(ref physicalEventCount); }
+        }
+
+        private void RecordKeyboardEdge(int virtualKey, bool down)
+        {
+            if (virtualKey < 0 || virtualKey >= keyboardDownEdgeAt.Length) return;
+            long now = Stopwatch.GetTimestamp();
+            if (down) Interlocked.Exchange(ref keyboardDownEdgeAt[virtualKey], now);
+            else Interlocked.Exchange(ref keyboardUpEdgeAt[virtualKey], now);
+        }
+
+        public bool WasKeyboardEdgeObservedRecently(int virtualKey, bool down, int milliseconds)
+        {
+            if (virtualKey < 0 || virtualKey >= keyboardDownEdgeAt.Length || milliseconds < 0) return false;
+            long observed = down ? Interlocked.Read(ref keyboardDownEdgeAt[virtualKey]) : Interlocked.Read(ref keyboardUpEdgeAt[virtualKey]);
+            if (observed == 0) return false;
+            long elapsed = Stopwatch.GetTimestamp() - observed;
+            long window = (long)milliseconds * Stopwatch.Frequency / 1000L;
+            return elapsed >= 0 && elapsed <= window;
+        }
+
+        public bool IsPhysicalKeyTrackedDown(int virtualKey)
+        {
+            return physicalKeysDown.Contains(virtualKey);
+        }
+
+        public void ReinstallKeyboardHook()
+        {
+            // Recovery is requested only after Raw Input reports that all keyboard keys are up.
+            // Preserve the mouse hook and its suppression state; only rebuild the keyboard lane.
+            if (keyboardHook != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(keyboardHook);
+                keyboardHook = IntPtr.Zero;
+            }
+
+            physicalKeysDown.Clear();
+            suppressedKeysUntilUp.Clear();
+            RefreshPhysicalModifierMask();
+            SeedModifierState((int)Keys.LControlKey);
+            SeedModifierState((int)Keys.RControlKey);
+            SeedModifierState((int)Keys.LShiftKey);
+            SeedModifierState((int)Keys.RShiftKey);
+            SeedModifierState((int)Keys.LMenu);
+            SeedModifierState((int)Keys.RMenu);
+            SeedModifierState((int)Keys.LWin);
+            SeedModifierState((int)Keys.RWin);
+
+            IntPtr module = GetModuleHandle(null);
+            keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, keyboardProc, module, 0);
+            if (keyboardHook == IntPtr.Zero)
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "无法重新安装全局键盘钩子。");
         }
 
         public int ReconcilePhysicalState()
@@ -4636,6 +4690,17 @@ namespace InputStitch
         private string packagesDir;
         private string profilesDir;
         private HookManager hooks;
+        private RawKeyboardFallback rawKeyboardFallback;
+        private readonly HashSet<int> rawKeyboardKeysDown = new HashSet<int>();
+        private readonly HashSet<int> rawFallbackOwnedKeys = new HashSet<int>();
+        private int rawKeyboardFallbackEdgeCount;
+        private int rawKeyboardSuppressionUnavailableCount;
+        private int keyboardHookRecoveryCount;
+        private bool recoveringInputHooks;
+        private bool hookRecoveryQueued;
+        private long nextHookRecoveryAttemptTimestamp;
+        private const int RawKeyboardReleaseDedupMilliseconds = 1000;
+        private const int HookRecoveryCooldownMilliseconds = 5000;
         private string startupWarning = "";
         private readonly ConfigStore configStore = new ConfigStore();
         private readonly StepHistory stepHistory = new StepHistory();
@@ -4857,15 +4922,15 @@ namespace InputStitch
             try
             {
                 hooks = new HookManager();
-                hooks.OnTerminalInput = HandleTerminalInput;
-                hooks.OnTerminalInputReleased = HandleTerminalInputReleased;
-                hooks.ShouldReportModifierInput = delegate { return true; };
+                BindHookCallbacks(hooks);
             }
             catch (Exception ex)
             {
                 AppLog.Write("Hook installation failed", ex);
                 LocalizedMessageBox.Show(this, ex.Message, AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            rawKeyboardFallback = new RawKeyboardFallback();
+            rawKeyboardFallback.Input += HandleRawKeyboardFallback;
 
             // XInput is a separate first-class input source. Poll all visible slots at low latency,
             // but always exclude this process' own ViGEm Xbox slot to prevent feedback loops.
@@ -4948,6 +5013,11 @@ namespace InputStitch
             FormClosing += MainForm_FormClosing;
             Shown += delegate
             {
+                if (rawKeyboardFallback != null)
+                {
+                    rawKeyboardFallback.AttachWindow(Handle);
+                    if (!rawKeyboardFallback.Registered) AppLog.Write("Raw keyboard fallback registration failed.");
+                }
                 if (idleGamepad != null) idleGamepad.AttachWindow(Handle);
                 if (!string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning))
                 {
@@ -5016,6 +5086,7 @@ namespace InputStitch
 
         protected override void WndProc(ref Message m)
         {
+            if (rawKeyboardFallback != null) rawKeyboardFallback.ProcessWindowMessage(m.Msg, m.LParam);
             if (idleGamepad != null) idleGamepad.ProcessWindowMessage(m.Msg, m.WParam, m.LParam, idleKeyboardMouseActivityInScope);
             base.WndProc(ref m);
         }
@@ -6315,6 +6386,12 @@ namespace InputStitch
                 : (Localizer.IsEnglish ? "Base + " : "基础层 + ") + (activeLayer == null ? activeMappingLayerId : activeLayer.Name);
             sb.AppendLine((Localizer.IsEnglish ? "Layer: " : "映射层：") + layerText);
             sb.AppendLine((Localizer.IsEnglish ? "Virtual Xbox slot: " : "虚拟 Xbox 槽位：") + ObservedVirtualXboxSlot().ToString());
+            sb.AppendLine((Localizer.IsEnglish ? "Keyboard fallback: " : "键盘兜底：") +
+                (rawKeyboardFallback != null && rawKeyboardFallback.Registered ? (Localizer.IsEnglish ? "ready" : "就绪") : (Localizer.IsEnglish ? "not ready" : "未就绪")) +
+                "; raw=" + (rawKeyboardFallback == null ? "0" : rawKeyboardFallback.EventCount.ToString()) +
+                "; fallback=" + Volatile.Read(ref rawKeyboardFallbackEdgeCount).ToString() +
+                "; suppression-missed=" + Volatile.Read(ref rawKeyboardSuppressionUnavailableCount).ToString() +
+                "; hook-recoveries=" + Volatile.Read(ref keyboardHookRecoveryCount).ToString());
             sb.AppendLine((Localizer.IsEnglish ? "Controller merge: " : "手柄汇总：") +
                 (gamepadRouter == null ? (Localizer.IsEnglish ? "unavailable" : "不可用") :
                     (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : (Localizer.IsEnglish ? "off" : "关闭"))));
@@ -6400,6 +6477,11 @@ namespace InputStitch
             sb.AppendLine("LogPath: " + AppLog.LogPath);
             sb.AppendLine(runtimeTrace.Snapshot());
             sb.AppendLine("Hooks: " + (hooks == null ? Localizer.T("未安装") : Localizer.T("已安装")));
+            sb.AppendLine("RawKeyboardFallback: " + (rawKeyboardFallback != null && rawKeyboardFallback.Registered ? "ready" : "not-ready") +
+                "; observed=" + (rawKeyboardFallback == null ? "0" : rawKeyboardFallback.EventCount.ToString()) +
+                "; fallbackEdges=" + Volatile.Read(ref rawKeyboardFallbackEdgeCount).ToString() +
+                "; suppressionUnavailable=" + Volatile.Read(ref rawKeyboardSuppressionUnavailableCount).ToString() +
+                "; hookRecoveries=" + Volatile.Read(ref keyboardHookRecoveryCount).ToString());
             sb.AppendLine("ScanCodeInput: " + (config != null && config.UseScanCodeInput ? Localizer.T("开启") : (Localizer.IsEnglish ? "Off" : "关闭")));
             sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
             sb.AppendLine("VirtualGamepadConnected: " + (ObservedVirtualGamepadConnected() ? ObservedVirtualGamepadType() : Localizer.T("否")));
@@ -8615,6 +8697,149 @@ namespace InputStitch
             return best;
         }
 
+        private void BindHookCallbacks(HookManager manager)
+        {
+            if (manager == null) return;
+            manager.OnTerminalInput = HandleTerminalInput;
+            manager.OnTerminalInputReleased = HandleTerminalInputReleased;
+            manager.ShouldReportModifierInput = delegate { return true; };
+        }
+
+        private static InputEventInfo BuildRawKeyboardInputEvent(RawKeyboardEvent raw)
+        {
+            InputEventInfo e = new InputEventInfo();
+            e.Input = new InputSpec();
+            e.Input.Kind = InputKind.Keyboard;
+            e.Input.VirtualKey = raw.VirtualKey;
+            e.Input.ScanCode = raw.ScanCode;
+            e.Input.Extended = raw.Extended;
+            int mask = PhysicalInputState.GetModifierMask();
+            e.Ctrl = (mask & ModifierSafetyPolicy.Ctrl) != 0;
+            e.Shift = (mask & ModifierSafetyPolicy.Shift) != 0;
+            e.Alt = (mask & ModifierSafetyPolicy.Alt) != 0;
+            e.Win = (mask & ModifierSafetyPolicy.Win) != 0;
+            return e;
+        }
+
+        private void HandleRawKeyboardFallback(RawKeyboardEvent raw)
+        {
+            if (raw == null || raw.VirtualKey <= 0 || raw.VirtualKey >= 256 || IsDisposed || Disposing) return;
+            int vk = raw.VirtualKey;
+            HookManager currentHooks = hooks;
+
+            if (raw.Down)
+            {
+                // Raw Input can repeat make events while a key is held. Only the first physical
+                // up->down edge participates in fallback trigger dispatch.
+                if (!rawKeyboardKeysDown.Add(vk)) return;
+
+                // WH_KEYBOARD_LL normally runs before the corresponding WM_INPUT. A currently
+                // tracked key plus a recent hook down therefore means this Raw Input event is the
+                // duplicate observation of the same physical edge, not a fallback condition.
+                if (currentHooks != null && currentHooks.IsPhysicalKeyTrackedDown(vk) &&
+                    currentHooks.WasKeyboardEdgeObservedRecently(vk, true, RawKeyboardReleaseDedupMilliseconds)) return;
+
+                rawFallbackOwnedKeys.Add(vk);
+                bool requestedSuppression = HandleTerminalInputCore(BuildRawKeyboardInputEvent(raw), false);
+                Interlocked.Increment(ref rawKeyboardFallbackEdgeCount);
+                if (requestedSuppression) Interlocked.Increment(ref rawKeyboardSuppressionUnavailableCount);
+                runtimeTrace.Add("raw-keyboard-fallback",
+                    "down vk=" + vk.ToString() + (requestedSuppression ? "; suppression unavailable for recovered edge" : ""));
+                return;
+            }
+
+            rawKeyboardKeysDown.Remove(vk);
+            bool fallbackOwned = rawFallbackOwnedKeys.Remove(vk);
+            bool hookSawRelease = currentHooks != null &&
+                currentHooks.WasKeyboardEdgeObservedRecently(vk, false, RawKeyboardReleaseDedupMilliseconds);
+            bool hookStillTracksKey = currentHooks != null && currentHooks.IsPhysicalKeyTrackedDown(vk);
+            bool missedRelease = !hookSawRelease && (fallbackOwned || hookStillTracksKey);
+            if (missedRelease)
+            {
+                HandleTerminalInputReleased(BuildRawKeyboardInputEvent(raw));
+                Interlocked.Increment(ref rawKeyboardFallbackEdgeCount);
+                runtimeTrace.Add("raw-keyboard-fallback", "up vk=" + vk.ToString());
+            }
+
+            // Reinstall only after every currently observed keyboard key is released. Installing
+            // a fresh hook while a key is still held can make its next auto-repeat look like a
+            // brand-new physical down edge. Defer the actual native hook mutation until after the
+            // current WM_INPUT has returned to the WinForms message loop.
+            if (missedRelease && rawKeyboardKeysDown.Count == 0)
+                ScheduleInputHookRecovery("raw-keyboard-up-vk=" + vk.ToString());
+        }
+
+        private void ScheduleInputHookRecovery(string reason)
+        {
+            if (hookRecoveryQueued || recoveringInputHooks || isolatedUiHost || IsDisposed || Disposing || rawKeyboardKeysDown.Count != 0) return;
+            long now = Stopwatch.GetTimestamp();
+            long next = Interlocked.Read(ref nextHookRecoveryAttemptTimestamp);
+            if (next != 0 && now < next) return;
+            long cooldown = Math.Max(1L, (long)HookRecoveryCooldownMilliseconds * Stopwatch.Frequency / 1000L);
+            Interlocked.Exchange(ref nextHookRecoveryAttemptTimestamp, now + cooldown);
+            hookRecoveryQueued = true;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    hookRecoveryQueued = false;
+                    if (IsDisposed || Disposing) return;
+                    if (rawKeyboardKeysDown.Count != 0)
+                    {
+                        Interlocked.Exchange(ref nextHookRecoveryAttemptTimestamp, 0L);
+                        return;
+                    }
+                    TryRecoverInputHooks(reason);
+                });
+            }
+            catch
+            {
+                hookRecoveryQueued = false;
+                Interlocked.Exchange(ref nextHookRecoveryAttemptTimestamp, 0L);
+            }
+        }
+
+        private void TryRecoverInputHooks(string reason)
+        {
+            if (recoveringInputHooks || isolatedUiHost || IsDisposed || Disposing || rawKeyboardKeysDown.Count != 0) return;
+            recoveringInputHooks = true;
+            HookManager replacement = null;
+            try
+            {
+                if (hooks != null)
+                {
+                    // Keep the existing mouse hook and runtime state intact. Only the keyboard
+                    // hook is suspected when Raw Input observes a keyboard edge that WH_KEYBOARD_LL
+                    // missed, so recovery should mutate no more state than necessary.
+                    hooks.ReinstallKeyboardHook();
+                }
+                else
+                {
+                    // Initial hook installation may have failed completely. Raw Input remains able
+                    // to trigger keyboard macros, and a later quiet keyboard edge can retry the full
+                    // HookManager installation without requiring an application restart.
+                    replacement = new HookManager();
+                    BindHookCallbacks(replacement);
+                    hooks = replacement;
+                    replacement = null;
+                }
+
+                int count = Interlocked.Increment(ref keyboardHookRecoveryCount);
+                runtimeTrace.Add("hook-recovered", "count=" + count.ToString() + "; reason=" + (reason ?? "raw-keyboard-fallback"));
+                AppLog.Write("Recovered global keyboard hook after Raw Input detected a missed keyboard edge: " + (reason ?? "unknown"));
+            }
+            catch (Exception ex)
+            {
+                if (replacement != null) replacement.Dispose();
+                runtimeTrace.Add("hook-recovery-failed", reason ?? "raw-keyboard-fallback");
+                AppLog.Write("Global keyboard hook recovery failed", ex);
+            }
+            finally
+            {
+                recoveringInputHooks = false;
+            }
+        }
+
         private bool HandleTerminalInput(InputEventInfo e)
         {
             return HandleTerminalInputCore(e, false);
@@ -10813,6 +11038,12 @@ namespace InputStitch
                 GamepadOutput.NeutralizeAll();
                 GamepadOutput.Disconnect();
                 SaveConfig();
+                if (rawKeyboardFallback != null)
+                {
+                    rawKeyboardFallback.Input -= HandleRawKeyboardFallback;
+                    rawKeyboardFallback.Dispose();
+                    rawKeyboardFallback = null;
+                }
                 if (hooks != null)
                 {
                     hooks.Dispose();

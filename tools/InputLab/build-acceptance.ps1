@@ -34,9 +34,11 @@ foreach ($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawin
 $arguments += '/reference:' + $client
 
 foreach ($name in @(
-    'InputStitch.cs','ReleaseInfo.cs','UpdateInstaller.cs','RuntimeDiagnostics.cs','ConfigStore.cs',
-    'StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualKeyboard.cs','IdleGamepad.cs',
-    'XInputInput.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs'
+    'InputStitch.cs','ReleaseInfo.cs','RawKeyboardFallback.cs','VirtualKeyboard.cs','IdleGamepad.cs',
+    'XInputNative.cs','XInputInput.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs',
+    'UpdateInstaller.cs','RuntimeDiagnostics.cs','AtomicXmlFileStore.cs','ConfigPackageSerializer.cs',
+    'UpdateSourcePolicy.cs','UpdateUiCoordinator.cs','ProfileCatalog.cs','TargetWindowPolicy.cs','ConfigStore.cs',
+    'StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualGamepadBackend.cs'
 )) {
     $arguments += Join-Path $projectRoot $name
 }

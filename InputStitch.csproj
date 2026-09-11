@@ -32,6 +32,7 @@
     <Compile Include="ReleaseInfo.cs" />
     <Compile Include="UpdateInstaller.cs" />
     <Compile Include="RuntimeDiagnostics.cs" />
+    <Compile Include="RawKeyboardFallback.cs" />
     <Compile Include="AtomicXmlFileStore.cs" />
     <Compile Include="ConfigPackageSerializer.cs" />
     <Compile Include="UpdateSourcePolicy.cs" />

@@ -58,6 +58,12 @@ internal static class KeyboardTests
         try
         {
             Application.EnableVisualStyles();
+            Check(RawKeyboardFallback.NormalizeVirtualKey((int)Keys.ShiftKey, 0x2A, 0) == (int)Keys.LShiftKey, "Raw Input normalizes left Shift");
+            Check(RawKeyboardFallback.NormalizeVirtualKey((int)Keys.ShiftKey, 0x36, 0) == (int)Keys.RShiftKey, "Raw Input normalizes right Shift");
+            Check(RawKeyboardFallback.NormalizeVirtualKey((int)Keys.ControlKey, 0x1D, RawKeyboardFallback.RI_KEY_E0) == (int)Keys.RControlKey, "Raw Input normalizes right Ctrl");
+            Check(RawKeyboardFallback.NormalizeVirtualKey((int)Keys.Menu, 0x38, RawKeyboardFallback.RI_KEY_E0) == (int)Keys.RMenu, "Raw Input normalizes right Alt");
+            Check(RawKeyboardFallback.IsKeyUp(RawKeyboardFallback.RI_KEY_BREAK, 0x0100) && RawKeyboardFallback.IsKeyUp(0, 0x0101), "Raw Input recognizes keyboard release");
+            Check(!RawKeyboardFallback.IsKeyUp(0, 0x0100) && RawKeyboardFallback.IsExtended(RawKeyboardFallback.RI_KEY_E0) && !RawKeyboardFallback.IsExtended(RawKeyboardFallback.RI_KEY_E1), "Raw Input preserves E0 extended semantics");
             TriggerSpec shift = Trigger(K(Keys.LShiftKey));
             Check(!shift.Shift && ModifierSafetyPolicy.TriggerMatchesExactly(shift, E(Keys.LShiftKey, false, true)), "standalone left Shift matches its hook modifier snapshot");
             Check(!ModifierSafetyPolicy.TriggerMatchesExactly(shift, E(Keys.RShiftKey, false, true)), "left Shift keeps side distinction");
