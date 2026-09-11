@@ -361,12 +361,16 @@ namespace InputStitch
 
         private readonly IDeviceHidingBackend backend;
         private readonly Func<int> ownSlot;
+        private readonly Func<bool> virtualConnected;
+        private readonly Func<string> virtualType;
         private readonly Func<bool> routerReady;
         private readonly Func<bool> isActive;
         private readonly Func<IEnumerable<GamingDeviceDescriptor>, ControlledReplacementResult> begin;
         private readonly Func<ControlledReplacementResult> stop;
         private readonly CheckedListBox devices = new CheckedListBox();
+        private readonly Label virtualOutputLabel = new Label();
         private readonly Label stateLabel = new Label();
+        private readonly Label deviceListLabel = new Label();
         private readonly Button refreshButton = new Button();
         private readonly Button selectAllButton = new Button();
         private readonly Button startButton = new Button();
@@ -374,12 +378,15 @@ namespace InputStitch
         private readonly Button closeButton = new Button();
 
         internal ControlledReplacementDialog(IDeviceHidingBackend hidingBackend, Func<int> virtualSlot,
+            Func<bool> isVirtualConnected, Func<string> connectedVirtualType,
             Func<bool> isRouterReady, Func<bool> replacementActive,
             Func<IEnumerable<GamingDeviceDescriptor>, ControlledReplacementResult> beginReplacement,
             Func<ControlledReplacementResult> stopReplacement)
         {
             backend = hidingBackend;
             ownSlot = virtualSlot;
+            virtualConnected = isVirtualConnected;
+            virtualType = connectedVirtualType;
             routerReady = isRouterReady;
             isActive = replacementActive;
             begin = beginReplacement;
@@ -396,7 +403,9 @@ namespace InputStitch
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(14);
             root.ColumnCount = 1;
-            root.RowCount = 5;
+            root.RowCount = 7;
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -412,16 +421,28 @@ namespace InputStitch
                 : "实验功能：把所选 XInput 手柄汇总并接管到一个位于 0 号槽位的 InputStitch 虚拟 Xbox 手柄。程序不会自动隐藏任何设备。如果 InputStitch 当前不在 0 号，开始接管时会先执行可恢复的手柄重新枚举；只有确认虚拟手柄已经成为 0 号、原手柄也全部恢复可读后，才进入隐藏阶段。重新排列槽位需要管理员权限。";
             root.Controls.Add(intro, 0, 0);
 
+            virtualOutputLabel.AutoSize = true;
+            virtualOutputLabel.MaximumSize = new Size(760, 0);
+            virtualOutputLabel.Margin = new Padding(0, 10, 0, 0);
+            root.Controls.Add(virtualOutputLabel, 0, 1);
+
             stateLabel.AutoSize = true;
             stateLabel.MaximumSize = new Size(760, 0);
-            stateLabel.Margin = new Padding(0, 10, 0, 8);
-            root.Controls.Add(stateLabel, 0, 1);
+            stateLabel.Margin = new Padding(0, 6, 0, 8);
+            root.Controls.Add(stateLabel, 0, 2);
+
+            deviceListLabel.AutoSize = true;
+            deviceListLabel.MaximumSize = new Size(760, 0);
+            deviceListLabel.Text = Localizer.IsEnglish
+                ? "External controllers available for takeover (InputStitch's own virtual controller is intentionally not listed here):"
+                : "可接管的外部手柄（这里不会列出 InputStitch 自己的虚拟手柄）：";
+            root.Controls.Add(deviceListLabel, 0, 3);
 
             devices.Dock = DockStyle.Fill;
             devices.CheckOnClick = true;
             devices.IntegralHeight = false;
             devices.ItemCheck += delegate { BeginInvoke((MethodInvoker)UpdateActions); };
-            root.Controls.Add(devices, 0, 2);
+            root.Controls.Add(devices, 0, 4);
 
             FlowLayoutPanel utility = new FlowLayoutPanel();
             utility.AutoSize = true;
@@ -439,7 +460,7 @@ namespace InputStitch
                 UpdateActions();
             };
             utility.Controls.Add(selectAllButton);
-            root.Controls.Add(utility, 0, 3);
+            root.Controls.Add(utility, 0, 5);
 
             FlowLayoutPanel actions = new FlowLayoutPanel();
             actions.AutoSize = true;
@@ -457,7 +478,7 @@ namespace InputStitch
             startButton.Text = Localizer.IsEnglish ? "Start takeover" : "开始接管";
             startButton.Click += delegate { StartReplacement(); };
             actions.Controls.Add(startButton);
-            root.Controls.Add(actions, 0, 4);
+            root.Controls.Add(actions, 0, 6);
             CancelButton = closeButton;
 
             Shown += delegate { RefreshDevices(); };
@@ -466,11 +487,12 @@ namespace InputStitch
         private void RefreshDevices()
         {
             devices.Items.Clear();
+            RefreshVirtualOutputText();
             if (backend == null || !backend.IsAvailable)
             {
                 stateLabel.Text = Localizer.IsEnglish
-                    ? "HidHide was not detected. Controller takeover is unavailable; controller merging without hiding can still be used."
-                    : "未检测到 HidHide。当前不能隐藏原手柄；不隐藏原设备的“手柄汇总”仍可正常使用。";
+                    ? "HidHide was not detected. Full takeover cannot enumerate or hide original controllers, so the external-controller list below will remain empty. Virtual output and controller merging can still be used without hiding."
+                    : "未检测到 HidHide。完整接管无法枚举或隐藏原手柄，因此下面的“外部手柄”列表会保持为空；虚拟手柄输出以及不隐藏原设备的“手柄汇总”仍可使用。";
                 UpdateActions();
                 return;
             }
@@ -491,6 +513,26 @@ namespace InputStitch
             }
             RefreshStateText();
             UpdateActions();
+        }
+
+        private void RefreshVirtualOutputText()
+        {
+            bool connected = virtualConnected != null && virtualConnected();
+            string type = virtualType == null ? "" : (virtualType() ?? "");
+            int slot = ownSlot == null ? -1 : ownSlot();
+            if (!connected)
+            {
+                virtualOutputLabel.Text = Localizer.IsEnglish
+                    ? "InputStitch virtual output: not connected."
+                    : "InputStitch 虚拟输出：未连接。";
+                return;
+            }
+
+            string friendlyType = string.Equals(type, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase)
+                ? "PS4 / DualShock 4" : "Xbox 360";
+            string slotText = slot >= 0 ? " · XInput " + slot.ToString() : "";
+            virtualOutputLabel.Text = (Localizer.IsEnglish ? "InputStitch virtual output: connected · " : "InputStitch 虚拟输出：已连接 · ") +
+                friendlyType + slotText;
         }
 
         private void RefreshStateText()

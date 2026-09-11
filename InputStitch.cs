@@ -4807,6 +4807,7 @@ namespace InputStitch
         private ControlledTakeoverPipeline controlledTakeoverPipeline;
         private ControlledReplacementHealthMonitor controlledReplacementHealthMonitor;
         private string controlledReplacementHealthStatus = "inactive";
+        private string virtualGamepadHotplugStatus = "none";
         private int[] replacementExpectedControllerSlots = new int[0];
         private string replacementRecoveryWarning = "";
         private string slotAcquisitionRecoveryWarning = "";
@@ -6039,6 +6040,8 @@ namespace InputStitch
                 using (ControlledReplacementDialog dialog = new ControlledReplacementDialog(
                     deviceHidingBackend,
                     delegate { return GamepadOutput.OwnXboxUserIndex; },
+                    delegate { return GamepadOutput.IsConnected; },
+                    delegate { return GamepadOutput.ConnectedType; },
                     delegate { return config.GamepadRouterEnabled && gamepadRouter != null && gamepadRouter.Enabled && GamepadOutput.OwnXboxUserIndex >= 0; },
                     delegate { return controlledReplacement != null && controlledReplacement.Active; },
                     BeginControlledReplacement,
@@ -6486,6 +6489,7 @@ namespace InputStitch
             sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
             sb.AppendLine("VirtualGamepadConnected: " + (ObservedVirtualGamepadConnected() ? ObservedVirtualGamepadType() : Localizer.T("否")));
             sb.AppendLine("VirtualXboxSlot: " + ObservedVirtualXboxSlot().ToString());
+            sb.AppendLine("VirtualGamepadHotplug: " + virtualGamepadHotplugStatus);
             sb.AppendLine("GamepadRouter: " + (gamepadRouter == null ? "unavailable" :
                 (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : "disabled")));
             sb.AppendLine("ControlledReplacement: " + (controlledReplacement == null ? "unavailable" : controlledReplacement.State.ToString() + "; " + controlledReplacement.LastMessage));
@@ -10140,6 +10144,37 @@ namespace InputStitch
             return result;
         }
 
+        private bool NoteVirtualGamepadHotplugIfTargetRunning(bool reusedExistingConnection)
+        {
+            if (reusedExistingConnection || config == null || string.IsNullOrWhiteSpace(config.TargetProcessName)) return false;
+            string processName = Path.GetFileNameWithoutExtension(config.TargetProcessName.Trim());
+            if (processName.Length == 0) return false;
+            Process[] matches = new Process[0];
+            try
+            {
+                matches = Process.GetProcessesByName(processName);
+                if (matches == null || matches.Length == 0) return false;
+                virtualGamepadHotplugStatus = "virtual controller connected/reconnected while target process was already running: " + processName;
+                try { runtimeTrace.Add("virtual-gamepad-hotplug", virtualGamepadHotplugStatus); } catch { }
+                try { AppLog.Write("Virtual gamepad hot-plug warning: " + virtualGamepadHotplugStatus); } catch { }
+                return true;
+            }
+            catch { return false; }
+            finally
+            {
+                if (matches != null)
+                    foreach (Process process in matches)
+                        if (process != null) try { process.Dispose(); } catch { }
+            }
+        }
+
+        private string VirtualGamepadHotplugWarningText()
+        {
+            return Localizer.IsEnglish
+                ? " The virtual controller was just connected while the configured target was already running. Some games do not reacquire a hot-plugged XInput device; restart the game if controller input is ignored."
+                : " 虚拟手柄是在目标程序已经运行时刚刚连接/重连的；部分游戏不会重新接管热插拔后的 XInput 设备。如果游戏收不到手柄输入，请重启游戏。";
+        }
+
         private bool EnsureGamepadRouterReady(bool startup)
         {
             if (config == null || !config.GamepadRouterEnabled) return true;
@@ -10147,9 +10182,11 @@ namespace InputStitch
             {
                 // XInput routing targets an Xbox-compatible virtual controller so it owns a real
                 // XInput user slot that can be measured and excluded from the source scanner.
+                bool reusedConnection = GamepadOutput.IsConnected && string.Equals(GamepadOutput.ConnectedType, VirtualGamepadTypes.Xbox360, StringComparison.OrdinalIgnoreCase);
                 config.GamepadDeviceType = VirtualGamepadTypes.Xbox360;
                 GamepadOutput.Configure(VirtualGamepadTypes.Xbox360);
                 GamepadOutput.EnsureConnected(VirtualGamepadTypes.Xbox360);
+                bool hotplugRisk = NoteVirtualGamepadHotplugIfTargetRunning(reusedConnection);
                 if (gamepadRouter != null) gamepadRouter.Configure(true);
                 int slot = GamepadOutput.OwnXboxUserIndex;
                 string message;
@@ -10162,7 +10199,8 @@ namespace InputStitch
                         slot.ToString() + (Localizer.IsEnglish
                             ? ". Games that only read XInput 0 may still ignore routed output."
                             : "。只读取 0 号槽位的游戏仍可能看不到汇总后的输出。");
-                if (!startup || slot != 0) SetStatusSafe(message);
+                if (hotplugRisk) message += VirtualGamepadHotplugWarningText();
+                if (!startup || slot != 0 || hotplugRisk) SetStatusSafe(message);
                 return true;
             }
             catch (GamepadOutputException ex)
@@ -10191,9 +10229,16 @@ namespace InputStitch
             }
             try
             {
+                bool reusedConnection = GamepadOutput.IsConnected && string.Equals(GamepadOutput.ConnectedType, VirtualGamepadTypes.Normalize(config.GamepadDeviceType), StringComparison.OrdinalIgnoreCase);
                 GamepadOutput.Configure(config.GamepadDeviceType);
                 GamepadOutput.EnsureConnected();
-                if (!startup) SetStatusSafe("虚拟手柄已连接：" + (GamepadOutput.ConnectedType == VirtualGamepadTypes.DualShock4 ? "PS4 / DualShock 4" : "Xbox 360"));
+                bool hotplugRisk = NoteVirtualGamepadHotplugIfTargetRunning(reusedConnection);
+                if (!startup || hotplugRisk)
+                {
+                    string status = "虚拟手柄已连接：" + (GamepadOutput.ConnectedType == VirtualGamepadTypes.DualShock4 ? "PS4 / DualShock 4" : "Xbox 360");
+                    if (hotplugRisk) status += VirtualGamepadHotplugWarningText();
+                    SetStatusSafe(status);
+                }
                 return true;
             }
             catch (GamepadOutputException ex)
