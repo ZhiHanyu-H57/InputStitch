@@ -6,11 +6,11 @@ Updated: 2026-09-11
 
 ## Current versions
 
-- Current Stable: `v1.4.2`
+- Current Stable: `v1.4.3`
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
-- Branch: `main` after the reviewed 1.4.2 release merge; the former `refactor/no-functional-change-1` work is incorporated in this Stable line.
-- Previous Stable rollback reference: `v1.4.1`
+- Branch: `main` after the reviewed 1.4.3 keyboard-hotkey reliability release; the former `refactor/no-functional-change-1` work remains incorporated in this Stable line.
+- Previous Stable rollback reference: `v1.4.2`
 - Developer test tool: `Input Lab v0.3.1` — independent version; source-built/packageable x64 viewer.
 - Historical `v1.3.0-beta.1` / `v1.3.0-beta.2` / `v1.3.1-beta.1` / `v1.3.1-beta.2` releases are immutable.
 
@@ -57,11 +57,11 @@ Final clean-tag hotfix verification on 2026-09-11:
 - GTA V physical-key acceptance: the affected physical `C` trigger successfully started the configured macro after the hardened build was launched;
 - the earlier recovery-storm prototype was rejected during testing; the final design waits for all keys up, defers recovery, rate-limits it, and reinstalls only the keyboard hook.
 
-No `v1.4.2` Release asset/tag was modified. A future public build containing this fix must use a new version/tag (for example `v1.4.3`) rather than replacing immutable `v1.4.2` assets.
+No `v1.4.2` Release asset/tag was modified. This fix is now published as new immutable Stable `v1.4.3`; `v1.4.2` remains the rollback reference.
 
 ## Working on
 
-**Current local work combines a mostly no-functional-change architecture cleanup with one intentional updater transport change.** The first refactor pass centralizes duplicated native XInput fallback access in `XInputNativeReader`, centralizes the two recovery-journal atomic XML write paths in `AtomicXmlFileStore<T>`, and moves config/package serialization plus compatibility normalization out of `MainForm` into `ConfigPackageSerializer`. Existing `MainForm` private entrypoints are retained as thin wrappers so current reflection tests and internal call sites keep the same surface.
+**Stable `v1.4.3` is published and the keyboard-hotkey reliability hotfix is complete; there is no remaining uncommitted runtime work from this incident.** The next active non-hardware platform item returns to Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. The architecture-cleanup and website-first updater work from `v1.4.2` remain the inherited baseline.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
@@ -71,7 +71,7 @@ Stable update transport now prefers the project download domain end-to-end. The 
 
 1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.2` is the current Stable line. The next active non-hardware platform item is Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.3` is the current Stable line. The next active non-hardware platform item is Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -544,6 +544,26 @@ Release evidence:
 
 `v1.4.2` is now immutable Stable release history. Future release changes must use a new version/tag rather than replacing this release.
 
+### Published Stable 1.4.3 verification
+
+`v1.4.3` is the keyboard-hotkey reliability hotfix release. It contains the Raw Input fallback / keyboard-hook recovery work from code commit `e0ef345a0d99df8a6b87fc172fdabe96a9a35c11` plus the reviewed 1.4.3 metadata, public documentation and release notes.
+
+Release evidence:
+
+- non-publishing Stable candidate commit: `19c67d0371670d918a53b4ab72276069347a2715`; release workflow `34604398983`: `completed / success`, including x64/x86 verification, Python 3.12 R2-manifest derivation and the full regression suite; Input Lab workflow `34604399127`: `completed / success`;
+- final no-source-change publish commit / exact tag target: `3db9fd0e4fb54a1966b121c9b0f34cc47de55992`; its Git tree is exactly the candidate tree `a72b3113fee6339274c75311b216d41fe0afcd5c`;
+- publish workflow `34604611936`: `completed / success`; `verify`, `publish-stable` and `mirror-stable-r2` all succeeded; publish-commit Input Lab workflow `34604612018`: `completed / success`;
+- tag/release: `v1.4.3`, `draft=false`, `prerelease=false`, five expected assets present, and `releases/latest` resolves to `v1.4.3`;
+- published x64: 762,368 bytes, SHA-256 `a643c18b4cc4b0a5c5a862253cc1a9edc563bc46d6b88530a63e11b7415e7af9`, `ProductVersion=1.4.3`, `FileVersion=1.4.3.0`;
+- published x86: 762,880 bytes, SHA-256 `60f8027d1236ee859d36db925b62b49d389f7d98ba2748a0d876b50ef39ec049`, `ProductVersion=1.4.3`, `FileVersion=1.4.3.0`;
+- Source.zip: 602,093 bytes, SHA-256 `c9cc73f03060c72589013dc2946879c95abefceb6187f90702b298f8640c0bd2`; GitHub `InputStitch-update.xml` SHA-256 `36fd3997ddf4c5d335773ece270f231610a2c423c172b49053cf20cb363a3c35`; `SHA256SUMS.txt` SHA-256 `d6aed20782ed7e8d0fefbea3522721b6e0576bde4c932fa9a2aac85e48bd01a9`;
+- live GitHub Stable manifest advertises `1.4.3` and official GitHub `releases/latest/download` assets; live R2 `/latest/InputStitch-update.xml` advertises `1.4.3`, the same x64/x86 hashes, and immutable `https://download.zhihanyu.com/releases/v1.4.3/...` asset URLs;
+- direct downloads of GitHub x64/x86, versioned R2 x64/x86, and the website `/latest/InputStitch-Windows-x64.exe` alias all matched the published manifest hashes; all downloaded executables reported 1.4.3 / 1.4.3.0;
+- a real saved `v1.4.2` x64 assembly invoked its own original `UpdateManager.CheckAsync()` and returned `RemoteVersion=1.4.3`, `IsAvailable=True`, `IsSameVersionReplacement=False`, with the primary x64 asset resolved to `https://download.zhihanyu.com/releases/v1.4.3/InputStitch-1.4.3-Windows-x64.exe`; this directly verifies that ordinary 1.4.2 users can discover the new Stable update;
+- `v1.4.2` remained untouched: tag target is still `47b0d9204de3674ff6d15c5bc685eb2288a4d6d6`, release publication time is still 2026-09-10T14:00:19Z, and its published x64 remains 756,224 bytes with SHA-256 `d293f94def9f12e8af00fdf611aadc6fb167c030ff95460e6dfaf746d910faf2` and version 1.4.2 / 1.4.2.0.
+
+`v1.4.3` is now immutable Stable release history and the recommended Stable line. Future release work must use a new version/tag.
+
 ## Public documentation rule
 
 Public Simplified Chinese README/update text must be ordinary-user-first:
@@ -554,9 +574,9 @@ Public Simplified Chinese README/update text must be ordinary-user-first:
 
 Technical design notes may use internal English type/API names freely.
 
-## Next platform step after v1.4.2
+## Next platform step after v1.4.3
 
-Virtual Output Backend abstraction and the first architecture-cleanup series are completed in v1.4.2. Active non-hardware order is now:
+The v1.4.3 keyboard-hotkey reliability incident is closed. Virtual Output Backend abstraction and the first architecture-cleanup series remain completed from v1.4.2. Active non-hardware order is now:
 
 1. build persistent `DeviceKey` / Device Manager inventory and diagnostics;
 2. change Router from “all visible external XInput sources” to explicit source selection + per-device policy;
