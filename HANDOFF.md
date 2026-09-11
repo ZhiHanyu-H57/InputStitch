@@ -2,7 +2,7 @@
 
 # Current Development State
 
-Updated: 2026-09-10
+Updated: 2026-09-11
 
 ## Current versions
 
@@ -21,6 +21,43 @@ git log -1 --oneline -- HANDOFF.md
 ```
 
 Do not put a self-referential commit hash in this file.
+
+## 2026-09-11 keyboard hotkey reliability hotfix
+
+A real GTA V session exposed a post-startup failure mode in Stable `v1.4.2`: keyboard-triggered macros could stop responding globally while the main-window Run button continued to execute the same macro normally. Diagnostics still reported `Hooks: 已安装`, but runtime trace stopped receiving new `trigger-accepted` events. The issue reproduced with GTA and InputStitch at the same High integrity level, so this was not an elevation/UIPI mismatch.
+
+The fix was submitted in code commit `e0ef345a0d99df8a6b87fc172fdabe96a9a35c11`. The hotfix was deliberately rebuilt from the clean `v1.4.2` tag rather than from an unrelated local development tree; the submitted code changes are layered onto the current remote `main` tree so existing post-tag documentation/workflow updates are preserved.
+
+### Root cause / failure model
+
+InputStitch's keyboard trigger path uses `WH_KEYBOARD_LL`. Windows can stop delivering low-level-hook events without giving the application a reliable "hook was removed" notification, so a non-zero managed hook handle is not a health check. In the observed failure, the ordinary hook path stopped seeing real keyboard edges while an independent Raw Input lane continued to observe physical keyboard activity.
+
+### Hotfix design
+
+- Added `RawKeyboardFallback`, registered as passive keyboard Raw Input with `RIDEV_INPUTSINK`.
+- The existing low-level keyboard hook remains the primary lane and continues to own trigger suppression when healthy.
+- Raw Input edges are de-duplicated against recent low-level-hook observations. Only a missed physical edge enters the fallback path.
+- Fallback input reuses the existing `HandleTerminalInputCore` / release path; it does not introduce a second macro engine or bypass Layer, UI safety, Emergency Stop, concurrency, or Output Ownership semantics.
+- Key-repeat is filtered at the Raw Input edge tracker so one physical press does not become repeated fallback starts.
+- After a missed release and only when all Raw Input keyboard keys are up, hook recovery is deferred to the next WinForms message turn and rate-limited with a 5 s cooldown.
+- Recovery reinstalls only the keyboard hook. The mouse hook and mouse suppression/Held state remain intact.
+- Diagnostics / Runtime Observation now expose Raw Input observations, fallback edges, keyboard-hook recoveries, and fallback cases where requested trigger suppression could not be applied.
+- Important limitation: if the primary hook already missed a physical key edge, Raw Input can still recover macro triggering, but it cannot retroactively prevent that already-delivered original key from reaching the foreground application. Normal healthy-hook suppression behavior is unchanged.
+- `tools/InputLab/build-acceptance.ps1` was also brought up to date with the current production source list. The upstream v1.4.2/current-main script had fallen behind later source-file splits and could no longer compile the acceptance host even before this hotfix.
+
+### Verification evidence
+
+Final clean-tag hotfix verification on 2026-09-11:
+
+- x64 + x86 Release build and Release Verification: PASS;
+- keyboard/trigger suite: **329 PASS**;
+- Output Ownership: **303,716 PASS**;
+- all remaining regression suites, updater/network tests, UI safety, productivity, zh-CN/en-US Settings smoke and legacy-config smoke: PASS;
+- current-main Input Lab black-box acceptance: **77/77 PASS, failures=0** with real output enabled;
+- GTA V physical-key acceptance: the affected physical `C` trigger successfully started the configured macro after the hardened build was launched;
+- the earlier recovery-storm prototype was rejected during testing; the final design waits for all keys up, defers recovery, rate-limits it, and reinstalls only the keyboard hook.
+
+No `v1.4.2` Release asset/tag was modified. A future public build containing this fix must use a new version/tag (for example `v1.4.3`) rather than replacing immutable `v1.4.2` assets.
 
 ## Working on
 
