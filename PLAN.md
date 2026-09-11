@@ -6,13 +6,13 @@ Updated: 2026-09-10
 
 ## Current milestone
 
-**Post-`v1.4.2` platform foundation — Device Identity / Router policy / Analog Transform**
+**Post-`v1.4.3` platform foundation — Device Identity / Router policy / Analog Transform**
 
-- Current Stable: `v1.4.2`
+- Current Stable: `v1.4.3`
 - Previous prerelease: `v1.3.1-beta.1` — published and immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published and immutable
 - Branch: `main`
-- Previous Stable `v1.4.1` remains an immutable rollback reference; `v1.4.2` is the recommended Stable line.
+- Previous Stable `v1.4.2` remains an immutable rollback reference; `v1.4.3` is the recommended Stable line.
 
 The 2026 competitive review is now an explicit planning input. InputStitch is positioned as a **deterministic input orchestration and macro platform**, not a “support the most controller models” remapper. See [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md).
 
@@ -182,7 +182,7 @@ Input Lab final run:
 
 ## Release discipline
 
-`v1.3.1-beta.1` and `v1.3.1-beta.2` are published **prereleases** and must remain immutable. `v1.4.1` is the previous Stable rollback reference; `v1.4.2` is the current Stable line and owns `releases/latest`.
+`v1.3.1-beta.1` and `v1.3.1-beta.2` are published **prereleases** and must remain immutable. `v1.4.2` is the previous Stable rollback reference; `v1.4.3` is the current Stable line and owns `releases/latest`.
 
 Beta.2 release gates completed:
 

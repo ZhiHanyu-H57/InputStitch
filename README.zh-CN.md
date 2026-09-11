@@ -16,13 +16,13 @@ InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式�
 
 ### 正式版
 
-**当前正式版：v1.4.2。** Stable 更新现在优先从 `download.zhihanyu.com` 检查并下载版本锁定的可执行文件，官网不可用时自动回退官方 GitHub Release；同时完成一轮不改变宏语义的内部架构整理。
+**当前正式版：v1.4.3。** 这一版修复键盘全局热键在长时间运行后可能突然整体失效的问题：新增独立的物理键盘兜底与自动 hook 恢复，同时保留 1.4.2 的官网优先、GitHub 自动备用更新链路。
 
 | Windows 架构 | 下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.4.2-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.2-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.4.2-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.2-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.4.2-Source.zip](../../releases/latest/download/InputStitch-1.4.2-Source.zip) |
+| 64 位 Windows（x64） | [InputStitch-1.4.3-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.3-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.4.3-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.3-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.4.3-Source.zip](../../releases/latest/download/InputStitch-1.4.3-Source.zip) |
 | 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 ### 历史测试版

@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070a12">
-  <meta name="description" content="下载 InputStitch 1.4.2 Stable：Windows x64/x86 便携 EXE、源码包与 SHA-256 校验值。">
-  <title>下载 InputStitch 1.4.2</title>
+  <meta name="description" content="下载 InputStitch 1.4.3 Stable：Windows x64/x86 便携 EXE、源码包与 SHA-256 校验值。">
+  <title>下载 InputStitch 1.4.3</title>
   <link rel="icon" href="assets/InputStitch.ico">
   <link rel="stylesheet" href="assets/style.css?v=20260910-2">
 </head>
 <body>
-  <div hidden data-title-zh="下载 InputStitch 1.4.2" data-title-en="Download InputStitch 1.4.2"></div>
+  <div hidden data-title-zh="下载 InputStitch 1.4.3" data-title-en="Download InputStitch 1.4.3"></div>
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="/"><img src="assets/InputStitch.ico" alt="InputStitch"><span>InputStitch <small>v1.4.2</small></span></a>
+      <a class="brand" href="/"><img src="assets/InputStitch.ico" alt="InputStitch"><span>InputStitch <small>v1.4.3</small></span></a>
       <button class="mobile-menu" data-mobile-menu aria-expanded="false" aria-label="Menu">☰</button>
       <nav class="nav-links">
         <a href="/"><span class="lang-zh">首页</span><span class="lang-en">Home</span></a>
@@ -43,12 +43,12 @@
             <div class="version-row">
               <div>
                 <span class="badge-stable">Stable</span>
-                <div class="version">v1.4.2</div>
+                <div class="version">v1.4.3</div>
               </div>
               <small style="color:var(--muted-2)">Windows</small>
             </div>
-            <p class="lang-zh">1.4.2 将正式版更新链路迁到官网优先：程序检查更新和下载新版默认使用 <span class="code">download.zhihanyu.com</span>，不可用时自动回退官方 GitHub Release；同时完成内部去重与模块拆分，不改变宏和配置语义。</p>
-            <p class="lang-en">1.4.2 makes <span class="code">download.zhihanyu.com</span> the primary Stable path for both update checks and downloads, with automatic fallback to the official GitHub Release. It also includes internal deduplication and modularization without changing macro or configuration semantics.</p>
+            <p class="lang-zh">1.4.3 修复长时间运行后键盘全局热键可能突然整体失效的问题：新增独立物理键盘兜底，并在检测到低级键盘 hook 漏掉输入后自动恢复；配置和宏语义保持不变。</p>
+            <p class="lang-en">1.4.3 fixes a reliability issue where global keyboard hotkeys could stop responding after long-running sessions by adding an independent physical-keyboard fallback and automatic keyboard-hook recovery, without changing configuration or macro semantics.</p>
             <a class="btn btn-primary download-big" href="https://download.zhihanyu.com/latest/InputStitch-Windows-x64.exe">↓ <span class="lang-zh">下载 Windows x64</span><span class="lang-en">Download Windows x64</span></a>
             <p class="download-note lang-zh">推荐给绝大多数现代 Windows 电脑。</p>
             <p class="download-note lang-en">Recommended for most modern Windows PCs.</p>
@@ -77,8 +77,8 @@
 
         <article class="card release-note">
           <h3><span class="lang-zh">1.4.x Stable 包含什么？</span><span class="lang-en">What is in the 1.4.x Stable line?</span></h3>
-          <p class="lang-zh">1.4.0 将 1.3.1 Beta 线中已验证的 XInput 手柄触发、手柄汇总、任意命名映射层、可选虚拟手柄创建，以及实验性接管的事务/运行健康监测正式带入 Stable；1.4.1 修复界面菜单生命周期问题；1.4.2 进一步完成更新链迁移和内部架构整理。</p>
-          <p class="lang-en">1.4.0 promoted validated XInput triggers, controller aggregation, arbitrary named layers, optional virtual-controller creation, plus the transaction and runtime-health foundation for experimental takeover. 1.4.1 fixed the UI menu lifecycle issue; 1.4.2 moves Stable updates to the website-first path and continues internal architecture cleanup.</p>
+          <p class="lang-zh">1.4.0 将 1.3.1 Beta 线中已验证的 XInput 手柄触发、手柄汇总、任意命名映射层、可选虚拟手柄创建，以及实验性接管的事务/运行健康监测正式带入 Stable；1.4.1 修复界面菜单生命周期问题；1.4.2 完成更新链迁移和内部架构整理；1.4.3 修复键盘全局热键长时间运行后的可靠性问题。</p>
+          <p class="lang-en">1.4.0 promoted validated XInput triggers, controller aggregation, arbitrary named layers, optional virtual-controller creation, plus the transaction and runtime-health foundation for experimental takeover. 1.4.1 fixed the UI menu lifecycle issue; 1.4.2 moved Stable updates to the website-first path and continued internal architecture cleanup; 1.4.3 hardens long-running global keyboard hotkey reliability.</p>
         </article>
 
         <div class="section-head" style="margin-top:70px">

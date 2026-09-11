@@ -3,6 +3,20 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.4.3
+
+**键盘热键可靠性 Hotfix：修复程序运行一段时间后低级键盘钩子可能不再送达物理按键，导致全局键盘热键整体失效的问题。**
+
+- 新增被动 Raw Input 键盘兜底通道；正常仍以 `WH_KEYBOARD_LL` 为主，只有检测到主通道漏掉的真实物理边沿时才进入兜底。
+- 兜底输入复用现有触发选择、Layer、UI Safety、Emergency Stop、Concurrent Runtime 和 Output Ownership，不引入第二套宏执行逻辑。
+- 漏钩后等待所有观察到的键盘按键松开，再延迟到下一轮 UI 消息循环恢复，并设置 5 秒恢复冷却，避免按住键时重复触发或恢复风暴。
+- 恢复只重装键盘 hook，保留鼠标 hook、鼠标 suppression 和 Held Mapping 状态。
+- 运行观察/诊断新增 Raw Input 观察数、fallback 边沿数、hook 恢复次数以及 fallback 时无法追溯 suppression 的计数。
+- 正常主通道下的 suppression 行为保持不变；如果某一次物理边沿已经被主 hook 漏掉，Raw Input 能补触发宏，但不能追溯屏蔽已经送达前台应用的原始按键。
+- 同步修复 Input Lab acceptance 的生产源码编译清单，使当前 1.4.x 代码能够真正执行黑盒验收。
+- 发布前验证：329 项键盘/触发检查、303,716 项 Output Ownership、完整回归、x64/x86 Release Verification、Input Lab 77/77 PASS，以及 GTA V 物理 `C` 键实机验收全部通过。
+- 不修改配置格式，不改变宏、Held Mapping、Layer、Router 或 Controller Takeover 的既有语义。
+
 ## 1.4.2
 
 **更新链路迁移 + 内部架构整理：Stable 现在优先从 `download.zhihanyu.com` 检查和下载更新，官网失败时自动回退 GitHub；同时完成多项无语义变化的拆分与去重。**
