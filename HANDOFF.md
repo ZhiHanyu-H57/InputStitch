@@ -59,9 +59,31 @@ Final clean-tag hotfix verification on 2026-09-11:
 
 No `v1.4.2` Release asset/tag was modified. This fix is now published as new immutable Stable `v1.4.3`; `v1.4.2` remains the rollback reference.
 
+## 2026-09-11 controller hot-plug / takeover UI incident
+
+A later GTA V session initially looked like a severe controller-takeover failure: the takeover dialog showed no controller entries, Settings reported the InputStitch virtual Xbox controller in XInput slot 0, yet the already-running GTA process ignored virtual-controller output.
+
+Investigation separated two independent issues:
+
+- the takeover dialog list is intentionally an **external/original-controller candidate list** populated by HidHide; it is not a list of every controller and deliberately excludes InputStitch's own ViGEm output. HidHide is not installed on the tested desktop, so that list was necessarily empty. The old UI did not make this distinction clear enough;
+- the virtual controller itself was healthy. Windows PnP reported the ViGEm Xbox 360 device, an independent XInput probe saw it in slot 0, Idle Gamepad produced a real `LY=-32768` report, and directly starting the existing `手柄跑80%` macro produced `LY=26214` (~+80%) on XInput 0 and returned to neutral after stop;
+- the failing GTA process had started at **19:49**, while InputStitch restarted at **23:05** after the 1.4.3 update and recreated its ViGEm controller. Steam detected the newly connected Xbox 360 virtual device, but the already-running GTA process still ignored it. After GTA was restarted at **23:23**, with InputStitch/XInput 0 already present, the user confirmed controller input was normal. This is therefore a target-game XInput hot-plug/reacquisition limitation, not a false slot report or broken ViGEm output path.
+
+Post-release main commit `486b25000d2108b9abd9ca815dd09a0f9cef58ff` adds UX/diagnostic hardening without changing takeover/routing/output semantics:
+
+- the takeover window now shows InputStitch virtual-output connection/type/XInput slot separately;
+- the list is explicitly labeled as external controllers available for takeover and says the InputStitch virtual controller is intentionally excluded;
+- when HidHide is absent, the window explicitly explains why the external-controller list is empty and that ordinary virtual output / non-hiding Router use can still work;
+- when InputStitch creates/recreates a virtual controller while the configured target process is already running, status/diagnostics/logging warn that some games do not reacquire hot-plugged XInput devices and may need a game restart;
+- diagnostics now expose `VirtualGamepadHotplug` for later support cases.
+
+Verification for `486b2500`: local x64/x86 build + Release Verification PASS; full `tests/Run-Tests.ps1` PASS including 329 keyboard checks, 28 Router checks, 52 controlled-replacement checks, 27 slot-acquisition checks, 23 virtual-gamepad-preference checks, 303,716 Output Ownership checks and all Settings/UI smoke tests; GitHub workflow `34618780782` completed successfully and publish/mirror jobs were correctly skipped; Input Lab workflow `34618780820` also completed successfully. The real-output XInput evidence above was collected before the code-only UX change; real Input Lab output acceptance was not rerun while the user's restarted GTA session was active, to avoid injecting acceptance traffic into the live game.
+
+This post-release commit is on `main` only. Stable `v1.4.3` remains immutable and unchanged; a future Stable version is required before ordinary users receive these UX/diagnostic improvements.
+
 ## Working on
 
-**Stable `v1.4.3` is published and the keyboard-hotkey reliability hotfix is complete; there is no remaining uncommitted runtime work from this incident.** The next active non-hardware platform item returns to Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. The architecture-cleanup and website-first updater work from `v1.4.2` remain the inherited baseline.
+**Stable `v1.4.3` is published and the keyboard-hotkey reliability hotfix is complete. Post-release `main` additionally contains the controller hot-plug/takeover-UI diagnostic hardening above; there is no remaining uncommitted runtime work from either incident.** The next active non-hardware platform item returns to Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. The architecture-cleanup and website-first updater work from `v1.4.2` remain the inherited baseline.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
