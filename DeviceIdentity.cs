@@ -150,6 +150,7 @@ namespace InputStitch
         public string BaseContainerDeviceInstancePath = "";
         public string ContainerId = "";
         public bool VirtualBus;
+        public bool NativeXusbMetadata;
         public string Vid = "";
         public string Pid = "";
         public List<string> IdentityAliases = new List<string>();
@@ -172,6 +173,7 @@ namespace InputStitch
                 BaseContainerDeviceInstancePath = BaseContainerDeviceInstancePath ?? "",
                 ContainerId = ContainerId ?? "",
                 VirtualBus = VirtualBus,
+                NativeXusbMetadata = NativeXusbMetadata,
                 Vid = Vid ?? "",
                 Pid = Pid ?? "",
                 IdentityAliases = IdentityAliases == null ? new List<string>() : new List<string>(IdentityAliases),
@@ -254,6 +256,7 @@ namespace InputStitch
             changed |= SetIfDifferent(ref record.BaseContainerDeviceInstancePath, device.BaseContainerDeviceInstancePath ?? "");
             changed |= SetIfDifferent(ref record.ContainerId, device.ContainerId ?? "");
             if (device.VirtualBus && !record.VirtualBus) { record.VirtualBus = true; changed = true; }
+            if (device.NativeXusbMetadata && !record.NativeXusbMetadata) { record.NativeXusbMetadata = true; changed = true; }
             string vid;
             string pid;
             DeviceIdentityKeys.TryGetVidPid(device, out vid, out pid);
@@ -322,7 +325,8 @@ namespace InputStitch
                 XusbDeviceInstancePath = record.XusbDeviceInstancePath ?? "",
                 BaseContainerDeviceInstancePath = record.BaseContainerDeviceInstancePath ?? "",
                 ContainerId = record.ContainerId ?? "",
-                VirtualBus = record.VirtualBus
+                VirtualBus = record.VirtualBus,
+                NativeXusbMetadata = record.NativeXusbMetadata
             };
             List<string> aliases = new List<string>();
             foreach (DeviceIdentityKeys.Evidence item in DeviceIdentityKeys.EvidenceFor(descriptor)) aliases.Add(item.Alias);
@@ -391,6 +395,7 @@ namespace InputStitch
         public string BaseContainerDeviceInstancePath = "";
         public string ContainerId = "";
         public bool VirtualBus;
+        public bool NativeXusbMetadata;
         public DateTime FirstSeenUtc;
         public DateTime LastSeenUtc;
     }
@@ -400,6 +405,8 @@ namespace InputStitch
         public DateTime CapturedUtc;
         public bool StableMetadataAvailable;
         public bool RegistryWritable;
+        public bool XInputTopologyStable;
+        public long XInputTopologyVersion;
         public string DiscoveryStatus = "";
         public string RegistryStatus = "";
         public List<DeviceInventoryItem> Items = new List<DeviceInventoryItem>();
@@ -416,6 +423,7 @@ namespace InputStitch
         private readonly Func<bool> ownConnected;
         private readonly Func<string> ownType;
         private readonly Func<DateTime> utcNow;
+        private readonly Func<long> topologyVersion;
         private readonly PersistentDeviceRegistry registry;
         private readonly object sync = new object();
         private DeviceInventorySnapshot lastSnapshot;
@@ -424,13 +432,22 @@ namespace InputStitch
             Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
             Func<bool> isOwnConnected, Func<string> currentOwnType)
             : this(registryPath, deviceDiscovery, currentExternalSlots, currentOwnSlot,
-                isOwnConnected, currentOwnType, delegate { return DateTime.UtcNow; })
+                isOwnConnected, currentOwnType, delegate { return DateTime.UtcNow; }, null)
         {
         }
 
         internal DeviceIdentityService(string registryPath, IGamingDeviceDiscovery deviceDiscovery,
             Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
             Func<bool> isOwnConnected, Func<string> currentOwnType, Func<DateTime> clock)
+            : this(registryPath, deviceDiscovery, currentExternalSlots, currentOwnSlot,
+                isOwnConnected, currentOwnType, clock, null)
+        {
+        }
+
+        internal DeviceIdentityService(string registryPath, IGamingDeviceDiscovery deviceDiscovery,
+            Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
+            Func<bool> isOwnConnected, Func<string> currentOwnType, Func<DateTime> clock,
+            Func<long> currentTopologyVersion)
         {
             if (string.IsNullOrWhiteSpace(registryPath)) throw new ArgumentException("A device registry path is required.");
             discovery = deviceDiscovery;
@@ -439,6 +456,7 @@ namespace InputStitch
             ownConnected = isOwnConnected;
             ownType = currentOwnType;
             utcNow = clock ?? delegate { return DateTime.UtcNow; };
+            topologyVersion = currentTopologyVersion;
             registry = new PersistentDeviceRegistry(registryPath);
         }
 
@@ -452,6 +470,7 @@ namespace InputStitch
         private DeviceInventorySnapshot RefreshCore()
         {
             DateTime now = utcNow();
+            long topologyAtStart = SafeTopologyVersion();
             DeviceInventorySnapshot snapshot = new DeviceInventorySnapshot();
             snapshot.CapturedUtc = now;
             snapshot.RegistryWritable = registry.Writable;
@@ -509,17 +528,55 @@ namespace InputStitch
                     PersistentDeviceRecord record = registry.Merge(descriptor, discovery == null ? "device metadata" : discovery.ProviderName, now);
                     if (record == null || string.IsNullOrWhiteSpace(record.DeviceKey)) continue;
                     if (!presentPersistentKeys.Add(record.DeviceKey)) continue;
-                    snapshot.Items.Add(ToInventory(record,
+                    DeviceInventoryItem currentItem = ToInventory(record,
                         record.VirtualBus ? DeviceInventoryRole.DiscoveredVirtualBusDevice : DeviceInventoryRole.PersistentGamingDevice,
-                        true));
+                        true);
+                    // Correlation proof must describe the device metadata observed in THIS refresh,
+                    // not merely a historical registry fact. A device that was once seen through the
+                    // native XUSB provider must not stay trusted forever if a later refresh can see it
+                    // only through an enrichment provider.
+                    currentItem.NativeXusbMetadata = descriptor.NativeXusbMetadata;
+                    snapshot.Items.Add(currentItem);
                 }
             }
 
             int[] slots = SafeExternalSlots();
+            long topologyAtEnd = SafeTopologyVersion();
+            snapshot.XInputTopologyVersion = topologyAtEnd;
+            snapshot.XInputTopologyStable = topologyAtStart == topologyAtEnd;
             HashSet<int> seenSlots = new HashSet<int>();
+            List<int> normalizedSlots = new List<int>();
             foreach (int slot in slots)
             {
                 if (slot < 0 || slot > 3 || slot == ownUserIndex || !seenSlots.Add(slot)) continue;
+                normalizedSlots.Add(slot);
+            }
+
+            // XInput itself exposes only a transient user index. The only correlation we can prove
+            // with today's providers without mutating devices is the cardinality-1 case: exactly
+            // one visible external XInput source and exactly one present non-virtual XUSB identity.
+            // Any multi-device layout stays unresolved until a future provider supplies a direct
+            // runtime↔device identity bridge.
+            HashSet<int> resolvedSlots = new HashSet<int>();
+            if (snapshot.XInputTopologyStable && normalizedSlots.Count == 1)
+            {
+                List<DeviceInventoryItem> candidates = new List<DeviceInventoryItem>();
+                foreach (DeviceInventoryItem item in snapshot.Items)
+                {
+                    if (item == null || item.Role != DeviceInventoryRole.PersistentGamingDevice || !item.Present || item.VirtualBus) continue;
+                    if (!item.NativeXusbMetadata || string.IsNullOrWhiteSpace(item.XusbDeviceInstancePath)) continue;
+                    candidates.Add(item);
+                }
+                if (candidates.Count == 1)
+                {
+                    candidates[0].XInputSlot = normalizedSlots[0];
+                    resolvedSlots.Add(normalizedSlots[0]);
+                }
+            }
+
+            foreach (int slot in normalizedSlots)
+            {
+                if (resolvedSlots.Contains(slot)) continue;
                 snapshot.Items.Add(new DeviceInventoryItem
                 {
                     Role = DeviceInventoryRole.UnresolvedXInputSource,
@@ -549,23 +606,54 @@ namespace InputStitch
             return snapshot;
         }
 
+        internal bool TryResolveDeviceKeyForXInputSlot(int slot, long currentTopologyVersion, out string deviceKey)
+        {
+            deviceKey = "";
+            lock (sync)
+            {
+                DeviceInventorySnapshot snapshot = lastSnapshot;
+                if (snapshot == null || !snapshot.XInputTopologyStable || snapshot.XInputTopologyVersion != currentTopologyVersion) return false;
+                foreach (DeviceInventoryItem item in snapshot.Items)
+                {
+                    if (item == null || !item.Present || item.Role != DeviceInventoryRole.PersistentGamingDevice) continue;
+                    if (item.XInputSlot != slot || string.IsNullOrWhiteSpace(item.DeviceKey)) continue;
+                    deviceKey = item.DeviceKey;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        internal bool IsTopologyCurrent(long currentTopologyVersion)
+        {
+            lock (sync)
+                return lastSnapshot != null && lastSnapshot.XInputTopologyStable && lastSnapshot.XInputTopologyVersion == currentTopologyVersion;
+        }
+
         internal string DiagnosticsSummary()
         {
             DeviceInventorySnapshot snapshot = lastSnapshot;
             if (snapshot == null) return "not-refreshed";
             int persistent = 0;
             int unresolved = 0;
+            int resolved = 0;
             int virtualCount = 0;
             foreach (DeviceInventoryItem item in snapshot.Items)
             {
                 if (item.Role == DeviceInventoryRole.InputStitchVirtual) virtualCount++;
                 else if (item.Role == DeviceInventoryRole.UnresolvedXInputSource) unresolved++;
-                else if (item.Persistent) persistent++;
+                else if (item.Persistent)
+                {
+                    persistent++;
+                    if (item.Role == DeviceInventoryRole.PersistentGamingDevice && item.XInputSlot >= 0) resolved++;
+                }
             }
             return "persistent=" + persistent.ToString(CultureInfo.InvariantCulture) +
+                "; resolvedXInput=" + resolved.ToString(CultureInfo.InvariantCulture) +
                 "; unresolvedXInput=" + unresolved.ToString(CultureInfo.InvariantCulture) +
                 "; ownVirtual=" + virtualCount.ToString(CultureInfo.InvariantCulture) +
                 "; metadata=" + (snapshot.StableMetadataAvailable ? "available" : "unavailable") +
+                "; topology=" + (snapshot.XInputTopologyStable ? snapshot.XInputTopologyVersion.ToString(CultureInfo.InvariantCulture) : "changing") +
                 "; registry=" + snapshot.RegistryStatus;
         }
 
@@ -599,6 +687,12 @@ namespace InputStitch
             catch { return ""; }
         }
 
+        private long SafeTopologyVersion()
+        {
+            try { return topologyVersion == null ? 0L : topologyVersion(); }
+            catch { return -1L; }
+        }
+
         private static DeviceInventoryItem ToInventory(PersistentDeviceRecord record, DeviceInventoryRole role, bool present)
         {
             return new DeviceInventoryItem
@@ -619,6 +713,7 @@ namespace InputStitch
                 BaseContainerDeviceInstancePath = record.BaseContainerDeviceInstancePath ?? "",
                 ContainerId = record.ContainerId ?? "",
                 VirtualBus = record.VirtualBus,
+                NativeXusbMetadata = false,
                 FirstSeenUtc = record.FirstSeenUtc,
                 LastSeenUtc = record.LastSeenUtc
             };

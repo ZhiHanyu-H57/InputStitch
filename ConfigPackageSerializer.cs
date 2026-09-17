@@ -225,6 +225,8 @@ namespace InputStitch
                 value.UpdateMode = UpdateModes.Automatic;
             value.GamepadDeviceType = VirtualGamepadTypes.Normalize(value.GamepadDeviceType);
             if (value.GamepadRouterEnabled) value.GamepadDeviceType = VirtualGamepadTypes.Xbox360;
+            if (value.GamepadRouterSourcePolicy == null) value.GamepadRouterSourcePolicy = new RouterSourcePolicyConfig();
+            RouterSourcePolicyConfig.Normalize(value.GamepadRouterSourcePolicy);
             if (value.IdleGamepad == null) value.IdleGamepad = new IdleGamepadOptions();
             if (VirtualGamepadTypes.IsDisabled(value.GamepadDeviceType)) value.IdleGamepad.Enabled = false;
             value.LastShownReleaseSummaryVersion = value.LastShownReleaseSummaryVersion ?? "";

@@ -180,7 +180,7 @@ Do not add a second backend merely to prove the interface exists. When a concret
 
 ### Completed foundation — Persistent Device Identity / Device Manager stage 1
 
-Completed on post-`v1.4.3` `main` without changing Router execution policy. XInput slot numbers remain transient runtime state and are never serialized as device identity.
+Completed on post-`v1.4.3` `main`. XInput slot numbers remain transient runtime state and are never serialized as device identity.
 
 The new identity layer provides:
 
@@ -193,11 +193,11 @@ The new identity layer provides:
 - separate labeling for provider-discovered virtual-bus devices;
 - read-only Device Manager + diagnostics showing stable identity beside current XInput slot and explicitly unresolved slot rows when correlation cannot be proven.
 
-The main configuration/profile format is unchanged. This stage deliberately does not guess PnP ↔ XInput slot correlation and therefore provides the safe base for Router source selection, future per-device conditions/profiles and eventual takeover identity improvements.
+The main configuration/profile format is unchanged. This stage deliberately does not guess multi-device PnP ↔ XInput slot ordering and therefore provides the safe base for Router source selection, future per-device conditions/profiles and eventual takeover identity improvements.
 
-### P1 — Router source selection and per-device routing policy
+### Completed foundation — Router source selection and per-device routing policy stage 1
 
-The current Router aggregates every visible non-own XInput source. Evolve it into an explicit source-selection model:
+Completed on post-`v1.4.3` `main` with the historical behavior preserved as the default. Settings now offers an explicit source-selection model:
 
 ```text
 [x] Controller A
@@ -205,13 +205,18 @@ The current Router aggregates every visible non-own XInput source. Evolve it int
 [x] Controller C
 ```
 
-Then support per-source routing policy without breaking Output Ownership:
+Stage 1 provides:
 
-- enabled/disabled;
-- selected output target when multiple backends/targets eventually exist;
-- transform chain;
-- merge policy;
-- diagnostics showing why a source is or is not routed.
+- `AllVisible`: backward-compatible routing of every visible non-own XInput source;
+- `SelectedDevices`: persistence by stable `DeviceKey`, never by XInput slot;
+- a one-to-one runtime correlation only when exactly one external XInput source and exactly one currently observed non-virtual native Windows XUSB identity are present;
+- topology generation invalidation so disconnect/reconnect, source-count change or own-slot movement immediately invalidates stale bindings;
+- fail-closed behavior for unresolved or multi-controller layouts instead of discovery-order/slot guessing;
+- Router diagnostics showing policy, blocked count and unresolved count;
+- Output Ownership/source IDs remain unchanged (`router:xinput:N`) so policy filtering does not create a second execution/merge engine;
+- Experimental Controller Takeover is temporarily restricted to `AllVisible` until its selected-hidden-device transaction can consume the same identity policy safely.
+
+Later per-source work belongs in the next layers rather than this stage: Analog Transform owns transform/merge behavior, and future multi-target output policy should arrive only when a second output target/backend exists.
 
 Do not make “support more controllers” an independent KPI; make additional sources a consequence of provider/backend architecture.
 

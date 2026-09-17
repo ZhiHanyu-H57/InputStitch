@@ -103,6 +103,7 @@ namespace InputStitch
                     descriptor.XusbDeviceInstancePath = instanceId;
                     descriptor.ContainerId = container;
                     descriptor.VirtualBus = virtualBus;
+                    descriptor.NativeXusbMetadata = true;
                     if (string.IsNullOrWhiteSpace(descriptor.Product) && !string.IsNullOrWhiteSpace(hardwareIds)) descriptor.Product = hardwareIds;
                     result.Add(descriptor);
                 }
@@ -342,6 +343,7 @@ namespace InputStitch
             Prefer(ref existing.BaseContainerDeviceInstancePath, incoming.BaseContainerDeviceInstancePath);
             Prefer(ref existing.ContainerId, incoming.ContainerId);
             existing.VirtualBus = existing.VirtualBus || incoming.VirtualBus;
+            existing.NativeXusbMetadata = existing.NativeXusbMetadata || incoming.NativeXusbMetadata;
         }
 
         private static GamingDeviceDescriptor Clone(GamingDeviceDescriptor source)
@@ -358,7 +360,8 @@ namespace InputStitch
                 XusbDeviceInstancePath = source.XusbDeviceInstancePath ?? "",
                 BaseContainerDeviceInstancePath = source.BaseContainerDeviceInstancePath ?? "",
                 ContainerId = source.ContainerId ?? "",
-                VirtualBus = source.VirtualBus
+                VirtualBus = source.VirtualBus,
+                NativeXusbMetadata = source.NativeXusbMetadata
             };
         }
 

@@ -119,6 +119,7 @@ internal static class DeviceIdentityTests
         string registryPath = Path.Combine(root, "devices.xml");
         FakeDiscovery discovery = new FakeDiscovery();
         GamingDeviceDescriptor first = Pad("Pad One", @"HID\VID_1234&PID_5678\A", @"USB\VID_1234&PID_5678\X1", "", "");
+        first.NativeXusbMetadata = true;
         discovery.Devices.Add(first);
         DateTime t1 = new DateTime(2026, 9, 17, 9, 0, 0, DateTimeKind.Utc);
         DeviceIdentityService service = new DeviceIdentityService(
@@ -136,12 +137,13 @@ internal static class DeviceIdentityTests
         Check(own != null && own.DeviceKey == DeviceIdentityKeys.VirtualXbox360 && own.XInputSlot == 0, "inventory identifies own virtual Xbox separately from external sources");
         Check(persistent != null && persistent.Persistent && persistent.DeviceKey.StartsWith("dev:v1:", StringComparison.Ordinal), "discovered physical metadata receives persistent DeviceKey");
         string firstKey = persistent.DeviceKey;
-        Check(unresolved != null && unresolved.XInputSlot == 1 && !unresolved.Persistent && unresolved.DeviceKey == "", "XInput slot remains transient unresolved metadata, never a DeviceKey");
+        Check(persistent.XInputSlot == 1 && unresolved == null, "single external XInput + single non-virtual XUSB identity is safely correlated at runtime");
         Check(File.Exists(registryPath), "device registry persists separately to devices.xml");
 
         // Enrich the same record with stronger container evidence while retaining the original XUSB alias.
         discovery.Devices.Clear();
         GamingDeviceDescriptor enrichedDescriptor = Pad("Pad One", @"HID\VID_1234&PID_5678\B", @"USB\VID_1234&PID_5678\X1", @"USB\VID_1234&PID_5678\CONTAINER", "SER-1");
+        enrichedDescriptor.NativeXusbMetadata = true;
         enrichedDescriptor.ContainerId = "44444444-4444-4444-4444-444444444444";
         discovery.Devices.Add(enrichedDescriptor);
         DeviceInventorySnapshot enriched = service.Refresh();
@@ -153,6 +155,7 @@ internal static class DeviceIdentityTests
         // Simulate restart + re-enumeration: XUSB/HID changed, container remains. The alias learned above must recover the old key.
         FakeDiscovery afterRestart = new FakeDiscovery();
         GamingDeviceDescriptor reenumerated = Pad("Pad One", @"HID\VID_1234&PID_5678\C", @"USB\VID_1234&PID_5678\X2", @"USB\VID_1234&PID_5678\CONTAINER", "SER-1");
+        reenumerated.NativeXusbMetadata = true;
         reenumerated.ContainerId = enrichedDescriptor.ContainerId;
         afterRestart.Devices.Add(reenumerated);
         DateTime t2 = t1.AddHours(1);
@@ -169,7 +172,58 @@ internal static class DeviceIdentityTests
         DeviceInventoryItem transientMoved = FindRole(two, DeviceInventoryRole.UnresolvedXInputSource);
         Check(after != null && after.DeviceKey == firstKey, "DeviceKey survives process restart and device path re-enumeration");
         Check(ownMoved != null && ownMoved.DeviceKey == DeviceIdentityKeys.VirtualXbox360 && ownMoved.XInputSlot == 2, "own fixed DeviceKey survives XInput slot movement");
-        Check(transientMoved != null && transientMoved.XInputSlot == 3 && transientMoved.DeviceKey == "", "external XInput slot movement remains transient and cannot change physical DeviceKey");
+        Check(after.XInputSlot == 3 && transientMoved == null, "runtime slot movement updates transient correlation without changing physical DeviceKey");
+
+        // Multiple runtime sources are intentionally ambiguous with today's XInput provider: do
+        // not infer that discovery order maps to slot order.
+        FakeDiscovery ambiguousDiscovery = new FakeDiscovery();
+        GamingDeviceDescriptor ambiguousA = Pad("Pad A", @"HID\VID_1000&PID_0001\A", @"USB\VID_1000&PID_0001\A", "", "");
+        GamingDeviceDescriptor ambiguousB = Pad("Pad B", @"HID\VID_1000&PID_0002\B", @"USB\VID_1000&PID_0002\B", "", "");
+        ambiguousA.NativeXusbMetadata = true;
+        ambiguousB.NativeXusbMetadata = true;
+        ambiguousDiscovery.Devices.Add(ambiguousA);
+        ambiguousDiscovery.Devices.Add(ambiguousB);
+        DeviceIdentityService ambiguous = new DeviceIdentityService(
+            Path.Combine(root, "ambiguous.xml"), ambiguousDiscovery,
+            delegate { return new int[] { 1, 3 }; }, delegate { return 0; }, delegate { return true; },
+            delegate { return VirtualGamepadTypes.Xbox360; }, delegate { return t2; });
+        DeviceInventorySnapshot ambiguousSnapshot = ambiguous.Refresh();
+        Check(CountRole(ambiguousSnapshot, DeviceInventoryRole.UnresolvedXInputSource) == 2,
+            "multi-controller topology remains unresolved instead of guessing device-to-slot ordering");
+
+        // A topology generation change invalidates a previously proven same-slot binding immediately.
+        long topology = 7;
+        FakeDiscovery topologyDiscovery = new FakeDiscovery();
+        GamingDeviceDescriptor topologyPadDescriptor = Pad("Topology Pad", @"HID\VID_7777&PID_0001\A", @"USB\VID_7777&PID_0001\A", "", "");
+        topologyPadDescriptor.NativeXusbMetadata = true;
+        topologyDiscovery.Devices.Add(topologyPadDescriptor);
+        DeviceIdentityService topologyService = new DeviceIdentityService(
+            Path.Combine(root, "topology.xml"), topologyDiscovery,
+            delegate { return new int[] { 1 }; }, delegate { return 0; }, delegate { return true; },
+            delegate { return VirtualGamepadTypes.Xbox360; }, delegate { return t2; }, delegate { return topology; });
+        DeviceInventorySnapshot topologySnapshot = topologyService.Refresh();
+        DeviceInventoryItem topologyPad = FindRole(topologySnapshot, DeviceInventoryRole.PersistentGamingDevice);
+        string resolvedKey;
+        Check(topologyPad != null && topologyPad.XInputSlot == 1 &&
+            topologyService.TryResolveDeviceKeyForXInputSlot(1, topology, out resolvedKey) && resolvedKey == topologyPad.DeviceKey,
+            "current topology generation resolves the proven single-device runtime binding");
+        topology++;
+        Check(!topologyService.TryResolveDeviceKeyForXInputSlot(1, topology, out resolvedKey) && !topologyService.IsTopologyCurrent(topology),
+            "topology generation change invalidates stale same-slot identity before refresh");
+        topologyService.Refresh();
+        Check(topologyService.TryResolveDeviceKeyForXInputSlot(1, topology, out resolvedKey) && resolvedKey == topologyPad.DeviceKey,
+            "fresh identity snapshot restores the binding after topology stabilizes");
+
+        FakeDiscovery enrichmentOnly = new FakeDiscovery();
+        enrichmentOnly.Devices.Add(Pad("Enrichment-only pad", @"HID\VID_8888&PID_0001\A", @"USB\VID_8888&PID_0001\A", "", ""));
+        DeviceIdentityService enrichmentOnlyService = new DeviceIdentityService(
+            Path.Combine(root, "enrichment-only.xml"), enrichmentOnly,
+            delegate { return new int[] { 1 }; }, delegate { return 0; }, delegate { return true; },
+            delegate { return VirtualGamepadTypes.Xbox360; }, delegate { return t2; });
+        DeviceInventorySnapshot enrichmentOnlySnapshot = enrichmentOnlyService.Refresh();
+        Check(FindRole(enrichmentOnlySnapshot, DeviceInventoryRole.PersistentGamingDevice).XInputSlot < 0 &&
+            FindRole(enrichmentOnlySnapshot, DeviceInventoryRole.UnresolvedXInputSource) != null,
+            "XUSB-looking enrichment metadata alone is insufficient to prove a runtime slot binding");
 
         // Unavailable stable metadata must fail honestly: expose XInput runtime source but never mint a key from slot N.
         FakeDiscovery unavailable = new FakeDiscovery();
@@ -216,6 +270,15 @@ internal static class DeviceIdentityTests
         if (snapshot == null || snapshot.Items == null) return null;
         foreach (DeviceInventoryItem item in snapshot.Items) if (item != null && item.Role == role) return item;
         return null;
+    }
+
+    private static int CountRole(DeviceInventorySnapshot snapshot, DeviceInventoryRole role)
+    {
+        int count = 0;
+        if (snapshot == null || snapshot.Items == null) return 0;
+        foreach (DeviceInventoryItem item in snapshot.Items)
+            if (item != null && item.Role == role) count++;
+        return count;
     }
 
     private static PersistentDeviceRecord FindPersistentRecord(string path, string key)

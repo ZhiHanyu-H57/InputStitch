@@ -333,7 +333,28 @@ XInput user index is not a durable physical-device identity. The first identity 
 - InputStitch-owned Xbox/DS4 virtual output uses a fixed product identity, while other virtual-bus provider rows are labeled separately;
 - Device Manager presents current XInput slots as transient observations and keeps them explicitly unresolved when a stable provider↔slot correlation cannot be proven.
 
-Current Router/trigger dispatch is still XInput-slot based. The next Router Source Policy phase will consume DeviceKey only where that runtime correlation is established. Do not infer which physical device to route or hide solely from “it is currently XInput N.”
+Router Source Policy stage 1 now consumes DeviceKey only where a current runtime correlation is established. The Router's low-level source ownership IDs remain slot-shaped (`router:xinput:N`) because those are transient execution channels, not identity. Do not infer which physical device to route or hide solely from “it is currently XInput N.”
+
+## Router Source Policy stage 1 — implemented on post-v1.4.3 main
+
+The Router no longer has only one unconditional “aggregate every external XInput slot” behavior. It now has two explicit policy modes:
+
+- `AllVisible` — the backward-compatible default; every visible non-own XInput source is routed exactly as before;
+- `SelectedDevices` — persists a set of stable `DeviceKey` values and routes only runtime sources that can currently be correlated to one of those selected devices.
+
+Safety rules are deliberately conservative:
+
+- XInput slot is never persisted as device identity;
+- the current provider can correlate a source only in the cardinality-1 case: exactly one visible external XInput source and exactly one present non-virtual device with current native Windows XUSB metadata;
+- HidHide/enrichment metadata that merely contains an XUSB-looking path is not sufficient proof by itself;
+- two or more external XInput sources remain unresolved because XInput does not expose a durable device path and discovery order must not be treated as slot order;
+- `XInputInputService` maintains a monotonic topology generation. Connect/disconnect, own-slot movement and source-count changes invalidate an old DeviceKey↔slot snapshot immediately;
+- while the identity refresh catches up, `SelectedDevices` fails closed and clears any stale Router-owned output rather than allowing a newly occupying device to inherit an old permission;
+- after a stable one-to-one topology is refreshed, the same selected DeviceKey can resume routing even if its transient XInput slot changed.
+
+Settings exposes this as “选择汇总来源… / Choose routed controllers...”. Known offline devices remain selectable for future reconnect; currently unresolved devices are labeled as such. Runtime Observation/Diagnostics report policy, blocked source count and unresolved source count.
+
+Experimental Controller Takeover is temporarily restricted to `AllVisible`. The hiding transaction predates per-device Router policy and must not be allowed to hide an original controller that the Router may then intentionally omit. Integrating takeover with selected-device policy is a later hardware-acceptance/identity transaction change, not something to guess into this stage.
 
 ## Real HidHide acceptance still required
 
@@ -395,13 +416,13 @@ Do not grow the controller platform by adding one API/device family at a time. T
 Completed foundations:
 
 - `IVirtualGamepadBackend` keeps higher-level orchestration independent from concrete ViGEm controller types while ViGEm remains the sole production backend;
-- durable `DeviceKey` / Device Manager stage 1 keeps XInput slot as runtime metadata rather than identity and works without HidHide through native Windows XUSB/PnP discovery.
+- durable `DeviceKey` / Device Manager stage 1 keeps XInput slot as runtime metadata rather than identity and works without HidHide through native Windows XUSB/PnP discovery;
+- Router Source Policy stage 1 adds backward-compatible all-visible routing plus conservative DeviceKey-selected routing with topology invalidation and unresolved fail-closed behavior.
 
 Near-term order:
 
-1. let Router explicitly select devices/sources rather than aggregating every visible external XInput source, consuming DeviceKey only when runtime correlation is proven;
-2. add reusable analog transforms and explicit merge policy;
-3. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
+1. add reusable analog transforms and explicit merge policy on top of the explicit source-policy boundary;
+2. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
 
 Only after those boundaries are stable should the project evaluate a second virtual-output backend or specialized Raw HID/device providers.
 
@@ -416,7 +437,8 @@ Native PlayStation-console support remains out of scope without an official low-
 Current relevant suites:
 
 - `XInputInputTests`: 26 checks;
-- `DeviceIdentityTests`: **28 checks** using fake discovery + temporary `devices.xml`, covering stable/non-slot keys, metadata enrichment, restart/re-enumeration, fixed own-virtual identities, unresolved slots and virtual-bus labeling;
+- `DeviceIdentityTests`: **33 checks** using fake discovery + temporary `devices.xml`, covering stable/non-slot keys, metadata enrichment, restart/re-enumeration, fixed own-virtual identities, native-XUSB proof gating, topology invalidation, unresolved multi-controller layouts and virtual-bus labeling;
+- `RouterSourcePolicyTests`: **22 checks** covering old-config defaults, XML round trip, selected/unselected DeviceKey filtering, Output Ownership release, topology invalidation/recovery, multi-controller fail-closed behavior, legacy `AllVisible` compatibility and source-selection dialog refresh/edit behavior;
 - `GamepadRouterTests`: 28 checks;
 - `ControlledReplacementTests`: **52 checks** using fake backend/parser only, covering activation/rollback gates plus runtime slot/Router/source/HidHide health and consecutive-failure monitor behavior;
 - `SlotAcquisitionTests`: 27 checks using fake PnP/XInput only; no real device is disabled;
@@ -428,7 +450,7 @@ Developer-only real neutral probe:
 
 - `tools/InputLab/run-slot-order-probe.ps1`: PASS on this laptop with the full `external 0/1/2 + own 3 → own 0 + external 1/2/3` transition.
 
-Latest Input Lab result on this laptop after the Device Identity foundation (2026-09-17):
+Latest Input Lab result on this laptop after Router Source Policy stage 1 (2026-09-17):
 
 ```text
 SUMMARY: PASS | checks=77 | failures=0
@@ -441,6 +463,7 @@ This real-output acceptance exercised keyboard/mouse SendInput plus ViGEm/XInput
 - Controller input must use the common trigger/runtime/source model.
 - Virtual-controller output must move behind a backend interface before a second backend is added; new runtime/Router code must not deepen ViGEm coupling.
 - XInput user index is transient runtime state, not durable device identity.
+- DeviceKey-selected routing must fail closed when current provider↔runtime correlation is unresolved; never persist or guess by slot/discovery order.
 - InputStitch must never consume its own virtual output as an external input source.
 - No-output preference must not be silently overridden.
 - Router aggregation must not be described as interception.

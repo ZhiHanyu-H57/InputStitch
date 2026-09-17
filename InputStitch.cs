@@ -1373,6 +1373,9 @@ namespace InputStitch
         // Router mirrors all other visible XInput slots into InputStitch's own virtual Xbox pad.
         // Device hiding / forcing slot 0 is a separate controlled-replacement stage.
         public bool GamepadRouterEnabled = false;
+        // Source policy is a global controller-routing preference. Old configurations deserialize
+        // to AllVisible so existing Router behavior remains unchanged until the user opts in.
+        public RouterSourcePolicyConfig GamepadRouterSourcePolicy = new RouterSourcePolicyConfig();
         public IdleGamepadOptions IdleGamepad = new IdleGamepadOptions();
         public bool HasSeenWelcome = false;
         // Empty on configurations created by older versions. Existing users then see the
@@ -4211,8 +4214,12 @@ namespace InputStitch
         private readonly ComboBox updateModeBox;
         private readonly ComboBox gamepadTypeBox;
         private readonly CheckBox gamepadRouterBox;
+        private readonly Button gamepadRouterSourcesButton;
+        private readonly Label gamepadRouterSourcesSummary;
         private readonly Label gamepadStatusLabel;
         private readonly IdleGamepadSettingsPanel idleSettings;
+        private readonly Func<DeviceInventorySnapshot> routerInventoryProvider;
+        private RouterSourcePolicyConfig routerSourcePolicy;
 
         public event EventHandler CheckForUpdatesRequested;
 
@@ -4234,6 +4241,10 @@ namespace InputStitch
             }
         }
         public bool SelectedGamepadRouterEnabled { get { return gamepadRouterBox.Checked; } }
+        public RouterSourcePolicyConfig SelectedGamepadRouterSourcePolicy
+        {
+            get { return routerSourcePolicy == null ? new RouterSourcePolicyConfig() : routerSourcePolicy.Clone(); }
+        }
         public string SelectedUpdateMode
         {
             get
@@ -4245,7 +4256,16 @@ namespace InputStitch
         }
 
         public SettingsDialog(MacroConfig config, Func<TargetWindowIdentity> recentIdleTargetProvider = null)
+            : this(config, recentIdleTargetProvider, null)
         {
+        }
+
+        internal SettingsDialog(MacroConfig config, Func<TargetWindowIdentity> recentIdleTargetProvider,
+            Func<DeviceInventorySnapshot> currentRouterInventoryProvider)
+        {
+            routerInventoryProvider = currentRouterInventoryProvider;
+            routerSourcePolicy = config.GamepadRouterSourcePolicy == null
+                ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             Text = Localizer.T("设置");
@@ -4364,6 +4384,8 @@ namespace InputStitch
                     if (gamepadTypeBeforeRouter >= 0 && gamepadTypeBeforeRouter < gamepadTypeBox.Items.Count)
                         gamepadTypeBox.SelectedIndex = gamepadTypeBeforeRouter;
                 }
+                gamepadRouterSourcesButton.Enabled = gamepadRouterBox.Checked;
+                RefreshRouterSourceSummary();
                 RefreshGamepadStatus();
             };
             if (gamepadRouterBox.Checked) { gamepadTypeBox.SelectedIndex = 0; gamepadTypeBox.Enabled = false; }
@@ -4377,6 +4399,28 @@ namespace InputStitch
                 ? "This mirrors buttons, sticks and triggers from the other visible XInput slots. For games that only read XInput 0, the InputStitch virtual controller must also own slot 0. Device hiding/forced replacement is not enabled yet."
                 : "开启后会持续转发其他可见 XInput 手柄的按键、摇杆和扳机。对于只读取 0 号槽位的游戏，InputStitch 自己的虚拟手柄也必须位于 0 号；目前还没有自动隐藏原手柄、强制抢占 0 号槽位。";
             gamepadLayout.Controls.Add(routerHint);
+
+            gamepadRouterSourcesButton = MakeDialogButton(Localizer.IsEnglish ? "Choose routed controllers..." : "选择汇总来源...");
+            gamepadRouterSourcesButton.Margin = new Padding(24, 2, 0, 2);
+            gamepadRouterSourcesButton.Click += delegate
+            {
+                using (RouterSourceDialog sourceDialog = new RouterSourceDialog(routerSourcePolicy, routerInventoryProvider))
+                {
+                    if (sourceDialog.ShowDialog(this) != DialogResult.OK) return;
+                    routerSourcePolicy = sourceDialog.SelectedPolicy;
+                    RefreshRouterSourceSummary();
+                }
+            };
+            gamepadRouterSourcesButton.Enabled = gamepadRouterBox.Checked;
+            gamepadLayout.Controls.Add(gamepadRouterSourcesButton);
+
+            gamepadRouterSourcesSummary = new Label();
+            gamepadRouterSourcesSummary.AutoSize = true;
+            gamepadRouterSourcesSummary.MaximumSize = new Size(610, 0);
+            gamepadRouterSourcesSummary.ForeColor = Color.FromArgb(86, 96, 112);
+            gamepadRouterSourcesSummary.Margin = new Padding(24, 0, 0, 6);
+            gamepadLayout.Controls.Add(gamepadRouterSourcesSummary);
+            RefreshRouterSourceSummary();
 
             gamepadStatusLabel = new Label();
             gamepadStatusLabel.AutoSize = true;
@@ -4544,6 +4588,8 @@ namespace InputStitch
                 autoProfileBox.Checked = false;
                 updateModeBox.SelectedIndex = 0;
                 gamepadRouterBox.Checked = false;
+                routerSourcePolicy = new RouterSourcePolicyConfig();
+                RefreshRouterSourceSummary();
                 gamepadTypeBox.SelectedIndex = 0;
                 idleSettings.LoadOptions(new IdleGamepadOptions());
             };
@@ -4575,6 +4621,27 @@ namespace InputStitch
             }
             page.Controls.Add(stack);
             tabs.TabPages.Add(page);
+        }
+
+        private void RefreshRouterSourceSummary()
+        {
+            if (gamepadRouterSourcesSummary == null) return;
+            RouterSourcePolicyConfig policy = routerSourcePolicy == null ? new RouterSourcePolicyConfig() : routerSourcePolicy;
+            RouterSourcePolicyConfig.Normalize(policy);
+            if (string.Equals(policy.Mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase))
+            {
+                gamepadRouterSourcesSummary.Text = Localizer.IsEnglish
+                    ? "Source policy: all visible external XInput controllers (backward-compatible default)."
+                    : "来源策略：所有可见的外部 XInput 手柄（兼容旧版本的默认行为）。";
+                gamepadRouterSourcesSummary.ForeColor = Color.FromArgb(86, 96, 112);
+                return;
+            }
+
+            int count = policy.SelectedDeviceKeys == null ? 0 : policy.SelectedDeviceKeys.Count;
+            gamepadRouterSourcesSummary.Text = Localizer.IsEnglish
+                ? "Source policy: selected stable devices only (" + count.ToString() + "). Unresolved XInput sources are blocked."
+                : "来源策略：仅已选择的稳定设备（" + count.ToString() + " 个）；未解析的 XInput 来源不会被转发。";
+            gamepadRouterSourcesSummary.ForeColor = count == 0 ? Color.DarkOrange : Color.FromArgb(86, 96, 112);
         }
 
         private void RefreshGamepadStatus()
@@ -4799,6 +4866,8 @@ namespace InputStitch
         private IdleGamepadService idleGamepad;
         private XInputInputService gamepadInput;
         private DeviceIdentityService deviceIdentityService;
+        private RouterSourcePolicyEvaluator routerSourcePolicyEvaluator;
+        private int deviceIdentityRefreshQueued;
         private GamepadRouterService gamepadRouter;
         private System.Windows.Forms.Timer gamepadInputTimer;
         private IDeviceHidingBackend deviceHidingBackend;
@@ -4949,8 +5018,11 @@ namespace InputStitch
                 delegate { return gamepadInput == null ? new int[0] : gamepadInput.ConnectedUserIndices(); },
                 delegate { return GamepadOutput.OwnXboxUserIndex; },
                 delegate { return GamepadOutput.IsConnected; },
-                delegate { return GamepadOutput.ConnectedType; });
-            gamepadRouter = new GamepadRouterService(outputOwnership);
+                delegate { return GamepadOutput.ConnectedType; },
+                delegate { return DateTime.UtcNow; },
+                delegate { return gamepadInput == null ? 0L : gamepadInput.TopologyVersion; });
+            routerSourcePolicyEvaluator = new RouterSourcePolicyEvaluator(deviceIdentityService, config.GamepadRouterSourcePolicy);
+            gamepadRouter = new GamepadRouterService(outputOwnership, routerSourcePolicyEvaluator);
             gamepadRouter.Configure(config.GamepadRouterEnabled);
             slotAcquisition = new XInputSlotAcquisitionCoordinator(
                 deviceHidingBackend,
@@ -4998,6 +5070,8 @@ namespace InputStitch
             {
                 if (gamepadInput == null) return;
                 gamepadInput.Poll();
+                if (deviceIdentityService != null && !deviceIdentityService.IsTopologyCurrent(gamepadInput.TopologyVersion))
+                    QueueDeviceIdentityRefresh();
                 if (gamepadRouter != null && gamepadRouter.Enabled)
                     gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
             };
@@ -5032,14 +5106,7 @@ namespace InputStitch
                     if (!rawKeyboardFallback.Registered) AppLog.Write("Raw keyboard fallback registration failed.");
                 }
                 if (idleGamepad != null) idleGamepad.AttachWindow(Handle);
-                if (deviceIdentityService != null)
-                {
-                    ThreadPool.QueueUserWorkItem(delegate
-                    {
-                        try { deviceIdentityService.Refresh(); }
-                        catch (Exception ex) { AppLog.Write("Initial device identity refresh failed", ex); }
-                    });
-                }
+                QueueDeviceIdentityRefresh();
                 if (!string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning))
                 {
                     LocalizedMessageBox.Show(this,
@@ -6072,6 +6139,18 @@ namespace InputStitch
             }
         }
 
+        private void QueueDeviceIdentityRefresh()
+        {
+            if (deviceIdentityService == null) return;
+            if (Interlocked.CompareExchange(ref deviceIdentityRefreshQueued, 1, 0) != 0) return;
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try { deviceIdentityService.Refresh(); }
+                catch (Exception ex) { AppLog.Write("Device identity refresh failed", ex); }
+                finally { Interlocked.Exchange(ref deviceIdentityRefreshQueued, 0); }
+            });
+        }
+
         private void ShowControllerTakeoverDialog()
         {
             if (deviceHidingBackend == null || controlledReplacement == null)
@@ -6091,7 +6170,8 @@ namespace InputStitch
                     delegate { return GamepadOutput.OwnXboxUserIndex; },
                     delegate { return GamepadOutput.IsConnected; },
                     delegate { return GamepadOutput.ConnectedType; },
-                    delegate { return config.GamepadRouterEnabled && gamepadRouter != null && gamepadRouter.Enabled && GamepadOutput.OwnXboxUserIndex >= 0; },
+                    delegate { return config.GamepadRouterEnabled && gamepadRouter != null && gamepadRouter.Enabled && GamepadOutput.OwnXboxUserIndex >= 0 &&
+                        (routerSourcePolicyEvaluator == null || routerSourcePolicyEvaluator.IsAllVisible); },
                     delegate { return controlledReplacement != null && controlledReplacement.Active; },
                     BeginControlledReplacement,
                     StopControlledReplacement))
@@ -6112,7 +6192,8 @@ namespace InputStitch
             UpdateUiSafetyPauseState();
             try
             {
-                using (SettingsDialog dialog = new SettingsDialog(config, GetRecentIdleTargetCandidate))
+                using (SettingsDialog dialog = new SettingsDialog(config, GetRecentIdleTargetCandidate,
+                    delegate { return deviceIdentityService == null ? null : deviceIdentityService.Refresh(); }))
                 {
                     dialog.CheckForUpdatesRequested += delegate { CheckForUpdatesAsync(dialog, false); };
                     if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -6129,6 +6210,18 @@ namespace InputStitch
                     bool routerWasEnabled = config.GamepadRouterEnabled;
                     bool virtualOutputWasDisabled = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType);
                     bool requestedRouterEnabled = dialog.SelectedGamepadRouterEnabled;
+                    RouterSourcePolicyConfig requestedRouterSourcePolicy = dialog.SelectedGamepadRouterSourcePolicy;
+                    RouterSourcePolicyConfig.Normalize(requestedRouterSourcePolicy);
+                    if (controlledReplacement != null && controlledReplacement.Active &&
+                        !string.Equals(requestedRouterSourcePolicy.Mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase))
+                    {
+                        LocalizedMessageBox.Show(this,
+                            Localizer.IsEnglish
+                                ? "Experimental Controller Takeover currently requires Router source policy 'all visible'. Stop takeover before selecting individual routed devices."
+                                : "实验性的“手柄接管”目前要求汇总来源保持为“所有可见来源”。请先停止手柄接管，再选择单独的汇总设备。",
+                            AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                     string requestedGamepadType = requestedRouterEnabled ? VirtualGamepadTypes.Xbox360 : dialog.SelectedGamepadType;
                     bool virtualOutputWillBeDisabled = VirtualGamepadTypes.IsDisabled(requestedGamepadType);
                     if (!virtualOutputWasDisabled && virtualOutputWillBeDisabled && !StopRuntimeForConfigChange()) return;
@@ -6155,6 +6248,7 @@ namespace InputStitch
                         }
                     }
                     config.GamepadRouterEnabled = requestedRouterEnabled;
+                    config.GamepadRouterSourcePolicy = requestedRouterSourcePolicy;
                     config.GamepadDeviceType = config.GamepadRouterEnabled ? VirtualGamepadTypes.Xbox360 : dialog.SelectedGamepadType;
                     IdleGamepadOptions requestedIdleOptions = dialog.SelectedIdleOptions;
                     bool idleDisabledByVirtualOutput = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType) &&
@@ -6167,6 +6261,7 @@ namespace InputStitch
                     InputSender.UseScanCodeInput = config.UseScanCodeInput;
                     GamepadOutput.Configure(config.GamepadDeviceType);
                     if (idleGamepad != null) idleGamepad.Configure(config.IdleGamepad, true);
+                    if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
                     if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
                     if (VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType))
                     {
@@ -6448,7 +6543,8 @@ namespace InputStitch
                 "; hook-recoveries=" + Volatile.Read(ref keyboardHookRecoveryCount).ToString());
             sb.AppendLine((Localizer.IsEnglish ? "Controller merge: " : "手柄汇总：") +
                 (gamepadRouter == null ? (Localizer.IsEnglish ? "unavailable" : "不可用") :
-                    (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : (Localizer.IsEnglish ? "off" : "关闭"))));
+                    (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() +
+                        "; policy=" + gamepadRouter.PolicyStatus : (Localizer.IsEnglish ? "off" : "关闭"))));
             string takeoverState = controlledReplacement == null ? "unavailable" : controlledReplacement.State.ToString();
             sb.AppendLine((Localizer.IsEnglish ? "Controller takeover: " : "手柄接管：") + takeoverState);
             if (controlledReplacementHealthMonitor != null)
@@ -6544,7 +6640,8 @@ namespace InputStitch
             sb.AppendLine("DeviceIdentity: " + (deviceIdentityService == null ? "unavailable" : deviceIdentityService.DiagnosticsSummary()));
             sb.AppendLine("VirtualGamepadHotplug: " + virtualGamepadHotplugStatus);
             sb.AppendLine("GamepadRouter: " + (gamepadRouter == null ? "unavailable" :
-                (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : "disabled")));
+                (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() +
+                    "; policy=" + gamepadRouter.PolicyStatus : "disabled")));
             sb.AppendLine("ControlledReplacement: " + (controlledReplacement == null ? "unavailable" : controlledReplacement.State.ToString() + "; " + controlledReplacement.LastMessage));
             if (controlledReplacementHealthMonitor != null)
             {
@@ -8374,6 +8471,8 @@ namespace InputStitch
             string updateMode = config.UpdateMode;
             string gamepadType = config.GamepadDeviceType;
             bool gamepadRouterEnabled = config.GamepadRouterEnabled;
+            RouterSourcePolicyConfig gamepadRouterSourcePolicy = config.GamepadRouterSourcePolicy == null
+                ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             IdleGamepadOptions idleOptions = config.IdleGamepad;
             bool welcome = config.HasSeenWelcome;
             string lastReleaseSummary = config.LastShownReleaseSummaryVersion;
@@ -8387,9 +8486,11 @@ namespace InputStitch
                 config.UpdateMode = updateMode;
                 config.GamepadDeviceType = gamepadRouterEnabled ? VirtualGamepadTypes.Xbox360 : gamepadType;
                 config.GamepadRouterEnabled = gamepadRouterEnabled;
+                config.GamepadRouterSourcePolicy = gamepadRouterSourcePolicy;
                 config.IdleGamepad = idleOptions;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
+                if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
                 if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
                 activeMappingLayerId = "";
                 lock (runLock) layerBlockedUntilRelease.Clear();
@@ -8413,6 +8514,7 @@ namespace InputStitch
                 config = previous;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
+                if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
                 if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
                 activeMappingLayerId = "";
                 lock (runLock) layerBlockedUntilRelease.Clear();
@@ -10093,6 +10195,7 @@ namespace InputStitch
         {
             replacementExpectedControllerSlots = new int[0];
             if (!config.GamepadRouterEnabled || !EnsureGamepadRouterReady(false)) return false;
+            if (routerSourcePolicyEvaluator != null && !routerSourcePolicyEvaluator.IsAllVisible) return false;
             if (GamepadOutput.OwnXboxUserIndex != 0 || gamepadInput == null || gamepadRouter == null) return false;
 
             gamepadInput.Poll();
@@ -10122,6 +10225,8 @@ namespace InputStitch
                 return new ControlledReplacementResult { State = ControlledReplacementState.BackendUnavailable, Message = "Controlled replacement is unavailable." };
             if (!config.GamepadRouterEnabled || !EnsureGamepadRouterReady(false))
                 return new ControlledReplacementResult { State = ControlledReplacementState.RouterNotReady, Message = "Controller merging must be enabled and connected first." };
+            if (routerSourcePolicyEvaluator != null && !routerSourcePolicyEvaluator.IsAllVisible)
+                return new ControlledReplacementResult { State = ControlledReplacementState.RouterNotReady, Message = "Controller takeover currently requires Router source policy 'all visible'. Stop takeover/source filtering before starting controlled replacement." };
 
             List<GamingDeviceDescriptor> selected = new List<GamingDeviceDescriptor>();
             HashSet<string> seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

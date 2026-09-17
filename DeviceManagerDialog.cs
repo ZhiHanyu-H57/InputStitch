@@ -6,9 +6,9 @@ using System.Windows.Forms;
 
 namespace InputStitch
 {
-    // Read-only first-stage Device Manager. It exposes what InputStitch actually knows and, just as
-    // importantly, what it cannot yet correlate safely. Editing Router/device policy belongs to the
-    // next platform phase and is intentionally not mixed into identity discovery.
+    // Read-only Device Manager. It exposes what InputStitch actually knows and, just as importantly,
+    // what it cannot correlate safely. Router source selection is edited separately in Settings so
+    // identity discovery remains an observational/diagnostic boundary rather than a routing control.
     internal sealed class DeviceManagerDialog : Form
     {
         private readonly Func<DeviceInventorySnapshot> refreshInventory;

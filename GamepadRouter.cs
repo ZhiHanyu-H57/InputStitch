@@ -10,27 +10,41 @@ namespace InputStitch
     {
         private const string SourcePrefix = "router:xinput:";
         private readonly OutputOwnershipManager ownership;
+        private readonly IRouterSourcePolicyEvaluator sourcePolicy;
         private bool enabled;
         private int ownSlot = -1;
         private int routedControllerCount;
+        private int policyBlockedCount;
+        private int policyUnresolvedCount;
+        private string policyStatus = "all-visible";
         private string lastStatus = "disabled";
         private bool disposed;
 
         internal GamepadRouterService(OutputOwnershipManager ownershipManager)
+            : this(ownershipManager, null)
+        {
+        }
+
+        internal GamepadRouterService(OutputOwnershipManager ownershipManager, IRouterSourcePolicyEvaluator policyEvaluator)
         {
             if (ownershipManager == null) throw new ArgumentNullException("ownershipManager");
             ownership = ownershipManager;
+            sourcePolicy = policyEvaluator;
         }
 
         internal bool Enabled { get { return enabled; } }
         internal int OwnSlot { get { return ownSlot; } }
         internal int RoutedControllerCount { get { return routedControllerCount; } }
+        internal int PolicyBlockedCount { get { return policyBlockedCount; } }
+        internal int PolicyUnresolvedCount { get { return policyUnresolvedCount; } }
+        internal string PolicyStatus { get { return policyStatus; } }
         internal bool OwnsPreferredSlotZero { get { return ownSlot == 0; } }
         internal string LastStatus { get { return lastStatus; } }
 
         internal void Configure(bool value)
         {
             if (disposed) return;
+            policyStatus = sourcePolicy == null ? "all-visible" : sourcePolicy.Summary;
             if (enabled == value) return;
             enabled = value;
             if (!enabled)
@@ -38,6 +52,8 @@ namespace InputStitch
                 ClearAllSources();
                 ownSlot = -1;
                 routedControllerCount = 0;
+                policyBlockedCount = 0;
+                policyUnresolvedCount = 0;
                 lastStatus = "disabled";
             }
             else lastStatus = "waiting-for-virtual-xbox";
@@ -51,11 +67,17 @@ namespace InputStitch
             {
                 ClearAllSources();
                 routedControllerCount = 0;
+                policyBlockedCount = 0;
+                policyUnresolvedCount = 0;
+                policyStatus = sourcePolicy == null ? "all-visible" : sourcePolicy.Summary;
                 lastStatus = "waiting-for-virtual-xbox";
                 return;
             }
 
             int routed = 0;
+            int blocked = 0;
+            int unresolved = 0;
+            long topologyVersion = input.TopologyVersion;
             for (int index = 0; index < 4; index++)
             {
                 string sourceId = SourcePrefix + index.ToString();
@@ -70,10 +92,27 @@ namespace InputStitch
                     ownership.ClearSource(sourceId);
                     continue;
                 }
+
+                RouterSourceDecision decision = sourcePolicy == null
+                    ? RouterSourceDecision.Allowed("", "all-visible")
+                    : sourcePolicy.Evaluate(index, topologyVersion);
+                if (decision == null || !decision.Route)
+                {
+                    ownership.ClearSource(sourceId);
+                    blocked++;
+                    string reason = decision == null ? "policy-no-decision" : (decision.Reason ?? "");
+                    if (reason.IndexOf("unresolved", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        reason.IndexOf("identity", StringComparison.OrdinalIgnoreCase) >= 0) unresolved++;
+                    continue;
+                }
                 ownership.ReplaceSource(sourceId, ConvertState(state));
                 routed++;
             }
             routedControllerCount = routed;
+            policyBlockedCount = blocked;
+            policyUnresolvedCount = unresolved;
+            policyStatus = (sourcePolicy == null ? "all-visible" : sourcePolicy.Summary) +
+                "; blocked=" + blocked.ToString() + "; unresolved=" + unresolved.ToString();
             lastStatus = currentOwnSlot == 0 ? "routing-slot-zero" : "routing-nonzero-slot";
         }
 
@@ -81,6 +120,8 @@ namespace InputStitch
         {
             ClearAllSources();
             routedControllerCount = 0;
+            policyBlockedCount = 0;
+            policyUnresolvedCount = 0;
             lastStatus = string.IsNullOrWhiteSpace(reason) ? "stopped" : reason;
         }
 
@@ -163,6 +204,8 @@ namespace InputStitch
             disposed = true;
             ownSlot = -1;
             routedControllerCount = 0;
+            policyBlockedCount = 0;
+            policyUnresolvedCount = 0;
             lastStatus = "disposed";
         }
     }

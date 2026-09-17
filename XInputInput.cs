@@ -79,8 +79,10 @@ namespace InputStitch
         private readonly Func<int> ownXboxSlot;
         private readonly Func<int, XInputPadState> readState;
         private readonly XInputNativeReader xinput = new XInputNativeReader();
+        private readonly object topologySync = new object();
         private bool disposed;
         private int excludedIndex = -1;
+        private long topologyVersion;
         private string lastEdge = "none";
 
         public Action<InputEventInfo> InputDown;
@@ -99,13 +101,17 @@ namespace InputStitch
         }
 
         internal int ExcludedUserIndex { get { return excludedIndex; } }
+        internal long TopologyVersion { get { return System.Threading.Interlocked.Read(ref topologyVersion); } }
         internal string LastEdge { get { return lastEdge; } }
 
         internal int[] ConnectedUserIndices()
         {
-            List<int> result = new List<int>();
-            for (int i = 0; i < slots.Length; i++) if (slots[i].Connected) result.Add(i);
-            return result.ToArray();
+            lock (topologySync)
+            {
+                List<int> result = new List<int>();
+                for (int i = 0; i < slots.Length; i++) if (slots[i].Connected) result.Add(i);
+                return result.ToArray();
+            }
         }
 
         internal XInputPadState GetState(int index)
@@ -126,15 +132,27 @@ namespace InputStitch
                 try { own = ownXboxSlot(); }
                 catch { own = -1; }
             }
-            excludedIndex = own;
+            lock (topologySync)
+            {
+                if (excludedIndex != own) System.Threading.Interlocked.Increment(ref topologyVersion);
+                excludedIndex = own;
+            }
 
             for (int index = 0; index < slots.Length; index++)
             {
                 SlotState slot = slots[index];
                 if (index == own)
                 {
-                    if (slot.Connected) ReleaseAll(index, slot, "own-virtual-excluded");
-                    ResetSlot(slot);
+                    if (slot.Connected)
+                    {
+                        ReleaseAll(index, slot, "own-virtual-excluded");
+                        lock (topologySync)
+                        {
+                            ResetSlot(slot);
+                            System.Threading.Interlocked.Increment(ref topologyVersion);
+                        }
+                    }
+                    else ResetSlot(slot);
                     continue;
                 }
 
@@ -144,8 +162,16 @@ namespace InputStitch
 
                 if (!current.Connected)
                 {
-                    if (slot.Connected) ReleaseAll(index, slot, "disconnect");
-                    ResetSlot(slot);
+                    if (slot.Connected)
+                    {
+                        ReleaseAll(index, slot, "disconnect");
+                        lock (topologySync)
+                        {
+                            ResetSlot(slot);
+                            System.Threading.Interlocked.Increment(ref topologyVersion);
+                        }
+                    }
+                    else ResetSlot(slot);
                     continue;
                 }
 
@@ -153,10 +179,14 @@ namespace InputStitch
                 {
                     // Establish a baseline without generating Down edges. This prevents a held
                     // button during startup/reconnect from starting a macro unexpectedly.
-                    slot.Connected = true;
-                    slot.Pad = current;
-                    slot.LeftTriggerDown = Percent(current.LeftTrigger) >= TriggerActivatePercent;
-                    slot.RightTriggerDown = Percent(current.RightTrigger) >= TriggerActivatePercent;
+                    lock (topologySync)
+                    {
+                        slot.Connected = true;
+                        slot.Pad = current;
+                        slot.LeftTriggerDown = Percent(current.LeftTrigger) >= TriggerActivatePercent;
+                        slot.RightTriggerDown = Percent(current.RightTrigger) >= TriggerActivatePercent;
+                        System.Threading.Interlocked.Increment(ref topologyVersion);
+                    }
                     continue;
                 }
 

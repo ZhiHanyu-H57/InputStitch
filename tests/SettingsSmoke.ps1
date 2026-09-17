@@ -13,6 +13,7 @@ function Descendants($c) { foreach($child in $c.Controls) { $child; Descendants 
 $serializer = New-Object System.Xml.Serialization.XmlSerializer([InputStitch.MacroConfig])
 $old = $serializer.Deserialize((New-Object IO.StringReader('<MacroConfig><Language>en-US</Language></MacroConfig>')))
 if($old.IdleGamepad.Enabled -or $old.IdleGamepad.IdleSeconds -ne 120 -or $old.IdleGamepad.HoldMilliseconds -ne 150 -or $old.IdleGamepad.Pulse.GamepadControl.ToString() -ne 'LeftStick' -or $old.IdleGamepad.Pulse.GamepadY -ne -100) { throw 'Legacy config must default to idle OFF / 120s / left-stick-down / 150ms' }
+if($null -eq $old.GamepadRouterSourcePolicy -or $old.GamepadRouterSourcePolicy.Mode -ne 'AllVisible') { throw 'Legacy config must default Router source policy to AllVisible' }
 foreach($language in @('zh-CN','en-US')) {
   [InputStitch.Localizer]::SetLanguage($language)
   foreach($size in @(@(700,660),@(604,441))) {
@@ -37,6 +38,15 @@ foreach($language in @('zh-CN','en-US')) {
       if($idle.Enabled) { throw 'Settings unexpectedly enable idle output' }
       if(-not $idle.TargetScopeInitialized -or $idle.TargetProcessName -or $idle.TargetWindowTitle -or $idle.TargetWindowClass) { throw 'Idle target defaults must be independently initialized and empty' }
       $private=[Reflection.BindingFlags]'Instance,NonPublic'
+      $routerBox=$form.GetType().GetField('gamepadRouterBox',$private).GetValue($form)
+      $routerSourcesButton=$form.GetType().GetField('gamepadRouterSourcesButton',$private).GetValue($form)
+      $routerSourcesSummary=$form.GetType().GetField('gamepadRouterSourcesSummary',$private).GetValue($form)
+      if($null -eq $routerSourcesButton -or $null -eq $routerSourcesSummary) { throw 'Missing Router source-selection controls' }
+      if($routerSourcesButton.Enabled) { throw 'Router source-selection button should be disabled while Router is off' }
+      if($form.SelectedGamepadRouterSourcePolicy.Mode -ne 'AllVisible') { throw 'Settings must preserve backward-compatible AllVisible Router source policy by default' }
+      $routerBox.Checked=$true
+      if(-not $routerSourcesButton.Enabled) { throw 'Router source-selection button did not enable with Router' }
+      $routerBox.Checked=$false
       $idlePanel=$form.GetType().GetField('idleSettings',$private).GetValue($form)
       $idleTargetButton=$idlePanel.GetType().GetField('lockTargetButton',$private).GetValue($idlePanel)
       if($null -eq $idleTargetButton) { throw 'Missing independent idle target picker' }

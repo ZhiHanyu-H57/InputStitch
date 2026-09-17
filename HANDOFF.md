@@ -126,9 +126,57 @@ Final local verification on 2026-09-17:
 
 Stable `v1.4.3` remains immutable. This is post-release `main` platform work and needs a future Stable version before ordinary users receive it.
 
+## 2026-09-17 Router Source Policy / per-device routing stage 1
+
+The platform foundation immediately following Device Identity is now implemented: Router can retain the historical “route every visible external XInput source” behavior or opt into stable-DeviceKey-selected routing without persisting XInput slot as identity.
+
+### Policy model + compatibility
+
+- New `RouterSourcePolicyConfig` has `AllVisible` and `SelectedDevices` modes.
+- `AllVisible` is the normalization/default for old configs and preserves the existing Router behavior exactly.
+- `SelectedDevices` persists only stable DeviceKey values. Existing transient Output Ownership source IDs remain `router:xinput:N`; they are execution channels, not durable identity.
+- The Router policy remains a global preference during profile loading, matching the existing global Router enabled/type preference boundary.
+- Settings now exposes `Choose routed controllers... / 选择汇总来源...`; known offline physical devices can remain selected for reconnect, while currently unresolved runtime sources are labeled explicitly.
+
+### Conservative runtime correlation
+
+XInput does not expose a durable device path, so stage 1 deliberately refuses to manufacture multi-controller identity from enumeration order. A DeviceKey↔runtime slot binding is created only when all of the following are true in the same refresh:
+
+- exactly one external XInput source is visible;
+- exactly one present, non-virtual persistent gaming-device identity is a candidate;
+- that candidate carries **current native Windows XUSB metadata**. An XUSB-looking path supplied only by HidHide/enrichment is not enough.
+
+`XInputInputService` now exposes a monotonic topology generation. External connect/disconnect, own-slot movement and source-count changes invalidate the previous Device Identity snapshot immediately. `SelectedDevices` therefore fails closed while identity refresh catches up, clears any stale Router-owned output, and resumes only after a fresh safe correlation. Multi-controller layouts remain unresolved rather than assigning devices to XInput slots by discovery order.
+
+The native-XUSB proof bit is copied from the **current discovery descriptor** into the current inventory row. Historical registry knowledge does not keep a stale binding trusted if a later refresh can no longer observe native XUSB evidence.
+
+### Takeover boundary
+
+Experimental Controlled Replacement remains restricted to `AllVisible` policy for now. The takeover transaction can hide selected original devices, so allowing an independent Router filter at the same time could restore a dangerous failure mode where an original is hidden but intentionally omitted from routed output. Integrating selected-device policy into takeover requires a later identity-aware hardware transaction and real HidHide/controller acceptance; it is not guessed into this stage.
+
+### Verification evidence
+
+Final local verification for this stage on 2026-09-17:
+
+- x64 + x86 Release build / Release Verification: PASS;
+- keyboard/trigger: **329 PASS**;
+- XInput input: **26 PASS**;
+- Device Identity: **33 PASS**;
+- Router Source Policy: **22 PASS** (old-config/default compatibility, real XML clone/round trip, selected/unselected filtering, stale-output release, topology invalidation/recovery, multi-controller unresolved fail-closed, `AllVisible` compatibility, and source-selection dialog refresh/edit behavior);
+- Gamepad Router: **28 PASS**;
+- Controlled Replacement: **52 PASS**;
+- Slot Acquisition: **27 PASS**;
+- Virtual Gamepad Preference: **23 PASS**;
+- Layer: **39 PASS**;
+- Output Ownership: **303,716 PASS**;
+- updater/network, UI safety, productivity, zh-CN/en-US Settings at both smoke-test sizes, legacy XML and saved gamepad-vector tests: PASS;
+- real-output Input Lab black-box acceptance: **77/77 PASS, failures=0** after the Router Source Policy implementation.
+
+Stable `v1.4.3` remains immutable; this is post-release `main` work and is not yet in the public Stable updater line.
+
 ## Working on
 
-**Stable `v1.4.3` is published and immutable. Post-release `main` now contains both the controller hot-plug/takeover-UI diagnostic hardening and the completed first-stage Persistent Device Identity / Device Manager foundation above.** The next active non-hardware platform item is Router source selection / per-device policy built on `DeviceKey`, followed by Analog Transform → Activator/Condition. The architecture-cleanup and website-first updater work from `v1.4.2` remain the inherited baseline.
+**Stable `v1.4.3` is published and immutable. Post-release `main` now contains the controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, and Router Source Policy stage 1.** The next active non-hardware platform item is Analog Transform Engine, followed by Activator/Condition. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
@@ -138,7 +186,7 @@ Stable update transport now prefers the project download domain end-to-end. The 
 
 1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.3` is the current Stable line. Persistent Device Identity / Device Manager stage 1 is complete on post-release `main`; the next active non-hardware platform item is Router source selection / per-device policy, followed by Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.3` is the current Stable line. Persistent Device Identity / Device Manager stage 1 and Router Source Policy stage 1 are complete on post-release `main`; the next active non-hardware platform item is Analog Transform Engine, followed by Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 

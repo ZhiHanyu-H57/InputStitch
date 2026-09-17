@@ -189,7 +189,7 @@ Current identity evidence can retain and reconcile, where available:
 - current XInput slot only as a transient observation;
 - fixed product-owned identity for InputStitch virtual output.
 
-Windows XUSB/PnP discovery works without HidHide; HidHide can enrich metadata when installed. If InputStitch cannot prove that a stable device record corresponds to a current XInput slot, the UI keeps the slot explicitly unresolved instead of guessing. Router still routes by runtime XInput source today; consuming `DeviceKey` is the next Router-policy stage.
+Windows XUSB/PnP discovery works without HidHide; HidHide can enrich metadata when installed. If InputStitch cannot prove that a stable device record corresponds to a current XInput slot, the UI keeps the slot explicitly unresolved instead of guessing. Router Source Policy stage 1 now consumes `DeviceKey` only for a safe current one-to-one correlation and otherwise fails closed in selected-device mode.
 
 ### 4. Virtual output is coupled too closely to ViGEm
 
@@ -218,20 +218,20 @@ Completed foundations:
 
 - **Virtual Output Backend abstraction** — completed; ViGEm remains the only production backend behind the stable facade.
 - **Persistent Device Identity / Device Manager stage 1** — completed on post-`v1.4.3` `main`; durable DeviceKey/inventory exists without using XInput slot as identity.
+- **Router source selection + per-device policy stage 1** — completed; the default remains all visible sources, while selected-device mode persists stable DeviceKeys, invalidates stale runtime bindings on topology changes and refuses unresolved/multi-controller identity guesses.
 
 Active order:
 
-1. **Router source selection + per-device policy** — route chosen devices instead of always aggregating every visible external XInput source, consuming stable DeviceKey only where provider↔runtime correlation is proven.
-2. **Analog Transform Engine** — deadzone, curve, sensitivity, inversion, zones and explicit merge policy.
-3. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics.
+1. **Analog Transform Engine** — deadzone, curve, sensitivity, inversion, zones and explicit merge policy attached to explicit sources.
+2. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics.
 
 ### Do after the above foundation
 
-4. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
-5. Profile/context improvements built on DeviceKey + Condition.
-6. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
-7. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
-8. Evaluate a second virtual-output backend only after the output interface is stable.
+3. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
+4. Profile/context improvements built on DeviceKey + Condition.
+5. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
+6. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
+7. Evaluate a second virtual-output backend only after the output interface is stable.
 
 ### Later / evidence-driven
 

@@ -64,6 +64,7 @@ namespace InputStitch
         public string BaseContainerDeviceInstancePath = "";
         public string ContainerId = "";
         public bool VirtualBus;
+        public bool NativeXusbMetadata;
 
         public string DisplayName
         {

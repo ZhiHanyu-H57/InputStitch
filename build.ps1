@@ -138,6 +138,8 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'WindowsDeviceDiscovery.cs')
     $compilerArguments += (Join-Path $projectRoot 'DeviceIdentity.cs')
     $compilerArguments += (Join-Path $projectRoot 'DeviceManagerDialog.cs')
+    $compilerArguments += (Join-Path $projectRoot 'RouterSourcePolicy.cs')
+    $compilerArguments += (Join-Path $projectRoot 'RouterSourceDialog.cs')
     $compilerArguments += (Join-Path $projectRoot 'GamepadRouter.cs')
     $compilerArguments += (Join-Path $projectRoot 'ControlledReplacement.cs')
     $compilerArguments += (Join-Path $projectRoot 'SlotAcquisition.cs')
@@ -193,6 +195,8 @@ function New-SourceArchive {
         'WindowsDeviceDiscovery.cs',
         'DeviceIdentity.cs',
         'DeviceManagerDialog.cs',
+        'RouterSourcePolicy.cs',
+        'RouterSourceDialog.cs',
         'GamepadRouter.cs',
         'ControlledReplacement.cs',
         'SlotAcquisition.cs',
