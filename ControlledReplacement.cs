@@ -57,10 +57,13 @@ namespace InputStitch
         public bool GamingDevice;
         public string Vendor = "";
         public string Product = "";
+        public string SerialNumber = "";
         public string Description = "";
         public string DeviceInstancePath = "";
         public string XusbDeviceInstancePath = "";
         public string BaseContainerDeviceInstancePath = "";
+        public string ContainerId = "";
+        public bool VirtualBus;
 
         public string DisplayName
         {
@@ -213,6 +216,7 @@ namespace InputStitch
                 item.GamingDevice = string.Equals(match.Groups[2].Value, "true", StringComparison.OrdinalIgnoreCase);
                 item.Vendor = JsonUnescape(match.Groups[3].Value);
                 item.Product = JsonUnescape(match.Groups[4].Value);
+                item.SerialNumber = ExtractJsonString(match.Value, "serialNumber");
                 item.Description = JsonUnescape(match.Groups[5].Value);
                 item.DeviceInstancePath = JsonUnescape(match.Groups[6].Value);
                 item.XusbDeviceInstancePath = JsonUnescape(match.Groups[7].Value);
@@ -220,6 +224,14 @@ namespace InputStitch
                 result.Add(item);
             }
             return result;
+        }
+
+        private static string ExtractJsonString(string json, string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(json) || string.IsNullOrWhiteSpace(propertyName)) return "";
+            string pattern = "\\\"" + Regex.Escape(propertyName) + "\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"])*)\\\"";
+            Match match = Regex.Match(json, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            return match.Success ? JsonUnescape(match.Groups[1].Value) : "";
         }
 
         private static string Quote(string value)

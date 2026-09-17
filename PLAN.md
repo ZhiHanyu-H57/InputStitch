@@ -2,7 +2,7 @@
 
 # Current Development Plan
 
-Updated: 2026-09-10
+Updated: 2026-09-17
 
 ## Current milestone
 
@@ -122,18 +122,18 @@ Not complete / not yet claimed:
 
 Hardware acceptance remains explicitly **blocked until a physical XInput controller is available**. Keep it as a parallel P0 validation lane; do not substitute more virtual devices and claim that as physical acceptance.
 
-The first platform-foundation item is now completed on `refactor/no-functional-change-1`:
+The first two platform-foundation items are now complete on post-`v1.4.3` `main`:
 
 - **Virtual Output Backend abstraction — completed without intended behavior change.** `GamepadOutput` remains the stable facade, while concrete ViGEm Xbox/DS4 creation, report mapping and driver-specific failure translation now live behind `IVirtualGamepadBackend` in `VigemVirtualGamepadBackend`. ViGEm remains the only production backend. Fake-backend coverage verifies connection reuse/type switching, unchanged output forwarding, neutralization, fail-closed send failure and `None` refusal without creating a real virtual device.
+- **Persistent Device Identity / Device Manager stage 1 — completed without changing Router policy.** A separate atomic `devices.xml` registry now stores opaque stable `DeviceKey` records derived from non-slot identity evidence; Windows XUSB/PnP discovery works without HidHide, HidHide can enrich metadata when available, InputStitch-owned virtual outputs have fixed product identities, and read-only Tools → Device Manager exposes stable identities beside transient/unresolved XInput slots. The main config/profile format is unchanged. Router still uses current XInput slots until the next stage consumes `DeviceKey` explicitly.
 
 The active non-hardware engineering order is now:
 
-1. **Persistent Device Identity / Device Manager** — establish durable `DeviceKey` + inventory/diagnostics so slot number becomes a transient attribute rather than identity.
-2. **Router source selection / per-device policy** — explicitly select routed sources and prepare per-source transform/merge policy.
-3. **Analog Transform Engine** — reusable deadzone, curve, scaling, inversion, zones and merge policies.
-4. **Activator + Condition Engine** — unify press/release/held/short/long/double/toggle/turbo and deterministic Layer/device/app/axis conditions.
-5. After those foundations, improve Layer ergonomics (Momentary/Hold-to-Layer before more complex modes), profile/context behavior, and then evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
-6. Only after the output backend interface is stable should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
+1. **Router source selection / per-device policy** — explicitly select routed sources by stable device identity where correlation is proven, preserve an honest unresolved path where it is not, and prepare per-source transform/merge policy.
+2. **Analog Transform Engine** — reusable deadzone, curve, scaling, inversion, zones and merge policies.
+3. **Activator + Condition Engine** — unify press/release/held/short/long/double/toggle/turbo and deterministic Layer/device/app/axis conditions.
+4. After those foundations, improve Layer ergonomics (Momentary/Hold-to-Layer before more complex modes), profile/context behavior, and then evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
+5. Only after the output backend interface is stable should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
 
 When physical hardware becomes available in parallel:
 
@@ -145,21 +145,22 @@ When physical hardware becomes available in parallel:
 
 ## Current automated evidence
 
-Latest clean regression on 2026-09-10:
+Latest clean regression on 2026-09-17:
 
-- 323 keyboard/trigger checks;
+- 329 keyboard/trigger checks;
 - 58 Idle Gamepad assertions;
 - 26 XInput input checks;
+- **28 Persistent Device Identity checks** using temporary XML/fake metadata only;
 - 28 Gamepad Router checks;
 - 52 Controlled Replacement transaction/runtime-health/recovery checks (fake backend; HidHide not invoked);
 - 27 slot-acquisition/PnP recovery checks (fake PnP/XInput; no real device disabled);
-- 15 optional-virtual-controller preference checks (`no ViGEm device created`);
+- 23 optional-virtual-controller preference checks (`no ViGEm device created`);
 - 39 flexible-Layer/XML/observation checks;
 - 7 macro-timing checks;
 - modifier safety suite: PASS;
 - release-channel policy: PASS;
 - 43 updater install/rollback checks;
-- 18 update-network interruption/retry checks (injected failures only; no network request);
+- 29 update-network interruption/retry checks (injected failures only; no network request);
 - 26 UI safety/diagnostics checks;
 - 360 productivity/config/UI checks;
 - 303,716 Output Ownership checks;
@@ -177,8 +178,8 @@ Input Lab final run:
 
 - Input Lab manual viewer is now independently versioned as `v0.3.1`, retaining the larger keyboard, quick-tap afterglow, target-window `WM_KEY*` / `WM_MOUSE*` observation and standalone packaging while hardening automated-test desktop isolation;
 - the v0.3.0 window-message and keyboard-visual self-tests PASS;
-- full black-box acceptance completed **77/77 PASS, failures=0** in three consecutive runs on this laptop on 2026-09-10;
-- the older intermittent ViGEm→XInput environment blocker did not reproduce in those three runs, but `SUMMARY: BLOCKED` remains a valid environment-only result if it returns later.
+- full black-box acceptance completed **77/77 PASS, failures=0** again on 2026-09-17 after the Device Identity foundation was added; keyboard/mouse SendInput and real ViGEm/XInput output paths were exercised;
+- the older intermittent ViGEm→XInput environment blocker did not reproduce in this run, but `SUMMARY: BLOCKED` remains a valid environment-only result if it returns later.
 
 ## Release discipline
 

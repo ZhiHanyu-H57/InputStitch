@@ -135,6 +135,9 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
     $compilerArguments += (Join-Path $projectRoot 'XInputNative.cs')
     $compilerArguments += (Join-Path $projectRoot 'XInputInput.cs')
+    $compilerArguments += (Join-Path $projectRoot 'WindowsDeviceDiscovery.cs')
+    $compilerArguments += (Join-Path $projectRoot 'DeviceIdentity.cs')
+    $compilerArguments += (Join-Path $projectRoot 'DeviceManagerDialog.cs')
     $compilerArguments += (Join-Path $projectRoot 'GamepadRouter.cs')
     $compilerArguments += (Join-Path $projectRoot 'ControlledReplacement.cs')
     $compilerArguments += (Join-Path $projectRoot 'SlotAcquisition.cs')
@@ -187,6 +190,9 @@ function New-SourceArchive {
         'IdleGamepad.cs',
         'XInputNative.cs',
         'XInputInput.cs',
+        'WindowsDeviceDiscovery.cs',
+        'DeviceIdentity.cs',
+        'DeviceManagerDialog.cs',
         'GamepadRouter.cs',
         'ControlledReplacement.cs',
         'SlotAcquisition.cs',

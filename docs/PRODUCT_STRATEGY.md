@@ -174,19 +174,22 @@ Condition
 
 This is preferable to accumulating unrelated special-case trigger modes.
 
-### 3. Device identity is still too slot-oriented
+### 3. Persistent Device Identity stage 1 is now implemented
 
-XInput user index is runtime state, not durable identity. Future routing and takeover need a stable `DeviceKey` that can correlate provider/device metadata such as:
+XInput user index remains runtime state, not durable identity. Post-`v1.4.3` `main` now has a first-stage persistent `DeviceKey` registry and read-only Device Manager that deliberately exclude slot number from identity generation.
+
+Current identity evidence can retain and reconcile, where available:
 
 - provider;
-- PnP/container identity;
+- Windows PnP Container ID / container path;
 - device instance path;
 - VID/PID;
 - serial when available;
 - XUSB identity;
-- current XInput slot as a transient attribute.
+- current XInput slot only as a transient observation;
+- fixed product-owned identity for InputStitch virtual output.
 
-This enables per-device triggers, Router selection, profiles and safe takeover without treating “slot N” as identity.
+Windows XUSB/PnP discovery works without HidHide; HidHide can enrich metadata when installed. If InputStitch cannot prove that a stable device record corresponds to a current XInput slot, the UI keeps the slot explicitly unresolved instead of guessing. Router still routes by runtime XInput source today; consuming `DeviceKey` is the next Router-policy stage.
 
 ### 4. Virtual output is coupled too closely to ViGEm
 
@@ -211,19 +214,24 @@ Important license note: VIIPER's in-process `libVIIPER` is GPL-3.0 and requires 
 
 ### Do now / high priority
 
-1. **Virtual Output Backend abstraction** — separate macro/ownership/Router code from ViGEm-specific implementation.
-2. **Persistent Device Identity / Device Manager** — establish durable device keys and source diagnostics.
-3. **Router source selection + per-device policy** — route chosen devices instead of always aggregating every visible external XInput source.
-4. **Analog Transform Engine** — deadzone, curve, sensitivity, inversion, zones and explicit merge policy.
-5. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics.
+Completed foundations:
+
+- **Virtual Output Backend abstraction** — completed; ViGEm remains the only production backend behind the stable facade.
+- **Persistent Device Identity / Device Manager stage 1** — completed on post-`v1.4.3` `main`; durable DeviceKey/inventory exists without using XInput slot as identity.
+
+Active order:
+
+1. **Router source selection + per-device policy** — route chosen devices instead of always aggregating every visible external XInput source, consuming stable DeviceKey only where provider↔runtime correlation is proven.
+2. **Analog Transform Engine** — deadzone, curve, sensitivity, inversion, zones and explicit merge policy.
+3. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics.
 
 ### Do after the above foundation
 
-6. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
-7. Profile/context improvements built on DeviceKey + Condition.
-8. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
-9. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
-10. Evaluate a second virtual-output backend only after the output interface is stable.
+4. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
+5. Profile/context improvements built on DeviceKey + Condition.
+6. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
+7. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
+8. Evaluate a second virtual-output backend only after the output interface is stable.
 
 ### Later / evidence-driven
 

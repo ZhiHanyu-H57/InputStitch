@@ -2,7 +2,7 @@
 
 # InputStitch Roadmap / 开发路线
 
-Updated: 2026-09-10
+Updated: 2026-09-17
 
 ## Current position / 当前阶段
 
@@ -178,20 +178,22 @@ Regression coverage uses an injected fake backend to verify first connection, sa
 
 Do not add a second backend merely to prove the interface exists. When a concrete need justifies it, evaluate alternatives such as HIDMaestro or VIIPER's standalone server/API with deployment, signing/security, x86/x64 support and licensing considered alongside device features.
 
-### P1 — Persistent Device Identity / Device Manager
+### Completed foundation — Persistent Device Identity / Device Manager stage 1
 
-XInput slot numbers are runtime state, not durable device identity. Establish a stable `DeviceKey` and a device inventory/diagnostic model that can correlate, where available:
+Completed on post-`v1.4.3` `main` without changing Router execution policy. XInput slot numbers remain transient runtime state and are never serialized as device identity.
 
-- input provider;
-- PnP/container identity;
-- device instance path;
-- VID/PID;
-- serial or stable hardware identifier;
-- XUSB identity;
-- current XInput slot as a transient attribute;
-- InputStitch-owned virtual-device identity.
+The new identity layer provides:
 
-This becomes the foundation for per-device triggers, Router selection, profiles and safe takeover. The UI must never hide a device based only on a guessed slot association.
+- opaque versioned `DeviceKey` records persisted separately in atomic `devices.xml`;
+- non-slot evidence ordered as PnP Container ID → container/base path → VID/PID + serial → XUSB path → PnP/HID path;
+- alias retention so later stronger metadata enriches an existing record without changing its DeviceKey;
+- native Windows XUSB/PnP discovery that does not require HidHide;
+- optional HidHide metadata enrichment including preserved serial number;
+- fixed product-owned identities for InputStitch virtual Xbox/DS4 output;
+- separate labeling for provider-discovered virtual-bus devices;
+- read-only Device Manager + diagnostics showing stable identity beside current XInput slot and explicitly unresolved slot rows when correlation cannot be proven.
+
+The main configuration/profile format is unchanged. This stage deliberately does not guess PnP ↔ XInput slot correlation and therefore provides the safe base for Router source selection, future per-device conditions/profiles and eventual takeover identity improvements.
 
 ### P1 — Router source selection and per-device routing policy
 

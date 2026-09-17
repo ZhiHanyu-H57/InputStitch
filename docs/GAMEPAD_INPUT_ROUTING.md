@@ -320,17 +320,20 @@ EXPECTED_ORDER=True
 
 This validates the Windows/ViGEm connection-order mechanism used by the slot-acquisition design at the maximum controller count the current XInput backend can support. It is not a substitute for physical PnP + HidHide + game acceptance.
 
-## Remaining identity problem: broader device backends
+## Persistent Device Identity foundation — implemented on post-v1.4.3 main
 
-XInput user index is not a durable physical-device identity. Current XInput takeover uses HidHide's `deviceInstancePath` / `xusbDeviceInstancePath` relationship and re-enumeration-based self filtering. Broader non-XInput support will still need correlation among:
+XInput user index is not a durable physical-device identity. The first identity layer is now implemented independently of Router/takeover policy:
 
-- HID/PnP device instance path;
-- device/container identity;
-- XUSB identity;
-- XInput user slot;
-- InputStitch-owned ViGEm instance.
+- a separate atomic `devices.xml` registry stores opaque versioned `DeviceKey` records;
+- XInput user slot is never used to generate a DeviceKey;
+- identity evidence can include Windows PnP Container ID / container path, VID/PID + serial, XUSB identity and HID/PnP instance path;
+- aliases are retained so stronger later evidence can enrich an existing record without changing its key;
+- native Windows XUSB/PnP discovery works when HidHide is absent;
+- HidHide can enrich metadata when installed;
+- InputStitch-owned Xbox/DS4 virtual output uses a fixed product identity, while other virtual-bus provider rows are labeled separately;
+- Device Manager presents current XInput slots as transient observations and keeps them explicitly unresolved when a stable provider↔slot correlation cannot be proven.
 
-Do not infer which physical device to hide solely from “it is currently XInput N.”
+Current Router/trigger dispatch is still XInput-slot based. The next Router Source Policy phase will consume DeviceKey only where that runtime correlation is established. Do not infer which physical device to route or hide solely from “it is currently XInput N.”
 
 ## Real HidHide acceptance still required
 
@@ -389,13 +392,16 @@ The one-failure tolerance reduces false disengagement from short device-enumerat
 
 Do not grow the controller platform by adding one API/device family at a time. The next architecture should separate input identity, routing policy, transforms and virtual output from today's XInput/ViGEm implementation details.
 
+Completed foundations:
+
+- `IVirtualGamepadBackend` keeps higher-level orchestration independent from concrete ViGEm controller types while ViGEm remains the sole production backend;
+- durable `DeviceKey` / Device Manager stage 1 keeps XInput slot as runtime metadata rather than identity and works without HidHide through native Windows XUSB/PnP discovery.
+
 Near-term order:
 
-1. introduce an `IGamepadOutputBackend` boundary while keeping ViGEm behavior unchanged;
-2. introduce durable `DeviceKey` / Device Manager identity so XInput slot is only runtime metadata;
-3. let Router explicitly select devices/sources rather than aggregating every visible external XInput source;
-4. add reusable analog transforms and explicit merge policy;
-5. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
+1. let Router explicitly select devices/sources rather than aggregating every visible external XInput source, consuming DeviceKey only when runtime correlation is proven;
+2. add reusable analog transforms and explicit merge policy;
+3. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
 
 Only after those boundaries are stable should the project evaluate a second virtual-output backend or specialized Raw HID/device providers.
 
@@ -410,10 +416,11 @@ Native PlayStation-console support remains out of scope without an official low-
 Current relevant suites:
 
 - `XInputInputTests`: 26 checks;
+- `DeviceIdentityTests`: **28 checks** using fake discovery + temporary `devices.xml`, covering stable/non-slot keys, metadata enrichment, restart/re-enumeration, fixed own-virtual identities, unresolved slots and virtual-bus labeling;
 - `GamepadRouterTests`: 28 checks;
 - `ControlledReplacementTests`: **52 checks** using fake backend/parser only, covering activation/rollback gates plus runtime slot/Router/source/HidHide health and consecutive-failure monitor behavior;
 - `SlotAcquisitionTests`: 27 checks using fake PnP/XInput only; no real device is disabled;
-- `VirtualGamepadPreferenceTests`: 15 checks, explicitly no ViGEm device created;
+- `VirtualGamepadPreferenceTests`: 23 checks, explicitly no ViGEm device created;
 - `LayerTests`: **39 checks** including arbitrary named layers, switch targets, deletion migration, real XML round trip and side-effect-free observation;
 - `OutputOwnershipTests`: 303,716 checks.
 
@@ -421,14 +428,13 @@ Developer-only real neutral probe:
 
 - `tools/InputLab/run-slot-order-probe.ps1`: PASS on this laptop with the full `external 0/1/2 + own 3 → own 0 + external 1/2/3` transition.
 
-Latest Input Lab result on this laptop:
+Latest Input Lab result on this laptop after the Device Identity foundation (2026-09-17):
 
 ```text
-all 18 pre-XInput real SendInput / concurrency checks PASS
-failures=0
-then known local ViGEm→XInput environment preflight BLOCKED
-SUMMARY: BLOCKED | checks=18 | failures=0
+SUMMARY: PASS | checks=77 | failures=0
 ```
+
+This real-output acceptance exercised keyboard/mouse SendInput plus ViGEm/XInput output/ownership/concurrency paths. The previously documented ViGEm→XInput environment-only blocker did not reproduce in this run, but remains a valid `BLOCKED` interpretation if it returns later.
 
 ## Non-negotiable constraints
 

@@ -49,6 +49,9 @@
     <Compile Include="IdleGamepad.cs" />
     <Compile Include="XInputNative.cs" />
     <Compile Include="XInputInput.cs" />
+    <Compile Include="WindowsDeviceDiscovery.cs" />
+    <Compile Include="DeviceIdentity.cs" />
+    <Compile Include="DeviceManagerDialog.cs" />
     <Compile Include="GamepadRouter.cs" />
     <Compile Include="ControlledReplacement.cs" />
     <Compile Include="SlotAcquisition.cs" />

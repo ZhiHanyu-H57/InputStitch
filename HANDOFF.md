@@ -2,7 +2,7 @@
 
 # Current Development State
 
-Updated: 2026-09-11
+Updated: 2026-09-17
 
 ## Current versions
 
@@ -81,9 +81,54 @@ Verification for `486b2500`: local x64/x86 build + Release Verification PASS; fu
 
 This post-release commit is on `main` only. Stable `v1.4.3` remains immutable and unchanged; a future Stable version is required before ordinary users receive these UX/diagnostic improvements.
 
+## 2026-09-17 persistent Device Identity / Device Manager foundation
+
+The next non-hardware platform item is now implemented on post-`v1.4.3` `main`: InputStitch has a first-class persistent device-identity layer that is deliberately independent of transient XInput user slots.
+
+### Identity model
+
+- New `DeviceIdentity.cs` owns opaque versioned `DeviceKey` generation, evidence aliases, inventory snapshots and persistence.
+- Persistent identity evidence is ordered from strongest to weakest as PnP Container ID → container/base path → VID/PID + serial → XUSB path → PnP/HID path. XInput slot number is never an identity input.
+- Existing records retain the original `DeviceKey` when later discovery provides stronger evidence; the stronger alias is added and becomes the reported identity basis instead of churning the key.
+- Device records persist separately in `%APPDATA%\InputStitch\devices.xml` through the existing atomic XML store. The main config/profile format is unchanged, so old configuration remains compatible.
+- Corrupt/unreadable device-registry data fails read-only for that run instead of overwriting potentially recoverable identity history or preventing InputStitch startup.
+- InputStitch-owned virtual Xbox 360 and DualShock 4 outputs use fixed product-owned keys. Provider-discovered virtual-bus devices are labeled separately and are not assumed to be InputStitch's own output merely because they are virtual.
+
+### Discovery + UI
+
+- New `WindowsDeviceDiscovery.cs` adds a Windows XUSB/PnP discovery provider using the XnaComposite device class, PnP instance information, Container ID and ancestor inspection for virtual-bus metadata.
+- HidHide remains an optional enrichment provider. `serialNumber` is now preserved from HidHide discovery, and the composite provider merges complementary Windows/HidHide metadata without requiring HidHide to be installed.
+- Current XInput slots remain a separate runtime observation lane. When InputStitch cannot prove a stable PnP/XUSB ↔ slot correlation, Device Manager explicitly shows an unresolved XInput source instead of inventing a DeviceKey from `slot N`.
+- New read-only `Tools → Device Manager... / 工具 → 设备管理器...` shows DeviceKey, runtime XInput slot, role, identity basis, VID/PID, last-seen time and detailed PnP/XUSB/container metadata. A one-time background startup refresh populates persistence without blocking the main UI.
+- Runtime Observation and Diagnostics expose Device Identity status and the `devices.xml` path.
+
+### Compatibility boundary
+
+This stage intentionally does **not** change Router source IDs/policy, controller-trigger semantics, Controlled Replacement behavior, macro runtime, Output Ownership or output timing. Router remains slot-oriented until the next planned **Router source selection / per-device policy** stage consumes `DeviceKey` explicitly.
+
+### Verification evidence
+
+Final local verification on 2026-09-17:
+
+- x64 + x86 Release build and Release Verification: PASS;
+- new Device Identity suite: **28 PASS** using fake metadata + temporary XML only;
+- keyboard/trigger: **329 PASS**;
+- XInput input: **26 PASS**;
+- Router: **28 PASS**;
+- Controlled Replacement: **52 PASS**;
+- Slot Acquisition: **27 PASS**;
+- Virtual Gamepad Preference: **23 PASS**;
+- Layer: **39 PASS**;
+- Output Ownership: **303,716 PASS**;
+- all remaining updater/network, UI safety, productivity, Settings zh-CN/en-US and legacy-config suites: PASS;
+- real-output Input Lab black-box acceptance: **77/77 PASS, failures=0**;
+- native Windows XUSB discovery was also invoked directly on the current laptop and returned cleanly with `COUNT=0`, matching the no-present-XUSB-device environment rather than throwing.
+
+Stable `v1.4.3` remains immutable. This is post-release `main` platform work and needs a future Stable version before ordinary users receive it.
+
 ## Working on
 
-**Stable `v1.4.3` is published and the keyboard-hotkey reliability hotfix is complete. Post-release `main` additionally contains the controller hot-plug/takeover-UI diagnostic hardening above; there is no remaining uncommitted runtime work from either incident.** The next active non-hardware platform item returns to Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. The architecture-cleanup and website-first updater work from `v1.4.2` remain the inherited baseline.
+**Stable `v1.4.3` is published and immutable. Post-release `main` now contains both the controller hot-plug/takeover-UI diagnostic hardening and the completed first-stage Persistent Device Identity / Device Manager foundation above.** The next active non-hardware platform item is Router source selection / per-device policy built on `DeviceKey`, followed by Analog Transform → Activator/Condition. The architecture-cleanup and website-first updater work from `v1.4.2` remain the inherited baseline.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
@@ -93,7 +138,7 @@ Stable update transport now prefers the project download domain end-to-end. The 
 
 1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.3` is the current Stable line. The next active non-hardware platform item is Persistent Device Identity / Device Manager, followed by Router source policy → Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.3` is the current Stable line. Persistent Device Identity / Device Manager stage 1 is complete on post-release `main`; the next active non-hardware platform item is Router source selection / per-device policy, followed by Analog Transform → Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 

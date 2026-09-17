@@ -574,6 +574,7 @@ namespace InputStitch
     {
         public static readonly string Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppInfo.ProductName);
         public static readonly string Config = Path.Combine(Root, "config.xml");
+        public static readonly string DeviceRegistry = Path.Combine(Root, "devices.xml");
         public static readonly string MacroPackages = Path.Combine(Root, "macro-packages");
         public static readonly string Profiles = Path.Combine(Root, "profiles");
         public static readonly string Backups = Path.Combine(Root, "backups");
@@ -4745,6 +4746,7 @@ namespace InputStitch
         private ToolStripMenuItem suspendTriggersMenuItem;
         private ToolStripMenuItem minimizeToTrayMenuItem;
         private ToolStripMenuItem runtimeObservationMenuItem;
+        private ToolStripMenuItem deviceManagerMenuItem;
         private ToolStripMenuItem controllerTakeoverMenuItem;
         private ToolStripMenuItem diagnosticsMenuItem;
         private DiagnosticsForm runtimeObservationForm;
@@ -4796,6 +4798,7 @@ namespace InputStitch
         private bool autoProfileSwitchBusy;
         private IdleGamepadService idleGamepad;
         private XInputInputService gamepadInput;
+        private DeviceIdentityService deviceIdentityService;
         private GamepadRouterService gamepadRouter;
         private System.Windows.Forms.Timer gamepadInputTimer;
         private IDeviceHidingBackend deviceHidingBackend;
@@ -4938,6 +4941,15 @@ namespace InputStitch
             gamepadInput = new XInputInputService(delegate { return GamepadOutput.OwnXboxUserIndex; });
             gamepadInput.InputDown = HandleControllerInputDown;
             gamepadInput.InputUp = HandleControllerInputUp;
+            deviceIdentityService = new DeviceIdentityService(
+                AppPaths.DeviceRegistry,
+                new CompositeGamingDeviceDiscovery(
+                    new WindowsXusbGamingDeviceDiscovery(),
+                    new HidHideGamingDeviceDiscovery(deviceHidingBackend)),
+                delegate { return gamepadInput == null ? new int[0] : gamepadInput.ConnectedUserIndices(); },
+                delegate { return GamepadOutput.OwnXboxUserIndex; },
+                delegate { return GamepadOutput.IsConnected; },
+                delegate { return GamepadOutput.ConnectedType; });
             gamepadRouter = new GamepadRouterService(outputOwnership);
             gamepadRouter.Configure(config.GamepadRouterEnabled);
             slotAcquisition = new XInputSlotAcquisitionCoordinator(
@@ -5020,6 +5032,14 @@ namespace InputStitch
                     if (!rawKeyboardFallback.Registered) AppLog.Write("Raw keyboard fallback registration failed.");
                 }
                 if (idleGamepad != null) idleGamepad.AttachWindow(Handle);
+                if (deviceIdentityService != null)
+                {
+                    ThreadPool.QueueUserWorkItem(delegate
+                    {
+                        try { deviceIdentityService.Refresh(); }
+                        catch (Exception ex) { AppLog.Write("Initial device identity refresh failed", ex); }
+                    });
+                }
                 if (!string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning))
                 {
                     LocalizedMessageBox.Show(this,
@@ -5832,6 +5852,7 @@ namespace InputStitch
                 englishLanguageMenuItem.Checked = Localizer.IsEnglish;
             }
             if (runtimeObservationMenuItem != null) runtimeObservationMenuItem.Text = Localizer.IsEnglish ? "Runtime observation..." : "运行观察...";
+            if (deviceManagerMenuItem != null) deviceManagerMenuItem.Text = Localizer.IsEnglish ? "Device Manager..." : "设备管理器...";
             if (controllerTakeoverMenuItem != null) controllerTakeoverMenuItem.Text = Localizer.IsEnglish ? "Controller takeover (Experimental)..." : "手柄接管（实验）...";
             if (layerManageButton != null) layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
             if (diagnosticsMenuItem != null) diagnosticsMenuItem.Text = Localizer.T("诊断信息...");
@@ -5942,6 +5963,10 @@ namespace InputStitch
             };
             toolsMenu.Items.Add(runtimeObservationMenuItem);
 
+            deviceManagerMenuItem = new ToolStripMenuItem();
+            deviceManagerMenuItem.Click += delegate { ShowDeviceManagerDialog(); };
+            toolsMenu.Items.Add(deviceManagerMenuItem);
+
             controllerTakeoverMenuItem = new ToolStripMenuItem();
             controllerTakeoverMenuItem.Click += delegate { ShowControllerTakeoverDialog(); };
             toolsMenu.Items.Add(controllerTakeoverMenuItem);
@@ -6021,6 +6046,30 @@ namespace InputStitch
                 });
             }
             catch (InvalidOperationException) { }
+        }
+
+        private void ShowDeviceManagerDialog()
+        {
+            if (deviceIdentityService == null)
+            {
+                LocalizedMessageBox.Show(this,
+                    Localizer.IsEnglish ? "Device Manager is unavailable in this host." : "当前环境不能使用设备管理器。",
+                    AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            uiSafetyModalDepth++;
+            UpdateUiSafetyPauseState();
+            try
+            {
+                using (DeviceManagerDialog dialog = new DeviceManagerDialog(delegate { return deviceIdentityService.Refresh(); }))
+                    dialog.ShowDialog(this);
+            }
+            finally
+            {
+                uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
+                UpdateUiSafetyPauseState();
+            }
         }
 
         private void ShowControllerTakeoverDialog()
@@ -6389,6 +6438,8 @@ namespace InputStitch
                 : (Localizer.IsEnglish ? "Base + " : "基础层 + ") + (activeLayer == null ? activeMappingLayerId : activeLayer.Name);
             sb.AppendLine((Localizer.IsEnglish ? "Layer: " : "映射层：") + layerText);
             sb.AppendLine((Localizer.IsEnglish ? "Virtual Xbox slot: " : "虚拟 Xbox 槽位：") + ObservedVirtualXboxSlot().ToString());
+            sb.AppendLine((Localizer.IsEnglish ? "Device identity: " : "设备身份：") +
+                (deviceIdentityService == null ? (Localizer.IsEnglish ? "unavailable" : "不可用") : deviceIdentityService.DiagnosticsSummary()));
             sb.AppendLine((Localizer.IsEnglish ? "Keyboard fallback: " : "键盘兜底：") +
                 (rawKeyboardFallback != null && rawKeyboardFallback.Registered ? (Localizer.IsEnglish ? "ready" : "就绪") : (Localizer.IsEnglish ? "not ready" : "未就绪")) +
                 "; raw=" + (rawKeyboardFallback == null ? "0" : rawKeyboardFallback.EventCount.ToString()) +
@@ -6477,6 +6528,7 @@ namespace InputStitch
             sb.AppendLine(AppInfo.ProductName + " " + AppInfo.Version);
             sb.AppendLine("ConfigFormat: " + (config == null ? "?" : config.FormatVersion));
             sb.AppendLine("ConfigPath: " + configPath);
+            sb.AppendLine("DeviceRegistryPath: " + AppPaths.DeviceRegistry);
             sb.AppendLine("LogPath: " + AppLog.LogPath);
             sb.AppendLine(runtimeTrace.Snapshot());
             sb.AppendLine("Hooks: " + (hooks == null ? Localizer.T("未安装") : Localizer.T("已安装")));
@@ -6489,6 +6541,7 @@ namespace InputStitch
             sb.AppendLine("VirtualGamepadType: " + (config == null ? "?" : config.GamepadDeviceType));
             sb.AppendLine("VirtualGamepadConnected: " + (ObservedVirtualGamepadConnected() ? ObservedVirtualGamepadType() : Localizer.T("否")));
             sb.AppendLine("VirtualXboxSlot: " + ObservedVirtualXboxSlot().ToString());
+            sb.AppendLine("DeviceIdentity: " + (deviceIdentityService == null ? "unavailable" : deviceIdentityService.DiagnosticsSummary()));
             sb.AppendLine("VirtualGamepadHotplug: " + virtualGamepadHotplugStatus);
             sb.AppendLine("GamepadRouter: " + (gamepadRouter == null ? "unavailable" :
                 (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() : "disabled")));
