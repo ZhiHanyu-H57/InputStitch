@@ -35,7 +35,7 @@ $arguments += '/reference:' + $client
 
 foreach ($name in @(
     'InputStitch.cs','ReleaseInfo.cs','RawKeyboardFallback.cs','VirtualKeyboard.cs','IdleGamepad.cs',
-    'XInputNative.cs','XInputInput.cs','WindowsDeviceDiscovery.cs','DeviceIdentity.cs','DeviceManagerDialog.cs','AnalogTransform.cs','AnalogTransformDialog.cs','RouterSourcePolicy.cs','RouterSourceDialog.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs',
+    'XInputNative.cs','XInputInput.cs','WindowsDeviceDiscovery.cs','DeviceIdentity.cs','DeviceManagerDialog.cs','AnalogTransform.cs','AnalogTransformDialog.cs','ActivatorCondition.cs','ActivatorConditionDialog.cs','RouterSourcePolicy.cs','RouterSourceDialog.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs',
     'UpdateInstaller.cs','RuntimeDiagnostics.cs','AtomicXmlFileStore.cs','ConfigPackageSerializer.cs',
     'UpdateSourcePolicy.cs','UpdateUiCoordinator.cs','ProfileCatalog.cs','TargetWindowPolicy.cs','ConfigStore.cs',
     'StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualGamepadBackend.cs'

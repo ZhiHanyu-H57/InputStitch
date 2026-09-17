@@ -224,9 +224,79 @@ Final local verification on 2026-09-17:
 
 Stable `v1.4.3` remains immutable. This work needs a future Stable version before ordinary updater users receive it.
 
+## 2026-09-17 Activator + Condition Engine stage 1
+
+The next post-`v1.4.3` platform layer is now implemented on `main`: InputStitch has an explicit, opt-in activation/condition model without replacing the common macro executor.
+
+### Compatibility + runtime boundary
+
+- Every macro now carries serializable `ActivatorConfig` + `MacroConditionConfig`.
+- Missing/old XML normalizes to `Activator=Legacy` and no additional conditions, so historical `TriggerRunMode.Toggle` / `TriggerRunMode.Hold` behavior remains the exact default path.
+- `ActivatorRuntimeEngine` owns only physical-edge/timing/condition state. It never sends output itself.
+- A resulting start/stop decision reuses the existing Concurrent Macro Runtime / Parallel Held Mapping and Output Ownership paths. No second macro executor, Router-specific executor or ViGEm-specific execution path was added.
+- While an explicit advanced activator owns semantics, the old Toggle/Hold selector is visibly disabled in the macro editor instead of leaving two competing controls active.
+
+### Stage-1 activators
+
+- `Press` — starts once on the matching physical down edge;
+- `Release` — starts once on the matching physical release, provided the activation was eligible at down and conditions still match at release;
+- `WhileHeld` — uses the existing Hold lifecycle and stops on physical release;
+- `LongPress` — fires once after the configured threshold while the same physical hold remains valid;
+- `DoublePress` — fires on the second valid press inside the configured window;
+- `Legacy` — delegates exactly to historical Toggle/Hold semantics.
+
+Wheel directions are treated explicitly as edge-only input. `Press` and `DoublePress` can consume wheel edges repeatedly without an invented release. `Release`, `WhileHeld` and `LongPress` refuse to manufacture a persistent wheel-down state.
+
+### Stage-1 conditions
+
+Additional conditions are AND gates on top of the macro's existing Layer eligibility:
+
+- foreground process name;
+- optional foreground-window title substring;
+- stable source `DeviceKey`;
+- controller analog magnitude or signed half-axis percentage zone.
+
+`DeviceKey` conditions consume the same topology-generation-aware Device Identity evidence as Router Source Policy. `DeviceIdentityService.TryResolveXInputSlotForDeviceKey(...)` fails closed when the current snapshot is stale/unresolved instead of trusting a remembered XInput slot. For controller-triggered macros, a DeviceKey condition also requires the trigger edge to originate from that resolved slot.
+
+Analog conditions reuse the Analog Transform stage-1 signed-half-axis and magnitude-zone primitives. Stage 1 supports left/right trigger magnitude, left/right stick magnitude, and ±X/±Y half-axis bands as **additional conditions**. It does not yet synthesize trigger edges directly from entering/leaving a stick region.
+
+For timing safety, advanced macros whose physical trigger matches but whose additional condition is currently false still notify the activator state machine. This prevents an invalid middle press from bridging two otherwise-valid `DoublePress` edges. `WhileHeld` also fails closed if an active condition later becomes false and stops only that macro's source. Emergency Stop/profile/config-reset paths clear activator timing state.
+
+### UI + deliberately deferred semantics
+
+- The macro editor exposes `激活与条件... / Activation & conditions...` and summarizes the active mode/condition count.
+- The dialog exposes stable DeviceKey choices from Device Identity and explains unresolved/fail-closed behavior.
+- It also makes the current macro Layer visible as the authoritative Layer condition.
+- Stage 1 intentionally does **not** pretend to implement Short Press, Triple Press, Turbo/repeat, another-input-held, or arbitrary analog-region-as-trigger semantics. Those remain stage-2 candidates after their start/stop/repeat behavior is defined explicitly.
+- One-shot advanced activators on an infinite macro require the normal Stop button or Emergency Stop; they do not silently reuse legacy Toggle-to-stop behavior.
+
+### Verification evidence
+
+Final local verification on 2026-09-17:
+
+- x64 + x86 Release build / Release Verification: PASS;
+- Activator/Condition: **55 PASS** covering legacy compatibility, Press/Release/WhileHeld/LongPress/DoublePress, timing boundaries, wheel edge-only behavior, invalid-condition disarming, condition-loss cleanup, analog zones, XML round trip, diagnostics/runtime-observation and editor/main-UI smoke;
+- Device Identity: **36 PASS**, including reverse stable DeviceKey→current XInput-slot resolution and topology-generation invalidation/recovery;
+- keyboard/trigger: **329 PASS**;
+- Idle Gamepad: **58 PASS**;
+- XInput input: **26 PASS**;
+- Router Source Policy: **22 PASS**;
+- Analog Transform: **49 PASS**;
+- Gamepad Router: **28 PASS**;
+- Controlled Replacement: **52 PASS**;
+- Slot Acquisition: **27 PASS**;
+- Virtual Gamepad Preference: **23 PASS**;
+- Layer: **39 PASS**;
+- macro timing: **7 PASS**;
+- updater/network, UI safety, productivity, Settings zh-CN/en-US, legacy XML and saved gamepad-vector smoke: PASS;
+- Output Ownership: **303,716 PASS**;
+- real-output Input Lab black-box acceptance: **77/77 PASS, failures=0**.
+
+Stable `v1.4.3` remains immutable; Activator + Condition stage 1 is post-release `main` work and requires a future Stable version before ordinary updater users receive it.
+
 ## Working on
 
-**Stable `v1.4.3` is published and immutable. Post-release `main` now contains controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, Router Source Policy stage 1, and Analog Transform Engine stage 1.** The next active non-hardware platform item is Activator + Condition Engine. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
+**Stable `v1.4.3` is published and immutable. Post-release `main` now contains controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, Router Source Policy stage 1, Analog Transform Engine stage 1, and Activator + Condition Engine stage 1.** The next active non-hardware platform item is Layer ergonomics + profile/context integration. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
@@ -236,7 +306,7 @@ Stable update transport now prefers the project download domain end-to-end. The 
 
 1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.3` is the current Stable line. Persistent Device Identity, Router Source Policy and Analog Transform stage 1 are complete on post-release `main`; the next active non-hardware platform item is Activator + Condition Engine. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.3` is the current Stable line. Persistent Device Identity, Router Source Policy, Analog Transform stage 1 and Activator + Condition stage 1 are complete on post-release `main`; the next active non-hardware platform item is Layer ergonomics + profile/context integration. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -741,11 +811,11 @@ Technical design notes may use internal English type/API names freely.
 
 ## Next platform step after v1.4.3
 
-The v1.4.3 keyboard-hotkey reliability incident is closed. Virtual Output Backend abstraction, persistent Device Identity, Router Source Policy and Analog Transform stage 1 are now completed foundations on post-release `main`. Active non-hardware order is now:
+The v1.4.3 keyboard-hotkey reliability incident is closed. Virtual Output Backend abstraction, persistent Device Identity, Router Source Policy, Analog Transform stage 1 and Activator + Condition stage 1 are now completed foundations on post-release `main`. Active non-hardware order is now:
 
-1. generalize Activator + Condition semantics rather than adding more one-off trigger modes, consuming stable DeviceKey plus the new analog half-axis/zone primitives;
-2. then improve Layer ergonomics and profile/context behavior;
-3. evaluate `IInputProvider` + SDL3 after the action/condition boundary is stable;
+1. improve Layer ergonomics, starting with Momentary/Hold-to-Layer, and integrate profile/context behavior with DeviceKey + Condition instead of adding new application-specific switches;
+2. add Activator/Condition stage-2 semantics (Short Press, Triple Press, Turbo/repeat, another-input-held, richer analog regions) only where the lifecycle is explicitly defined;
+3. evaluate `IInputProvider` + SDL3 after the action/condition boundary remains stable through those changes;
 4. only after the output interface has remained stable through these changes, prototype/compare a second virtual-output backend when justified.
 
 Hardware-dependent acceptance remains parked in parallel until a physical controller exists. When available:

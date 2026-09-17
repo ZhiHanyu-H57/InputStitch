@@ -372,11 +372,33 @@ The serializable `AnalogTransformProfile` has independent left/right stick and t
 
 Response curve uses an exponent percentage: `100` is linear, `200` is squared and `50` is square-root-like. Stick deadzones are radial, so a diagonal direction is preserved instead of being distorted by separate square X/Y deadzones. Default/legacy profiles are exact identity and bypass all transform math, preserving historical Router percentages and diagnostics text.
 
-Stage 1 also exposes reusable signed half-axis conversion and magnitude-zone classification primitives for the later Activator/Condition engine. They are not yet arbitrary stick-region triggers.
+Stage 1 also exposes reusable signed half-axis conversion and magnitude-zone classification primitives. Activator/Condition stage 1 now consumes those primitives for deterministic analog-zone conditions; they still are not arbitrary stick-region triggers.
 
 Cross-source merge semantics remain owned by Output Ownership and are unchanged: sticks use normalized sum, triggers use max and digital controls retain source ownership. Alternative priority/latest/average merge policies are intentionally deferred rather than creating a second merge engine before multi-device identity can support them safely.
 
 Settings exposes this through Router source selection → “模拟量处理... / Analog transform...”, with separate left/right stick and trigger tabs, live 25/50/75/100% previews and reset-to-default.
+
+## Activator + Condition stage 1 — implemented on post-v1.4.3 main
+
+Controller identity and analog state can now participate in the same macro activation rule model as keyboard/mouse triggers without moving execution into the Router. The boundary is:
+
+```text
+physical trigger edge + current deterministic state
+  → ActivatorRuntimeEngine timing/edge decision
+  → Condition evaluation (Layer + foreground + DeviceKey + analog zone)
+  → existing Concurrent Macro Runtime / Parallel Held Mapping
+  → Output Ownership
+```
+
+`Legacy` remains the exact compatibility adapter for the existing Toggle/Hold behavior. Opt-in advanced modes are Press, Release, While Held, Long Press and Double Press. The old Toggle/Hold selector is disabled in the editor while an advanced activator owns semantics so there are not two competing runtime interpretations.
+
+DeviceKey conditions never trust a remembered XInput slot. They use the same current topology generation and proven DeviceKey↔slot binding as Router Source Policy; stale/unresolved identity fails closed. A controller-triggered macro with a DeviceKey condition must originate from that proven runtime slot. A keyboard/mouse-triggered macro may use DeviceKey as a presence/source-state condition, optionally combined with an analog zone on that same device.
+
+Analog conditions use controller percentage state and the shared magnitude/signed-half-axis zone primitives. Stage 1 supports left/right trigger magnitude, left/right stick magnitude, and ±X/±Y half-axis bands. This is intentionally an additional condition on an ordinary trigger, not yet “move the stick into a region and synthesize a trigger edge.”
+
+Wheel directions remain edge-only: Press and Double Press can consume wheel edges, but Release/While Held/Long Press refuse to invent a persistent down/release lifecycle. If a While Held condition becomes false, only that macro's source is stopped. A condition-invalid press also clears/disarms Double Press history so an invalid middle press cannot bridge two later/earlier valid edges.
+
+Short Press, Triple Press, Turbo/repeat, another-input-held and richer analog-region/direct-axis triggers remain explicit stage-2 candidates.
 
 ## Real HidHide acceptance still required
 
@@ -440,12 +462,14 @@ Completed foundations:
 - `IVirtualGamepadBackend` keeps higher-level orchestration independent from concrete ViGEm controller types while ViGEm remains the sole production backend;
 - durable `DeviceKey` / Device Manager stage 1 keeps XInput slot as runtime metadata rather than identity and works without HidHide through native Windows XUSB/PnP discovery;
 - Router Source Policy stage 1 adds backward-compatible all-visible routing plus conservative DeviceKey-selected routing with topology invalidation and unresolved fail-closed behavior;
-- Analog Transform stage 1 adds reusable identity-by-default per-source analog shaping plus half-axis/zone primitives before Output Ownership without changing existing merge semantics.
+- Analog Transform stage 1 adds reusable identity-by-default per-source analog shaping plus half-axis/zone primitives before Output Ownership without changing existing merge semantics;
+- Activator + Condition stage 1 adds opt-in Press/Release/While Held/Long Press/Double Press with Layer, foreground, stable DeviceKey and analog-zone conditions while preserving the common runtime/output boundary.
 
 Near-term order:
 
-1. build the Activator + Condition engine on top of stable DeviceKey and analog zone/half-axis primitives;
-2. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
+1. improve Layer ergonomics (Momentary/Hold-to-Layer first) and profile/context behavior on DeviceKey + Condition;
+2. add stage-2 Activator/Condition semantics only when stop/repeat/state behavior is explicit;
+3. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
 
 Only after those boundaries are stable should the project evaluate a second virtual-output backend or specialized Raw HID/device providers.
 

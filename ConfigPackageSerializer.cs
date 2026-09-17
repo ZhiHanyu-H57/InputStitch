@@ -127,6 +127,10 @@ namespace InputStitch
                 if (string.IsNullOrWhiteSpace(m.Name)) m.Name = "未命名宏";
                 if (m.Description == null) m.Description = "";
                 if (m.Trigger == null) m.Trigger = new TriggerSpec();
+                if (m.Activator == null) m.Activator = new ActivatorConfig();
+                ActivatorConfig.Normalize(m.Activator);
+                if (m.Conditions == null) m.Conditions = new MacroConditionConfig();
+                MacroConditionConfig.Normalize(m.Conditions);
                 if (m.Trigger.Kind == InputKind.Gamepad)
                 {
                     if (!Enum.IsDefined(typeof(GamepadControl), m.Trigger.GamepadControl)) m.Trigger.GamepadControl = GamepadControl.South;

@@ -116,7 +116,7 @@ namespace InputStitch
                 return result;
             }
 
-            if (macro.RunMode != TriggerRunMode.Hold)
+            if (!ActivatorModes.IsHoldLifecycle(macro))
             {
                 result.Category = MacroRuntimeCategory.ConcurrentTimedMacro;
                 result.CanStart = true;

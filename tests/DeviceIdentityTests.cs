@@ -207,12 +207,19 @@ internal static class DeviceIdentityTests
         Check(topologyPad != null && topologyPad.XInputSlot == 1 &&
             topologyService.TryResolveDeviceKeyForXInputSlot(1, topology, out resolvedKey) && resolvedKey == topologyPad.DeviceKey,
             "current topology generation resolves the proven single-device runtime binding");
+        int resolvedSlot;
+        Check(topologyService.TryResolveXInputSlotForDeviceKey(topologyPad.DeviceKey, topology, out resolvedSlot) && resolvedSlot == 1,
+            "current topology also resolves stable DeviceKey back to its proven runtime slot");
         topology++;
         Check(!topologyService.TryResolveDeviceKeyForXInputSlot(1, topology, out resolvedKey) && !topologyService.IsTopologyCurrent(topology),
             "topology generation change invalidates stale same-slot identity before refresh");
+        Check(!topologyService.TryResolveXInputSlotForDeviceKey(topologyPad.DeviceKey, topology, out resolvedSlot),
+            "reverse DeviceKey lookup also fails closed across a topology generation change");
         topologyService.Refresh();
         Check(topologyService.TryResolveDeviceKeyForXInputSlot(1, topology, out resolvedKey) && resolvedKey == topologyPad.DeviceKey,
             "fresh identity snapshot restores the binding after topology stabilizes");
+        Check(topologyService.TryResolveXInputSlotForDeviceKey(topologyPad.DeviceKey, topology, out resolvedSlot) && resolvedSlot == 1,
+            "fresh identity snapshot restores the reverse DeviceKey binding too");
 
         FakeDiscovery enrichmentOnly = new FakeDiscovery();
         enrichmentOnly.Devices.Add(Pad("Enrichment-only pad", @"HID\VID_8888&PID_0001\A", @"USB\VID_8888&PID_0001\A", "", ""));

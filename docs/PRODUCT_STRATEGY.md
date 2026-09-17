@@ -143,36 +143,34 @@ Compared with mature remappers, InputStitch lacks a reusable transform layer for
 
 This is a more important platform gap than adding another controller model.
 
-### 2. Activators and conditions are not yet generalized
+### 2. Activator + Condition stage 1 is now generalized
 
-InputStitch already has Press/Toggle/Hold, modifier chords, Layers and application/profile context, but they are not yet unified into one reusable activator/condition model.
+Post-`v1.4.3` `main` now has an explicit opt-in activator/condition model that preserves historical Toggle/Hold semantics through a `Legacy` adapter instead of replacing them.
 
-A future model should make common semantics explicit:
+Stage 1 makes these semantics explicit:
 
 ```text
 Activator
 - On Press
 - On Release
 - While Held
-- Short Press
 - Long Press
-- Double/Triple Press
-- Toggle
-- Turbo
+- Double Press
 ```
 
-and composable conditions such as:
+with composable AND conditions:
 
 ```text
 Condition
 - active Layer
 - source DeviceKey
 - analog threshold/zone
-- another input held
-- foreground application/profile
+- foreground process/title
 ```
 
-This is preferable to accumulating unrelated special-case trigger modes.
+The state machine owns only edge/timing/condition decisions. Execution still goes through the shared Concurrent Macro Runtime / Parallel Held Mapping and Output Ownership. Device conditions consume the stable identity layer and fail closed when a current DeviceKey↔XInput binding cannot be proven. Analog conditions reuse the signed half-axis/magnitude-zone primitives instead of inventing one-off stick-trigger math.
+
+Short Press, Triple Press, Turbo/repeat, another-input-held and richer direct analog-region triggers remain explicit stage-2 candidates. This is preferable to accumulating unrelated special-case trigger modes or shipping aliases whose stop/repeat semantics are ambiguous.
 
 ### 3. Persistent Device Identity stage 1 is now implemented
 
@@ -220,18 +218,18 @@ Completed foundations:
 - **Persistent Device Identity / Device Manager stage 1** — completed on post-`v1.4.3` `main`; durable DeviceKey/inventory exists without using XInput slot as identity.
 - **Router source selection + per-device policy stage 1** — completed; the default remains all visible sources, while selected-device mode persists stable DeviceKeys, invalidates stale runtime bindings on topology changes and refuses unresolved/multi-controller identity guesses.
 - **Analog Transform Engine stage 1** — completed; reusable identity-by-default per-source shaping now provides radial deadzones, response curves, scaling, stick inversion, output clamps and half-axis/zone primitives before Output Ownership. Default output and the existing ownership merge semantics remain unchanged.
+- **Activator + Condition Engine stage 1** — completed; `Legacy` preserves existing Toggle/Hold, while opt-in Press/Release/While Held/Long Press/Double Press combines with Layer, foreground, stable DeviceKey and analog-zone conditions without creating another macro executor.
 
 Active order:
 
-1. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics, including deterministic analog threshold/zone conditions built on the new transform primitives.
+1. **Layer ergonomics + profile/context integration** — Momentary/Hold-to-Layer first, then deterministic profile/manual-override/fallback behavior built on DeviceKey + Condition.
 
 ### Do after the above foundation
 
-2. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
-3. Profile/context improvements built on DeviceKey + Condition.
-4. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
-5. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
-6. Evaluate a second virtual-output backend only after the output interface is stable.
+2. Activator/Condition stage 2 only where semantics are explicit: Short Press, Triple Press, Turbo/repeat, another-input-held and richer analog regions.
+3. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
+4. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
+5. Evaluate a second virtual-output backend only after the output interface is stable.
 
 ### Later / evidence-driven
 

@@ -624,6 +624,26 @@ namespace InputStitch
             }
         }
 
+        internal bool TryResolveXInputSlotForDeviceKey(string deviceKey, long currentTopologyVersion, out int slot)
+        {
+            slot = -1;
+            if (string.IsNullOrWhiteSpace(deviceKey)) return false;
+            lock (sync)
+            {
+                DeviceInventorySnapshot snapshot = lastSnapshot;
+                if (snapshot == null || !snapshot.XInputTopologyStable || snapshot.XInputTopologyVersion != currentTopologyVersion) return false;
+                foreach (DeviceInventoryItem item in snapshot.Items)
+                {
+                    if (item == null || !item.Present || item.Role != DeviceInventoryRole.PersistentGamingDevice) continue;
+                    if (item.XInputSlot < 0 || string.IsNullOrWhiteSpace(item.DeviceKey)) continue;
+                    if (!string.Equals(item.DeviceKey, deviceKey.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
+                    slot = item.XInputSlot;
+                    return true;
+                }
+                return false;
+            }
+        }
+
         internal bool IsTopologyCurrent(long currentTopologyVersion)
         {
             lock (sync)

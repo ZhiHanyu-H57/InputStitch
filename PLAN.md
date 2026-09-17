@@ -122,18 +122,20 @@ Not complete / not yet claimed:
 
 Hardware acceptance remains explicitly **blocked until a physical XInput controller is available**. Keep it as a parallel P0 validation lane; do not substitute more virtual devices and claim that as physical acceptance.
 
-The first four platform-foundation items are now complete on post-`v1.4.3` `main`:
+The first five platform-foundation items are now complete on post-`v1.4.3` `main`:
 
 - **Virtual Output Backend abstraction — completed without intended behavior change.** `GamepadOutput` remains the stable facade, while concrete ViGEm Xbox/DS4 creation, report mapping and driver-specific failure translation now live behind `IVirtualGamepadBackend` in `VigemVirtualGamepadBackend`. ViGEm remains the only production backend. Fake-backend coverage verifies connection reuse/type switching, unchanged output forwarding, neutralization, fail-closed send failure and `None` refusal without creating a real virtual device.
 - **Persistent Device Identity / Device Manager stage 1 — completed.** A separate atomic `devices.xml` registry now stores opaque stable `DeviceKey` records derived from non-slot identity evidence; Windows XUSB/PnP discovery works without HidHide, HidHide can enrich metadata when available, InputStitch-owned virtual outputs have fixed product identities, and read-only Tools → Device Manager exposes stable identities beside transient/unresolved XInput slots.
 - **Router source selection / per-device policy stage 1 — completed with backward-compatible default behavior.** `AllVisible` preserves the historical Router behavior. `SelectedDevices` persists only stable `DeviceKey` values and routes a runtime XInput source only when the current topology has a safe DeviceKey↔slot correlation. A topology generation invalidates stale bindings immediately; unresolved/multi-controller layouts fail closed instead of guessing. Settings now exposes “选择汇总来源… / Choose routed controllers...”. Experimental Controlled Replacement remains restricted to `AllVisible` until its device-selection transaction can consume the same identity policy safely.
 - **Analog Transform Engine stage 1 — completed without changing default output.** An independent identity-by-default transform layer now runs per routed source before Output Ownership. Left/right sticks support radial inner/outer deadzone, response curve, scaling, X/Y inversion and max-output clamp; triggers support inner/outer deadzone, curve, scaling and max-output clamp. Stable operation order is deadzone remap → curve → scale → inversion → clamp. Half-axis and magnitude-zone primitives are included for the later Condition engine. Default/legacy config bypasses transform math exactly, while Output Ownership keeps the existing normalized-sum stick merge, max-trigger merge and digital ownership semantics.
+- **Activator + Condition Engine stage 1 — completed without replacing the common runtime.** Existing `TriggerRunMode` Toggle/Hold remains the exact compatibility path when the new activator is `Legacy`. Opt-in activators now cover Press, Release, While Held, Long Press and Double Press. Additional AND conditions cover the macro's existing Layer eligibility, foreground process/title, stable source `DeviceKey`, and controller analog magnitude/half-axis zones. Timing/condition state is separate from execution: starts/stops still enter the existing Concurrent Macro Runtime / Parallel Held Mapping paths and Output Ownership. Wheel directions are explicitly edge-only (Press/Double Press only); condition loss fails closed and can stop only the affected While Held source. Short Press, Triple Press, Turbo/repeat, another-input-held and arbitrary analog-region-as-trigger semantics remain deliberately deferred instead of being approximated.
 
 The active non-hardware engineering order is now:
 
-1. **Activator + Condition Engine** — unify press/release/held/short/long/double/toggle/turbo and deterministic Layer/device/app/axis conditions, consuming the new half-axis/zone primitives instead of adding more one-off analog trigger rules.
-2. After that foundation, improve Layer ergonomics (Momentary/Hold-to-Layer before more complex modes), profile/context behavior, and then evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
-3. Only after the output backend interface is stable should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
+1. **Layer ergonomics + profile/context integration** — implement Momentary/Hold-to-Layer before more complex Layer modes, then build profile/manual-override/fallback behavior on the shared DeviceKey + Condition model instead of adding application-specific switches.
+2. **Activator/Condition stage 2 only when semantics are explicit** — Short Press, Triple Press, Turbo/repeat, another-input-held and richer analog-region triggers are candidates, but should reuse the same state/evaluation boundary rather than create a second executor.
+3. After those semantics are stable, evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
+4. Only after the output backend interface has remained stable through those changes should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
 
 When physical hardware becomes available in parallel:
 
@@ -150,9 +152,10 @@ Latest clean regression on 2026-09-17:
 - 329 keyboard/trigger checks;
 - 58 Idle Gamepad assertions;
 - 26 XInput input checks;
-- **33 Persistent Device Identity checks** using temporary XML/fake metadata only;
+- **36 Persistent Device Identity checks** using temporary XML/fake metadata only;
 - **22 Router Source Policy checks** covering backward-compatible defaults, DeviceKey selection, topology invalidation/recovery, unresolved multi-controller fail-closed behavior, XML round trip and source-selection dialog refresh/edit behavior;
 - **49 Analog Transform checks** covering exact identity compatibility, deadzones, curves, scaling, inversion, clamps, radial direction preservation, half-axis/zone primitives, Router pre-ownership integration, XML round trip, diagnostics and UI smoke;
+- **55 Activator/Condition checks** covering legacy compatibility, Press/Release/WhileHeld/LongPress/DoublePress state machines, edge-only wheel semantics, timing windows, condition-loss cleanup, invalid-condition DoublePress disarming, DeviceKey reverse resolution, analog magnitude/half-axis zones, XML round trip, diagnostics/runtime-observation and editor/main-UI smoke;
 - 28 Gamepad Router checks;
 - 52 Controlled Replacement transaction/runtime-health/recovery checks (fake backend; HidHide not invoked);
 - 27 slot-acquisition/PnP recovery checks (fake PnP/XInput; no real device disabled);
@@ -180,7 +183,7 @@ Input Lab final run:
 
 - Input Lab manual viewer is now independently versioned as `v0.3.1`, retaining the larger keyboard, quick-tap afterglow, target-window `WM_KEY*` / `WM_MOUSE*` observation and standalone packaging while hardening automated-test desktop isolation;
 - the v0.3.0 window-message and keyboard-visual self-tests PASS;
-- full black-box acceptance completed **77/77 PASS, failures=0** again on 2026-09-17 after Router Source Policy stage 1; keyboard/mouse SendInput and real ViGEm/XInput output paths were exercised;
+- full black-box acceptance completed **77/77 PASS, failures=0** again on 2026-09-17 after Activator + Condition stage 1; keyboard/mouse SendInput and real ViGEm/XInput output paths were exercised;
 - the older intermittent ViGEm→XInput environment blocker did not reproduce in this run, but `SUMMARY: BLOCKED` remains a valid environment-only result if it returns later.
 
 ## Release discipline

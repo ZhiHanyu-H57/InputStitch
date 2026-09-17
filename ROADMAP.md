@@ -243,29 +243,42 @@ Cross-source merge policy deliberately remains in Output Ownership at this stage
 
 ### P2 — Activator + Condition Engine
 
-Unify today's Press/Toggle/Hold/modifier/Layer/application-context behavior into reusable concepts instead of accumulating special-case trigger modes.
+Stage 1 is complete on post-`v1.4.3` `main`. Existing Toggle/Hold remains the exact `Legacy` compatibility path, while explicit advanced activation/condition state is now separate from macro execution and feeds the same Concurrent Macro Runtime / Parallel Held Mapping + Output Ownership paths.
 
-Target activators:
+Stage-1 activators:
 
 - On Press;
 - On Release;
 - While Held;
-- Short Press;
 - Long Press;
-- Double/Triple Press;
-- Toggle;
+- Double Press.
+
+Stage-1 deterministic conditions:
+
+- active Layer (the existing macro Layer remains authoritative);
+- foreground process and optional title substring;
+- stable source `DeviceKey` with fail-closed topology resolution;
+- controller analog magnitude or signed half-axis percentage zone.
+
+Wheel directions are explicitly edge-only: Press and Double Press can consume wheel edges, while Release/While Held/Long Press refuse to invent a persistent held state. While Held stops its own source if an active condition becomes false. A condition-invalid press also disarms Double Press history so two valid presses cannot be bridged across an invalid one.
+
+The editor exposes the rule as an opt-in **Activation & conditions / 激活与条件** dialog. When an advanced activator is selected, the old Toggle/Hold selector is visibly disabled rather than left as a second competing semantic owner.
+
+The following targets remain stage-2 candidates, not partially implemented aliases:
+
+- Short Press;
+- Triple Press;
+- an explicit advanced Toggle only if it adds value beyond `Legacy` Toggle;
 - Turbo/repeat.
 
-Target conditions:
+Remaining condition candidates:
 
-- active Layer;
-- source `DeviceKey`;
-- analog threshold/zone;
 - another input currently held;
-- foreground application/profile;
+- richer profile/manual-override/fallback state;
+- richer analog regions/direct analog-as-trigger semantics;
 - other deterministic runtime state that can be observed and tested.
 
-The engine must continue to use the common Concurrent Macro Runtime and Output Ownership rather than becoming a second executor.
+The engine must continue to use the common Concurrent Macro Runtime and Output Ownership rather than becoming a second executor. Stage 1 satisfies that boundary.
 
 ### P2 — Layer ergonomics, not Layer complexity
 
@@ -382,7 +395,9 @@ v1.4.3 Stable   ← current recommended Stable; keyboard hotkey reliability reco
    ↓
 Device Identity + Router source policy + Analog Transform
    ↓
-Activator / Condition + profile/context improvements
+Activator / Condition stage 1
+   ↓
+Layer ergonomics + profile/context improvements
    ↓
 IInputProvider + broader controller input / second output backend as justified
 

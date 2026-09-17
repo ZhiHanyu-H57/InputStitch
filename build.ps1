@@ -140,6 +140,8 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += (Join-Path $projectRoot 'DeviceManagerDialog.cs')
     $compilerArguments += (Join-Path $projectRoot 'AnalogTransform.cs')
     $compilerArguments += (Join-Path $projectRoot 'AnalogTransformDialog.cs')
+    $compilerArguments += (Join-Path $projectRoot 'ActivatorCondition.cs')
+    $compilerArguments += (Join-Path $projectRoot 'ActivatorConditionDialog.cs')
     $compilerArguments += (Join-Path $projectRoot 'RouterSourcePolicy.cs')
     $compilerArguments += (Join-Path $projectRoot 'RouterSourceDialog.cs')
     $compilerArguments += (Join-Path $projectRoot 'GamepadRouter.cs')
@@ -199,6 +201,8 @@ function New-SourceArchive {
         'DeviceManagerDialog.cs',
         'AnalogTransform.cs',
         'AnalogTransformDialog.cs',
+        'ActivatorCondition.cs',
+        'ActivatorConditionDialog.cs',
         'RouterSourcePolicy.cs',
         'RouterSourceDialog.cs',
         'GamepadRouter.cs',

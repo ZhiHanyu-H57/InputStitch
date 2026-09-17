@@ -119,9 +119,9 @@ Connect the virtual controller from **Settings → Virtual Gamepad Output** befo
 
 After reviewing current controller-remapping and automation projects, the roadmap deliberately prioritizes **platform depth before hardware breadth**.
 
-The first four non-hardware foundations are now implemented on post-release `main`: virtual-output backend abstraction, persistent Device Identity / Device Manager, explicit Router source selection, and the Analog Transform Engine. Router analog shaping now supports radial deadzones, response curves, scaling, stick-axis inversion and output clamps while keeping default behavior unchanged.
+The first five non-hardware foundations are now implemented on post-release `main`: virtual-output backend abstraction, persistent Device Identity / Device Manager, explicit Router source selection, the Analog Transform Engine, and **Activator + Condition stage 1**. The new rule layer is opt-in: `Legacy` keeps the existing Toggle/Hold behavior, while Press, Release, While Held, Long Press and Double Press can be combined with Layer, foreground process/title, stable DeviceKey and controller analog-zone conditions. Macro execution still uses the same concurrent runtime and Output Ownership.
 
-The next platform step is a generalized **Activator + Condition** engine for press/release/hold/long/double/turbo and deterministic Layer/device/application/analog-zone rules.
+The next platform step is **Layer ergonomics + profile/context integration**: Momentary/Hold-to-Layer first, then deterministic profile/manual-override/fallback behavior built on DeviceKey + Condition. Short Press, Triple Press, Turbo/repeat, another-input-held and richer analog-region activators remain later stage-2 candidates rather than partial aliases.
 
 Broader controller input is planned through an `IInputProvider` architecture, with SDL3 as the first general-purpose provider candidate rather than adding one device family/API at a time. Gyro, touchpad, vendor-specific haptics, plugin scripting, complex Layer stacking and radial/overlay UI remain later, evidence-driven features rather than current success metrics.
 

@@ -222,6 +222,10 @@ Observation must be side-effect free. In the isolated UI test host, virtual-cont
 
 No real input or virtual device is created by this suite.
 
+## Layer + Condition boundary / Layer 与条件边界
+
+Activator + Condition stage 1 now composes additional AND conditions with the existing Layer eligibility check. The macro's `MappingLayerId` remains the authoritative Layer owner; the Condition engine does not store a second Layer field or create another precedence graph. If a Layer switch makes a running WhileHeld macro ineligible, the existing Layer cleanup path remains authoritative and source-local.
+
 ## Later Layer work / 后续能力
 
 Only add these when a concrete workflow justifies them:
@@ -229,8 +233,8 @@ Only add these when a concrete workflow justifies them:
 - user-defined layer ordering if list order becomes meaningful beyond management display;
 - reusable Layer presets/groups;
 - per-controller Layer state;
-- momentary “hold key for temporary layer” semantics;
-- conditions/groups that compose with Layer;
+- **momentary “hold key for temporary layer” semantics — next active Layer item;**
+- reusable condition groups/presets beyond the current per-macro AND conditions;
 - optional active-Layer persistence.
 
 Do not add complexity simply because the data model can support it.

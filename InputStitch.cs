@@ -1308,6 +1308,10 @@ namespace InputStitch
         public bool Infinite = false;
         public int RepeatCount = 1;
         public bool SuppressTrigger = true;
+        // Advanced activation/condition policy. Legacy mode delegates to RunMode exactly so old
+        // configs preserve Toggle/Hold behavior until the user explicitly opts into a new rule.
+        public ActivatorConfig Activator = new ActivatorConfig();
+        public MacroConditionConfig Conditions = new MacroConditionConfig();
         // Every macro type can belong to a mapping layer. Base is always eligible; one additional
         // runtime layer can be activated at a time in the first public Layer implementation.
         public string MappingLayerId = MappingLayerIds.Base;
@@ -1324,6 +1328,8 @@ namespace InputStitch
             x.Infinite = Infinite;
             x.RepeatCount = RepeatCount;
             x.SuppressTrigger = SuppressTrigger;
+            x.Activator = Activator == null ? new ActivatorConfig() : Activator.Clone();
+            x.Conditions = Conditions == null ? new MacroConditionConfig() : Conditions.Clone();
             x.MappingLayerId = string.IsNullOrWhiteSpace(MappingLayerId) ? MappingLayerIds.Base : MappingLayerId;
             x.Steps = new List<MacroStep>();
             if (Steps != null)
@@ -1579,7 +1585,7 @@ namespace InputStitch
 
         public static bool PreserveNativeShiftForGamepad(MacroDefinition macro)
         {
-            if (macro == null || macro.RunMode != TriggerRunMode.Hold || macro.Trigger == null ||
+            if (macro == null || !ActivatorModes.IsHoldLifecycle(macro) || macro.Trigger == null ||
                 macro.Trigger.Kind != InputKind.Keyboard || GetTriggerModifierMask(macro.Trigger) != 0 ||
                 ModifierMaskForKey(macro.Trigger.VirtualKey) != Shift || macro.Steps == null || macro.Steps.Count == 0)
                 return false;
@@ -4786,6 +4792,7 @@ namespace InputStitch
         private TextBox triggerBox;
         private Button captureTriggerButton;
         private ComboBox triggerModeBox;
+        private Button activatorConditionButton;
         private ComboBox mappingLayerBox;
         private ComboBox activeLayerBox;
         private Button layerManageButton;
@@ -4905,6 +4912,7 @@ namespace InputStitch
         private long outputSourceSequence;
 
         private readonly RuntimeTrace runtimeTrace = new RuntimeTrace();
+        private readonly ActivatorRuntimeEngine activatorEngine = new ActivatorRuntimeEngine();
         private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
         private readonly Dictionary<long, MacroRunRuntime> activeMacroRuns = new Dictionary<long, MacroRunRuntime>();
@@ -5074,6 +5082,7 @@ namespace InputStitch
                     QueueDeviceIdentityRefresh();
                 if (gamepadRouter != null && gamepadRouter.Enabled)
                     gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
+                TickAdvancedActivators();
             };
             gamepadInputTimer.Start();
 
@@ -5407,8 +5416,14 @@ namespace InputStitch
             triggerModeBox.SelectedIndexChanged += TriggerModeBox_SelectedIndexChanged;
             triggerModeLine.Controls.Add(triggerModeLabel, 0, 0);
             triggerModeLine.Controls.Add(triggerModeBox, 1, 0);
+            activatorConditionButton = MakeButton(Localizer.IsEnglish ? "Activation & conditions..." : "激活与条件...", 0, 0, 0);
+            activatorConditionButton.AutoSize = true;
+            activatorConditionButton.MinimumSize = new Size(154, 32);
+            activatorConditionButton.Margin = new Padding(8, 1, 0, 0);
+            activatorConditionButton.Click += ActivatorConditionButton_Click;
             triggerTop.Controls.Add(triggerKeyLine);
             triggerTop.Controls.Add(triggerModeLine);
+            triggerTop.Controls.Add(activatorConditionButton);
             triggerLayout.Controls.Add(triggerTop, 0, 0);
             triggerLayout.SetColumnSpan(triggerTop, 3);
             EventHandler resizeTriggerTop = delegate
@@ -5692,6 +5707,7 @@ namespace InputStitch
             SetTip(infiniteBox, "持续重复整个宏，直到再次触发、松开按住型触发键、点击停止或使用紧急停止键。" );
             SetTip(repeatBox, "宏完整执行的次数。勾选无限循环后忽略此数值。" );
             SetTip(triggerModeBox, "选择按一次切换启动/停止，或按住触发键运行、松开立即停止。" );
+            SetTip(activatorConditionButton, "配置可选的按下/松开/按住/长按/双击激活规则，以及前台程序、稳定设备身份和模拟量区间条件。默认兼容旧触发方式。" );
             SetTip(captureTriggerButton, "点击后按下希望使用的键盘键、鼠标按钮或滚轮方向来设置触发方式。" );
             SetTip(suppressBox, "触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。" );
             SetTip(targetWindowBox, "当前锁定的目标窗口。用于 UI 自动切换和保存方案时的进程绑定。" );
@@ -5719,6 +5735,7 @@ namespace InputStitch
             RegisterUiSafetyControl(triggerBox, "触发键设置");
             RegisterUiSafetyControl(captureTriggerButton, "录制触发键");
             RegisterUiSafetyControl(triggerModeBox, "修改触发方式");
+            RegisterUiSafetyControl(activatorConditionButton, "修改激活与条件规则");
             RegisterUiSafetyControl(suppressBox, "修改触发屏蔽设置");
             RegisterUiSafetyControl(repeatBox, "修改执行次数");
             RegisterUiSafetyControl(infiniteBox, "修改循环设置");
@@ -5804,7 +5821,7 @@ namespace InputStitch
             foreach (Control child in root.Controls)
             {
                 bool isStaticTextControl = child is Label || child is Button || child is CheckBox || child is RadioButton || child is GroupBox;
-                bool isDynamic = child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton;
+                bool isDynamic = child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton || child == activatorConditionButton;
                 if (isStaticTextControl && !isDynamic && !localizableControlTexts.ContainsKey(child))
                     localizableControlTexts.Add(child, child.Text ?? "");
                 CaptureLocalizableControlTexts(child);
@@ -5846,6 +5863,7 @@ namespace InputStitch
             RefreshToolTipsLanguage();
             RefreshTargetWindowUi();
             UpdateTriggerModeUiText();
+            RefreshActivatorConditionUi();
             if (captureTriggerButton != null)
                 captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") : Localizer.T("录制触发键");
             RefreshSteps();
@@ -6473,6 +6491,7 @@ namespace InputStitch
                 }
                 if (recordingActive) StopMacroRecording(false, true);
                 CancelCapture();
+                activatorEngine.Clear();
 
                 int runCount = ActiveMacroRunCount();
                 StopAllMacroRuns("emergency-stop");
@@ -6547,6 +6566,12 @@ namespace InputStitch
                         "; policy=" + gamepadRouter.PolicyStatus : (Localizer.IsEnglish ? "off" : "关闭"))));
             string takeoverState = controlledReplacement == null ? "unavailable" : controlledReplacement.State.ToString();
             sb.AppendLine((Localizer.IsEnglish ? "Controller takeover: " : "手柄接管：") + takeoverState);
+            int configuredAdvancedRules = 0;
+            if (config != null && config.Macros != null)
+                foreach (MacroDefinition macro in config.Macros)
+                    if (macro != null && (ActivatorModes.UsesAdvancedPolicy(macro) || (macro.Conditions != null && !macro.Conditions.IsEmpty))) configuredAdvancedRules++;
+            sb.AppendLine((Localizer.IsEnglish ? "Activation rules: " : "激活规则：") +
+                "configured=" + configuredAdvancedRules.ToString() + "; tracked=" + activatorEngine.TrackedCount.ToString());
             if (controlledReplacementHealthMonitor != null)
             {
                 ControlledReplacementHealthSnapshot health = controlledReplacementHealthMonitor.LastSnapshot;
@@ -6664,6 +6689,16 @@ namespace InputStitch
                     sb.AppendLine("Layer[" + layer.Id + "]: " + (layer.Name ?? "") +
                         "; Base=" + layer.IsBase.ToString() +
                         "; Switch=" + (layer.SwitchTrigger == null ? "none" : InputNames.FormatTrigger(layer.SwitchTrigger)));
+                }
+            }
+            sb.AppendLine("ActivatorTrackedStates: " + activatorEngine.TrackedCount.ToString());
+            if (config != null && config.Macros != null)
+            {
+                for (int macroIndex = 0; macroIndex < config.Macros.Count; macroIndex++)
+                {
+                    MacroDefinition macro = config.Macros[macroIndex];
+                    if (macro == null || (!ActivatorModes.UsesAdvancedPolicy(macro) && (macro.Conditions == null || macro.Conditions.IsEmpty))) continue;
+                    sb.AppendLine("ActivationRule[" + macroIndex.ToString() + "]: " + DescribeActivationRule(macro));
                 }
             }
             sb.AppendLine("PanicTrigger: " + InputNames.FormatTrigger(config == null ? null : config.PanicTrigger));
@@ -7629,6 +7664,79 @@ namespace InputStitch
             return IsMacroLayerEligibleFor(macro, activeMappingLayerId);
         }
 
+        private bool AreMacroConditionsSatisfied(MacroDefinition macro, int triggerDeviceIndex)
+        {
+            if (macro == null || !IsMacroLayerEligible(macro)) return false;
+            MacroConditionConfig conditions = macro.Conditions;
+            if (conditions == null || conditions.IsEmpty) return true;
+
+            TargetWindowIdentity foreground = null;
+            if (!string.IsNullOrWhiteSpace(conditions.ForegroundProcessName) ||
+                !string.IsNullOrWhiteSpace(conditions.ForegroundTitleContains))
+                foreground = NativeWindowFocus.Describe(NativeWindowFocus.ForegroundWindow());
+            if (!string.IsNullOrWhiteSpace(conditions.ForegroundProcessName))
+            {
+                string expected = conditions.ForegroundProcessName.Trim();
+                if (expected.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) expected = expected.Substring(0, expected.Length - 4);
+                string actual = foreground == null ? "" : (foreground.ProcessName ?? "").Trim();
+                if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            if (!string.IsNullOrWhiteSpace(conditions.ForegroundTitleContains))
+            {
+                string actualTitle = foreground == null ? "" : (foreground.Title ?? "");
+                if (actualTitle.IndexOf(conditions.ForegroundTitleContains.Trim(), StringComparison.OrdinalIgnoreCase) < 0) return false;
+            }
+
+            int resolvedDeviceSlot = -1;
+            if (!string.IsNullOrWhiteSpace(conditions.DeviceKey))
+            {
+                if (deviceIdentityService == null || gamepadInput == null ||
+                    !deviceIdentityService.TryResolveXInputSlotForDeviceKey(conditions.DeviceKey, gamepadInput.TopologyVersion, out resolvedDeviceSlot)) return false;
+                if (triggerDeviceIndex >= 0 && triggerDeviceIndex != resolvedDeviceSlot) return false;
+            }
+
+            AnalogZoneCondition analog = conditions.Analog;
+            if (analog != null && analog.Enabled)
+            {
+                if (gamepadInput == null) return false;
+                if (resolvedDeviceSlot >= 0) return IsAnalogConditionSatisfied(gamepadInput.GetState(resolvedDeviceSlot), analog);
+                if (triggerDeviceIndex >= 0) return IsAnalogConditionSatisfied(gamepadInput.GetState(triggerDeviceIndex), analog);
+                foreach (int slot in gamepadInput.ConnectedUserIndices())
+                    if (IsAnalogConditionSatisfied(gamepadInput.GetState(slot), analog)) return true;
+                return false;
+            }
+            return true;
+        }
+
+        private static bool IsAnalogConditionSatisfied(XInputPadState state, AnalogZoneCondition condition)
+        {
+            if (!state.Connected || condition == null || !condition.Enabled) return condition == null || !condition.Enabled;
+            int value = 0;
+            if (condition.Control == GamepadControl.LeftTrigger)
+                value = GamepadRouterService.ScaleTrigger(state.LeftTrigger);
+            else if (condition.Control == GamepadControl.RightTrigger)
+                value = GamepadRouterService.ScaleTrigger(state.RightTrigger);
+            else
+            {
+                int x = GamepadRouterService.ScaleAxis(condition.Control == GamepadControl.LeftStick ? state.ThumbLX : state.ThumbRX);
+                int y = GamepadRouterService.ScaleAxis(condition.Control == GamepadControl.LeftStick ? state.ThumbLY : state.ThumbRY);
+                if (condition.Direction == AnalogConditionDirection.PositiveX)
+                    value = AnalogTransformEngine.TransformSignedAxis(x, new AnalogStickTransformConfig(), 1);
+                else if (condition.Direction == AnalogConditionDirection.NegativeX)
+                    value = AnalogTransformEngine.TransformSignedAxis(x, new AnalogStickTransformConfig(), -1);
+                else if (condition.Direction == AnalogConditionDirection.PositiveY)
+                    value = AnalogTransformEngine.TransformSignedAxis(y, new AnalogStickTransformConfig(), 1);
+                else if (condition.Direction == AnalogConditionDirection.NegativeY)
+                    value = AnalogTransformEngine.TransformSignedAxis(y, new AnalogStickTransformConfig(), -1);
+                else
+                {
+                    double magnitude = Math.Sqrt((double)x * (double)x + (double)y * (double)y);
+                    value = Math.Max(0, Math.Min(100, (int)Math.Round(magnitude, MidpointRounding.AwayFromZero)));
+                }
+            }
+            return AnalogTransformEngine.ClassifyMagnitude(value, condition.MinimumPercent, condition.MaximumPercent) == AnalogZoneMatch.Inside;
+        }
+
         private MappingLayerDefinition SelectLayerSwitchTarget(InputEventInfo inputEvent)
         {
             if (config == null || config.MappingLayers == null || inputEvent == null || inputEvent.Input == null) return null;
@@ -7654,9 +7762,41 @@ namespace InputStitch
             lock (runLock)
             {
                 foreach (MacroDefinition macro in config.Macros)
-                    if (IsMacroLayerEligible(macro) && !layerBlockedUntilRelease.Contains(macro)) eligible.Add(macro);
+                    if (IsMacroLayerEligible(macro) && !layerBlockedUntilRelease.Contains(macro) &&
+                        AreMacroConditionsSatisfied(macro, inputEvent == null ? -1 : inputEvent.DeviceIndex)) eligible.Add(macro);
             }
             return SelectTriggerMacro(eligible, inputEvent);
+        }
+
+        private static bool TriggerMacroMatchesEvent(MacroDefinition macro, InputEventInfo inputEvent)
+        {
+            if (macro == null || !macro.Enabled || macro.Trigger == null || inputEvent == null || inputEvent.Input == null) return false;
+            if (ModifierSafetyPolicy.TriggerMatchesExactly(macro.Trigger, inputEvent)) return true;
+            return ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(macro.Trigger, inputEvent) &&
+                ModifierSafetyPolicy.TriggerRequiredModifiersMatch(macro.Trigger, inputEvent);
+        }
+
+        private void ObserveAdvancedConditionMisses(InputEventInfo inputEvent)
+        {
+            if (config == null || config.Macros == null || inputEvent == null || inputEvent.Input == null) return;
+            long now = IdleGamepadService.MonotonicMilliseconds();
+            foreach (MacroDefinition macro in config.Macros)
+            {
+                if (macro == null || !ActivatorModes.UsesAdvancedPolicy(macro) || !IsMacroLayerEligible(macro)) continue;
+                lock (runLock)
+                {
+                    if (layerBlockedUntilRelease.Contains(macro)) continue;
+                }
+                if (!TriggerMacroMatchesEvent(macro, inputEvent)) continue;
+                if (AreMacroConditionsSatisfied(macro, inputEvent.DeviceIndex)) continue;
+                activatorEngine.OnDown(
+                    macro,
+                    inputEvent,
+                    ResolveTriggerForPhysicalEvent(macro.Trigger, inputEvent),
+                    now,
+                    false);
+                runtimeTrace.Add("activator-condition-miss", "macro-index=" + config.Macros.IndexOf(macro).ToString());
+            }
         }
 
         private void SwitchActiveMappingLayer(string newLayerId)
@@ -7783,7 +7923,8 @@ namespace InputStitch
             descriptionBox.Enabled = has;
             enabledBox.Enabled = has;
             captureTriggerButton.Enabled = has;
-            triggerModeBox.Enabled = has;
+            triggerModeBox.Enabled = has && !ActivatorModes.UsesAdvancedPolicy(m);
+            if (activatorConditionButton != null) activatorConditionButton.Enabled = has;
             mappingLayerBox.Enabled = has;
             suppressBox.Enabled = has;
             infiniteBox.Enabled = has;
@@ -7828,6 +7969,7 @@ namespace InputStitch
             }
             loadingUi = false;
             UpdateTriggerModeUiText();
+            RefreshActivatorConditionUi();
             RefreshSteps();
             UpdateRunButton();
             UpdateRecordButton();
@@ -7950,11 +8092,138 @@ namespace InputStitch
             }
         }
 
+        private void ActivatorConditionButton_Click(object sender, EventArgs e)
+        {
+            MacroDefinition macro = SelectedMacro;
+            if (macro == null) return;
+            MappingLayerDefinition layer = FindMappingLayer(MacroLayerId(macro));
+            string layerText = layer == null
+                ? MacroLayerId(macro)
+                : (string.IsNullOrWhiteSpace(layer.Name) ? layer.Id : layer.Name);
+
+            uiSafetyModalDepth++;
+            UpdateUiSafetyPauseState();
+            try
+            {
+                using (ActivatorConditionDialog dialog = new ActivatorConditionDialog(
+                    macro,
+                    delegate { return deviceIdentityService == null ? null : deviceIdentityService.Refresh(); },
+                    layerText))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    StopMacroForDefinitionChange(macro, "activator-condition-change");
+                    macro.Activator = dialog.SelectedActivator;
+                    macro.Conditions = dialog.SelectedConditions;
+                    ActivatorConfig.Normalize(macro.Activator);
+                    MacroConditionConfig.Normalize(macro.Conditions);
+                    SaveConfig();
+                    RefreshActivatorConditionUi();
+                    UpdateTriggerModeUiText();
+                    RefreshRuntimeCapabilityUi();
+                    UpdateMacroListItem(macroList == null ? -1 : macroList.SelectedIndex);
+
+                    if (ActivatorModes.UsesAdvancedPolicy(macro) && macro.Infinite &&
+                        !string.Equals(ActivatorModes.Normalize(macro.Activator.Mode), ActivatorModes.WhileHeld, StringComparison.OrdinalIgnoreCase))
+                        statusLabel.Text = Localizer.IsEnglish
+                            ? "Advanced one-shot activation is enabled on an infinite macro; stop it with the normal Stop button or Emergency Stop."
+                            : "提示：一次性高级激活用于无限宏时，不会用同一个触发键切换停止；请使用正常“停止”按钮或紧急停止。";
+                    else
+                        statusLabel.Text = Localizer.IsEnglish ? "Activation and conditions updated." : "状态：已更新激活与条件规则。";
+                }
+            }
+            finally
+            {
+                uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
+                UpdateUiSafetyPauseState();
+            }
+        }
+
+        private void RefreshActivatorConditionUi()
+        {
+            if (activatorConditionButton == null || activatorConditionButton.IsDisposed) return;
+            MacroDefinition macro = SelectedMacro;
+            activatorConditionButton.Enabled = macro != null;
+            if (macro == null)
+            {
+                activatorConditionButton.Text = Localizer.IsEnglish ? "Activation & conditions..." : "激活与条件...";
+                if (triggerModeBox != null) triggerModeBox.Enabled = false;
+                return;
+            }
+
+            string mode = macro.Activator == null ? ActivatorModes.Legacy : ActivatorModes.Normalize(macro.Activator.Mode);
+            bool advanced = !string.Equals(mode, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase);
+            int conditionCount = 0;
+            MacroConditionConfig c = macro.Conditions;
+            if (c != null)
+            {
+                if (!string.IsNullOrWhiteSpace(c.ForegroundProcessName)) conditionCount++;
+                if (!string.IsNullOrWhiteSpace(c.ForegroundTitleContains)) conditionCount++;
+                if (!string.IsNullOrWhiteSpace(c.DeviceKey)) conditionCount++;
+                if (c.Analog != null && c.Analog.Enabled) conditionCount++;
+            }
+
+            string modeText = Localizer.IsEnglish ? ActivatorModeTextEnglish(mode) : ActivatorModeTextChinese(mode);
+            string conditionText = conditionCount == 0 ? "" : (Localizer.IsEnglish
+                ? ", " + conditionCount.ToString() + " condition" + (conditionCount == 1 ? "" : "s")
+                : "，" + conditionCount.ToString() + " 个条件");
+            activatorConditionButton.Text = Localizer.IsEnglish
+                ? "Activation & conditions... (" + modeText + conditionText + ")"
+                : "激活与条件...（" + modeText + conditionText + "）";
+            if (triggerModeBox != null) triggerModeBox.Enabled = !advanced;
+        }
+
+        private static string ActivatorModeTextEnglish(string mode)
+        {
+            if (mode == ActivatorModes.Press) return "Press";
+            if (mode == ActivatorModes.Release) return "Release";
+            if (mode == ActivatorModes.WhileHeld) return "While Held";
+            if (mode == ActivatorModes.LongPress) return "Long Press";
+            if (mode == ActivatorModes.DoublePress) return "Double Press";
+            return "Legacy";
+        }
+
+        private static string ActivatorModeTextChinese(string mode)
+        {
+            if (mode == ActivatorModes.Press) return "按下";
+            if (mode == ActivatorModes.Release) return "松开";
+            if (mode == ActivatorModes.WhileHeld) return "按住期间";
+            if (mode == ActivatorModes.LongPress) return "长按";
+            if (mode == ActivatorModes.DoublePress) return "双击";
+            return "兼容旧方式";
+        }
+
+        private static string DescribeActivationRule(MacroDefinition macro)
+        {
+            if (macro == null) return "none";
+            string mode = macro.Activator == null ? ActivatorModes.Legacy : ActivatorModes.Normalize(macro.Activator.Mode);
+            MacroConditionConfig conditions = macro.Conditions;
+            List<string> gates = new List<string>();
+            if (conditions != null)
+            {
+                if (!string.IsNullOrWhiteSpace(conditions.ForegroundProcessName)) gates.Add("process=" + conditions.ForegroundProcessName.Trim());
+                if (!string.IsNullOrWhiteSpace(conditions.ForegroundTitleContains)) gates.Add("title~=" + conditions.ForegroundTitleContains.Trim());
+                if (!string.IsNullOrWhiteSpace(conditions.DeviceKey)) gates.Add("device=" + conditions.DeviceKey.Trim());
+                if (conditions.Analog != null && conditions.Analog.Enabled)
+                {
+                    AnalogZoneCondition analog = conditions.Analog;
+                    gates.Add("analog=" + analog.Control.ToString() + "/" + analog.Direction.ToString() +
+                        ":" + analog.MinimumPercent.ToString() + "-" + analog.MaximumPercent.ToString() + "%");
+                }
+            }
+            return "mode=" + mode + "; layer=" + MacroLayerId(macro) +
+                "; conditions=" + (gates.Count == 0 ? "none" : string.Join(",", gates.ToArray()));
+        }
+
         private void UpdateTriggerModeUiText()
         {
             MacroDefinition m = SelectedMacro;
-            bool hold = m != null && m.RunMode == TriggerRunMode.Hold;
-            infiniteBox.Text = hold ? Localizer.T("无限循环（松开触发键或点击停止）") : Localizer.T("无限循环（再次触发或点击停止）");
+            bool hold = m != null && ActivatorModes.IsHoldLifecycle(m);
+            bool advancedOneShot = m != null && ActivatorModes.UsesAdvancedPolicy(m) && !hold;
+            infiniteBox.Text = hold
+                ? Localizer.T("无限循环（松开触发键或点击停止）")
+                : (advancedOneShot
+                    ? (Localizer.IsEnglish ? "Infinite loop (Stop button or Emergency Stop)" : "无限循环（点击停止或紧急停止）")
+                    : Localizer.T("无限循环（再次触发或点击停止）"));
             UpdateTriggerSuppressionUi();
             RefreshRuntimeCapabilityUi();
         }
@@ -8461,6 +8730,7 @@ namespace InputStitch
         private void ApplyProfileConfig(MacroConfig imported, string profilePath, bool createBackup)
         {
             NormalizeConfig(imported);
+            activatorEngine.Clear();
             if (createBackup) BackupCurrentConfig("before-profile-load");
 
             MacroConfig previous = config;
@@ -9184,15 +9454,20 @@ namespace InputStitch
                 }
             }
 
+            // Advanced activators need to observe an otherwise matching physical edge even when an
+            // additional condition is currently false. This clears/disarms timing state (notably
+            // DoublePress) instead of letting an invalid press participate in a later activation.
+            ObserveAdvancedConditionMisses(e);
             MacroDefinition matchedMacro = SelectEligibleTriggerMacro(e);
 
             if (matchedMacro != null)
             {
                 MacroDefinition m = matchedMacro;
+                bool advancedActivator = ActivatorModes.UsesAdvancedPolicy(m);
                 // Stopping an existing toggle macro produces no new input. Do not
                 // require leaving an editor just to stop it, and never turn this
                 // queued stop into a new start if the worker finishes first.
-                if (m.RunMode == TriggerRunMode.Toggle && IsMacroActuallyRunning(m))
+                if (!advancedActivator && m.RunMode == TriggerRunMode.Toggle && IsMacroActuallyRunning(m))
                 {
                     runtimeTrace.Add("trigger-stop", "macro-index=" + config.Macros.IndexOf(m).ToString());
                     try { BeginInvoke((MethodInvoker)delegate { if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop"); }); }
@@ -9206,6 +9481,24 @@ namespace InputStitch
                 }
                 runtimeTrace.Add("trigger-accepted", "macro-index=" + config.Macros.IndexOf(m).ToString());
                 bool suppress = ModifierSafetyPolicy.ShouldSuppressTrigger(m);
+                if (advancedActivator)
+                {
+                    ActivatorDecision decision = activatorEngine.OnDown(
+                        m,
+                        e,
+                        ResolveTriggerForPhysicalEvent(m.Trigger, e),
+                        IdleGamepadService.MonotonicMilliseconds(),
+                        true);
+                    runtimeTrace.Add("activator-down", "macro-index=" + config.Macros.IndexOf(m).ToString() +
+                        "; mode=" + ActivatorModes.Normalize(m.Activator.Mode) +
+                        "; decision=" + (decision == null ? "wait" : decision.Kind.ToString()));
+                    if (decision != null)
+                    {
+                        try { BeginInvoke((MethodInvoker)delegate { DispatchActivatorDecision(decision); }); }
+                        catch { runtimeTrace.Add("trigger-cancelled", "advanced activator dispatch unavailable"); }
+                    }
+                    return suppress;
+                }
                 try
                 {
                     BeginInvoke((MethodInvoker)delegate
@@ -9228,6 +9521,55 @@ namespace InputStitch
             return false;
         }
 
+        private void DispatchActivatorDecision(ActivatorDecision decision)
+        {
+            if (decision == null || decision.Macro == null || config == null || config.Macros == null ||
+                !config.Macros.Contains(decision.Macro) || !decision.Macro.Enabled) return;
+            MacroDefinition macro = decision.Macro;
+            if (decision.Kind != ActivatorDecisionKind.StopHeld)
+            {
+                UpdateUiSafetyPauseState();
+                if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None || recordingActive)
+                {
+                    runtimeTrace.Add("activator-cancelled", "reason=ui-safety; action=" + decision.Kind.ToString());
+                    return;
+                }
+                int deviceIndex = decision.TriggerEvent == null ? -1 : decision.TriggerEvent.DeviceIndex;
+                if (!AreMacroConditionsSatisfied(macro, deviceIndex))
+                {
+                    runtimeTrace.Add("activator-cancelled", "reason=condition; action=" + decision.Kind.ToString());
+                    return;
+                }
+            }
+
+            if (decision.Kind == ActivatorDecisionKind.StartOnce)
+            {
+                if (IsMacroActuallyRunning(macro)) return;
+                runtimeTrace.Add("activator-start", "reason=" + decision.Reason + "; mode=" + ActivatorModes.Normalize(macro.Activator.Mode));
+                StartMacro(macro, 0, null, false);
+            }
+            else if (decision.Kind == ActivatorDecisionKind.StartHeld)
+            {
+                if (IsMacroActuallyRunning(macro)) return;
+                TriggerSpec effective = ResolveTriggerForPhysicalEvent(macro.Trigger, decision.TriggerEvent);
+                runtimeTrace.Add("activator-held-start", "reason=" + decision.Reason);
+                StartMacroFromHeldTrigger(macro, effective);
+            }
+            else if (decision.Kind == ActivatorDecisionKind.StopHeld)
+            {
+                runtimeTrace.Add("activator-held-stop", "reason=" + decision.Reason);
+                StopMacroForDefinitionChange(macro, "activator-" + (decision.Reason ?? "stop"));
+            }
+        }
+
+        private void TickAdvancedActivators()
+        {
+            List<ActivatorDecision> decisions = activatorEngine.Tick(
+                IdleGamepadService.MonotonicMilliseconds(),
+                delegate(MacroDefinition macro, int deviceIndex) { return AreMacroConditionsSatisfied(macro, deviceIndex); });
+            foreach (ActivatorDecision decision in decisions) DispatchActivatorDecision(decision);
+        }
+
         private void HandleTerminalInputReleased(InputEventInfo e)
         {
             if (e == null || e.Input == null) return;
@@ -9241,6 +9583,24 @@ namespace InputStitch
                 return;
             }
             if (recordingActive) RecordPhysicalInput(e, false);
+            else
+            {
+                List<ActivatorDecision> decisions = activatorEngine.OnUp(
+                    e,
+                    IdleGamepadService.MonotonicMilliseconds(),
+                    delegate(MacroDefinition macro, int deviceIndex) { return AreMacroConditionsSatisfied(macro, deviceIndex); });
+                if (decisions.Count != 0)
+                {
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            foreach (ActivatorDecision decision in decisions) DispatchActivatorDecision(decision);
+                        });
+                    }
+                    catch { }
+                }
+            }
 
             lock (runLock)
             {
@@ -9370,6 +9730,7 @@ namespace InputStitch
         {
             if (macro == null || runLock == null || activeParallelHeldMappings == null) return;
             string resolved = string.IsNullOrWhiteSpace(reason) ? "definition-change" : reason;
+            if (!resolved.StartsWith("activator-", StringComparison.OrdinalIgnoreCase)) activatorEngine.Reset(macro);
             bool heldActive;
             lock (runLock)
             {
@@ -9456,6 +9817,7 @@ namespace InputStitch
             {
                 if (!StopRuntimeForConfigChange()) return;
             }
+            activatorEngine.Clear();
             CommitNameEdit();
 
             bool replace = false;

@@ -224,9 +224,9 @@ ViGEm 目前仍然是正式使用的虚拟手柄后端，但它不再被视为 I
 
 重新比较 2026 年仍活跃的同类项目后，InputStitch 的长期路线已经明确成：**先做平台深度，再做硬件广度。**
 
-目前前四层非硬件基础已经在 post-release `main` 上完成：**虚拟输出后端抽象、持久 Device Identity / Device Manager、Router 来源选择，以及 Analog Transform Engine**。Router 的模拟量处理已经可以统一设置径向死区、响应曲线、灵敏度/缩放、摇杆 X/Y 反转和最大输出限幅；默认设置仍然严格保持旧行为不变。
+目前前五层非硬件基础已经在 post-release `main` 上完成：**虚拟输出后端抽象、持久 Device Identity / Device Manager、Router 来源选择、Analog Transform Engine，以及 Activator + Condition stage 1**。新的激活/条件层默认仍是“兼容旧方式”，不会改变原来的 Toggle / Hold；主动启用后，已经支持按下、松开、按住期间、长按、双击，并可叠加 Layer、前台进程/标题、稳定 DeviceKey 和手柄模拟量区间条件。真正的宏执行仍走同一套并发运行时和 Output Ownership。
 
-下一步主线是 **Activator + Condition Engine**：把按下、松开、按住、短按、长按、双击、Toggle、Turbo，以及 Layer/设备/窗口/模拟量区间条件统一成可组合规则。
+下一步主线改为 **Layer 易用性 + Profile/上下文整合**：先做 Momentary / Hold-to-Layer，再把 Profile 的自动切换、手动覆盖、fallback 建立在 DeviceKey + Condition 上。短按、三击、Turbo/连发、“另一个输入正在按住”和更复杂的模拟量区域触发留到 stage 2，等语义定义清楚再做，不用模糊的近似实现抢进度。
 
 更广泛的手柄输入将优先考虑 `IInputProvider` 架构和 SDL3，而不是以后每增加一种手柄就单独写一套输入系统。Gyro、触摸板、厂商专用震动/自适应扳机、脚本插件、复杂多 Layer 叠加、圆盘菜单/Overlay 等都降为**有真实需求再做**的后期能力。
 
