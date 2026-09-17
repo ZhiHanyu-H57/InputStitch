@@ -216,24 +216,30 @@ Stage 1 provides:
 - Output Ownership/source IDs remain unchanged (`router:xinput:N`) so policy filtering does not create a second execution/merge engine;
 - Experimental Controller Takeover is temporarily restricted to `AllVisible` until its selected-hidden-device transaction can consume the same identity policy safely.
 
-Later per-source work belongs in the next layers rather than this stage: Analog Transform owns transform/merge behavior, and future multi-target output policy should arrive only when a second output target/backend exists.
+Later per-source work belongs in the next layers rather than this stage: Analog Transform owns per-source analog shaping, while future multi-target output policy should arrive only when a second output target/backend exists.
 
 Do not make “support more controllers” an independent KPI; make additional sources a consequence of provider/backend architecture.
 
-### P1 — Analog Transform Engine
+### Completed foundation — Analog Transform Engine stage 1
 
-This is now a higher-priority platform gap than another controller model. Build reusable transforms for analog input/output:
+Completed on post-`v1.4.3` `main` as a reusable layer between routed-source conversion and Output Ownership rather than as Router-specific math.
 
-- inner/outer deadzone;
-- response curves;
-- sensitivity/scaling;
-- inversion;
-- half-axis conversion;
-- threshold/zone bands;
-- clamping;
-- explicit merge policies such as maximum magnitude, priority/latest source, average or normalized sum where appropriate.
+Stage 1 provides:
 
-Transforms should be observable and composable, not buried inside one Router special case.
+- an identity-by-default serializable `AnalogTransformProfile` with independent left/right stick and trigger settings;
+- radial stick inner/outer deadzone remapping that preserves direction;
+- response curves expressed as a stable exponent percentage (`100%` linear, `200%` squared, `50%` square-root-like);
+- post-curve sensitivity/scaling;
+- per-axis stick inversion;
+- final maximum-output clamp;
+- trigger inner/outer deadzone, curve, scaling and final clamp;
+- reusable signed half-axis conversion and magnitude-zone classification primitives for later Activator/Condition work;
+- a Settings editor with live 25/50/75/100% preview and an explicit reset-to-identity action;
+- diagnostics that show custom transform state without changing the legacy Router summary when the transform is identity.
+
+The operation order is fixed and tested: **deadzone remap → response curve → scale → inversion → max-output clamp**. The default/legacy profile bypasses all transform math exactly so existing Router contributions are unchanged.
+
+Cross-source merge policy deliberately remains in Output Ownership at this stage: sticks still use normalized sum, triggers still use maximum, and digital state remains ownership-based. Alternative merge strategies such as latest-source/priority/average are deferred until there is a real multi-device identity/provider path that can assign those policies without creating a second merge engine.
 
 ### P2 — Activator + Condition Engine
 

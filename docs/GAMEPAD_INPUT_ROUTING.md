@@ -356,6 +356,28 @@ Settings exposes this as “选择汇总来源… / Choose routed controllers...
 
 Experimental Controller Takeover is temporarily restricted to `AllVisible`. The hiding transaction predates per-device Router policy and must not be allowed to hide an original controller that the Router may then intentionally omit. Integrating takeover with selected-device policy is a later hardware-acceptance/identity transaction change, not something to guess into this stage.
 
+## Analog Transform Engine stage 1 — implemented on post-v1.4.3 main
+
+Router analog shaping is now a standalone pre-ownership layer rather than ad-hoc math inside `GamepadRouterService` or the ViGEm backend. The runtime path is:
+
+```text
+XInput report
+  → InputSpec conversion
+  → AnalogTransformEngine (per routed source)
+  → Output Ownership merge
+  → virtual output backend
+```
+
+The serializable `AnalogTransformProfile` has independent left/right stick and trigger settings. Stick transforms support radial inner/outer deadzone, response curve, scaling, X/Y inversion and final max-output clamp. Trigger transforms support inner/outer deadzone, curve, scaling and final clamp. The fixed operation order is **deadzone remap → response curve → scale → inversion → max-output clamp**.
+
+Response curve uses an exponent percentage: `100` is linear, `200` is squared and `50` is square-root-like. Stick deadzones are radial, so a diagonal direction is preserved instead of being distorted by separate square X/Y deadzones. Default/legacy profiles are exact identity and bypass all transform math, preserving historical Router percentages and diagnostics text.
+
+Stage 1 also exposes reusable signed half-axis conversion and magnitude-zone classification primitives for the later Activator/Condition engine. They are not yet arbitrary stick-region triggers.
+
+Cross-source merge semantics remain owned by Output Ownership and are unchanged: sticks use normalized sum, triggers use max and digital controls retain source ownership. Alternative priority/latest/average merge policies are intentionally deferred rather than creating a second merge engine before multi-device identity can support them safely.
+
+Settings exposes this through Router source selection → “模拟量处理... / Analog transform...”, with separate left/right stick and trigger tabs, live 25/50/75/100% previews and reset-to-default.
+
 ## Real HidHide acceptance still required
 
 The current development laptop has ViGEmBus but no HidHide installation. The Controlled Replacement test suite therefore uses a fake hiding backend and never mutates real devices.
@@ -417,11 +439,12 @@ Completed foundations:
 
 - `IVirtualGamepadBackend` keeps higher-level orchestration independent from concrete ViGEm controller types while ViGEm remains the sole production backend;
 - durable `DeviceKey` / Device Manager stage 1 keeps XInput slot as runtime metadata rather than identity and works without HidHide through native Windows XUSB/PnP discovery;
-- Router Source Policy stage 1 adds backward-compatible all-visible routing plus conservative DeviceKey-selected routing with topology invalidation and unresolved fail-closed behavior.
+- Router Source Policy stage 1 adds backward-compatible all-visible routing plus conservative DeviceKey-selected routing with topology invalidation and unresolved fail-closed behavior;
+- Analog Transform stage 1 adds reusable identity-by-default per-source analog shaping plus half-axis/zone primitives before Output Ownership without changing existing merge semantics.
 
 Near-term order:
 
-1. add reusable analog transforms and explicit merge policy on top of the explicit source-policy boundary;
+1. build the Activator + Condition engine on top of stable DeviceKey and analog zone/half-axis primitives;
 2. later introduce `IInputProvider`, with SDL3 as the first broad-controller provider candidate.
 
 Only after those boundaries are stable should the project evaluate a second virtual-output backend or specialized Raw HID/device providers.
@@ -439,6 +462,7 @@ Current relevant suites:
 - `XInputInputTests`: 26 checks;
 - `DeviceIdentityTests`: **33 checks** using fake discovery + temporary `devices.xml`, covering stable/non-slot keys, metadata enrichment, restart/re-enumeration, fixed own-virtual identities, native-XUSB proof gating, topology invalidation, unresolved multi-controller layouts and virtual-bus labeling;
 - `RouterSourcePolicyTests`: **22 checks** covering old-config defaults, XML round trip, selected/unselected DeviceKey filtering, Output Ownership release, topology invalidation/recovery, multi-controller fail-closed behavior, legacy `AllVisible` compatibility and source-selection dialog refresh/edit behavior;
+- `AnalogTransformTests`: **49 checks** covering exact identity behavior, radial/trigger deadzones, response curves, scaling, inversion, clamps, half-axis/zone primitives, Router pre-ownership integration, XML round trip, diagnostics and dialog smoke;
 - `GamepadRouterTests`: 28 checks;
 - `ControlledReplacementTests`: **52 checks** using fake backend/parser only, covering activation/rollback gates plus runtime slot/Router/source/HidHide health and consecutive-failure monitor behavior;
 - `SlotAcquisitionTests`: 27 checks using fake PnP/XInput only; no real device is disabled;
@@ -450,7 +474,7 @@ Developer-only real neutral probe:
 
 - `tools/InputLab/run-slot-order-probe.ps1`: PASS on this laptop with the full `external 0/1/2 + own 3 → own 0 + external 1/2/3` transition.
 
-Latest Input Lab result on this laptop after Router Source Policy stage 1 (2026-09-17):
+Latest Input Lab result on this laptop after Analog Transform stage 1 (2026-09-17):
 
 ```text
 SUMMARY: PASS | checks=77 | failures=0

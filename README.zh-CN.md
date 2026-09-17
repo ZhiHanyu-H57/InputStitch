@@ -224,13 +224,9 @@ ViGEm 目前仍然是正式使用的虚拟手柄后端，但它不再被视为 I
 
 重新比较 2026 年仍活跃的同类项目后，InputStitch 的长期路线已经明确成：**先做平台深度，再做硬件广度。**
 
-下一阶段非硬件主线依次是：
+目前前四层非硬件基础已经在 post-release `main` 上完成：**虚拟输出后端抽象、持久 Device Identity / Device Manager、Router 来源选择，以及 Analog Transform Engine**。Router 的模拟量处理已经可以统一设置径向死区、响应曲线、灵敏度/缩放、摇杆 X/Y 反转和最大输出限幅；默认设置仍然严格保持旧行为不变。
 
-1. **虚拟输出后端抽象**：先解除核心逻辑对 ViGEm 具体实现的硬绑定；
-2. **持久 Device Identity / Device Manager**：让“这只手柄是谁”不再等同于“它现在是 XInput 几号槽位”；
-3. **Router 来源选择与按设备策略**：用户明确决定哪些手柄参与汇总，而不是默认把所有可见外部 XInput 手柄都合并；
-4. **Analog Transform Engine**：统一处理死区、响应曲线、灵敏度、反转、轴区间和模拟量合并策略；
-5. **Activator + Condition Engine**：把按下、松开、按住、短按、长按、双击、Toggle、Turbo，以及 Layer/设备/窗口/模拟量条件统一成可组合规则。
+下一步主线是 **Activator + Condition Engine**：把按下、松开、按住、短按、长按、双击、Toggle、Turbo，以及 Layer/设备/窗口/模拟量区间条件统一成可组合规则。
 
 更广泛的手柄输入将优先考虑 `IInputProvider` 架构和 SDL3，而不是以后每增加一种手柄就单独写一套输入系统。Gyro、触摸板、厂商专用震动/自适应扳机、脚本插件、复杂多 Layer 叠加、圆盘菜单/Overlay 等都降为**有真实需求再做**的后期能力。
 

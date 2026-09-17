@@ -20,6 +20,8 @@ namespace InputStitch
         private readonly RadioButton selectedOnly = new RadioButton();
         private readonly CheckedListBox devices = new CheckedListBox();
         private readonly Label status = new Label();
+        private readonly Button analogTransform = new Button();
+        private readonly Label analogSummary = new Label();
         private readonly Button refresh = new Button();
         private readonly Button ok = new Button();
         private readonly Button cancel = new Button();
@@ -40,11 +42,13 @@ namespace InputStitch
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(16);
             root.ColumnCount = 1;
-            root.RowCount = 7;
+            root.RowCount = 9;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -85,6 +89,27 @@ namespace InputStitch
             status.Margin = new Padding(0, 8, 0, 8);
             root.Controls.Add(status, 0, 4);
 
+            analogTransform.Text = Localizer.IsEnglish ? "Analog transform..." : "模拟量处理...";
+            analogTransform.AutoSize = true;
+            analogTransform.Margin = new Padding(0, 2, 0, 4);
+            analogTransform.Click += delegate
+            {
+                using (AnalogTransformDialog dialog = new AnalogTransformDialog(working.AnalogTransform))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    working.AnalogTransform = dialog.SelectedProfile;
+                    RefreshAnalogSummary();
+                }
+            };
+            root.Controls.Add(analogTransform, 0, 5);
+
+            analogSummary.AutoSize = true;
+            analogSummary.MaximumSize = new Size(710, 0);
+            analogSummary.ForeColor = Color.FromArgb(86, 96, 112);
+            analogSummary.Margin = new Padding(0, 0, 0, 8);
+            root.Controls.Add(analogSummary, 0, 6);
+            RefreshAnalogSummary();
+
             Label takeoverNote = new Label();
             takeoverNote.AutoSize = true;
             takeoverNote.MaximumSize = new Size(710, 0);
@@ -92,7 +117,7 @@ namespace InputStitch
             takeoverNote.Text = Localizer.IsEnglish
                 ? "Experimental Controller Takeover currently requires the default 'all visible sources' policy. This prevents a hidden original controller from being omitted from Router output."
                 : "实验性的“手柄接管”目前仍要求使用“转发所有可见来源”。这样可以避免原手柄被隐藏后，却因为来源策略没有被转发到虚拟手柄。";
-            root.Controls.Add(takeoverNote, 0, 5);
+            root.Controls.Add(takeoverNote, 0, 7);
 
             FlowLayoutPanel actions = new FlowLayoutPanel();
             actions.AutoSize = true;
@@ -111,7 +136,7 @@ namespace InputStitch
             refresh.AutoSize = true;
             refresh.Click += delegate { RefreshInventory(); };
             actions.Controls.Add(refresh);
-            root.Controls.Add(actions, 0, 6);
+            root.Controls.Add(actions, 0, 8);
 
             AcceptButton = ok;
             CancelButton = cancel;
@@ -129,6 +154,18 @@ namespace InputStitch
         private void UpdateEnabledState()
         {
             devices.Enabled = selectedOnly.Checked;
+        }
+
+        private void RefreshAnalogSummary()
+        {
+            AnalogTransformProfile profile = working.AnalogTransform == null
+                ? new AnalogTransformProfile() : working.AnalogTransform;
+            AnalogTransformProfile.Normalize(profile);
+            analogSummary.Text = profile.IsIdentity
+                ? (Localizer.IsEnglish
+                    ? "Analog transform: default / unchanged. Routed analog values pass through exactly before the existing merge."
+                    : "模拟量处理：默认 / 不改变。汇总来源的模拟量会原样进入现有合并逻辑。")
+                : ((Localizer.IsEnglish ? "Analog transform: custom · " : "模拟量处理：已自定义 · ") + profile.Summary);
         }
 
         private void RefreshInventory()

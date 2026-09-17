@@ -219,19 +219,19 @@ Completed foundations:
 - **Virtual Output Backend abstraction** — completed; ViGEm remains the only production backend behind the stable facade.
 - **Persistent Device Identity / Device Manager stage 1** — completed on post-`v1.4.3` `main`; durable DeviceKey/inventory exists without using XInput slot as identity.
 - **Router source selection + per-device policy stage 1** — completed; the default remains all visible sources, while selected-device mode persists stable DeviceKeys, invalidates stale runtime bindings on topology changes and refuses unresolved/multi-controller identity guesses.
+- **Analog Transform Engine stage 1** — completed; reusable identity-by-default per-source shaping now provides radial deadzones, response curves, scaling, stick inversion, output clamps and half-axis/zone primitives before Output Ownership. Default output and the existing ownership merge semantics remain unchanged.
 
 Active order:
 
-1. **Analog Transform Engine** — deadzone, curve, sensitivity, inversion, zones and explicit merge policy attached to explicit sources.
-2. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics.
+1. **Activator + Condition Engine** — unify press/release/hold/long/double/turbo/context semantics, including deterministic analog threshold/zone conditions built on the new transform primitives.
 
 ### Do after the above foundation
 
-3. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
-4. Profile/context improvements built on DeviceKey + Condition.
-5. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
-6. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
-7. Evaluate a second virtual-output backend only after the output interface is stable.
+2. Layer ergonomics: Momentary/Hold-to-Layer first; then Toggle/Latch/Cycle when justified.
+3. Profile/context improvements built on DeviceKey + Condition.
+4. `IInputProvider` abstraction and SDL3 evaluation for broad controller input.
+5. Specialized Raw HID/provider work only for capabilities not cleanly exposed by the general provider.
+6. Evaluate a second virtual-output backend only after the output interface is stable.
 
 ### Later / evidence-driven
 

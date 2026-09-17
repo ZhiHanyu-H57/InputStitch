@@ -174,9 +174,59 @@ Final local verification for this stage on 2026-09-17:
 
 Stable `v1.4.3` remains immutable; this is post-release `main` work and is not yet in the public Stable updater line.
 
+## 2026-09-17 Analog Transform Engine stage 1
+
+The next platform layer is now implemented locally on post-`v1.4.3` `main`: routed analog input can be shaped by a reusable transform profile before it reaches Output Ownership, while legacy/default behavior remains exact identity.
+
+### Runtime boundary + compatibility
+
+- New `AnalogTransform.cs` owns reusable transform math and serializable config; Router only calls the engine and ViGEm/output backends remain unaware of transform policy.
+- Runtime order is `XInput report → InputSpec conversion → AnalogTransformEngine → Output Ownership merge → virtual output`.
+- `RouterSourcePolicyConfig` now owns one identity-by-default `AnalogTransformProfile`; old/missing XML normalizes to identity.
+- Identity profiles bypass transform math exactly, including pre-merge stick contributions such as `(100,100)`, so historical Router/Output Ownership behavior is preserved rather than being normalized early.
+- Custom transform state appears in Router diagnostics; identity state keeps the exact legacy Router summary text for compatibility.
+
+### Stage-1 transform semantics
+
+- Left/right sticks: radial inner deadzone, outer deadzone, response curve, sensitivity/scale, X/Y inversion and max-output clamp.
+- Left/right triggers: inner deadzone, outer deadzone, response curve, sensitivity/scale and max-output clamp.
+- Fixed tested order: **deadzone remap → response curve → scale → inversion → max-output clamp**.
+- Curves use exponent percentage: `100%` linear, `200%` squared, `50%` square-root-like.
+- Stick deadzone/remap is radial so diagonal direction is preserved.
+- Reusable signed half-axis conversion and magnitude-zone classification primitives are included for the later Activator/Condition engine.
+- Transform helpers normalize cloned config and do not mutate caller-owned policy objects.
+
+### UI + ownership boundary
+
+- Router source selection now exposes `模拟量处理... / Analog transform...`.
+- Separate left/right stick and trigger tabs provide live 25/50/75/100% output previews plus reset-to-default.
+- Cross-source merge is intentionally **not** duplicated here: Output Ownership still uses normalized-sum sticks, max triggers and source-owned digital state.
+- Alternative latest/priority/average merge policies are deferred until multi-device identity/provider correlation can assign them safely.
+
+### Verification evidence
+
+Final local verification on 2026-09-17:
+
+- x64 + x86 Release build / Release Verification: PASS;
+- Analog Transform: **49 PASS** covering exact identity compatibility, deadzones, curves, scaling, inversion, clamps, radial direction preservation, half-axis/zone primitives, Router integration, XML round trip, diagnostics, non-mutating config and dialog smoke;
+- keyboard/trigger: **329 PASS**;
+- XInput input: **26 PASS**;
+- Device Identity: **33 PASS**;
+- Router Source Policy: **22 PASS**;
+- Gamepad Router: **28 PASS**;
+- Controlled Replacement: **52 PASS**;
+- Slot Acquisition: **27 PASS**;
+- Virtual Gamepad Preference: **23 PASS**;
+- Layer: **39 PASS**;
+- Output Ownership: **303,716 PASS**;
+- updater/network, UI safety, productivity, zh-CN/en-US Settings smoke, legacy XML and saved gamepad-vector tests: PASS;
+- real-output Input Lab black-box acceptance: **77/77 PASS, failures=0** after Analog Transform stage 1.
+
+Stable `v1.4.3` remains immutable. This work needs a future Stable version before ordinary updater users receive it.
+
 ## Working on
 
-**Stable `v1.4.3` is published and immutable. Post-release `main` now contains the controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, and Router Source Policy stage 1.** The next active non-hardware platform item is Analog Transform Engine, followed by Activator/Condition. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
+**Stable `v1.4.3` is published and immutable. Post-release `main` now contains controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, Router Source Policy stage 1, and Analog Transform Engine stage 1.** The next active non-hardware platform item is Activator + Condition Engine. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
@@ -186,7 +236,7 @@ Stable update transport now prefers the project download domain end-to-end. The 
 
 1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.3` is the current Stable line. Persistent Device Identity / Device Manager stage 1 and Router Source Policy stage 1 are complete on post-release `main`; the next active non-hardware platform item is Analog Transform Engine, followed by Activator/Condition. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.3` is the current Stable line. Persistent Device Identity, Router Source Policy and Analog Transform stage 1 are complete on post-release `main`; the next active non-hardware platform item is Activator + Condition Engine. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -691,14 +741,12 @@ Technical design notes may use internal English type/API names freely.
 
 ## Next platform step after v1.4.3
 
-The v1.4.3 keyboard-hotkey reliability incident is closed. Virtual Output Backend abstraction and the first architecture-cleanup series remain completed from v1.4.2. Active non-hardware order is now:
+The v1.4.3 keyboard-hotkey reliability incident is closed. Virtual Output Backend abstraction, persistent Device Identity, Router Source Policy and Analog Transform stage 1 are now completed foundations on post-release `main`. Active non-hardware order is now:
 
-1. build persistent `DeviceKey` / Device Manager inventory and diagnostics;
-2. change Router from “all visible external XInput sources” to explicit source selection + per-device policy;
-3. introduce reusable Analog Transform primitives (deadzone/curve/scaling/inversion/zones/merge policy);
-4. generalize Activator + Condition semantics rather than adding more one-off trigger modes;
-5. then improve Layer ergonomics, profile/context behavior and evaluate `IInputProvider` + SDL3;
-6. only after the output interface has remained stable through these changes, prototype/compare a second virtual-output backend when justified.
+1. generalize Activator + Condition semantics rather than adding more one-off trigger modes, consuming stable DeviceKey plus the new analog half-axis/zone primitives;
+2. then improve Layer ergonomics and profile/context behavior;
+3. evaluate `IInputProvider` + SDL3 after the action/condition boundary is stable;
+4. only after the output interface has remained stable through these changes, prototype/compare a second virtual-output backend when justified.
 
 Hardware-dependent acceptance remains parked in parallel until a physical controller exists. When available:
 

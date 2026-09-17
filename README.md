@@ -119,13 +119,9 @@ Connect the virtual controller from **Settings → Virtual Gamepad Output** befo
 
 After reviewing current controller-remapping and automation projects, the roadmap deliberately prioritizes **platform depth before hardware breadth**.
 
-The next non-hardware foundation is:
+The first four non-hardware foundations are now implemented on post-release `main`: virtual-output backend abstraction, persistent Device Identity / Device Manager, explicit Router source selection, and the Analog Transform Engine. Router analog shaping now supports radial deadzones, response curves, scaling, stick-axis inversion and output clamps while keeping default behavior unchanged.
 
-1. virtual-output backend abstraction;
-2. persistent Device Identity / Device Manager;
-3. explicit Router source selection and per-device policy;
-4. reusable analog transforms such as deadzones, curves, sensitivity, inversion and zones;
-5. a generalized Activator + Condition engine for press/release/hold/long/double/turbo and deterministic context rules.
+The next platform step is a generalized **Activator + Condition** engine for press/release/hold/long/double/turbo and deterministic Layer/device/application/analog-zone rules.
 
 Broader controller input is planned through an `IInputProvider` architecture, with SDL3 as the first general-purpose provider candidate rather than adding one device family/API at a time. Gyro, touchpad, vendor-specific haptics, plugin scripting, complex Layer stacking and radial/overlay UI remain later, evidence-driven features rather than current success metrics.
 

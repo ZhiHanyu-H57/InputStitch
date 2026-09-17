@@ -20,6 +20,9 @@ namespace InputStitch
     {
         public string Mode = RouterSourceModes.AllVisible;
         public List<string> SelectedDeviceKeys = new List<string>();
+        // Identity-by-default analog transform applied independently to every routed source before
+        // Output Ownership performs its existing cross-source merge.
+        public AnalogTransformProfile AnalogTransform = new AnalogTransformProfile();
 
         public RouterSourcePolicyConfig Clone()
         {
@@ -27,6 +30,7 @@ namespace InputStitch
             copy.Mode = RouterSourceModes.Normalize(Mode);
             copy.SelectedDeviceKeys = SelectedDeviceKeys == null
                 ? new List<string>() : new List<string>(SelectedDeviceKeys);
+            copy.AnalogTransform = AnalogTransform == null ? new AnalogTransformProfile() : AnalogTransform.Clone();
             Normalize(copy);
             return copy;
         }
@@ -45,6 +49,8 @@ namespace InputStitch
                 normalized.Add(clean);
             }
             value.SelectedDeviceKeys = normalized;
+            if (value.AnalogTransform == null) value.AnalogTransform = new AnalogTransformProfile();
+            AnalogTransformProfile.Normalize(value.AnalogTransform);
         }
     }
 
@@ -69,6 +75,7 @@ namespace InputStitch
     {
         RouterSourceDecision Evaluate(int xinputSlot, long topologyVersion);
         bool IsAllVisible { get; }
+        AnalogTransformProfile AnalogTransform { get; }
         string Summary { get; }
     }
 
@@ -80,6 +87,7 @@ namespace InputStitch
         private readonly object sync = new object();
         private string mode = RouterSourceModes.AllVisible;
         private HashSet<string> selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private AnalogTransformProfile analogTransform = new AnalogTransformProfile();
 
         internal RouterSourcePolicyEvaluator(DeviceIdentityService deviceIdentities, RouterSourcePolicyConfig initial)
         {
@@ -96,6 +104,7 @@ namespace InputStitch
             {
                 mode = copy.Mode;
                 selected = next;
+                analogTransform = copy.AnalogTransform == null ? new AnalogTransformProfile() : copy.AnalogTransform.Clone();
             }
         }
 
@@ -107,14 +116,25 @@ namespace InputStitch
             }
         }
 
+        public AnalogTransformProfile AnalogTransform
+        {
+            get
+            {
+                lock (sync) return analogTransform == null ? new AnalogTransformProfile() : analogTransform.Clone();
+            }
+        }
+
         public string Summary
         {
             get
             {
                 lock (sync)
                 {
-                    if (string.Equals(mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase)) return "all-visible";
-                    return "selected-devices=" + selected.Count.ToString();
+                    string selection = string.Equals(mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase)
+                        ? "all-visible" : "selected-devices=" + selected.Count.ToString();
+                    string transform = analogTransform == null ? "identity" : analogTransform.Summary;
+                    return string.Equals(transform, "identity", StringComparison.Ordinal)
+                        ? selection : selection + "; analog=" + transform;
                 }
             }
         }

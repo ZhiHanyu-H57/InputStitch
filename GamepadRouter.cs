@@ -78,6 +78,8 @@ namespace InputStitch
             int blocked = 0;
             int unresolved = 0;
             long topologyVersion = input.TopologyVersion;
+            AnalogTransformProfile analogTransform = sourcePolicy == null
+                ? new AnalogTransformProfile() : sourcePolicy.AnalogTransform;
             for (int index = 0; index < 4; index++)
             {
                 string sourceId = SourcePrefix + index.ToString();
@@ -105,7 +107,7 @@ namespace InputStitch
                         reason.IndexOf("identity", StringComparison.OrdinalIgnoreCase) >= 0) unresolved++;
                     continue;
                 }
-                ownership.ReplaceSource(sourceId, ConvertState(state));
+                ownership.ReplaceSource(sourceId, AnalogTransformEngine.Apply(ConvertState(state), analogTransform));
                 routed++;
             }
             routedControllerCount = routed;

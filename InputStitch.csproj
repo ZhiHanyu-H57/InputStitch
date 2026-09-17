@@ -52,6 +52,8 @@
     <Compile Include="WindowsDeviceDiscovery.cs" />
     <Compile Include="DeviceIdentity.cs" />
     <Compile Include="DeviceManagerDialog.cs" />
+    <Compile Include="AnalogTransform.cs" />
+    <Compile Include="AnalogTransformDialog.cs" />
     <Compile Include="RouterSourcePolicy.cs" />
     <Compile Include="RouterSourceDialog.cs" />
     <Compile Include="GamepadRouter.cs" />
