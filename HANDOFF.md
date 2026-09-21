@@ -4,6 +4,26 @@
 
 Updated: 2026-09-21
 
+## End of day 2026-09-21 — local-only development wave
+
+The working tree is clean on `main`, **23 commits ahead of `origin/main`, none pushed and no release created**
+(per the user's local-only instruction). Every commit passed the full `tests/Run-Tests.ps1` regression and the
+x64/x86 `build.ps1` release verification; the refactor-only commits produced byte-identical executables.
+Nothing in this wave has been published, so ordinary users still run Stable `v1.4.3`.
+
+Highlights of the wave: architecture review + long-term plan, the single production-source manifest with its
+drift guard, the foreground-identity cache, the dedicated input-pipeline thread with cadence statistics,
+layers (momentary switching + context conditions) and the Short Press activator, five `MainForm` decomposition
+steps (12,171 -> 8,126 lines in `InputStitch.cs`), and an end-to-end optional SDL3 input lane
+(provider seam, provider logic, dynamic native binding verified against the real 3.4.16 runtime, MainForm
+composite wiring, device-identity evidence, Device Manager labelling, an explicit Settings switch, and
+`scripts/Restore-Sdl3.ps1` for the runtime).
+
+Open items are listed in `docs/DEVELOPMENT_PLAN.md`: the SDL3.dll shipping decision, whether to push/publish,
+code signing, repository licence, a physical controller for the hardware lane, and (low priority) whether
+GameInput is ever adopted. The next non-decision work is splitting the remaining kernel types, an Input Lab
+provider column, and the stage-2 activator designs.
+
 ## Current versions
 
 - Current Stable: `v1.4.3`
