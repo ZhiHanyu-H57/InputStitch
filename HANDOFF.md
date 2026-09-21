@@ -310,17 +310,26 @@ The 2026-09-21 architecture review (`docs/ARCHITECTURE_REVIEW.md`) and long-term
   the previous "one `Process.GetProcessById` per macro per tick" collapses to at most four lookups per
   second while window-title changes remain observable. `tests/ForegroundIdentityCacheTests.cs` (5 checks)
   verifies reuse, TTL refresh and concurrent safety from hook threads + the UI thread.
+- **F1 — input pipeline off the UI thread.** XInput polling, device-topology refresh and router mirroring
+  moved from `Windows.Forms.Timer` to `InputPipelineScheduler` (`InputPipeline.cs`): a background thread with
+  deadline pacing, error containment and clean shutdown. Activator decisions stay UI-affine — the input
+  thread only posts a coalesced activator-tick request that the UI thread performs, preserving the existing
+  dispatch contract. `TickCadenceStats` records tick counts, stalls (gap > 5x interval), maximum gap and
+  maximum/average tick duration for the input pipeline and the foreground timer and reports them in Runtime
+  Observation plus Diagnostics, so real stalls are measurable.
 
 Verification evidence (2026-09-21, local):
 
-- full `tests/Run-Tests.ps1`: PASS — source manifest 208 checks, foreground cache 5 checks, Layer 72 checks,
-  329 keyboard, 303,716 Output Ownership, all Settings/legacy-XML smoke;
+- full `tests/Run-Tests.ps1`: PASS — source manifest 214 checks, foreground cache 5 checks, tick cadence
+  7 checks, input pipeline scheduler 9 checks, Layer 72 checks, 329 keyboard, 303,716 Output Ownership, all
+  Settings/legacy-XML smoke;
 - `build.ps1` x64/x86 Release build + Release Verification: PASS, with the manifest and helper script
   included in the Source.zip;
 - local commits only — nothing pushed and no release created.
 
-Next per the plan (H1): input-cadence instrumentation, then the dedicated input/tick thread, then
-incremental `MainForm` decomposition; H2 starts with the profile/context integration.
+Next per the plan (H1): incremental `MainForm` decomposition (make the class partial, extract Layer first);
+H2 starts with the profile/context integration. A real-world session should also read the new cadence
+statistics from Runtime Observation to confirm the input thread removed UI-stall delays.
 
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 

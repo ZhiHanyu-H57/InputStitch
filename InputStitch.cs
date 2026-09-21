@@ -4771,6 +4771,57 @@ namespace InputStitch
             public long ReleaseProbeSince;
         }
 
+        // Tick-cadence instrumentation for the input pipeline thread and the foreground timer
+        // (architecture-review finding F1). It records how often a tick actually ran, the largest gap between
+        // runs and the slowest run body so real stalls can be reported instead of guessed at.
+        private sealed class TickCadenceStats
+        {
+            private readonly long stallThresholdTicks;
+            private long lastStartStamp;
+            public long Ticks;
+            public long Stalls;
+            public long MaxGapTicks;
+            public long MaxDurationTicks;
+            public long TotalDurationTicks;
+
+            public TickCadenceStats(int stallThresholdMs)
+            {
+                stallThresholdTicks = stallThresholdMs * Stopwatch.Frequency / 1000L;
+            }
+
+            public long Begin()
+            {
+                long now = Stopwatch.GetTimestamp();
+                if (lastStartStamp != 0)
+                {
+                    long gap = now - lastStartStamp;
+                    if (gap > MaxGapTicks) MaxGapTicks = gap;
+                    if (gap > stallThresholdTicks) Stalls++;
+                }
+                lastStartStamp = now;
+                Ticks++;
+                return now;
+            }
+
+            public void End(long startStamp)
+            {
+                long duration = Stopwatch.GetTimestamp() - startStamp;
+                if (duration > MaxDurationTicks) MaxDurationTicks = duration;
+                TotalDurationTicks += duration;
+            }
+
+            public string Describe(string name)
+            {
+                long maxGapUs = MaxGapTicks * 1000000L / Stopwatch.Frequency;
+                long maxDurationUs = MaxDurationTicks * 1000000L / Stopwatch.Frequency;
+                long averageDurationUs = Ticks == 0 ? 0 : TotalDurationTicks * 1000000L / Stopwatch.Frequency / Ticks;
+                return name + ": ticks=" + Ticks.ToString() + "; stalls=" + Stalls.ToString() +
+                    "; maxGapUs=" + maxGapUs.ToString() +
+                    "; maxDurationUs=" + maxDurationUs.ToString() +
+                    "; avgDurationUs=" + averageDurationUs.ToString();
+            }
+        }
+
         private MacroConfig config;
         private string appDir;
         private string configPath;
@@ -4889,7 +4940,8 @@ namespace InputStitch
         private RouterSourcePolicyEvaluator routerSourcePolicyEvaluator;
         private int deviceIdentityRefreshQueued;
         private GamepadRouterService gamepadRouter;
-        private System.Windows.Forms.Timer gamepadInputTimer;
+        private InputPipelineScheduler inputPipelineScheduler;
+        private int activatorTickQueued;
         private IDeviceHidingBackend deviceHidingBackend;
         private IControlledReplacementJournal replacementJournal;
         private IPnpDeviceControl pnpDeviceControl;
@@ -4928,6 +4980,9 @@ namespace InputStitch
         private const string IdleOutputSourceId = "idle-gamepad";
         private long outputSourceSequence;
 
+        // Stall thresholds: 5x the configured interval of each timer (10 ms input timer, 50 ms foreground timer).
+        private readonly TickCadenceStats gamepadTickStats = new TickCadenceStats(50);
+        private readonly TickCadenceStats foregroundTickStats = new TickCadenceStats(250);
         private readonly RuntimeTrace runtimeTrace = new RuntimeTrace();
         private readonly ActivatorRuntimeEngine activatorEngine = new ActivatorRuntimeEngine();
         // Foreground identity is consumed by condition evaluation for every trigger event and by the
@@ -5099,19 +5154,13 @@ namespace InputStitch
                 HandleControlledReplacementHealthFailure,
                 1000,
                 2);
-            gamepadInputTimer = new System.Windows.Forms.Timer();
-            gamepadInputTimer.Interval = 10;
-            gamepadInputTimer.Tick += delegate
-            {
-                if (gamepadInput == null) return;
-                gamepadInput.Poll();
-                if (deviceIdentityService != null && !deviceIdentityService.IsTopologyCurrent(gamepadInput.TopologyVersion))
-                    QueueDeviceIdentityRefresh();
-                if (gamepadRouter != null && gamepadRouter.Enabled)
-                    gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
-                TickAdvancedActivators();
-            };
-            gamepadInputTimer.Start();
+            // Input polling and router mirroring run on their own thread so UI stalls cannot delay input
+            // timing (architecture-review finding F1). Activator decisions stay UI-affine and are posted back.
+            inputPipelineScheduler = new InputPipelineScheduler(
+                10,
+                TickGamepadInput,
+                delegate(Exception ex) { AppLog.Write("Input pipeline tick failed", ex); });
+            inputPipelineScheduler.Start();
 
             idleGamepad = new IdleGamepadService(
                 delegate { GamepadOutput.EnsureConnected(); },
@@ -6589,6 +6638,8 @@ namespace InputStitch
                 "; fallback=" + Volatile.Read(ref rawKeyboardFallbackEdgeCount).ToString() +
                 "; suppression-missed=" + Volatile.Read(ref rawKeyboardSuppressionUnavailableCount).ToString() +
                 "; hook-recoveries=" + Volatile.Read(ref keyboardHookRecoveryCount).ToString());
+            sb.AppendLine((Localizer.IsEnglish ? "Input cadence: " : "输入节拍：") +
+                gamepadTickStats.Describe("gamepad") + "; " + foregroundTickStats.Describe("foreground"));
             sb.AppendLine((Localizer.IsEnglish ? "Controller merge: " : "手柄汇总：") +
                 (gamepadRouter == null ? (Localizer.IsEnglish ? "unavailable" : "不可用") :
                     (gamepadRouter.Enabled ? gamepadRouter.LastStatus + "; routed=" + gamepadRouter.RoutedControllerCount.ToString() +
@@ -6724,6 +6775,8 @@ namespace InputStitch
                         "; Switch=" + (layer.SwitchTrigger == null ? "none" : InputNames.FormatTrigger(layer.SwitchTrigger)));
                 }
             }
+            sb.AppendLine(gamepadTickStats.Describe("GamepadInputTick"));
+            sb.AppendLine(foregroundTickStats.Describe("ForegroundTick"));
             sb.AppendLine("ActivatorTrackedStates: " + activatorEngine.TrackedCount.ToString());
             if (config != null && config.Macros != null)
             {
@@ -7171,6 +7224,16 @@ namespace InputStitch
         }
 
         private void ForegroundTimer_Tick(object sender, EventArgs e)
+        {
+            long tickStart = foregroundTickStats.Begin();
+            try
+            {
+                ForegroundTimerTickCore();
+            }
+            finally { foregroundTickStats.End(tickStart); }
+        }
+
+        private void ForegroundTimerTickCore()
         {
             ReconcileHookState("foreground-timer");
             ReconcileHeldTriggerRelease();
@@ -9807,6 +9870,45 @@ namespace InputStitch
             }
         }
 
+        // One input pipeline tick on the dedicated input thread: XInput polling, topology refresh, router
+        // mirroring and a coalesced activator-tick request. Cadence statistics expose real stalls.
+        private void TickGamepadInput()
+        {
+            long tickStart = gamepadTickStats.Begin();
+            try
+            {
+                if (gamepadInput == null) return;
+                gamepadInput.Poll();
+                if (deviceIdentityService != null && !deviceIdentityService.IsTopologyCurrent(gamepadInput.TopologyVersion))
+                    QueueDeviceIdentityRefresh();
+                if (gamepadRouter != null && gamepadRouter.Enabled)
+                    gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
+                RequestActivatorTick();
+            }
+            finally { gamepadTickStats.End(tickStart); }
+        }
+
+        // Advanced activators dispatch through UI-affine paths (safety-pause inspection, macro start/stop),
+        // so the input thread only requests a tick. Requests coalesce: while one is queued, further requests
+        // are dropped, which keeps a busy UI from building an unbounded backlog of stale ticks.
+        private void RequestActivatorTick()
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            if (Interlocked.CompareExchange(ref activatorTickQueued, 1, 0) != 0) return;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    Interlocked.Exchange(ref activatorTickQueued, 0);
+                    TickAdvancedActivators();
+                });
+            }
+            catch
+            {
+                Interlocked.Exchange(ref activatorTickQueued, 0);
+            }
+        }
+
         private void TickAdvancedActivators()
         {
             List<ActivatorDecision> decisions = activatorEngine.Tick(
@@ -11808,11 +11910,10 @@ namespace InputStitch
             {
                 if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
                 if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
-                if (gamepadInputTimer != null)
+                if (inputPipelineScheduler != null)
                 {
-                    gamepadInputTimer.Stop();
-                    gamepadInputTimer.Dispose();
-                    gamepadInputTimer = null;
+                    inputPipelineScheduler.Dispose();
+                    inputPipelineScheduler = null;
                 }
                 if (gamepadRouter != null)
                 {

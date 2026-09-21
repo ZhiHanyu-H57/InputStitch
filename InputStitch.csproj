@@ -29,6 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="InputStitch.cs" />
+    <Compile Include="InputPipeline.cs" />
     <Compile Include="ReleaseInfo.cs" />
     <Compile Include="UpdateInstaller.cs" />
     <Compile Include="RuntimeDiagnostics.cs" />

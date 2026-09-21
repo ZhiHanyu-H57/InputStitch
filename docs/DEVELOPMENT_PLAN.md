@@ -100,3 +100,6 @@ Direction updates from the 2026-09-21 research:
 - 2026-09-21: plan created from the architecture review and the external research above.
 - 2026-09-21: **H1.1 done** — single production-source manifest + drift guard (`80eb025`).
 - 2026-09-21: **H1.2 done** — foreground identity cache with TTL + concurrency test (F2 closed).
+- 2026-09-21: **H1.3 done** — input pipeline moved to a dedicated, deadline-paced thread
+  (`InputPipelineScheduler`) with UI-coalesced activator ticks; cadence statistics (stalls, max gap, max
+  duration) are exposed in Runtime Observation and Diagnostics (F1 closed, real-world numbers pending).

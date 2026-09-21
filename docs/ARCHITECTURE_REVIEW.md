@@ -40,6 +40,21 @@ refreshes hold the UI thread, and no isolation between input timing and presenta
 Recommendation: dedicated input/tick thread (or `System.Threading.Timer` worker) owning polling + router +
 activator ticks at a fixed cadence; UI updates stay marshalled. Require before/after jitter measurements.
 
+**Addressed 2026-09-21 in two steps:**
+
+1. *Cadence instrumentation* — `TickCadenceStats` records tick count, stall count (gap greater than five
+   times the interval), maximum gap and maximum/average tick duration for the input pipeline and the
+   foreground timer, and reports them in Runtime Observation and Diagnostics.
+2. *Dedicated input thread* — XInput polling, topology refresh and router mirroring moved from
+   `Windows.Forms.Timer` to `InputPipelineScheduler` (`InputPipeline.cs`), a background thread with
+   deadline pacing, so UI stalls cannot delay input timing. Activator decisions remain UI-affine: the input
+   thread posts a coalesced activator-tick request that the UI thread performs, preserving the existing
+   dispatch contract. `tests/InputPipelineSchedulerTests.cs` covers repeated ticking, cadence bounds,
+   shutdown, idempotent dispose and error containment.
+
+Remaining evidence: a real-world run should compare the cadence statistics (the numbers only exist while the
+application runs; this unattended session deliberately did not start the hooked application).
+
 ### F2 — P1, performance: foreground condition evaluation opens a Process per call
 
 `AreMacroConditionsSatisfied` → `NativeWindowFocus.Describe()` performs window text/class reads and
@@ -124,7 +139,7 @@ decision register).
 
 | Finding | Owner action | Status |
 |---|---|---|
-| F1 input timing on UI thread | input/tick thread + measurements | open |
+| F1 input timing on UI thread | dedicated input thread + cadence stats | closed 2026-09-21 (real-world numbers pending) |
 | F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
 | F4 monolith | incremental partial extraction | open |
