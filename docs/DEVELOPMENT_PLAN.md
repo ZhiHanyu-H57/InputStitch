@@ -56,9 +56,10 @@ Direction updates from the 2026-09-21 research:
    "manage layers"; active-by-context state visible in runtime observation and diagnostics.
 2. **Activator/Condition stage 2** (Short Press, Triple Press, Turbo/repeat, another-input-held, richer
    analog regions) — only with explicitly defined lifecycles and the same shared runtime.
-3. **`IInputProvider` + broad controller input**: define the seam, port XInput first, then add one more
-   provider. Preferred order: GameInput (Windows-native, covers Xbox + HID + DirectInput) and SDL3
-   (zlib, broad device database) as the follow-up if a concrete device gap appears.
+3. **`IInputProvider` + broad controller input**: seam first (XInput ported behind it, behaviour-neutral),
+   then **SDL3** as the second provider — decided 2026-09-21 in `docs/INPUT_PROVIDER_EVALUATION.md` (zlib,
+   x86+x64, no installer, no OS-floor change). GameInput is deferred to an explicit user decision: its NuGet
+   package is native-only, ships an MSI redistributable and has no x86 library.
 4. **Second virtual-output backend** behind `IVirtualGamepadBackend` — HIDMaestro first (MIT); VIIPER only
    after a license decision.
 
@@ -122,3 +123,7 @@ Direction updates from the 2026-09-21 research:
   wheel stays edge-only). `ActivatorConditionTests` grew 55 -> 73 checks. Remaining stage-2 candidates
   (Triple Press, Turbo/repeat, another-input-held, richer analog regions) stay deferred until their
   lifecycles are defined.
+- 2026-09-21: **H2.3 decided** — `docs/INPUT_PROVIDER_EVALUATION.md` compares GameInput and SDL3 with
+  verified package/licence/OS facts and selects **SDL3** as the second provider behind a new
+  `IInputProvider` seam (XInput remains provider #1). GameInput is deferred pending a user decision about an
+  installer/redistributable. Next implementation step: the behaviour-neutral seam plus XInput adapter.

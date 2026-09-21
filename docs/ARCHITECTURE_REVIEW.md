@@ -121,6 +121,11 @@ devices all need a provider seam first.
 Recommendation: introduce `IInputProvider` as part of the planned input work (not as speculative
 abstraction): port XInput behind it first, then add a second provider to prove the seam.
 
+**Decided 2026-09-21:** the second provider is **SDL3** behind a hand-written P/Invoke subset (zlib, x86+x64,
+no installer, no OS-floor change). GameInput is deferred to a user decision because its NuGet package is
+native-only, ships an MSI redistributable and provides no x86 library — the full comparison is in
+`docs/INPUT_PROVIDER_EVALUATION.md`.
+
 ### F7 — P3, release process: version string lives in many documents
 
 `ReleaseInfo.cs` is the validated source of truth (`scripts/Get-ReleaseInfo.ps1`), but the version literal
@@ -156,6 +161,6 @@ decision register).
 | F3 duplicated source lists | single manifest + drift guard | open |
 | F4 monolith | `partial` + Layer and Diagnostics extractions done 2026-09-21; takeover/editor pending | in progress |
 | F5 localization data | deferred | deferred |
-| F6 input provider seam | planned with input work | planned |
+| F6 input provider seam | decision taken (SDL3 provider; XInput first); implementation staged | decided 2026-09-21 |
 | F7 release choreography | checklist item | tracked |
 | F8 license / signing / backend posture | user decision | needs decision |

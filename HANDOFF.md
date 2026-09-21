@@ -347,6 +347,24 @@ Evidence: `tests/LayerContextTests.cs` (22 checks — XML round trip, precedence
 Base context, condition clearing, diagnostics/observation, momentary override, conditions-only dialog title
 and round trip) plus the full regression suite.
 
+## 2026-09-21 input provider decision: SDL3, not GameInput
+
+`docs/INPUT_PROVIDER_EVALUATION.md` records verified package/licence/OS facts and decides the second input
+provider:
+
+- **SDL3** (3.4.16, zlib, native DLL for x86+x64, desktop Windows back to XP) becomes the second provider
+  behind a new `IInputProvider` seam; XInput stays provider #1 and is ported behind the same interface first,
+  behaviour-neutral.
+- **Microsoft GameInput** is deferred: the NuGet package is native-only (`native/include`, `native/lib/x64` +
+  `arm64`, no x86) and ships `redist/GameInputRedist.msi` under the Microsoft GameInput Redistributable
+  terms, which conflicts with the portable no-installer, x86+x64 distribution model. Adopting it later is an
+  explicit user decision.
+- `SDL3.dll` will be embedded as a resource and extracted at runtime, reusing the existing embedded
+  ViGEm-client pattern, so the single-EXE distribution stays intact.
+
+Next implementation step: `IInputProvider` plus the XInput adapter (behaviour-neutral, fake-provider tests),
+then the SDL3 native subset.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:
