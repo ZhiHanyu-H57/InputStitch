@@ -1,7 +1,13 @@
 # Profile / context integration design proposal
 
-Status: **proposal — not implemented and not scheduled.** Written 2026-09-21 to answer the second half of
-`HANDOFF.md` → "Next platform step after v1.4.3" item 1 (Layer ergonomics + profile/context integration).
+Status: **stage 1 core implemented 2026-09-21** (model field, precedence, shared condition evaluator,
+diagnostics, 20-check test suite). Decisions taken: layer-level scope (approach A), precedence
+`momentary hold > context layer > persistent layer`, stage-1 conditions limited to foreground process/title
+plus stable `DeviceKey` (analog zones reuse the same evaluator). The layer-management UI entry for editing a
+context condition is the remaining slice.
+
+Written 2026-09-21 to answer the second half of `HANDOFF.md` → "Next platform step after v1.4.3" item 1
+(Layer ergonomics + profile/context integration).
 
 状态：**提案，尚未实现。** 用于讨论 `HANDOFF.md`「Layer ergonomics + profile/context integration」的后半部分。
 

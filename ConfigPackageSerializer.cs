@@ -199,6 +199,11 @@ namespace InputStitch
                 ids.Add(layer.Id);
                 layer.IsBase = string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase);
                 if (string.IsNullOrWhiteSpace(layer.Name)) layer.Name = layer.IsBase ? "基础层" : "映射层";
+                if (layer.ContextCondition != null)
+                {
+                    MacroConditionConfig.Normalize(layer.ContextCondition);
+                    if (layer.ContextCondition.IsEmpty) layer.ContextCondition = null;
+                }
             }
             if (!ids.Contains(MappingLayerIds.Base))
                 value.MappingLayers.Insert(0, new MappingLayerDefinition { Id = MappingLayerIds.Base, Name = "基础层", IsBase = true });

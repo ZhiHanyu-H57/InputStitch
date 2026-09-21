@@ -110,6 +110,28 @@ This remains eligibility/grouping only: momentary switching does not suppress th
 change Emergency Stop, UI safety, Output Ownership or source-local cleanup semantics, and never becomes a
 second macro engine.
 
+## Layer context conditions / 层上下文条件（stage 1）
+
+Implemented 2026-09-21 (development plan H2.1). A layer can carry an optional `ContextCondition`
+(`MacroConditionConfig`: foreground process/title, stable `DeviceKey`, analog zone). It reuses the same
+AND-condition evaluator as per-macro gates — there is no parallel rule set and no new application switch.
+
+Semantics:
+
+- precedence is `momentary hold > matching context layer > persistent (click-to-switch) selection`;
+- the first matching context layer in configured list order wins; the choice is deterministic and visible in
+  diagnostics;
+- a matching context never rewrites the persistent selection: as soon as the context stops matching, the
+  runtime returns to the layer the user selected;
+- Base may carry a context too, which temporarily returns the runtime to Base-only;
+- context conditions are re-evaluated on the foreground-tracking cadence (50 ms timer) and on every layer or
+  condition edit; a context change needs no input edge;
+- an unresolvable `DeviceKey` or unevaluable analog condition simply does not match (fail-closed);
+- layer display names, Runtime Observation and Diagnostics mark context layers and report which one matched.
+
+Stage 1 covers model, config, precedence, evaluation, diagnostics and tests; the layer-management entry for
+editing a context condition is the follow-up UI slice.
+
 ## Switching semantics
 
 A layer switch follows this order:

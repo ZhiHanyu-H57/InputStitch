@@ -103,3 +103,6 @@ Direction updates from the 2026-09-21 research:
 - 2026-09-21: **H1.3 done** — input pipeline moved to a dedicated, deadline-paced thread
   (`InputPipelineScheduler`) with UI-coalesced activator ticks; cadence statistics (stalls, max gap, max
   duration) are exposed in Runtime Observation and Diagnostics (F1 closed, real-world numbers pending).
+- 2026-09-21: **H2.1 core done** — layer context conditions (foreground process/title + stable DeviceKey,
+  shared evaluator, precedence `momentary > context > persistent`, deterministic list order, diagnostics and
+  a 20-check suite). Remaining: the layer-management UI entry for editing/clearing a context condition.

@@ -1299,6 +1299,11 @@ namespace InputStitch
         // shortcut returns to the previous layer. Momentary holds never change the persistent
         // (click-to-switch) layer selection.
         public bool MomentarySwitch;
+        // Optional context condition (foreground process/title, stable DeviceKey, analog zone). While the
+        // condition holds, this layer becomes eligible automatically; the persistent selection is untouched
+        // and returns as soon as the context stops matching. Base may carry a context too (temporary
+        // Base-only while it matches).
+        public MacroConditionConfig ContextCondition;
     }
 
     [Serializable]
@@ -4977,6 +4982,8 @@ namespace InputStitch
         private string persistentMappingLayerId = "";
         // Momentary layer holds in activation order; the last still-valid entry is the effective layer.
         private readonly List<MomentaryLayerHold> momentaryLayerHolds = new List<MomentaryLayerHold>();
+        // Test seam for Layer context evaluation; null means the real condition evaluator is used.
+        private Func<MacroConditionConfig, bool> layerContextEvaluator = null;
         private const string IdleOutputSourceId = "idle-gamepad";
         private long outputSourceSequence;
 
@@ -6628,6 +6635,8 @@ namespace InputStitch
                 : (Localizer.IsEnglish ? "Base + " : "基础层 + ") + (activeLayer == null ? activeMappingLayerId : activeLayer.Name);
             if (IsMomentaryLayerHoldActive(activeMappingLayerId))
                 layerText += Localizer.IsEnglish ? " (momentary hold)" : "（按住临时生效）";
+            else if (IsActiveLayerContextDriven())
+                layerText += Localizer.IsEnglish ? " (context)" : "（上下文自动）";
             sb.AppendLine((Localizer.IsEnglish ? "Layer: " : "映射层：") + layerText);
             sb.AppendLine((Localizer.IsEnglish ? "Virtual Xbox slot: " : "虚拟 Xbox 槽位：") + ObservedVirtualXboxSlot().ToString());
             sb.AppendLine((Localizer.IsEnglish ? "Device identity: " : "设备身份：") +
@@ -6759,8 +6768,10 @@ namespace InputStitch
             sb.AppendLine("ReplacementRecoveryWarning: " + (string.IsNullOrWhiteSpace(replacementRecoveryWarning) ? "none" : replacementRecoveryWarning));
             sb.AppendLine("SlotAcquisitionRecoveryWarning: " + (string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning) ? "none" : slotAcquisitionRecoveryWarning));
             MappingLayerDefinition diagnosticActiveLayer = FindMappingLayer(activeMappingLayerId);
+            MappingLayerDefinition diagnosticContextLayer = FindMatchingContextLayer_NoLock();
             sb.AppendLine("ActiveMappingLayer: " + (activeMappingLayerId.Length == 0 ? "Base only" : "Base + " + (diagnosticActiveLayer == null ? activeMappingLayerId : diagnosticActiveLayer.Name)) +
                 "; MomentaryHold=" + IsMomentaryLayerHoldActive(activeMappingLayerId).ToString() +
+                "; ContextLayer=" + (diagnosticContextLayer == null ? "none" : diagnosticContextLayer.Id) +
                 "; PersistentLayer=" + (persistentMappingLayerId.Length == 0 ? "base-only" : persistentMappingLayerId) +
                 "; MomentaryHolds=" + MomentaryLayerHoldCount().ToString());
             sb.AppendLine("MappingLayerCount: " + (config == null || config.MappingLayers == null ? "0" : config.MappingLayers.Count.ToString()));
@@ -6772,6 +6783,7 @@ namespace InputStitch
                     sb.AppendLine("Layer[" + layer.Id + "]: " + (layer.Name ?? "") +
                         "; Base=" + layer.IsBase.ToString() +
                         "; Mode=" + (layer.MomentarySwitch ? "hold" : "toggle") +
+                        "; Context=" + DescribeLayerContext(layer) +
                         "; Switch=" + (layer.SwitchTrigger == null ? "none" : InputNames.FormatTrigger(layer.SwitchTrigger)));
                 }
             }
@@ -7285,6 +7297,10 @@ namespace InputStitch
                 }
             }
 
+            // Context-condition layers are re-evaluated at foreground-tracking cadence: their conditions can
+            // change (foreground process/title, stable DeviceKey) without any local input edge.
+            EvaluateContextLayers();
+
             // A target program may recreate its top-level window after changing display mode,
             // restarting, or loading into another renderer. If our old HWND becomes invalid,
             // resolve it again from the persistent identity instead of silently falling back to
@@ -7589,15 +7605,18 @@ namespace InputStitch
             string modeSuffix = layer.MomentarySwitch && layer.SwitchTrigger != null
                 ? (Localizer.IsEnglish ? " (hold)" : "（按住）")
                 : "";
+            string contextSuffix = layer.ContextCondition == null || layer.ContextCondition.IsEmpty
+                ? ""
+                : (Localizer.IsEnglish ? " (context)" : "（上下文）");
             if (string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase))
             {
                 string baseName = Localizer.IsEnglish ? "Base layer" : "基础层（始终启用）";
                 if (layer.SwitchTrigger != null) baseName += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]" + modeSuffix;
-                return baseName;
+                return baseName + contextSuffix;
             }
             string name = string.IsNullOrWhiteSpace(layer.Name) ? layer.Id : layer.Name;
             if (layer.SwitchTrigger != null) name += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]" + modeSuffix;
-            return name;
+            return name + contextSuffix;
         }
 
         private void RefreshLayerChoiceLists()
@@ -7843,7 +7862,13 @@ namespace InputStitch
         private bool AreMacroConditionsSatisfied(MacroDefinition macro, int triggerDeviceIndex)
         {
             if (macro == null || !IsMacroLayerEligible(macro)) return false;
-            MacroConditionConfig conditions = macro.Conditions;
+            return AreConditionsSatisfied(macro.Conditions, triggerDeviceIndex);
+        }
+
+        // Shared AND-condition evaluation: macro gates and Layer context conditions (development plan H2.1)
+        // use one implementation instead of a parallel rule set.
+        private bool AreConditionsSatisfied(MacroConditionConfig conditions, int triggerDeviceIndex)
+        {
             if (conditions == null || conditions.IsEmpty) return true;
 
             TargetWindowIdentity foreground = null;
@@ -8065,6 +8090,51 @@ namespace InputStitch
             lock (runLock) return momentaryLayerHolds.Count;
         }
 
+        private bool IsLayerContextSatisfied(MappingLayerDefinition layer)
+        {
+            if (layer == null) return false;
+            MacroConditionConfig condition = layer.ContextCondition;
+            if (condition == null || condition.IsEmpty) return false;
+            Func<MacroConditionConfig, bool> evaluator = layerContextEvaluator;
+            if (evaluator != null) return evaluator(condition);
+            return AreConditionsSatisfied(condition, -1);
+        }
+
+        // The first matching context layer in configured list order wins; the choice is deterministic and
+        // visible in diagnostics. Base may be a context target, which means "temporarily Base-only".
+        private MappingLayerDefinition FindMatchingContextLayer_NoLock()
+        {
+            if (config == null || config.MappingLayers == null) return null;
+            foreach (MappingLayerDefinition layer in config.MappingLayers)
+                if (IsLayerContextSatisfied(layer)) return layer;
+            return null;
+        }
+
+        private static string DescribeLayerContext(MappingLayerDefinition layer)
+        {
+            MacroConditionConfig condition = layer == null ? null : layer.ContextCondition;
+            if (condition == null || condition.IsEmpty) return "none";
+            StringBuilder text = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(condition.ForegroundProcessName))
+                text.Append("process=").Append(condition.ForegroundProcessName.Trim());
+            if (!string.IsNullOrWhiteSpace(condition.ForegroundTitleContains))
+            {
+                if (text.Length != 0) text.Append('+');
+                text.Append("title~").Append(condition.ForegroundTitleContains.Trim());
+            }
+            if (!string.IsNullOrWhiteSpace(condition.DeviceKey))
+            {
+                if (text.Length != 0) text.Append('+');
+                text.Append("device=").Append(condition.DeviceKey.Trim());
+            }
+            if (condition.Analog != null && condition.Analog.Enabled)
+            {
+                if (text.Length != 0) text.Append('+');
+                text.Append("analog");
+            }
+            return text.Length == 0 ? "none" : text.ToString();
+        }
+
         // The effective layer is the newest still-valid momentary hold, otherwise the persistent
         // click-to-switch / UI selection. Callers must hold runLock.
         private string ComputeEffectiveMappingLayerId_NoLock()
@@ -8087,6 +8157,8 @@ namespace InputStitch
                 }
                 return layer.IsBase ? "" : layer.Id;
             }
+            MappingLayerDefinition contextLayer = FindMatchingContextLayer_NoLock();
+            if (contextLayer != null) return contextLayer.IsBase ? "" : contextLayer.Id;
             return persistentMappingLayerId ?? "";
         }
 
@@ -8095,6 +8167,30 @@ namespace InputStitch
             string desired;
             lock (runLock) { desired = ComputeEffectiveMappingLayerId_NoLock(); }
             SwitchActiveMappingLayer(desired);
+        }
+
+        // Periodic context re-evaluation (foreground timer). It only applies a transition when the effective
+        // layer actually changes, so the 20 Hz foreground tick stays cheap.
+        private void EvaluateContextLayers()
+        {
+            string desired;
+            lock (runLock) { desired = ComputeEffectiveMappingLayerId_NoLock(); }
+            if (string.Equals(desired, activeMappingLayerId, StringComparison.OrdinalIgnoreCase)) return;
+            ApplyEffectiveMappingLayer();
+            RefreshLayerChoiceLists();
+        }
+
+        // True when the effective layer currently comes from a matching context condition (and not from a
+        // momentary hold). Used by Runtime Observation.
+        private bool IsActiveLayerContextDriven()
+        {
+            lock (runLock)
+            {
+                if (IsMomentaryLayerHoldActive(activeMappingLayerId)) return false;
+                MappingLayerDefinition contextLayer = FindMatchingContextLayer_NoLock();
+                if (contextLayer == null) return false;
+                return string.Equals(contextLayer.IsBase ? "" : contextLayer.Id, activeMappingLayerId, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         // Physical edges arrive on hook/poll threads while layer transitions touch UI controls, so the

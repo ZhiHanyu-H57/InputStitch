@@ -327,9 +327,26 @@ Verification evidence (2026-09-21, local):
   included in the Source.zip;
 - local commits only — nothing pushed and no release created.
 
-Next per the plan (H1): incremental `MainForm` decomposition (make the class partial, extract Layer first);
-H2 starts with the profile/context integration. A real-world session should also read the new cadence
-statistics from Runtime Observation to confirm the input thread removed UI-stall delays.
+## 2026-09-21 profile/context integration — stage 1 core
+
+`MappingLayerDefinition.ContextCondition` (optional `MacroConditionConfig`) makes a layer eligible while its
+context matches. The evaluator is the same AND-condition implementation the per-macro gates use (foreground
+process/title, stable `DeviceKey`, analog zone) — no parallel rule set, no application-specific switch.
+
+Semantics: precedence `momentary hold > matching context layer > persistent selection`; the first matching
+context layer in configured list order wins; a matching context never rewrites the persistent selection and
+returns to it when the context stops matching; Base may carry a context (temporary Base-only); re-evaluation
+runs on the foreground-tracking cadence plus every layer/condition edit; unresolvable device conditions
+fail closed. Layer names, Runtime Observation and Diagnostics mark context layers and report the match.
+
+Evidence: `tests/LayerContextTests.cs` (20 checks — XML round trip, precedence, list order, context loss,
+Base context, condition clearing, diagnostics/observation, momentary override) plus the full regression
+suite. The layer-management UI entry for editing/clearing a context condition is the remaining slice.
+
+Next per the plan (H1 remainder + H2): layer-management context-condition editor, then incremental
+`MainForm` decomposition (make the class partial, extract Layer first). A real-world session should also
+read the new cadence statistics from Runtime Observation to confirm the input thread removed UI-stall
+delays.
 
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 
