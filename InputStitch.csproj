@@ -31,6 +31,8 @@
     <Compile Include="InputStitch.cs" />
     <Compile Include="InputProvider.cs" />
     <Compile Include="InputPipeline.cs" />
+    <Compile Include="Sdl3Interop.cs" />
+    <Compile Include="Sdl3InputProvider.cs" />
     <Compile Include="MainForm.Layers.cs" />
     <Compile Include="MainForm.Diagnostics.cs" />
     <Compile Include="MainForm.ControlledReplacement.cs" />

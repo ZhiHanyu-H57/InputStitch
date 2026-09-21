@@ -80,8 +80,13 @@ InputDeviceState: buttons bitmask, DPad, LX/LY/RX/RY/triggers, connected flag
    device set instead of a fixed 0..3 range, and `tests/InputProviderSeamTests.cs` (15 checks) proves the
    seam with a fake provider, including a synthetic index above the XInput range. Existing router suites
    (28 + 22 checks) are unchanged and green.
-2. SDL3 provider: native subset, enumeration/state mapping, hot-plug, device identity evidence, duplicate
-   suppression against XInput, and Input Lab adoption for real-device verification.
+2. **Provider logic done 2026-09-21, native layer pending** — `ISdl3Api` (`Sdl3Interop.cs`) and
+   `Sdl3InputProvider.cs` implement enumeration, synthetic index assignment above the XInput range,
+   state mapping (button mask, Y inversion, trigger scaling), button/trigger edges with XInput hysteresis,
+   hot-plug with index reuse plus release-on-disconnect, and Microsoft-family duplicate suppression.
+   `tests/Sdl3ProviderTests.cs` (29 checks) covers the logic with a fake SDL3 API. Still to do: the
+   P/Invoke implementation of `ISdl3Api`, the SDL3.dll loading/embedding step, MainForm wiring, device
+   identity evidence and Input Lab adoption for real-device verification.
 3. UI and diagnostics: provider column in Device Manager, per-device provider selection where needed.
 
 ## Risks and mitigations

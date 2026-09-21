@@ -13,6 +13,8 @@
 InputStitch.cs
 InputProvider.cs
 InputPipeline.cs
+Sdl3Interop.cs
+Sdl3InputProvider.cs
 MainForm.Layers.cs
 MainForm.Diagnostics.cs
 MainForm.ControlledReplacement.cs

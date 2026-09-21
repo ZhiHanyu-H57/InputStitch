@@ -374,6 +374,24 @@ exactly once when a device disappears. `tests/InputProviderSeamTests.cs` (15 che
 fake provider including a synthetic index, and the existing router suites (28 + 22 checks) are unchanged.
 Next: the SDL3 native subset and its device-identity evidence.
 
+**SDL3 provider logic implemented 2026-09-21:** `Sdl3Interop.cs` defines the normalized `ISdl3Api`
+contract (initialize/shutdown, device ids, descriptors, open/close, snapshots with SDL button/axis indices)
+and `Sdl3InputProvider.cs` implements the provider seam on top of it:
+
+- devices are published at synthetic indices starting at 4, with stable indices per SDL device id and
+  deterministic reuse after a disconnect;
+- SDL state maps onto the app's pad state (button mask identical to the XInput lane, Y axes inverted because
+  SDL reports positive-down, triggers scaled 0..32767 → 0..255);
+- button and trigger edges are raised with the provider device index and the XInput trigger hysteresis
+  (80% press / 70% release); a disconnected device releases its held buttons before its index is freed;
+- Microsoft-family pads (vendor 0x045E) are skipped by default because the XInput lane already owns them;
+  the suppression is a constructor switch;
+- an unavailable SDL3 runtime leaves the provider inert instead of throwing.
+
+Evidence: `tests/Sdl3ProviderTests.cs` (29 checks, fake SDL3 API) plus the full regression and x64/x86
+release verification. Still to do: the P/Invoke implementation of `ISdl3Api`, SDL3.dll loading/embedding and
+MainForm wiring; real-device verification remains on the hardware-blocked lane (no physical controller here).
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

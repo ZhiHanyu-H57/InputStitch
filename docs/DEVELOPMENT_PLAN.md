@@ -139,3 +139,9 @@ Direction updates from the 2026-09-21 research:
   providers) instead of a fixed 0..3 range, clearing a disappeared device exactly once.
   `InputProviderSeamTests` (15 checks) proves the seam with a fake provider; existing router suites are
   unchanged. Next: the SDL3 provider (native P/Invoke subset + device identity evidence).
+- 2026-09-21: **H2.3 step 2a done** — `ISdl3Api` contract plus `Sdl3InputProvider`: synthetic device indices
+  above the XInput range, SDL3→app state mapping (button mask, Y-axis inversion, trigger scaling), button and
+  trigger edges with the XInput hysteresis, hot-plug with index reuse and release-on-disconnect, and
+  Microsoft-family duplicate suppression. `Sdl3ProviderTests` (29 checks, fake SDL3 API) covers all of it.
+  Next: the native P/Invoke implementation of `ISdl3Api`, the DLL loading/embedding step and MainForm wiring
+  (real-device verification stays on the hardware-blocked lane).
