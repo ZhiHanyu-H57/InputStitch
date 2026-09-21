@@ -5098,7 +5098,8 @@ namespace InputStitch
                 delegate { return GamepadOutput.IsConnected; },
                 delegate { return GamepadOutput.ConnectedType; },
                 delegate { return DateTime.UtcNow; },
-                delegate { return gamepadInput == null ? 0L : gamepadInput.TopologyVersion; });
+                delegate { return gamepadInput == null ? 0L : gamepadInput.TopologyVersion; },
+                delegate { return sdl3Input == null ? null : sdl3Input.CurrentGamingDevices(); });
             routerSourcePolicyEvaluator = new RouterSourcePolicyEvaluator(deviceIdentityService, config.GamepadRouterSourcePolicy);
             gamepadRouter = new GamepadRouterService(outputOwnership, routerSourcePolicyEvaluator);
             gamepadRouter.Configure(config.GamepadRouterEnabled);

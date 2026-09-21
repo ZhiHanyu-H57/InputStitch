@@ -103,6 +103,11 @@ InputDeviceState: buttons bitmask, DPad, LX/LY/RX/RY/triggers, connected flag
    suite picks the restored DLL up automatically. The end-user shipping choice (bundle the DLL with the
    release, embed it into the EXE like the ViGEm client, or keep SDL3 strictly optional) is still open.
 
+   Device-identity evidence is wired as well: `Sdl3DeviceIdentity.cs` converts SDL3 descriptors into the
+   persistent model (path → pnp evidence, VID/PID + name → a provider-scoped alias ranked weakest), the
+   registry merges them like any other device, and the inventory lists them as persistent records with
+   `XInputSlot = -1`. The Device Manager provider column is the remaining UI step.
+
 ## Risks and mitigations
 
 * Extracted DLL flagged by antivirus: keep the existing embedded-resource pattern (already shipped for the

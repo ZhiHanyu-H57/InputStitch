@@ -171,3 +171,12 @@ Direction updates from the 2026-09-21 research:
   folder, so release artifacts stay deterministic), and the SDL3 test suite auto-detects the restored DLL so
   a developer machine runs the real-runtime smoke while CI skips it. Remaining for this item: the end-user
   shipping decision (bundle/embed/optional).
+- 2026-09-21: **H2.4 device-identity evidence done** — `Sdl3DeviceIdentity.cs` maps SDL3 descriptors onto the
+  persistent identity model: a real device path becomes pnp evidence, VID/PID plus name produce a
+  provider-scoped alias ranked below every PnP basis (so a device that moves to another USB port still merges
+  into the same record), devices reporting neither path nor VID/PID are skipped instead of inventing an
+  identity, and SDL3 devices never claim an XInput slot. `DeviceIdentityKeys` gained the explicit
+  `provider` basis (weakest), `GamingDeviceDescriptor` gained provider fields, `DeviceIdentityService` gained
+  an optional provider-device lane, and `MainForm` feeds the SDL3 devices into the device registry. Evidence:
+  `tests/Sdl3DeviceIdentityTests.cs` (18 checks) plus the unchanged 36-check device-identity suite; the
+  provider column in Device Manager is the remaining UI step.

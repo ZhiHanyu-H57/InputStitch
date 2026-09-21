@@ -16,6 +16,7 @@ InputPipeline.cs
 Sdl3Interop.cs
 Sdl3InputProvider.cs
 Sdl3NativeApi.cs
+Sdl3DeviceIdentity.cs
 CompositeInputProvider.cs
 MainForm.Layers.cs
 MainForm.Diagnostics.cs

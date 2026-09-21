@@ -443,6 +443,22 @@ auto-detects the restored DLL, which makes the local run execute the real-runtim
 (`REAL-SDL3 smoke: device count=0; provider status=ready; devices=0`, 33 checks) while CI keeps skipping it
 (30 checks). The end-user shipping choice for SDL3.dll is still open.
 
+**SDL3 device-identity evidence added 2026-09-21:** `Sdl3DeviceIdentity.cs` maps SDL3 gamepad descriptors onto
+the persistent identity model used by `devices.xml`:
+
+- a real reported device path (usually the HID path) becomes pnp evidence, so the record's basis is `pnp`;
+- VID/PID plus name produce a provider-scoped alias that is explicitly ranked below every PnP basis, so a pad
+  that moves to another USB port (and therefore gets a different HID path) still merges into the same record;
+- a device reporting neither a path nor VID/PID is skipped instead of inventing an identity, and SDL3 devices
+  never claim XInput slot correlation - that stays reserved for the XUSB/HidHide lanes;
+- `DeviceIdentityKeys` gained the `provider` basis (weakest), `GamingDeviceDescriptor` gained provider fields,
+  `DeviceIdentityService` gained an optional provider-device lane, and `MainForm` feeds the current SDL3
+  devices into the registry so they appear in Device Manager with `XInputSlot = -1`.
+
+Evidence: `tests/Sdl3DeviceIdentityTests.cs` (18 checks: mapping rules, basis ranking, registry merge
+including the moved-port case, inventory integration) and the unchanged 36-check device-identity suite. The
+Device Manager provider column is the remaining UI step.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

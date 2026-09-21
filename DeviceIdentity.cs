@@ -48,6 +48,10 @@ namespace InputStitch
 
             AddEvidence(result, "xusb", device.XusbDeviceInstancePath);
             AddEvidence(result, "pnp", device.DeviceInstancePath);
+            // Provider-reported identity for runtimes that expose no PnP path (for example SDL3 gamepads).
+            // It is deliberately the weakest basis and is only built from data the provider actually reported.
+            if (!string.IsNullOrWhiteSpace(device.ProviderDeviceKey))
+                AddAlias(result, "provider", "provider|" + Normalize(device.ProviderName) + "|" + Normalize(device.ProviderDeviceKey));
             return result;
         }
 
@@ -75,6 +79,7 @@ namespace InputStitch
             if (string.Equals(basis, "serial", StringComparison.OrdinalIgnoreCase)) return 2;
             if (string.Equals(basis, "xusb", StringComparison.OrdinalIgnoreCase)) return 3;
             if (string.Equals(basis, "pnp", StringComparison.OrdinalIgnoreCase)) return 4;
+            if (string.Equals(basis, "provider", StringComparison.OrdinalIgnoreCase)) return 5;
             return 100;
         }
 
@@ -424,6 +429,7 @@ namespace InputStitch
         private readonly Func<string> ownType;
         private readonly Func<DateTime> utcNow;
         private readonly Func<long> topologyVersion;
+        private readonly Func<IList<GamingDeviceDescriptor>> additionalDevices;
         private readonly PersistentDeviceRegistry registry;
         private readonly object sync = new object();
         private DeviceInventorySnapshot lastSnapshot;
@@ -432,7 +438,7 @@ namespace InputStitch
             Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
             Func<bool> isOwnConnected, Func<string> currentOwnType)
             : this(registryPath, deviceDiscovery, currentExternalSlots, currentOwnSlot,
-                isOwnConnected, currentOwnType, delegate { return DateTime.UtcNow; }, null)
+                isOwnConnected, currentOwnType, delegate { return DateTime.UtcNow; }, null, null)
         {
         }
 
@@ -440,7 +446,7 @@ namespace InputStitch
             Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
             Func<bool> isOwnConnected, Func<string> currentOwnType, Func<DateTime> clock)
             : this(registryPath, deviceDiscovery, currentExternalSlots, currentOwnSlot,
-                isOwnConnected, currentOwnType, clock, null)
+                isOwnConnected, currentOwnType, clock, null, null)
         {
         }
 
@@ -448,6 +454,15 @@ namespace InputStitch
             Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
             Func<bool> isOwnConnected, Func<string> currentOwnType, Func<DateTime> clock,
             Func<long> currentTopologyVersion)
+            : this(registryPath, deviceDiscovery, currentExternalSlots, currentOwnSlot,
+                isOwnConnected, currentOwnType, clock, currentTopologyVersion, null)
+        {
+        }
+
+        internal DeviceIdentityService(string registryPath, IGamingDeviceDiscovery deviceDiscovery,
+            Func<int[]> currentExternalSlots, Func<int> currentOwnSlot,
+            Func<bool> isOwnConnected, Func<string> currentOwnType, Func<DateTime> clock,
+            Func<long> currentTopologyVersion, Func<IList<GamingDeviceDescriptor>> providerDevices)
         {
             if (string.IsNullOrWhiteSpace(registryPath)) throw new ArgumentException("A device registry path is required.");
             discovery = deviceDiscovery;
@@ -457,6 +472,7 @@ namespace InputStitch
             ownType = currentOwnType;
             utcNow = clock ?? delegate { return DateTime.UtcNow; };
             topologyVersion = currentTopologyVersion;
+            additionalDevices = providerDevices;
             registry = new PersistentDeviceRegistry(registryPath);
         }
 
@@ -465,6 +481,32 @@ namespace InputStitch
         internal DeviceInventorySnapshot Refresh()
         {
             lock (sync) return RefreshCore();
+        }
+
+        // Merges one list of discovered devices into the registry and the inventory snapshot. A descriptor may
+        // carry its own provider label (used by the additional provider lane); otherwise the caller's default
+        // applies. Correlation proof describes the metadata observed in THIS refresh, not a historical fact: a
+        // device once seen through the native XUSB provider must not stay trusted if a later refresh can see it
+        // only through an enrichment provider.
+        private void AddDescriptors(DeviceInventorySnapshot snapshot, IList<GamingDeviceDescriptor> descriptors,
+            string defaultProvider, HashSet<string> presentPersistentKeys, DateTime now)
+        {
+            if (descriptors == null) return;
+            foreach (GamingDeviceDescriptor descriptor in descriptors)
+            {
+                if (descriptor == null || !descriptor.Present || !descriptor.GamingDevice) continue;
+                string provider = string.IsNullOrWhiteSpace(descriptor.ProviderName)
+                    ? (defaultProvider ?? "")
+                    : descriptor.ProviderName.Trim();
+                PersistentDeviceRecord record = registry.Merge(descriptor, provider, now);
+                if (record == null || string.IsNullOrWhiteSpace(record.DeviceKey)) continue;
+                if (!presentPersistentKeys.Add(record.DeviceKey)) continue;
+                DeviceInventoryItem currentItem = ToInventory(record,
+                    record.VirtualBus ? DeviceInventoryRole.DiscoveredVirtualBusDevice : DeviceInventoryRole.PersistentGamingDevice,
+                    true);
+                currentItem.NativeXusbMetadata = descriptor.NativeXusbMetadata;
+                snapshot.Items.Add(currentItem);
+            }
         }
 
         private DeviceInventorySnapshot RefreshCore()
@@ -520,24 +562,17 @@ namespace InputStitch
                 snapshot.DiscoveryStatus = "Stable gaming-device metadata unavailable. XInput sources remain transient/unresolved; no slot is persisted as device identity.";
             }
 
-            if (discovered != null)
+            AddDescriptors(snapshot, discovered, discovery == null ? "device metadata" : discovery.ProviderName,
+                presentPersistentKeys, now);
+            if (additionalDevices != null)
             {
-                foreach (GamingDeviceDescriptor descriptor in discovered)
+                IList<GamingDeviceDescriptor> providerDevices = null;
+                try { providerDevices = additionalDevices(); }
+                catch (Exception ex)
                 {
-                    if (descriptor == null || !descriptor.Present || !descriptor.GamingDevice) continue;
-                    PersistentDeviceRecord record = registry.Merge(descriptor, discovery == null ? "device metadata" : discovery.ProviderName, now);
-                    if (record == null || string.IsNullOrWhiteSpace(record.DeviceKey)) continue;
-                    if (!presentPersistentKeys.Add(record.DeviceKey)) continue;
-                    DeviceInventoryItem currentItem = ToInventory(record,
-                        record.VirtualBus ? DeviceInventoryRole.DiscoveredVirtualBusDevice : DeviceInventoryRole.PersistentGamingDevice,
-                        true);
-                    // Correlation proof must describe the device metadata observed in THIS refresh,
-                    // not merely a historical registry fact. A device that was once seen through the
-                    // native XUSB provider must not stay trusted forever if a later refresh can see it
-                    // only through an enrichment provider.
-                    currentItem.NativeXusbMetadata = descriptor.NativeXusbMetadata;
-                    snapshot.Items.Add(currentItem);
+                    try { AppLog.Write("Provider device identity discovery failed", ex); } catch { }
                 }
+                AddDescriptors(snapshot, providerDevices, "provider", presentPersistentKeys, now);
             }
 
             int[] slots = SafeExternalSlots();

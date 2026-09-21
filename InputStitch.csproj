@@ -34,6 +34,7 @@
     <Compile Include="Sdl3Interop.cs" />
     <Compile Include="Sdl3InputProvider.cs" />
     <Compile Include="Sdl3NativeApi.cs" />
+    <Compile Include="Sdl3DeviceIdentity.cs" />
     <Compile Include="CompositeInputProvider.cs" />
     <Compile Include="MainForm.Layers.cs" />
     <Compile Include="MainForm.Diagnostics.cs" />

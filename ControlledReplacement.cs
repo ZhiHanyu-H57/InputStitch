@@ -65,6 +65,10 @@ namespace InputStitch
         public string ContainerId = "";
         public bool VirtualBus;
         public bool NativeXusbMetadata;
+        // Optional provider-reported identity for devices whose runtime exposes no PnP path (see
+        // Sdl3DeviceIdentity). ProviderName is used as the provider label when it is set.
+        public string ProviderName = "";
+        public string ProviderDeviceKey = "";
 
         public string DisplayName
         {

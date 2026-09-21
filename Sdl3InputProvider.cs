@@ -35,6 +35,7 @@ namespace InputStitch
         private readonly ISdl3Api api;
         private readonly bool suppressXboxFamily;
         private readonly Dictionary<int, int> indexByDeviceId = new Dictionary<int, int>();
+        private readonly Dictionary<int, Sdl3DeviceDescriptor> descriptorByDeviceId = new Dictionary<int, Sdl3DeviceDescriptor>();
         private readonly Dictionary<int, XInputPadState> stateByIndex = new Dictionary<int, XInputPadState>();
         private readonly Dictionary<int, bool> leftTriggerDownByIndex = new Dictionary<int, bool>();
         private readonly Dictionary<int, bool> rightTriggerDownByIndex = new Dictionary<int, bool>();
@@ -115,6 +116,7 @@ namespace InputStitch
                     if (suppressXboxFamily && descriptor.VendorId == MicrosoftVendorId) continue;
                     if (indexByDeviceId.ContainsKey(deviceId)) continue;
                     indexByDeviceId[deviceId] = AllocateIndexLocked();
+                    descriptorByDeviceId[deviceId] = descriptor;
                     try
                     {
                         if (api.Open(deviceId)) openedDevices.Add(deviceId);
@@ -136,6 +138,7 @@ namespace InputStitch
                     leftTriggerDownByIndex.Remove(index);
                     rightTriggerDownByIndex.Remove(index);
                     indexByDeviceId.Remove(deviceId);
+                    descriptorByDeviceId.Remove(deviceId);
                     if (openedDevices.Remove(deviceId))
                     {
                         try { api.Close(deviceId); } catch { }
@@ -183,6 +186,22 @@ namespace InputStitch
                 indices.Sort();
                 return indices.ToArray();
             }
+        }
+
+        // Current devices mapped onto the persistent identity model (see Sdl3DeviceIdentity). Used by the
+        // identity service's provider lane so SDL3 pads appear in the device registry and Device Manager.
+        internal List<GamingDeviceDescriptor> CurrentGamingDevices()
+        {
+            List<GamingDeviceDescriptor> result = new List<GamingDeviceDescriptor>();
+            lock (sync)
+            {
+                foreach (Sdl3DeviceDescriptor descriptor in descriptorByDeviceId.Values)
+                {
+                    GamingDeviceDescriptor mapped = Sdl3DeviceIdentity.ToGamingDevice(descriptor);
+                    if (mapped != null) result.Add(mapped);
+                }
+            }
+            return result;
         }
 
         public bool TryGetState(int deviceIndex, out XInputPadState state)
