@@ -1,65 +1,48 @@
-# InputStitch 1.4.3
+# InputStitch 1.5.0-beta.1（测试版）
 
 ## 一句话看懂
 
-**修复运行一段时间后键盘热键可能突然整体失效的问题：当 Windows 低级键盘钩子漏掉真实按键时，InputStitch 现在会用独立的 Raw Input 通道继续识别触发，并自动恢复键盘钩子。**
+**这是下一个功能版本的首个测试版：映射层可以“按住临时生效”、可以按前台程序或设备身份自动生效，新增“短按”激活方式，并接入可选 SDL3 手柄通道（PlayStation / Switch / HID）。它和 1.4.3 正式版是两条独立的更新通道。**
 
-1.4.3 不修改配置格式，不改变宏、Held Mapping、Layer、Output Ownership、Router 或手柄接管的既有语义。Controller Takeover 仍然是 Experimental。
+## 面向用户的变化
 
-## 键盘热键可靠性修复
+### 1. 按住临时切层
 
-### 1. 增加独立的物理键盘兜底通道
+任何一层（含基础层）都可以设为“按住生效（松开返回）”。按住切换键时该层临时生效，松开后回到之前的层；临时按住不会改写你在下拉框或快捷键里选择的持久层。多个层同时按住时，最后按下的生效，松开后逐层回退。
 
-InputStitch 原有全局键盘触发主要依赖 Windows `WH_KEYBOARD_LL` 低级键盘钩子。实际 GTA V 使用中发现，程序运行一段时间后可能出现低级钩子不再送达新的物理键盘事件，但主界面的“启动”按钮仍可正常执行同一宏的情况。
+### 2. 层上下文条件
 
-1.4.3 新增被动 Raw Input 键盘通道。正常情况下仍由原有低级钩子作为主通道；只有当 Raw Input 看到了真实物理按键边沿，而低级钩子没有在对应时间窗口内观察到同一边沿时，才进入兜底路径。
+一层可以带一个上下文条件（前台进程名 / 窗口标题包含 / 稳定设备身份 DeviceKey）。条件满足时该层自动生效，条件失效后自动回到手动选择的层。优先级为：**按住 > 上下文 > 手动**。设备条件在无法证明对应关系时按“不满足”处理，不会猜测。
 
-兜底输入仍复用原有的触发选择、Layer、UI 安全、Emergency Stop、并发运行时和 Output Ownership 路径，不另建第二套宏引擎。
+### 3. 短按激活
 
-### 2. 自动恢复低级键盘钩子
+宏的激活方式新增“短按”：在设定的时间窗口内松开触发一次；按住超过窗口即作废，因此同一个键仍可安全用于按住类操作；滚轮方向没有“按住”状态，不参与该方式。
 
-发现漏钩后，InputStitch 会等待当前观察到的物理键盘按键全部松开，再把恢复操作推迟到下一轮 WinForms 消息循环，并设置恢复冷却，避免按住键时重装造成重复触发或恢复风暴。
+### 4. 可选 SDL3 手柄通道
 
-恢复只重建键盘钩子，不重建鼠标钩子，因此鼠标侧键、鼠标 Held Mapping 和鼠标 suppression 状态不会因为键盘自愈而被无关地重置。
+- 接入非 XInput 手柄（PlayStation / Switch / HID 手柄），设备使用独立编号，不会占用 XInput 的 0–3 槽位；
+- 微软系手柄仍由 XInput 通道负责，避免重复输入；
+- 设置中可关闭该通道；关闭后行为与只有 XInput 时完全一致；
+- SDL3 运行时已内置在可执行文件里（构建时按固定版本 + SHA-256 下载并嵌入），用户不需要单独安装。
 
-### 3. 增加可观察诊断
+### 5. 设备身份与设备管理器
 
-运行观察和详细诊断现在会显示：
+SDL3 手柄同样会登记到持久设备身份库：优先使用真实设备路径，其次使用“VID/PID + 名称”的设备提供方别名（例如换 USB 口后仍能并回同一条记录）；XInput 槽位永远不作为身份。设备管理器会在“身份依据”一列标出来源（例如 `PnP path · sdl3`）。
 
-- Raw Input 观察到的键盘事件数量；
-- 实际走过兜底路径的键盘边沿数量；
-- 自动恢复键盘钩子的次数；
-- 兜底发生时，本应屏蔽触发键但已经无法追溯屏蔽原始按键的次数。
+### 6. 稳定性与内部改进
 
-这让“热键为什么还能触发 / 为什么发生过自愈”可以直接从诊断中确认，而不是只看到一个并不能代表实时健康状态的“Hooks: 已安装”。
+- 输入轮询、手柄汇总与激活节拍从界面线程移到独立的输入线程，界面卡顿不再拖延输入时序；诊断与运行观察新增节拍统计（卡顿次数、最大间隔、最大/平均耗时）；
+- 前台条件求值改为缓存（同一窗口内最多每 250 ms 查一次进程信息）；
+- 生产源码清单唯一化，并加入防漂移测试，避免构建/测试/验收三处清单不一致。
 
-## 一个需要明确的边界
+## 兼容性与边界
 
-正常低级钩子工作时，原有触发键 suppression 行为保持不变。
+- 配置格式未变：可以直接沿用 1.4.3 的配置；两个版本请不要同时运行（共用配置目录）。
+- 本测试版**不会**成为 `releases/latest`，也不会替换 1.4.x 正式版的更新清单；正式版用户不会自动收到此版本。
+- 手柄接管（Controlled Replacement）仍是 Experimental：实体手柄 + HidHide + 真实游戏的最终验收仍未完成。
 
-如果某一次物理按键已经被低级钩子漏掉，Raw Input 可以补上宏触发并推动钩子恢复，但它收到事件时原始按键已经被 Windows 送往前台应用，因此不能“回到过去”再把这一次原始按键屏蔽掉。这个限制只发生在已经进入漏钩兜底的那一次边沿。
+## 验证摘要
 
-## 验证
-
-最终发布树已完成：
-
-- x64 / x86 Release build + Release Verification；
-- 键盘/触发专项 **329 PASS**；
-- Output Ownership **303,716 PASS**；
-- 其余完整回归、更新器/网络、UI Safety、Productivity、中英文 Settings smoke 和旧配置兼容测试全部通过；
-- 当前最新版 Input Lab 黑盒验收 **77/77 PASS，failures=0**；
-- GTA V 实机物理 `C` 键热键验收通过。
-
----
-
-## English summary
-
-**InputStitch 1.4.3 fixes a reliability issue where global keyboard hotkeys could stop responding after the application had been running for a while.**
-
-The existing `WH_KEYBOARD_LL` hook remains the primary keyboard-trigger lane. A passive Raw Input keyboard lane now independently observes physical edges; when Raw Input sees an edge that the low-level hook did not observe, InputStitch feeds that edge through the existing trigger/runtime path and schedules keyboard-hook recovery after all observed keyboard keys have been released.
-
-Recovery reinstalls only the keyboard hook, preserving mouse-hook and active mouse-mapping state. Runtime Observation and Diagnostics now expose Raw Input observations, fallback edges, hook recoveries, and fallback cases where trigger suppression could not be applied retroactively.
-
-Configuration format and macro semantics are unchanged. Normal suppression behavior is unchanged while the primary hook is healthy. If the primary hook has already missed a physical edge, Raw Input can recover macro triggering but cannot retroactively suppress that already-delivered original key event.
-
-Verification includes x64/x86 Release Verification, 329 keyboard checks, 303,716 Output Ownership checks, the full regression suite, Input Lab 77/77 PASS, and a physical GTA V `C`-trigger acceptance test.
+- x64 与 x86 均通过构建与发布校验（版本、清单、哈希、内嵌依赖）；
+- 完整隔离回归：键盘/触发 329、Layer 72、层上下文 23、激活/条件 73、设备身份 36、SDL3 相关 33+23、路由 28/22、Output Ownership 303,716、设置与旧配置冒烟通过；
+- SDL3 运行时用官方 3.4.16 资源做真实调用冒烟（无手柄时 0 设备、通道就绪），并以 SHA-256 固定在校验链里。

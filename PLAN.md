@@ -6,9 +6,10 @@ Updated: 2026-09-21
 
 ## Current milestone
 
-**Post-`v1.4.3` platform foundation — Device Identity / Router policy / Analog Transform**
+**`v1.5.0-beta.1` — the post-`v1.4.3` platform foundation, layers and the optional SDL3 input lane**
 
 - Current Stable: `v1.4.3`
+- Current Beta: `v1.5.0-beta.1` — published as an opt-in GitHub prerelease (independent from `releases/latest`)
 - Previous prerelease: `v1.3.1-beta.1` — published and immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published and immutable
 - Branch: `main`

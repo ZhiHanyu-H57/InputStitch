@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using InputStitch;
 
 internal static class Sdl3ProviderTests
@@ -221,6 +223,39 @@ internal static class Sdl3ProviderTests
         {
             Console.WriteLine("REAL-SDL3 smoke skipped (set " + Sdl3NativeApi.DllPathEnvironmentVariable +
                 " to a local SDL3.dll to run it).");
+        }
+
+        // 8. Embedded-runtime extraction helper: release builds carry the pinned SDL3.dll as a resource and
+        //    extract it with a hash check into the per-user runtime cache.
+        string extractionRoot = Path.Combine(Path.GetTempPath(), "InputStitch-Sdl3Extract-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(extractionRoot);
+        try
+        {
+            byte[] payload = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+            string payloadHash;
+            using (SHA256 sha = SHA256.Create())
+            {
+                StringBuilder text = new StringBuilder();
+                foreach (byte value in sha.ComputeHash(payload)) text.Append(value.ToString("x2"));
+                payloadHash = text.ToString();
+            }
+            string target = Path.Combine(extractionRoot, "SDL3.dll");
+            Check(Sdl3NativeApi.TryWriteVerified(new MemoryStream(payload), target, payloadHash),
+                "the embedded-runtime helper writes a hash-verified payload");
+            Check(File.Exists(target) && new FileInfo(target).Length == payload.Length,
+                "the extracted runtime matches the payload");
+            Check(Sdl3NativeApi.TryWriteVerified(new MemoryStream(payload), target, payloadHash),
+                "an already extracted runtime is reused without rewriting");
+            string rejected = Path.Combine(extractionRoot, "rejected.dll");
+            Check(!Sdl3NativeApi.TryWriteVerified(new MemoryStream(new byte[] { 9, 9, 9 }), rejected, payloadHash),
+                "a payload that fails the pinned hash is rejected");
+            Check(!File.Exists(rejected), "a rejected payload leaves no file behind");
+            Check(!Sdl3NativeApi.TryWriteVerified(null, Path.Combine(extractionRoot, "none.dll"), payloadHash),
+                "a missing source stream is rejected");
+        }
+        finally
+        {
+            try { Directory.Delete(extractionRoot, true); } catch { }
         }
 
         Console.WriteLine("PASS sdl3 provider: " + checks + " checks; mapping, edges, hysteresis, hot-plug and duplicate suppression with a fake SDL3 API.");

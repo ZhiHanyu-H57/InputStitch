@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace InputStitch
 {
@@ -16,6 +20,10 @@ namespace InputStitch
         internal const uint SdlInitGamepad = 0x00002000;
         // Optional override used by developer machines and the smoke test.
         internal const string DllPathEnvironmentVariable = "INPUTSTITCH_SDL3_DLL";
+        // Embedded runtime resource names written by build.ps1 (one per architecture).
+        internal const string EmbeddedResourcePrefix = "InputStitch.Sdl3.";
+        internal const string X64DllSha256 = "1f98969319302a100931f4385e5918a0bd53ab07773040682d22e7edb54858c0";
+        internal const string X86DllSha256 = "47d508b4232cf9462096bdb6f613a330d9a94a7eb09c305fad073430c6531920";
         // Controls queried per poll: the 15 mapped buttons (South..DPadRight) plus the 6 axes.
         private const int FirstMappedButton = 0;
         private const int LastMappedButton = 14;
@@ -105,6 +113,8 @@ namespace InputStitch
             if (initialized) return available;
             initialized = true;
             string path = ResolveLibraryPath(explicitPath);
+            if (path == null) path = TryExtractEmbeddedRuntime();
+            if (path == null) path = "SDL3.dll";
             try { module = LoadLibraryW(path); }
             catch (Exception ex)
             {
@@ -252,10 +262,97 @@ namespace InputStitch
             string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string beside = Path.Combine(baseDirectory, "SDL3.dll");
             if (File.Exists(beside)) return beside;
-            string arch = Environment.Is64BitProcess ? "x64" : "x86";
-            string development = Path.Combine(baseDirectory, "third-party", "SDL3", arch, "SDL3.dll");
+            string architecture = Environment.Is64BitProcess ? "x64" : "x86";
+            string cached = Path.Combine(RuntimeCacheDirectory(architecture), "SDL3.dll");
+            if (File.Exists(cached)) return cached;
+            string development = Path.Combine(baseDirectory, "third-party", "SDL3", architecture, "SDL3.dll");
             if (File.Exists(development)) return development;
-            return "SDL3.dll";
+            return null;
+        }
+
+        // Release builds embed the pinned SDL3 runtime as a resource so the download stays a single EXE. The
+        // resource is extracted into the per-user runtime cache, hash-verified against the pinned value, and
+        // reused on later launches. Returns the usable path, or null when this host has no embedded runtime.
+        internal static string TryExtractEmbeddedRuntime()
+        {
+            string architecture = Environment.Is64BitProcess ? "x64" : "x86";
+            string resourceName = EmbeddedResourcePrefix + architecture + ".dll";
+            string expectedHash = Environment.Is64BitProcess ? X64DllSha256 : X86DllSha256;
+            string targetPath = Path.Combine(RuntimeCacheDirectory(architecture), "SDL3.dll");
+            try
+            {
+                if (File.Exists(targetPath) && MatchesHash(targetPath, expectedHash)) return targetPath;
+                Assembly assembly = Assembly.GetExecutingAssembly();
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream == null) return null;
+                    if (!TryWriteVerified(stream, targetPath, expectedHash)) return null;
+                }
+                return targetPath;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // Writes the stream to targetPath only when the content matches the expected SHA-256. Used by the
+        // embedded-runtime extraction and covered directly by tests with an in-memory stream.
+        internal static bool TryWriteVerified(Stream source, string targetPath, string expectedSha256)
+        {
+            if (source == null || string.IsNullOrWhiteSpace(targetPath)) return false;
+            if (File.Exists(targetPath) && MatchesHash(targetPath, expectedSha256)) return true;
+            string directory = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            string temporary = targetPath + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                using (FileStream output = File.Create(temporary))
+                {
+                    byte[] buffer = new byte[64 * 1024];
+                    int read;
+                    while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        output.Write(buffer, 0, read);
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(expectedSha256) && !MatchesHash(temporary, expectedSha256)) return false;
+                File.Copy(temporary, targetPath, true);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+            }
+        }
+
+        private static bool MatchesHash(string path, string expectedSha256)
+        {
+            if (string.IsNullOrWhiteSpace(expectedSha256)) return true;
+            try
+            {
+                using (SHA256 sha = SHA256.Create())
+                using (FileStream stream = File.OpenRead(path))
+                {
+                    StringBuilder text = new StringBuilder(64);
+                    foreach (byte value in sha.ComputeHash(stream)) text.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+                    return string.Equals(text.ToString(), expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string RuntimeCacheDirectory(string architecture)
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "InputStitch", "runtime", architecture);
         }
 
         internal static string GamepadTypeName(int type)

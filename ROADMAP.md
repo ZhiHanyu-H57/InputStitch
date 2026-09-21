@@ -7,6 +7,7 @@ Updated: 2026-09-21
 ## Current position / 当前阶段
 
 Current Stable: **v1.4.3**
+Current Beta: **v1.5.0-beta.1** — opt-in prerelease, independent from `releases/latest`
 Previous prerelease: **v1.3.1-beta.1** — published and immutable
 Latest historical prerelease: **v1.3.1-beta.2** — published and immutable
 

@@ -6,10 +6,17 @@ Updated: 2026-09-21
 
 ## End of day 2026-09-21 — local-only development wave
 
-The working tree is clean on `main`, **23 commits ahead of `origin/main`, none pushed and no release created**
-(per the user's local-only instruction). Every commit passed the full `tests/Run-Tests.ps1` regression and the
-x64/x86 `build.ps1` release verification; the refactor-only commits produced byte-identical executables.
-Nothing in this wave has been published, so ordinary users still run Stable `v1.4.3`.
+The working tree is clean on `main` and the wave is published as the opt-in GitHub prerelease
+**`v1.5.0-beta.1`**; ordinary users still run Stable `v1.4.3` and `releases/latest` remains `v1.4.3`. Every
+commit passed the full `tests/Run-Tests.ps1` regression and the x64/x86 `build.ps1` release verification; the
+refactor-only commits produced byte-identical executables.
+
+The SDL3 runtime follows the agreed on-demand model: `scripts/Restore-Sdl3.ps1` fetches the pinned 3.4.16
+assets during the build and `build.ps1` embeds the per-architecture `SDL3.dll` into the executable as
+`InputStitch.Sdl3.<arch>.dll` (x64 build 3,729,408 bytes, x86 3,244,544 bytes). At runtime the provider
+verifies the embedded copy against the pinned SHA-256, extracts it to
+`%LOCALAPPDATA%\InputStitch\runtime\<arch>\SDL3.dll` and loads it from there; nothing is installed for the
+user and the download remains a single EXE. `-SkipSdl3` builds a leaner executable with the lane disabled.
 
 Highlights of the wave: architecture review + long-term plan, the single production-source manifest with its
 drift guard, the foreground-identity cache, the dedicated input-pipeline thread with cadence statistics,
@@ -27,6 +34,7 @@ provider column, and the stage-2 activator designs.
 ## Current versions
 
 - Current Stable: `v1.4.3`
+- Current Beta: `v1.5.0-beta.1` — opt-in GitHub prerelease published 2026-09-21 from this wave; it never replaces `releases/latest` and does not touch the Stable updater channel.
 - Previous prerelease: `v1.3.1-beta.1` — public GitHub prerelease, immutable
 - Latest historical prerelease: `v1.3.1-beta.2` — published successfully and immutable
 - Branch: `main` after the reviewed 1.4.3 keyboard-hotkey reliability release; the former `refactor/no-functional-change-1` work remains incorporated in this Stable line.

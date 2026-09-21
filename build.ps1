@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$SkipSourceArchive,
-    [switch]$NoReferenceRestore
+    [switch]$NoReferenceRestore,
+    [switch]$SkipSdl3
 )
 
 Set-StrictMode -Version Latest
@@ -14,6 +15,30 @@ $fileVersion = $releaseInfo.FileVersion
 # Single authoritative production source list (scripts/production-sources.txt). The csproj list is kept
 # explicit for Visual Studio users and is cross-checked by tests/SourceManifestTests.cs.
 $productionSources = & (Join-Path $projectRoot 'scripts/Get-ProductionSources.ps1')
+# Optional SDL3 runtime. Decision (b): the binary is never committed; it is fetched on demand by
+# scripts/Restore-Sdl3.ps1 and embedded into each executable as a resource so the downloadable artifact stays
+# a single self-contained EXE. Pass -SkipSdl3 to build without the lane (it then stays inert at runtime).
+$sdl3Hashes = @{
+    'x64' = '1f98969319302a100931f4385e5918a0bd53ab07773040682d22e7edb54858c0'
+    'x86' = '47d508b4232cf9462096bdb6f613a330d9a94a7eb09c305fad073430c6531920'
+}
+if (-not $SkipSdl3) {
+    $sdl3Root = Join-Path $projectRoot 'third-party\SDL3'
+    $missing = $false
+    foreach ($sdl3Architecture in @('x64', 'x86')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $sdl3Root ($sdl3Architecture + '\SDL3.dll')) -PathType Leaf)) { $missing = $true }
+    }
+    if ($missing) {
+        Write-Host 'SDL3 runtime not found locally; restoring the pinned 3.4.16 assets ...'
+        & (Join-Path $projectRoot 'scripts\Restore-Sdl3.ps1') -ProjectRoot $projectRoot | Out-Null
+    }
+    foreach ($sdl3Architecture in @('x64', 'x86')) {
+        $sdl3Path = Join-Path $sdl3Root ($sdl3Architecture + '\SDL3.dll')
+        if (-not (Test-Path -LiteralPath $sdl3Path -PathType Leaf)) { throw "SDL3 runtime for $sdl3Architecture is missing; run scripts/Restore-Sdl3.ps1 or pass -SkipSdl3." }
+        $sdl3Hash = (Get-FileHash -LiteralPath $sdl3Path -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($sdl3Hash -ne $sdl3Hashes[$sdl3Architecture]) { throw "SDL3 runtime hash mismatch for ${sdl3Architecture}: expected $($sdl3Hashes[$sdl3Architecture]) but found $sdl3Hash." }
+    }
+}
 $distDirectory = Join-Path $projectRoot 'dist'
 $sourcePath = Join-Path $projectRoot 'InputStitch.cs'
 $manifestPath = Join-Path $projectRoot 'app.manifest'
@@ -116,6 +141,11 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += "/reference:$netstandardPath"
     $compilerArguments += "/reference:$viGEmClientPath"
     $compilerArguments += "/resource:$viGEmClientPath,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll"
+    if (-not $SkipSdl3) {
+        $sdl3ResourcePath = Join-Path $projectRoot ('third-party\SDL3\' + $Architecture + '\SDL3.dll')
+        Assert-FileExists -LiteralPath $sdl3ResourcePath
+        $compilerArguments += "/resource:$sdl3ResourcePath,InputStitch.Sdl3.$Architecture.dll"
+    }
     $compilerArguments += $TargetFrameworkSource
     foreach ($productionSource in $productionSources) { $compilerArguments += $productionSource }
 
