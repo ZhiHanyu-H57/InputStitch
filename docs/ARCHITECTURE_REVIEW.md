@@ -100,6 +100,10 @@ the pre-extraction build (860,672 / 861,184 bytes) and the full regression suite
 reflection-based Layer and layer-context suites — passed unchanged. Remaining extractions:
 diagnostics/observation, controller takeover, macro editor.
 
+Second step (same day): the Runtime Observation / Diagnostics text builders moved to
+`MainForm.Diagnostics.cs` (248 lines); `InputStitch.cs` is now 11,379 lines. The x64/x86 binaries are again
+byte-size identical and the full suite passed.
+
 ### F5 — P2, maintainability/localization: bilingual strings are code, not data
 
 `Localizer.IsEnglish` appears **327 times** as inline ternaries. A third language or a wording audit would
@@ -150,7 +154,7 @@ decision register).
 | F1 input timing on UI thread | dedicated input thread + cadence stats | closed 2026-09-21 (real-world numbers pending) |
 | F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
-| F4 monolith | `partial` + Layer extraction done 2026-09-21; diagnostics/takeover/editor pending | in progress |
+| F4 monolith | `partial` + Layer and Diagnostics extractions done 2026-09-21; takeover/editor pending | in progress |
 | F5 localization data | deferred | deferred |
 | F6 input provider seam | planned with input work | planned |
 | F7 release choreography | checklist item | tracked |

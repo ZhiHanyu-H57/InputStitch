@@ -361,6 +361,11 @@ Next per the plan: continue H1.4 with the diagnostics/observation extraction, th
 (activator/condition stage 2) and H2.3 (`IInputProvider`). A real-world session should also read the cadence
 statistics from Runtime Observation to confirm the dedicated input thread removed UI-stall delays.
 
+Second extraction (same day): the Runtime Observation / Diagnostics text builders moved to
+`MainForm.Diagnostics.cs` (248 lines). `InputStitch.cs` is now 11,379 lines (from 12,171 before the
+decomposition); the x64/x86 binaries are again identical in size and the full suite passed. Remaining
+extractions: controller takeover, macro editor.
+
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 
 Layer definitions now support an optional momentary mode: the layer is active only while its own switch

@@ -114,3 +114,6 @@ Direction updates from the 2026-09-21 research:
   `MainForm.Layers.cs` (576 lines) with identical x64/x86 binary sizes and a fully green regression as the
   behaviour-neutrality evidence. Next extractions: diagnostics/observation, controller takeover, macro
   editor.
+- 2026-09-21: **H1.4 step 2** — Runtime Observation / Diagnostics builders moved to
+  `MainForm.Diagnostics.cs` (248 lines); `InputStitch.cs` is now 11,379 lines with again identical
+  x64/x86 binary sizes and a green regression. Next extractions: controller takeover, macro editor.

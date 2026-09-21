@@ -13,6 +13,7 @@
 InputStitch.cs
 InputPipeline.cs
 MainForm.Layers.cs
+MainForm.Diagnostics.cs
 ReleaseInfo.cs
 UpdateInstaller.cs
 RuntimeDiagnostics.cs
