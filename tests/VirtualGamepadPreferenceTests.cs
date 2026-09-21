@@ -175,6 +175,19 @@ internal static class VirtualGamepadPreferenceTests
                 "controller merging still requires and normalizes to a virtual Xbox controller");
 
             Localizer.SetLanguage(Localizer.Chinese);
+            Check(new MacroConfig().Sdl3InputEnabled, "the optional SDL3 input lane is enabled by default");
+            MacroConfig sdl3Disabled = new MacroConfig();
+            sdl3Disabled.Sdl3InputEnabled = false;
+            using (SettingsDialog dialog = new SettingsDialog(sdl3Disabled))
+            {
+                Check(!dialog.Sdl3InputEnabled, "Settings reflects a disabled SDL3 input lane");
+            }
+            using (SettingsDialog dialog = new SettingsDialog(new MacroConfig()))
+            {
+                Check(dialog.Sdl3InputEnabled, "Settings reflects an enabled SDL3 input lane");
+            }
+            MacroConfig sdl3Clone = ConfigPackageSerializer.CloneConfig(sdl3Disabled);
+            Check(!sdl3Clone.Sdl3InputEnabled, "the SDL3 lane switch survives a real config clone");
             using (SettingsDialog dialog = new SettingsDialog(disabledConfig))
             {
                 ComboBox typeBox = (ComboBox)Field(dialog, "gamepadTypeBox");

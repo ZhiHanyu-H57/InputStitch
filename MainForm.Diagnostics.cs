@@ -138,6 +138,8 @@ namespace InputStitch
                 }
                 parts.Add(provider.ProviderName + "=active");
             }
+            if (sdl3Input == null && config != null && !config.Sdl3InputEnabled)
+                parts.Add("sdl3=disabled(setting)");
             return string.Join("; ", parts.ToArray());
         }
 

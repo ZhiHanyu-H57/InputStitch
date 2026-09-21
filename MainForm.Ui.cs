@@ -1060,6 +1060,8 @@ namespace InputStitch
                     config.GamepadRouterEnabled = requestedRouterEnabled;
                     config.GamepadRouterSourcePolicy = requestedRouterSourcePolicy;
                     config.GamepadDeviceType = config.GamepadRouterEnabled ? VirtualGamepadTypes.Xbox360 : dialog.SelectedGamepadType;
+                    bool sdl3WasEnabled = config.Sdl3InputEnabled;
+                    config.Sdl3InputEnabled = dialog.Sdl3InputEnabled;
                     IdleGamepadOptions requestedIdleOptions = dialog.SelectedIdleOptions;
                     bool idleDisabledByVirtualOutput = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType) &&
                         requestedIdleOptions != null && requestedIdleOptions.Enabled;
@@ -1105,7 +1107,13 @@ namespace InputStitch
                     }
                     UpdateUiSafetyPauseState();
                     SaveConfig();
-                    if (VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType))
+                    if (sdl3WasEnabled != config.Sdl3InputEnabled)
+                    {
+                        SetStatusSafe(Localizer.IsEnglish
+                            ? "SDL3 input lane setting saved; it takes effect after the next start."
+                            : "SDL3 输入通道设置已保存；将在下次启动后生效。");
+                    }
+                    else if (VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType))
                     {
                         SetStatusSafe(idleDisabledByVirtualOutput
                             ? (Localizer.IsEnglish

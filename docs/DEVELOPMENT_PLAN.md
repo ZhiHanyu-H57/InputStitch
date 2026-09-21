@@ -185,3 +185,9 @@ Direction updates from the 2026-09-21 research:
   have pushed the grid past its window width; the `provider` basis gained a proper label and metadata-only
   providers (HidHide, Windows XUSB) keep their previous presentation. `tests/Sdl3DeviceIdentityTests.cs` grew
   to 23 checks covering the label rules via the existing static hook.
+- 2026-09-21: **H2.3 step 2e done** — the SDL3 lane has an explicit user switch: `MacroConfig.Sdl3InputEnabled`
+  (default on, preserved across profile loads) with a Settings checkbox and hint text in the controller
+  section; the switch takes effect on the next start, MainForm then builds the composite with or without the
+  lane, and diagnostics report `sdl3=disabled(setting)` when it is off. `VirtualGamepadPreferenceTests` grew
+  from 23 to 27 checks (default, dialog reflection both ways, real config clone) and the Settings smoke still
+  renders in both languages.

@@ -1388,6 +1388,9 @@ namespace InputStitch
         // Router mirrors all other visible XInput slots into InputStitch's own virtual Xbox pad.
         // Device hiding / forcing slot 0 is a separate controlled-replacement stage.
         public bool GamepadRouterEnabled = false;
+        // Optional SDL3 input lane (development plan H2.3). Enabled by default; the lane still stays inert when
+        // the native runtime is absent, so this only controls whether InputStitch tries to use it at all.
+        public bool Sdl3InputEnabled = true;
         // Source policy is a global controller-routing preference. Old configurations deserialize
         // to AllVisible so existing Router behavior remains unchanged until the user opts in.
         public RouterSourcePolicyConfig GamepadRouterSourcePolicy = new RouterSourcePolicyConfig();
@@ -4229,6 +4232,7 @@ namespace InputStitch
         private readonly ComboBox updateModeBox;
         private readonly ComboBox gamepadTypeBox;
         private readonly CheckBox gamepadRouterBox;
+        private readonly CheckBox sdl3InputBox;
         private readonly Button gamepadRouterSourcesButton;
         private readonly Label gamepadRouterSourcesSummary;
         private readonly Label gamepadStatusLabel;
@@ -4256,6 +4260,7 @@ namespace InputStitch
             }
         }
         public bool SelectedGamepadRouterEnabled { get { return gamepadRouterBox.Checked; } }
+        public bool Sdl3InputEnabled { get { return sdl3InputBox.Checked; } }
         public RouterSourcePolicyConfig SelectedGamepadRouterSourcePolicy
         {
             get { return routerSourcePolicy == null ? new RouterSourcePolicyConfig() : routerSourcePolicy.Clone(); }
@@ -4414,6 +4419,21 @@ namespace InputStitch
                 ? "This mirrors buttons, sticks and triggers from the other visible XInput slots. For games that only read XInput 0, the InputStitch virtual controller must also own slot 0. Device hiding/forced replacement is not enabled yet."
                 : "开启后会持续转发其他可见 XInput 手柄的按键、摇杆和扳机。对于只读取 0 号槽位的游戏，InputStitch 自己的虚拟手柄也必须位于 0 号；目前还没有自动隐藏原手柄、强制抢占 0 号槽位。";
             gamepadLayout.Controls.Add(routerHint);
+            sdl3InputBox = MakeCheck(
+                Localizer.IsEnglish
+                    ? "Enable the optional SDL3 input lane when its runtime is available (restart required)"
+                    : "运行时可用时启用可选 SDL3 输入通道（重启后生效）",
+                config.Sdl3InputEnabled);
+            gamepadLayout.Controls.Add(sdl3InputBox);
+            Label sdl3Hint = new Label();
+            sdl3Hint.AutoSize = true;
+            sdl3Hint.MaximumSize = new Size(610, 0);
+            sdl3Hint.ForeColor = Color.FromArgb(86, 96, 112);
+            sdl3Hint.Margin = new Padding(24, 0, 0, 6);
+            sdl3Hint.Text = Localizer.IsEnglish
+                ? "Adds non-XInput controllers (PlayStation/Switch/HID gamepads) through the bundled-optional SDL3 runtime. Xbox-family pads stay on the XInput lane, and the lane costs nothing when SDL3 is not installed; the change applies after the next start."
+                : "通过“按需获取”的 SDL3 运行时接入非 XInput 手柄（PS / Switch / HID 手柄）。微软系手柄仍走 XInput 通道；未安装 SDL3 时该通道不产生任何开销。该开关在下次启动后生效。";
+            gamepadLayout.Controls.Add(sdl3Hint);
 
             gamepadRouterSourcesButton = MakeDialogButton(Localizer.IsEnglish ? "Choose routed controllers..." : "选择汇总来源...");
             gamepadRouterSourcesButton.Margin = new Padding(24, 2, 0, 2);
@@ -5084,8 +5104,10 @@ namespace InputStitch
             XInputInputService xinputInput = new XInputInputService(delegate { return GamepadOutput.OwnXboxUserIndex; });
             // Optional SDL3 lane for non-XInput controllers (development plan H2.3). It stays inert when
             // SDL3.dll is not present, so a machine without the runtime keeps the exact XInput-only behaviour.
-            sdl3Input = new Sdl3InputProvider(new Sdl3NativeApi());
-            gamepadInput = new CompositeInputProvider(xinputInput, sdl3Input);
+            sdl3Input = config.Sdl3InputEnabled ? new Sdl3InputProvider(new Sdl3NativeApi()) : null;
+            gamepadInput = sdl3Input == null
+                ? (IGamepadInputProvider)xinputInput
+                : new CompositeInputProvider(xinputInput, sdl3Input);
             gamepadInput.InputDown = HandleControllerInputDown;
             gamepadInput.InputUp = HandleControllerInputUp;
             deviceIdentityService = new DeviceIdentityService(
@@ -7171,6 +7193,7 @@ namespace InputStitch
             string updateMode = config.UpdateMode;
             string gamepadType = config.GamepadDeviceType;
             bool gamepadRouterEnabled = config.GamepadRouterEnabled;
+            bool sdl3InputEnabled = config.Sdl3InputEnabled;
             RouterSourcePolicyConfig gamepadRouterSourcePolicy = config.GamepadRouterSourcePolicy == null
                 ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             IdleGamepadOptions idleOptions = config.IdleGamepad;
@@ -7186,6 +7209,7 @@ namespace InputStitch
                 config.UpdateMode = updateMode;
                 config.GamepadDeviceType = gamepadRouterEnabled ? VirtualGamepadTypes.Xbox360 : gamepadType;
                 config.GamepadRouterEnabled = gamepadRouterEnabled;
+                config.Sdl3InputEnabled = sdl3InputEnabled;
                 config.GamepadRouterSourcePolicy = gamepadRouterSourcePolicy;
                 config.IdleGamepad = idleOptions;
                 Localizer.SetLanguage(config.Language);

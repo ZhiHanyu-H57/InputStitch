@@ -466,6 +466,14 @@ opening the tooltip and without adding a ninth grid column (8 columns already fi
 previous presentation. `tests/Sdl3DeviceIdentityTests.cs` grew to 23 checks by exercising the static basis
 helper through the existing reflection pattern.
 
+**SDL3 lane switch added 2026-09-21:** `MacroConfig.Sdl3InputEnabled` (default `true`) is exposed as a
+Settings checkbox in the controller section with hint text explaining what the lane adds and that it applies
+after the next start. `MainForm` builds the composite with the SDL3 provider only when the switch is on
+(otherwise `gamepadInput` is the plain XInput service), profile loads preserve the global switch, and
+diagnostics report `sdl3=disabled(setting)` while it is off. Evidence: `VirtualGamepadPreferenceTests` grew
+from 23 to 27 checks (default value, dialog reflection in both states, real config clone) plus the
+zh-CN/en-US Settings smoke tests and the full regression.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:
