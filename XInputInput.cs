@@ -19,7 +19,7 @@ namespace InputStitch
     // The InputStitch-owned ViGEm Xbox slot is always excluded so generated output can never
     // feed back into controller triggers. Newly connected/re-enumerated slots establish a
     // baseline first; a held control must be released and pressed again before it can trigger.
-    internal sealed class XInputInputService : IDisposable
+    internal sealed class XInputInputService : IGamepadInputProvider
     {
         internal const int AnyController = -1;
         internal const int TriggerActivatePercent = 80;
@@ -85,8 +85,15 @@ namespace InputStitch
         private long topologyVersion;
         private string lastEdge = "none";
 
-        public Action<InputEventInfo> InputDown;
-        public Action<InputEventInfo> InputUp;
+        private Action<InputEventInfo> inputDown;
+        private Action<InputEventInfo> inputUp;
+
+        // Provider seam: assigned once by the host. The property form keeps the historical
+        // `service.InputDown = handler` call sites working.
+        public Action<InputEventInfo> InputDown { get { return inputDown; } set { inputDown = value; } }
+        public Action<InputEventInfo> InputUp { get { return inputUp; } set { inputUp = value; } }
+
+        public string ProviderName { get { return "xinput"; } }
 
         internal XInputInputService(Func<int> ownXboxSlot)
             : this(ownXboxSlot, null)
@@ -101,7 +108,7 @@ namespace InputStitch
         }
 
         internal int ExcludedUserIndex { get { return excludedIndex; } }
-        internal long TopologyVersion { get { return System.Threading.Interlocked.Read(ref topologyVersion); } }
+        public long TopologyVersion { get { return System.Threading.Interlocked.Read(ref topologyVersion); } }
         internal string LastEdge { get { return lastEdge; } }
 
         internal int[] ConnectedUserIndices()
@@ -114,6 +121,12 @@ namespace InputStitch
             }
         }
 
+        // Provider seam: the same indices in the shared device-index space.
+        public int[] ConnectedDeviceIndices()
+        {
+            return ConnectedUserIndices();
+        }
+
         internal XInputPadState GetState(int index)
         {
             if (index < 0 || index >= slots.Length || index == excludedIndex || !slots[index].Connected)
@@ -121,6 +134,12 @@ namespace InputStitch
             XInputPadState state = slots[index].Pad;
             state.Connected = true;
             return state;
+        }
+
+        public bool TryGetState(int deviceIndex, out XInputPadState state)
+        {
+            state = GetState(deviceIndex);
+            return state.Connected;
         }
 
         public void Poll()
@@ -197,7 +216,7 @@ namespace InputStitch
             }
         }
 
-        internal bool IsTriggerSatisfied(TriggerSpec trigger)
+        public bool IsTriggerSatisfied(TriggerSpec trigger)
         {
             if (trigger == null || trigger.Kind != InputKind.Gamepad) return false;
             if (trigger.GamepadUserIndex >= 0 && trigger.GamepadUserIndex < slots.Length)

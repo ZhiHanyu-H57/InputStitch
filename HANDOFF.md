@@ -365,6 +365,15 @@ provider:
 Next implementation step: `IInputProvider` plus the XInput adapter (behaviour-neutral, fake-provider tests),
 then the SDL3 native subset.
 
+**Implemented 2026-09-21:** `InputProvider.cs` defines `IGamepadInputProvider` (provider name, topology
+version, edge callbacks, device indices, state access, trigger satisfaction, poll). `XInputInputService`
+implements it with its historical behaviour (callbacks are now properties so existing assignment sites keep
+working). `GamepadRouterService.Tick` takes the interface and iterates the provider's device set — classic
+XInput slots plus synthetic indices above 3, which is where SDL3 devices will appear — and clears a source
+exactly once when a device disappears. `tests/InputProviderSeamTests.cs` (15 checks) proves the seam with a
+fake provider including a synthetic index, and the existing router suites (28 + 22 checks) are unchanged.
+Next: the SDL3 native subset and its device-identity evidence.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

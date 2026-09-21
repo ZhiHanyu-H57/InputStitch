@@ -4924,7 +4924,7 @@ namespace InputStitch
         private string lastAutoProfileProcess = "";
         private bool autoProfileSwitchBusy;
         private IdleGamepadService idleGamepad;
-        private XInputInputService gamepadInput;
+        private IGamepadInputProvider gamepadInput;
         private DeviceIdentityService deviceIdentityService;
         private RouterSourcePolicyEvaluator routerSourcePolicyEvaluator;
         private int deviceIdentityRefreshQueued;
@@ -5088,7 +5088,7 @@ namespace InputStitch
                 new CompositeGamingDeviceDiscovery(
                     new WindowsXusbGamingDeviceDiscovery(),
                     new HidHideGamingDeviceDiscovery(deviceHidingBackend)),
-                delegate { return gamepadInput == null ? new int[0] : gamepadInput.ConnectedUserIndices(); },
+                delegate { return gamepadInput == null ? new int[0] : gamepadInput.ConnectedDeviceIndices(); },
                 delegate { return GamepadOutput.OwnXboxUserIndex; },
                 delegate { return GamepadOutput.IsConnected; },
                 delegate { return GamepadOutput.ConnectedType; },
@@ -5115,7 +5115,7 @@ namespace InputStitch
                 {
                     if (gamepadInput == null) return new int[0];
                     gamepadInput.Poll();
-                    return gamepadInput.ConnectedUserIndices();
+                    return gamepadInput.ConnectedDeviceIndices();
                 },
                 slotAcquisitionJournal);
             controlledReplacement = new ControlledReplacementCoordinator(
@@ -6155,10 +6155,19 @@ namespace InputStitch
             if (analog != null && analog.Enabled)
             {
                 if (gamepadInput == null) return false;
-                if (resolvedDeviceSlot >= 0) return IsAnalogConditionSatisfied(gamepadInput.GetState(resolvedDeviceSlot), analog);
-                if (triggerDeviceIndex >= 0) return IsAnalogConditionSatisfied(gamepadInput.GetState(triggerDeviceIndex), analog);
-                foreach (int slot in gamepadInput.ConnectedUserIndices())
-                    if (IsAnalogConditionSatisfied(gamepadInput.GetState(slot), analog)) return true;
+                XInputPadState analogState;
+                if (resolvedDeviceSlot >= 0)
+                {
+                    gamepadInput.TryGetState(resolvedDeviceSlot, out analogState);
+                    return IsAnalogConditionSatisfied(analogState, analog);
+                }
+                if (triggerDeviceIndex >= 0)
+                {
+                    gamepadInput.TryGetState(triggerDeviceIndex, out analogState);
+                    return IsAnalogConditionSatisfied(analogState, analog);
+                }
+                foreach (int slot in gamepadInput.ConnectedDeviceIndices())
+                    if (gamepadInput.TryGetState(slot, out analogState) && IsAnalogConditionSatisfied(analogState, analog)) return true;
                 return false;
             }
             return true;

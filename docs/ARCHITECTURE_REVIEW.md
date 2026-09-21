@@ -137,6 +137,14 @@ no installer, no OS-floor change). GameInput is deferred to a user decision beca
 native-only, ships an MSI redistributable and provides no x86 library — the full comparison is in
 `docs/INPUT_PROVIDER_EVALUATION.md`.
 
+**Started 2026-09-21:** the seam itself is implemented — `InputProvider.cs` defines
+`IGamepadInputProvider` (provider name, topology version, edge callbacks, device indices, state access,
+trigger satisfaction, poll), `XInputInputService` implements it with its historical behaviour, and
+`GamepadRouterService.Tick` now iterates the provider device set (classic slots plus synthetic indices such
+as future SDL3 devices) instead of a fixed 0..3 range, clearing a source exactly once when a device
+disappears. `tests/InputProviderSeamTests.cs` (15 checks) proves the seam with a fake provider; the existing
+router suites are unchanged. Next: the SDL3 provider implementation.
+
 ### F7 — P3, release process: version string lives in many documents
 
 `ReleaseInfo.cs` is the validated source of truth (`scripts/Get-ReleaseInfo.ps1`), but the version literal
@@ -172,6 +180,6 @@ decision register).
 | F3 duplicated source lists | single manifest + drift guard | open |
 | F4 monolith | `partial` + four extractions done 2026-09-21 (Layer, Diagnostics, ControlledReplacement, Ui); editor/runtime split continues | in progress |
 | F5 localization data | deferred | deferred |
-| F6 input provider seam | decision taken (SDL3 provider; XInput first); implementation staged | decided 2026-09-21 |
+| F6 input provider seam | seam + XInput adapter implemented 2026-09-21; SDL3 provider next | in progress |
 | F7 release choreography | checklist item | tracked |
 | F8 license / signing / backend posture | user decision | needs decision |

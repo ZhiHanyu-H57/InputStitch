@@ -75,8 +75,11 @@ InputDeviceState: buttons bitmask, DPad, LX/LY/RX/RY/triggers, connected flag
 
 ## Staged work
 
-1. Seam plus XInput adapter (behaviour-neutral): introduce `IInputProvider`, port the existing XInput path
-   behind it, and prove identical behaviour with the existing suites plus a fake-provider test double.
+1. **Done 2026-09-21** — seam plus XInput adapter: `IInputProvider` (`InputProvider.cs`) exists,
+   `XInputInputService` implements it with its historical behaviour, the router now iterates the provider's
+   device set instead of a fixed 0..3 range, and `tests/InputProviderSeamTests.cs` (15 checks) proves the
+   seam with a fake provider, including a synthetic index above the XInput range. Existing router suites
+   (28 + 22 checks) are unchanged and green.
 2. SDL3 provider: native subset, enumeration/state mapping, hot-plug, device identity evidence, duplicate
    suppression against XInput, and Input Lab adoption for real-device verification.
 3. UI and diagnostics: provider column in Device Manager, per-device provider selection where needed.

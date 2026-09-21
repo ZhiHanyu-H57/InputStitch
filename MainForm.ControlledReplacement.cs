@@ -54,7 +54,7 @@ namespace InputStitch
             // InputStitch was routing before hiding to remain visible to this whitelisted process.
             Thread.Sleep(350);
             gamepadInput.Poll();
-            int[] connected = gamepadInput.ConnectedUserIndices();
+            int[] connected = gamepadInput.ConnectedDeviceIndices();
             HashSet<int> visible = new HashSet<int>(connected);
             foreach (int expected in replacementExpectedControllerSlots)
                 if (!visible.Contains(expected)) return false;
@@ -66,7 +66,7 @@ namespace InputStitch
             if (gamepadInput == null || replacementExpectedControllerSlots == null || replacementExpectedControllerSlots.Length == 0) return false;
             // Ongoing health checks run on a background timer. Do not call Poll here because the
             // 10 ms UI timer owns edge generation; read only its latest four-slot snapshot.
-            int[] connected = gamepadInput.ConnectedUserIndices();
+            int[] connected = gamepadInput.ConnectedDeviceIndices();
             HashSet<int> visible = new HashSet<int>(connected);
             foreach (int expected in replacementExpectedControllerSlots)
                 if (!visible.Contains(expected)) return false;
@@ -124,7 +124,7 @@ namespace InputStitch
             gamepadInput.Poll();
             gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
             gamepadInput.Poll();
-            replacementExpectedControllerSlots = gamepadInput.ConnectedUserIndices();
+            replacementExpectedControllerSlots = gamepadInput.ConnectedDeviceIndices();
             return GamepadOutput.OwnXboxUserIndex == 0 && replacementExpectedControllerSlots.Length > 0;
         }
 
@@ -166,7 +166,7 @@ namespace InputStitch
                 return new ControlledReplacementResult { State = ControlledReplacementState.NoSourceDevices, Message = "No controller device was selected for takeover." };
 
             if (gamepadInput != null) gamepadInput.Poll();
-            replacementExpectedControllerSlots = gamepadInput == null ? new int[0] : gamepadInput.ConnectedUserIndices();
+            replacementExpectedControllerSlots = gamepadInput == null ? new int[0] : gamepadInput.ConnectedDeviceIndices();
             if (replacementExpectedControllerSlots.Length == 0)
                 return new ControlledReplacementResult { State = ControlledReplacementState.NoSourceDevices, Message = "No external XInput controller is currently visible to InputStitch." };
 

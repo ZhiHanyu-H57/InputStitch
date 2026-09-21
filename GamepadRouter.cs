@@ -9,6 +9,7 @@ namespace InputStitch
     internal sealed class GamepadRouterService : IDisposable
     {
         private const string SourcePrefix = "router:xinput:";
+        private readonly List<int> routedDeviceIndices = new List<int>();
         private readonly OutputOwnershipManager ownership;
         private readonly IRouterSourcePolicyEvaluator sourcePolicy;
         private bool enabled;
@@ -59,7 +60,7 @@ namespace InputStitch
             else lastStatus = "waiting-for-virtual-xbox";
         }
 
-        internal void Tick(XInputInputService input, int currentOwnSlot)
+        internal void Tick(IGamepadInputProvider input, int currentOwnSlot)
         {
             if (disposed || !enabled) return;
             ownSlot = currentOwnSlot;
@@ -80,7 +81,16 @@ namespace InputStitch
             long topologyVersion = input.TopologyVersion;
             AnalogTransformProfile analogTransform = sourcePolicy == null
                 ? new AnalogTransformProfile() : sourcePolicy.AnalogTransform;
-            for (int index = 0; index < 4; index++)
+            // Provider-driven device set: every connected device plus every index that owned a source in the
+            // previous tick. The union means a device that disappears (including synthetic provider indices
+            // above the classic XInput slots) is cleared exactly once instead of leaking its contribution.
+            int[] connected = input.ConnectedDeviceIndices();
+            List<int> indices = new List<int>(connected);
+            foreach (int previous in routedDeviceIndices)
+                if (!indices.Contains(previous)) indices.Add(previous);
+            routedDeviceIndices.Clear();
+            routedDeviceIndices.AddRange(connected);
+            foreach (int index in indices)
             {
                 string sourceId = SourcePrefix + index.ToString();
                 if (index == currentOwnSlot)
@@ -88,8 +98,8 @@ namespace InputStitch
                     ownership.ClearSource(sourceId);
                     continue;
                 }
-                XInputPadState state = input.GetState(index);
-                if (!state.Connected)
+                XInputPadState state;
+                if (!input.TryGetState(index, out state) || !state.Connected)
                 {
                     ownership.ClearSource(sourceId);
                     continue;
@@ -130,6 +140,9 @@ namespace InputStitch
         private void ClearAllSources()
         {
             for (int i = 0; i < 4; i++) ownership.ClearSource(SourcePrefix + i.ToString());
+            foreach (int index in routedDeviceIndices)
+                if (index >= 4) ownership.ClearSource(SourcePrefix + index.ToString());
+            routedDeviceIndices.Clear();
         }
 
         internal static List<InputSpec> ConvertState(XInputPadState state)

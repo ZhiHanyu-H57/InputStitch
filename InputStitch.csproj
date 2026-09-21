@@ -29,6 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="InputStitch.cs" />
+    <Compile Include="InputProvider.cs" />
     <Compile Include="InputPipeline.cs" />
     <Compile Include="MainForm.Layers.cs" />
     <Compile Include="MainForm.Diagnostics.cs" />

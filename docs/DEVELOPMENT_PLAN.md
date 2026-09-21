@@ -134,3 +134,8 @@ Direction updates from the 2026-09-21 research:
 - 2026-09-21: **H1.4 step 4** — the main-window builder and tray icon moved to `MainForm.Ui.cs`
   (1,233 lines); `InputStitch.cs` is now 9,885 lines with identical binary sizes, a green regression and
   green Settings smoke tests. Remaining cohesive split: editor/runtime logic inside the remaining file.
+- 2026-09-21: **H2.3 step 1 done** — `IGamepadInputProvider` (`InputProvider.cs`) plus the XInput adapter;
+  the router consumes the provider device set (classic XInput slots plus synthetic indices for future
+  providers) instead of a fixed 0..3 range, clearing a disappeared device exactly once.
+  `InputProviderSeamTests` (15 checks) proves the seam with a fake provider; existing router suites are
+  unchanged. Next: the SDL3 provider (native P/Invoke subset + device identity evidence).
