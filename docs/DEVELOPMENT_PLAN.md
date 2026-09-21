@@ -155,3 +155,12 @@ Direction updates from the 2026-09-21 research:
   cleanly when `INPUTSTITCH_SDL3_DLL` is unset. Still to do: choose how SDL3.dll ships (committed third-party
   folder vs restore script vs embedded resource), wire the provider into MainForm, add device-identity
   evidence and run Input Lab; real-device verification stays on the hardware-blocked lane.
+- 2026-09-21: **H2.3 step 2c done** — `CompositeInputProvider.cs` merges providers into one shared device
+  index space (XInput 0..3, SDL3 ≥4), routes state reads to the owning provider, forwards child edges with
+  their original indices, combines topology versions and disposes children. `MainForm` now runs a composite
+  of XInput + SDL3, so a machine without SDL3.dll keeps the exact XInput-only behaviour while the optional
+  lane activates automatically when the runtime is present; diagnostics report
+  `InputProviders: xinput=active; sdl3=<ready|unavailable>(<status>)`. SDL3 devices are also baseline-safe:
+  the first observation of a device never synthesizes edges, and pinned triggers can no longer be satisfied
+  by an unrelated pad (`XInputInputService.IsTriggerSatisfied` is strict for out-of-range pinned indices).
+  `CompositeInputProviderTests` (15 checks) and the extended SDL3 suite (30 checks) cover the rules.

@@ -4925,6 +4925,7 @@ namespace InputStitch
         private bool autoProfileSwitchBusy;
         private IdleGamepadService idleGamepad;
         private IGamepadInputProvider gamepadInput;
+        private Sdl3InputProvider sdl3Input;
         private DeviceIdentityService deviceIdentityService;
         private RouterSourcePolicyEvaluator routerSourcePolicyEvaluator;
         private int deviceIdentityRefreshQueued;
@@ -5080,7 +5081,11 @@ namespace InputStitch
 
             // XInput is a separate first-class input source. Poll all visible slots at low latency,
             // but always exclude this process' own ViGEm Xbox slot to prevent feedback loops.
-            gamepadInput = new XInputInputService(delegate { return GamepadOutput.OwnXboxUserIndex; });
+            XInputInputService xinputInput = new XInputInputService(delegate { return GamepadOutput.OwnXboxUserIndex; });
+            // Optional SDL3 lane for non-XInput controllers (development plan H2.3). It stays inert when
+            // SDL3.dll is not present, so a machine without the runtime keeps the exact XInput-only behaviour.
+            sdl3Input = new Sdl3InputProvider(new Sdl3NativeApi());
+            gamepadInput = new CompositeInputProvider(xinputInput, sdl3Input);
             gamepadInput.InputDown = HandleControllerInputDown;
             gamepadInput.InputUp = HandleControllerInputUp;
             deviceIdentityService = new DeviceIdentityService(
@@ -9801,6 +9806,7 @@ namespace InputStitch
                     gamepadInput.Dispose();
                     gamepadInput = null;
                 }
+                sdl3Input = null;
                 CancelCapture();
                 uiSafetyPauseRequested = false;
                 uiSafetyPauseReason = "";

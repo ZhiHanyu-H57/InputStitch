@@ -120,6 +120,27 @@ namespace InputStitch
             return sb.ToString();
         }
 
+        // Provider status for diagnostics: which input lanes are active and whether the optional SDL3 lane is
+        // available on this machine (development plan H2.3).
+        private string DescribeInputProviders()
+        {
+            if (gamepadInput == null) return "none";
+            CompositeInputProvider composite = gamepadInput as CompositeInputProvider;
+            if (composite == null) return gamepadInput.ProviderName + "=active";
+            List<string> parts = new List<string>();
+            foreach (IGamepadInputProvider provider in composite.Providers)
+            {
+                Sdl3InputProvider sdl3 = provider as Sdl3InputProvider;
+                if (sdl3 != null)
+                {
+                    parts.Add("sdl3=" + (sdl3.Available ? "ready" : "unavailable") + "(" + sdl3.StatusSummary + ")");
+                    continue;
+                }
+                parts.Add(provider.ProviderName + "=active");
+            }
+            return string.Join("; ", parts.ToArray());
+        }
+
         private string BuildDiagnosticsText()
         {
             StringBuilder sb = new StringBuilder();
@@ -175,6 +196,7 @@ namespace InputStitch
                         "; Switch=" + (layer.SwitchTrigger == null ? "none" : InputNames.FormatTrigger(layer.SwitchTrigger)));
                 }
             }
+            sb.AppendLine("InputProviders: " + DescribeInputProviders());
             sb.AppendLine(gamepadTickStats.Describe("GamepadInputTick"));
             sb.AppendLine(foregroundTickStats.Describe("ForegroundTick"));
             sb.AppendLine("ActivatorTrackedStates: " + activatorEngine.TrackedCount.ToString());

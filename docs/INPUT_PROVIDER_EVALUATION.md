@@ -92,7 +92,11 @@ InputDeviceState: buttons bitmask, DPad, LX/LY/RX/RY/triggers, connected flag
    SDL3.dll ships (committed third-party folder vs restore script vs embedded resource), wire the provider
    into MainForm, add device-identity evidence and run Input Lab; real-device verification stays on the
    hardware-blocked lane.
-3. UI and diagnostics: provider column in Device Manager, per-device provider selection where needed.
+3. **Wiring done 2026-09-21** — `CompositeInputProvider` merges XInput (0..3) and SDL3 (≥4) into one device
+   index space; `MainForm` runs the composite so the SDL3 lane activates automatically when the runtime is
+   present and stays inert otherwise; diagnostics report the provider status. Remaining: how SDL3.dll ships,
+   device-identity evidence (VID/PID/serial) and a provider column in Device Manager; real-device
+   verification stays on the hardware-blocked lane.
 
 ## Risks and mitigations
 

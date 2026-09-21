@@ -410,6 +410,23 @@ Still to do: decide how SDL3.dll ships (committed `third-party/SDL3/<arch>/` fol
 embedded resource), wire the provider into MainForm, add device-identity evidence (VID/PID/serial), and run
 Input Lab. Real-device verification stays on the hardware-blocked lane.
 
+**SDL3 lane wired into MainForm 2026-09-21:** `CompositeInputProvider.cs` merges providers over one device
+index space (XInput owns 0..3, SDL3 starts at 4), routes state reads to the owning provider, forwards child
+edges unchanged, combines child topology versions and disposes children. `MainForm` now constructs
+`XInputInputService` + `Sdl3InputProvider` and drives them through the composite:
+
+- without SDL3.dll the SDL3 lane initializes once, reports unavailable and costs nothing, so behaviour is
+  exactly the previous XInput-only path;
+- with the runtime present the lane activates automatically and its devices appear at synthetic indices
+  (routed by the router, usable as triggers/conditions through the shared index space);
+- Runtime diagnostics gained `InputProviders: xinput=active; sdl3=<ready|unavailable>(<status>)`;
+- SDL3 devices are baseline-safe (no synthetic edges on first observation) and pinned triggers are strict:
+  an XInput pad can no longer satisfy a trigger pinned to a synthetic index.
+
+Evidence: `CompositeInputProviderTests` (15 checks) plus the extended `Sdl3ProviderTests` (30 checks) and the
+full regression + x64/x86 release verification. Remaining: how SDL3.dll ships, device-identity evidence,
+provider column in Device Manager, Input Lab and real-device verification.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

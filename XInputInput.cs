@@ -219,8 +219,12 @@ namespace InputStitch
         public bool IsTriggerSatisfied(TriggerSpec trigger)
         {
             if (trigger == null || trigger.Kind != InputKind.Gamepad) return false;
-            if (trigger.GamepadUserIndex >= 0 && trigger.GamepadUserIndex < slots.Length)
-                return IsControlDown(slots[trigger.GamepadUserIndex], trigger.GamepadControl);
+            if (trigger.GamepadUserIndex >= 0)
+            {
+                // A pinned trigger only matches its own index. Indices outside the XInput range belong to
+                // another provider in the composite and must not be satisfied by an unrelated pad.
+                return trigger.GamepadUserIndex < slots.Length && IsControlDown(slots[trigger.GamepadUserIndex], trigger.GamepadControl);
+            }
             for (int i = 0; i < slots.Length; i++)
                 if (IsControlDown(slots[i], trigger.GamepadControl)) return true;
             return false;

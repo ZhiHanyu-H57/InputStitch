@@ -97,6 +97,7 @@ internal static class Sdl3ProviderTests
         provider.InputDown = delegate(InputEventInfo e) { edges.Add("D:" + e.DeviceIndex.ToString() + ":" + e.Input.GamepadControl.ToString()); };
         provider.InputUp = delegate(InputEventInfo e) { edges.Add("U:" + e.DeviceIndex.ToString() + ":" + e.Input.GamepadControl.ToString()); };
         provider.Poll();
+        Check(edges.Count == 0, "the first observation of a device is a baseline without synthetic edges");
         int[] indices = provider.ConnectedDeviceIndices();
         Check(provider.Available && indices.Length == 2 && indices[0] == Sdl3InputProvider.FirstSyntheticIndex && indices[1] == Sdl3InputProvider.FirstSyntheticIndex + 1,
             "SDL3 devices are published at synthetic indices starting above the XInput slots");

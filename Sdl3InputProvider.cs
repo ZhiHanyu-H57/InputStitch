@@ -150,10 +150,22 @@ namespace InputStitch
                     XInputPadState mapped = MapSnapshot(snapshot);
                     mapped.Connected = true;
                     XInputPadState previous;
-                    if (!stateByIndex.TryGetValue(pair.Value, out previous)) previous = new XInputPadState();
+                    bool hadPrevious = stateByIndex.TryGetValue(pair.Value, out previous);
+                    if (!hadPrevious) previous = new XInputPadState();
                     stateByIndex[pair.Value] = mapped;
-                    CollectEdges(downs, ups, pair.Value, previous, mapped);
-                    CollectTriggerEdges(downs, ups, pair.Value, mapped);
+                    if (hadPrevious)
+                    {
+                        CollectEdges(downs, ups, pair.Value, previous, mapped);
+                        CollectTriggerEdges(downs, ups, pair.Value, mapped);
+                    }
+                    else
+                    {
+                        // Baseline: a control already held when the device is first seen must not synthesize an
+                        // activation, matching the XInput lane's reconnect baseline.
+                        int threshold = XInputInputService.TriggerActivatePercent * 255 / 100;
+                        leftTriggerDownByIndex[pair.Value] = mapped.LeftTrigger >= threshold;
+                        rightTriggerDownByIndex[pair.Value] = mapped.RightTrigger >= threshold;
+                    }
                 }
 
                 status = "ready; devices=" + indexByDeviceId.Count.ToString();
