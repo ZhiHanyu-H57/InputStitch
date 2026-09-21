@@ -145,3 +145,13 @@ Direction updates from the 2026-09-21 research:
   Microsoft-family duplicate suppression. `Sdl3ProviderTests` (29 checks, fake SDL3 API) covers all of it.
   Next: the native P/Invoke implementation of `ISdl3Api`, the DLL loading/embedding step and MainForm wiring
   (real-device verification stays on the hardware-blocked lane).
+- 2026-09-21: **H2.3 step 2b done** — `Sdl3NativeApi.cs` implements `ISdl3Api` against the real SDL3 runtime:
+  dynamic `LoadLibrary`/`GetProcAddress` binding (missing DLL degrades gracefully), `SDL_Init(SDL_INIT_GAMEPAD)`,
+  `SDL_UpdateGamepads`/`SDL_UpdateJoysticks`, `SDL_GetGamepads` (freed with `SDL_free`), the `...ForID`
+  descriptor getters, and per-control state reads through `SDL_GetGamepadButton`/`SDL_GetGamepadAxis` (the
+  API shape SDL 3.4 actually provides). Verified against the real SDL3 3.4.16 x64 runtime downloaded from the
+  official release (SHA-256 `1f98969319302a100931f4385e5918a0bd53ab07773040682d22e7edb54858c0`):
+  `device count=0; provider status=ready; devices=0` with the optional smoke enabled, and the suite skips it
+  cleanly when `INPUTSTITCH_SDL3_DLL` is unset. Still to do: choose how SDL3.dll ships (committed third-party
+  folder vs restore script vs embedded resource), wire the provider into MainForm, add device-identity
+  evidence and run Input Lab; real-device verification stays on the hardware-blocked lane.

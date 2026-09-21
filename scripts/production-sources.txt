@@ -15,6 +15,7 @@ InputProvider.cs
 InputPipeline.cs
 Sdl3Interop.cs
 Sdl3InputProvider.cs
+Sdl3NativeApi.cs
 MainForm.Layers.cs
 MainForm.Diagnostics.cs
 MainForm.ControlledReplacement.cs

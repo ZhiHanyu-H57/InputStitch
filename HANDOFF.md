@@ -392,6 +392,24 @@ Evidence: `tests/Sdl3ProviderTests.cs` (29 checks, fake SDL3 API) plus the full 
 release verification. Still to do: the P/Invoke implementation of `ISdl3Api`, SDL3.dll loading/embedding and
 MainForm wiring; real-device verification remains on the hardware-blocked lane (no physical controller here).
 
+**SDL3 native binding added 2026-09-21:** `Sdl3NativeApi.cs` implements `ISdl3Api` against the real runtime
+with dynamic `LoadLibrary`/`GetProcAddress` resolution (a missing DLL leaves the provider inert instead of
+breaking startup). It calls `SDL_Init(SDL_INIT_GAMEPAD)`, refreshes with `SDL_UpdateJoysticks` +
+`SDL_UpdateGamepads`, enumerates through `SDL_GetGamepads` (pointer freed with `SDL_free`), describes devices
+through the `...ForID` getters (name/path/vendor/product/type) and reads state with the SDL 3.4 per-control
+`SDL_GetGamepadButton`/`SDL_GetGamepadAxis` calls.
+
+Real-runtime evidence (2026-09-21): downloaded the official SDL3 3.4.16 win32-x64 release asset
+(`SDL3-3.4.16-win32-x64.zip`), extracted `SDL3.dll` (2,844,160 bytes, SHA-256
+`1f98969319302a100931f4385e5918a0bd53ab07773040682d22e7edb54858c0`) and ran the suite with
+`INPUTSTITCH_SDL3_DLL` pointing at it: `REAL-SDL3 smoke: device count=0; provider status=ready; devices=0`,
+32 checks green (29 fake-API + 3 real-runtime). Without the environment variable the suite reports 29 checks
+and skips the native smoke, so CI runs stay independent of the DLL.
+
+Still to do: decide how SDL3.dll ships (committed `third-party/SDL3/<arch>/` folder vs a restore script vs an
+embedded resource), wire the provider into MainForm, add device-identity evidence (VID/PID/serial), and run
+Input Lab. Real-device verification stays on the hardware-blocked lane.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

@@ -17,6 +17,7 @@ internal static class Sdl3ProviderTests
         public bool InitializeResult = true;
         public int InitializeCount;
         public int ShutdownCount;
+        public int UpdateCount;
         public readonly Dictionary<int, Sdl3DeviceDescriptor> Devices = new Dictionary<int, Sdl3DeviceDescriptor>();
         public readonly Dictionary<int, Sdl3DeviceSnapshot> Snapshots = new Dictionary<int, Sdl3DeviceSnapshot>();
         public readonly List<int> Opened = new List<int>();
@@ -24,6 +25,7 @@ internal static class Sdl3ProviderTests
 
         public bool Initialize() { InitializeCount++; return InitializeResult; }
         public void Shutdown() { ShutdownCount++; }
+        public void Update() { UpdateCount++; }
         public int[] ListDeviceIds() { return new List<int>(Devices.Keys).ToArray(); }
         public Sdl3DeviceDescriptor Describe(int deviceId)
         {
@@ -179,6 +181,35 @@ internal static class Sdl3ProviderTests
         Check(api.ShutdownCount == 1, "disposing the provider shuts the SDL3 runtime down once");
         unsuppressed.Dispose();
         Check(api.ShutdownCount == 2, "each provider instance shuts down its own runtime handle once");
+
+        // 7. Optional real-runtime smoke: only runs when INPUTSTITCH_SDL3_DLL points at a local SDL3.dll, so
+        //    normal (CI) runs stay independent of the native library while a developer machine can prove the
+        //    P/Invoke binding against the real runtime.
+        string nativePath = Environment.GetEnvironmentVariable(Sdl3NativeApi.DllPathEnvironmentVariable);
+        if (!string.IsNullOrWhiteSpace(nativePath) && System.IO.File.Exists(nativePath))
+        {
+            using (Sdl3NativeApi native = new Sdl3NativeApi(nativePath))
+            {
+                bool started = native.Initialize();
+                Check(started, "the real SDL3 runtime initializes through the native binding: " + native.StatusSummary);
+                if (started)
+                {
+                    int[] live = native.ListDeviceIds();
+                    Check(live != null, "the real runtime enumerates devices without throwing");
+                    Sdl3InputProvider liveProvider = new Sdl3InputProvider(native);
+                    liveProvider.Poll();
+                    Check(liveProvider.Available, "the provider reports the real runtime as available");
+                    Console.WriteLine("REAL-SDL3 smoke: device count=" + live.Length.ToString() +
+                        "; provider status=" + liveProvider.StatusSummary);
+                    liveProvider.Dispose();
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("REAL-SDL3 smoke skipped (set " + Sdl3NativeApi.DllPathEnvironmentVariable +
+                " to a local SDL3.dll to run it).");
+        }
 
         Console.WriteLine("PASS sdl3 provider: " + checks + " checks; mapping, edges, hysteresis, hot-plug and duplicate suppression with a fake SDL3 API.");
         return 0;

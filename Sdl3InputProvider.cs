@@ -95,6 +95,9 @@ namespace InputStitch
                 }
                 if (!available) return;
 
+                try { api.Update(); }
+                catch (Exception ex) { status = "update-failed: " + ex.Message; return; }
+
                 int[] ids;
                 try { ids = api.ListDeviceIds() ?? new int[0]; }
                 catch (Exception ex)

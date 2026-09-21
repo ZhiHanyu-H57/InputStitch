@@ -61,6 +61,8 @@ namespace InputStitch
         // Returns false when the SDL3 runtime is unavailable; the provider then stays inert.
         bool Initialize();
         void Shutdown();
+        // Refreshes device state (SDL_UpdateGamepads) before snapshots are read.
+        void Update();
         int[] ListDeviceIds();
         Sdl3DeviceDescriptor Describe(int deviceId);
         bool Open(int deviceId);
