@@ -18,6 +18,24 @@ verifies the embedded copy against the pinned SHA-256, extracts it to
 `%LOCALAPPDATA%\InputStitch\runtime\<arch>\SDL3.dll` and loads it from there; nothing is installed for the
 user and the download remains a single EXE. `-SkipSdl3` builds a leaner executable with the lane disabled.
 
+### Publication evidence (`v1.5.0-beta.1`, 2026-09-21)
+
+- tag/release: `v1.5.0-beta.1`, `prerelease=true`, `draft=false`, target `main`, five expected assets;
+  `releases/latest` still resolves to `v1.4.3` and the Stable fingerprint is unchanged;
+- workflow run `35621100071`: `verify` PASS, `publish-beta` PASS, `mirror-beta-r2` PASS, while
+  `publish-stable` and `mirror-stable-r2` were correctly skipped; Input Lab run `35621100228` also passed;
+- published x64: 3,730,944 bytes, SHA-256 `a36e5cbc39efbbdc76cf66b643187acf814c9b6e652f1217af9e2c69ea28dafa`,
+  ProductVersion `1.5.0-beta.1`, FileVersion `1.5.0.0`;
+- published x86: 3,246,080 bytes, SHA-256 `e697c83b4545c08fc667b5ca127a0240bfd2ddf8f578f07b8377cb0a2cd63077`,
+  same version metadata;
+- published `InputStitch-beta.xml` SHA-256 `b2915382549d2673ad6948a6b00e9b20395cdf6309c1beeb23dffc8ef070d349`,
+  `SHA256SUMS.txt` SHA-256 `8803085641fe25783c951beba0330db766465a45805386dd17ab87d37c4fb0c0`;
+- the GitHub assets downloaded for verification match both the manifest and the checksum file, and the R2
+  mirror serves the same manifest and file hashes at
+  `https://download.zhihanyu.com/releases/v1.5.0-beta.1/...` (x64 download re-hashed to the same value);
+- the Beta tag was created and pushed by `scripts/Publish-Beta.ps1` from the verified workflow commit, and no
+  existing release was overwritten.
+
 Highlights of the wave: architecture review + long-term plan, the single production-source manifest with its
 drift guard, the foreground-identity cache, the dedicated input-pipeline thread with cadence statistics,
 layers (momentary switching + context conditions) and the Short Press activator, five `MainForm` decomposition
