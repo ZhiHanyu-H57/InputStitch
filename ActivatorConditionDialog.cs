@@ -19,6 +19,7 @@ namespace InputStitch
         private readonly MacroConditionConfig conditions;
         private readonly string layerText;
         private readonly bool edgeOnlyTrigger;
+        private readonly bool conditionsOnly;
 
         private readonly ComboBox mode = new ComboBox();
         private readonly NumericUpDown longPress = Number(100, 10000, 500);
@@ -42,8 +43,30 @@ namespace InputStitch
             layerText = currentLayerText ?? "";
             edgeOnlyTrigger = macro != null && macro.Trigger != null &&
                 (macro.Trigger.Kind == InputKind.WheelUp || macro.Trigger.Kind == InputKind.WheelDown);
+            conditionsOnly = false;
 
             Text = Localizer.IsEnglish ? "Activation & conditions" : "激活与条件";
+            BuildLayout();
+        }
+
+        // Conditions-only mode is used for Layer context conditions: the activator section is irrelevant for a
+        // layer, so it is not added to the layout and the title explains the layer context instead.
+        internal ActivatorConditionDialog(MacroConditionConfig initialConditions, Func<DeviceInventorySnapshot> provider, string currentLayerText, string titleOverride)
+        {
+            inventoryProvider = provider;
+            activator = new ActivatorConfig();
+            conditions = initialConditions == null ? new MacroConditionConfig() : initialConditions.Clone();
+            layerText = currentLayerText ?? "";
+            edgeOnlyTrigger = false;
+            conditionsOnly = true;
+            Text = string.IsNullOrWhiteSpace(titleOverride)
+                ? (Localizer.IsEnglish ? "Layer context condition" : "层上下文条件")
+                : titleOverride;
+            BuildLayout();
+        }
+
+        private void BuildLayout()
+        {
             StartPosition = FormStartPosition.CenterParent;
             Font = new Font("Microsoft YaHei UI", 9F);
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -65,9 +88,13 @@ namespace InputStitch
             Label intro = new Label();
             intro.AutoSize = true;
             intro.MaximumSize = new Size(730, 0);
-            intro.Text = Localizer.IsEnglish
-                ? "Advanced activation is opt-in. 'Legacy' preserves the existing Toggle/Hold behavior exactly. Additional conditions are AND gates. The macro still runs through the normal concurrent runtime and Output Ownership."
-                : "高级激活规则需要主动启用。“兼容旧方式”会严格保留现有 Toggle / Hold 行为。下面的附加条件按 AND 同时判断；宏本身仍使用现有并发运行时和 Output Ownership。";
+            intro.Text = conditionsOnly
+                ? (Localizer.IsEnglish
+                    ? "The condition is AND-combined with the layer switch. While it matches, this layer becomes eligible automatically; your manual layer selection stays untouched and returns as soon as the condition stops matching."
+                    : "该条件按 AND 参与切层判断。命中时这一层自动生效；你手动选择的层不会被改写，条件失效后会自动返回。")
+                : (Localizer.IsEnglish
+                    ? "Advanced activation is opt-in. 'Legacy' preserves the existing Toggle/Hold behavior exactly. Additional conditions are AND gates. The macro still runs through the normal concurrent runtime and Output Ownership."
+                    : "高级激活规则需要主动启用。“兼容旧方式”会严格保留现有 Toggle / Hold 行为。下面的附加条件按 AND 同时判断；宏本身仍使用现有并发运行时和 Output Ownership。");
             intro.Margin = new Padding(0, 0, 0, 10);
             root.Controls.Add(intro, 0, 0);
 
@@ -100,7 +127,7 @@ namespace InputStitch
             behaviorNote.Margin = new Padding(0, 8, 0, 0);
             activation.Controls.Add(behaviorNote, 0, 3);
             activation.SetColumnSpan(behaviorNote, 2);
-            root.Controls.Add(activationGroup, 0, 1);
+            if (!conditionsOnly) root.Controls.Add(activationGroup, 0, 1);
 
             GroupBox conditionGroup = new GroupBox();
             conditionGroup.Text = Localizer.IsEnglish ? "Conditions (all must match)" : "条件（全部满足才生效）";

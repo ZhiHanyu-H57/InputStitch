@@ -129,8 +129,10 @@ Semantics:
 - an unresolvable `DeviceKey` or unevaluable analog condition simply does not match (fail-closed);
 - layer display names, Runtime Observation and Diagnostics mark context layers and report which one matched.
 
-Stage 1 covers model, config, precedence, evaluation, diagnostics and tests; the layer-management entry for
-editing a context condition is the follow-up UI slice.
+Stage 1 covers the model, config, precedence, evaluation, diagnostics, tests **and** the layer-management
+entry: "设置上下文条件… / Set context condition..." opens the shared condition dialog in conditions-only mode
+(the activator section is not shown), and "清除上下文条件 / Clear context condition" removes it. Editing a
+condition re-applies the effective layer immediately.
 
 ## Switching semantics
 

@@ -48,6 +48,8 @@ internal static class LayerContextTests
         return new MacroConditionConfig { ForegroundProcessName = processName };
     }
 
+    // STA is required because the suite constructs the real condition dialog (ComboBox auto-complete uses OLE).
+    [STAThread]
     public static int Main()
     {
         string root = Path.Combine(Path.GetTempPath(), "InputStitch-LayerContext-" + Guid.NewGuid().ToString("N"));
@@ -207,6 +209,21 @@ internal static class LayerContextTests
                 string observation = (string)Call(form, "BuildRuntimeObservationText");
                 Check(observation.IndexOf("上下文自动", StringComparison.Ordinal) >= 0 || observation.IndexOf("context)", StringComparison.OrdinalIgnoreCase) >= 0,
                     "runtime observation marks a context-driven layer");
+
+                // The layer-management editor reuses the macro condition dialog in conditions-only mode.
+                using (ActivatorConditionDialog dialog = new ActivatorConditionDialog(
+                    contextB.ContextCondition,
+                    delegate { return null; },
+                    "Context layer: Context B",
+                    "Layer context condition"))
+                {
+                    Check(dialog.Text.IndexOf("context", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        dialog.Text.IndexOf("上下文", StringComparison.Ordinal) >= 0,
+                        "the conditions-only dialog uses the layer context title");
+                    MacroConditionConfig initial = dialog.SelectedConditions;
+                    Check(initial != null && initial.ForegroundProcessName == "gameB",
+                        "the conditions-only dialog round-trips the layer context condition");
+                }
             }
         }
         finally

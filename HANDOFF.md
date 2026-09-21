@@ -339,9 +339,13 @@ returns to it when the context stops matching; Base may carry a context (tempora
 runs on the foreground-tracking cadence plus every layer/condition edit; unresolvable device conditions
 fail closed. Layer names, Runtime Observation and Diagnostics mark context layers and report the match.
 
-Evidence: `tests/LayerContextTests.cs` (20 checks — XML round trip, precedence, list order, context loss,
-Base context, condition clearing, diagnostics/observation, momentary override) plus the full regression
-suite. The layer-management UI entry for editing/clearing a context condition is the remaining slice.
+The layer-management menu exposes "设置上下文条件… / Set context condition..." — the shared condition dialog in
+conditions-only mode (no activator section; the layer's own label is shown) — plus "清除上下文条件 / Clear
+context condition". Editing re-applies the effective layer immediately and saves the configuration.
+
+Evidence: `tests/LayerContextTests.cs` (22 checks — XML round trip, precedence, list order, context loss,
+Base context, condition clearing, diagnostics/observation, momentary override, conditions-only dialog title
+and round trip) plus the full regression suite.
 
 Next per the plan (H1 remainder + H2): layer-management context-condition editor, then incremental
 `MainForm` decomposition (make the class partial, extract Layer first). A real-world session should also

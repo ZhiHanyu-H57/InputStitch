@@ -7813,6 +7813,23 @@ namespace InputStitch
                 RefreshLayerChoiceLists();
             };
             menu.Items.Add(clearShortcut);
+            menu.Items.Add(new ToolStripSeparator());
+            ToolStripMenuItem contextCondition = new ToolStripMenuItem(Localizer.IsEnglish ? "Set context condition..." : "设置上下文条件…");
+            contextCondition.Enabled = target != null;
+            contextCondition.Click += delegate { EditLayerContextCondition(target); };
+            menu.Items.Add(contextCondition);
+            ToolStripMenuItem clearContextCondition = new ToolStripMenuItem(Localizer.IsEnglish ? "Clear context condition" : "清除上下文条件");
+            clearContextCondition.Enabled = target != null && target.ContextCondition != null && !target.ContextCondition.IsEmpty;
+            clearContextCondition.Click += delegate
+            {
+                if (target == null) return;
+                target.ContextCondition = null;
+                SaveConfig();
+                ApplyEffectiveMappingLayer();
+                RefreshLayerChoiceLists();
+                SetStatusSafe(Localizer.IsEnglish ? "Layer context condition cleared." : "已清除该层的上下文条件。");
+            };
+            menu.Items.Add(clearContextCondition);
             menu.Closed += delegate { DeferContextMenuDispose(this, menu); };
             menu.Show(layerManageButton, new Point(0, layerManageButton.Height));
         }
@@ -8536,6 +8553,44 @@ namespace InputStitch
                 uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
                 UpdateUiSafetyPauseState();
             }
+        }
+
+        // Layer context condition editor. It reuses the macro condition dialog in conditions-only mode so that
+        // layer contexts and macro gates stay one rule set (development plan H2.1).
+        private void EditLayerContextCondition(MappingLayerDefinition layer)
+        {
+            if (layer == null) return;
+            string layerName = layer.IsBase
+                ? (Localizer.IsEnglish ? "Base" : "基础层")
+                : (string.IsNullOrWhiteSpace(layer.Name) ? layer.Id : layer.Name);
+            string label = (Localizer.IsEnglish ? "Context layer: " : "上下文层：") + layerName;
+            uiSafetyModalDepth++;
+            UpdateUiSafetyPauseState();
+            try
+            {
+                using (ActivatorConditionDialog dialog = new ActivatorConditionDialog(
+                    layer.ContextCondition == null ? new MacroConditionConfig() : layer.ContextCondition,
+                    delegate { return deviceIdentityService == null ? null : deviceIdentityService.Refresh(); },
+                    label,
+                    Localizer.IsEnglish ? "Layer context condition" : "层上下文条件"))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    MacroConditionConfig selected = dialog.SelectedConditions;
+                    MacroConditionConfig.Normalize(selected);
+                    layer.ContextCondition = selected.IsEmpty ? null : selected;
+                }
+            }
+            finally
+            {
+                uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
+                UpdateUiSafetyPauseState();
+            }
+            SaveConfig();
+            ApplyEffectiveMappingLayer();
+            RefreshLayerChoiceLists();
+            SetStatusSafe(layer.ContextCondition == null
+                ? (Localizer.IsEnglish ? "Layer has no context condition." : "该层当前没有上下文条件。")
+                : (Localizer.IsEnglish ? "Layer context condition saved." : "已保存该层的上下文条件。"));
         }
 
         private void RefreshActivatorConditionUi()

@@ -106,3 +106,7 @@ Direction updates from the 2026-09-21 research:
 - 2026-09-21: **H2.1 core done** — layer context conditions (foreground process/title + stable DeviceKey,
   shared evaluator, precedence `momentary > context > persistent`, deterministic list order, diagnostics and
   a 20-check suite). Remaining: the layer-management UI entry for editing/clearing a context condition.
+- 2026-09-21: **H2.1 done** — the layer-management menu now offers "设置上下文条件… / Set context
+  condition..." (shared condition dialog in conditions-only mode) and "清除上下文条件 / Clear context
+  condition"; the layer context suite covers 22 checks. Next in H1 is the incremental `MainForm`
+  decomposition, then H2.2 (activator/condition stage 2) and H2.3 (`IInputProvider`).
