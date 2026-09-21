@@ -11,6 +11,9 @@ $projectRoot = $PSScriptRoot
 $releaseInfo = & (Join-Path $projectRoot 'scripts/Get-ReleaseInfo.ps1')
 $releaseVersion = $releaseInfo.Version
 $fileVersion = $releaseInfo.FileVersion
+# Single authoritative production source list (scripts/production-sources.txt). The csproj list is kept
+# explicit for Visual Studio users and is cross-checked by tests/SourceManifestTests.cs.
+$productionSources = & (Join-Path $projectRoot 'scripts/Get-ProductionSources.ps1')
 $distDirectory = Join-Path $projectRoot 'dist'
 $sourcePath = Join-Path $projectRoot 'InputStitch.cs'
 $manifestPath = Join-Path $projectRoot 'app.manifest'
@@ -114,39 +117,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += "/reference:$viGEmClientPath"
     $compilerArguments += "/resource:$viGEmClientPath,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll"
     $compilerArguments += $TargetFrameworkSource
-    $compilerArguments += $sourcePath
-    $compilerArguments += (Join-Path $projectRoot 'ReleaseInfo.cs')
-    $compilerArguments += (Join-Path $projectRoot 'UpdateInstaller.cs')
-    $compilerArguments += (Join-Path $projectRoot 'RuntimeDiagnostics.cs')
-    $compilerArguments += (Join-Path $projectRoot 'RawKeyboardFallback.cs')
-    $compilerArguments += (Join-Path $projectRoot 'AtomicXmlFileStore.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ConfigPackageSerializer.cs')
-    $compilerArguments += (Join-Path $projectRoot 'UpdateSourcePolicy.cs')
-    $compilerArguments += (Join-Path $projectRoot 'UpdateUiCoordinator.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ProfileCatalog.cs')
-    $compilerArguments += (Join-Path $projectRoot 'TargetWindowPolicy.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ConfigStore.cs')
-    $compilerArguments += (Join-Path $projectRoot 'StepHistory.cs')
-    $compilerArguments += (Join-Path $projectRoot 'QuickCreate.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ConcurrentRuntime.cs')
-    $compilerArguments += (Join-Path $projectRoot 'OutputOwnership.cs')
-    $compilerArguments += (Join-Path $projectRoot 'VirtualGamepadBackend.cs')
-    $compilerArguments += (Join-Path $projectRoot 'VirtualKeyboard.cs')
-    $compilerArguments += (Join-Path $projectRoot 'IdleGamepad.cs')
-    $compilerArguments += (Join-Path $projectRoot 'XInputNative.cs')
-    $compilerArguments += (Join-Path $projectRoot 'XInputInput.cs')
-    $compilerArguments += (Join-Path $projectRoot 'WindowsDeviceDiscovery.cs')
-    $compilerArguments += (Join-Path $projectRoot 'DeviceIdentity.cs')
-    $compilerArguments += (Join-Path $projectRoot 'DeviceManagerDialog.cs')
-    $compilerArguments += (Join-Path $projectRoot 'AnalogTransform.cs')
-    $compilerArguments += (Join-Path $projectRoot 'AnalogTransformDialog.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ActivatorCondition.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ActivatorConditionDialog.cs')
-    $compilerArguments += (Join-Path $projectRoot 'RouterSourcePolicy.cs')
-    $compilerArguments += (Join-Path $projectRoot 'RouterSourceDialog.cs')
-    $compilerArguments += (Join-Path $projectRoot 'GamepadRouter.cs')
-    $compilerArguments += (Join-Path $projectRoot 'ControlledReplacement.cs')
-    $compilerArguments += (Join-Path $projectRoot 'SlotAcquisition.cs')
+    foreach ($productionSource in $productionSources) { $compilerArguments += $productionSource }
 
     Write-Host "Building $outputName ..."
     & $Compiler @compilerArguments 2>&1 | ForEach-Object { Write-Host $_ }
@@ -175,39 +146,6 @@ function New-SourceArchive {
         'CHANGELOG.md',
         'CONTRIBUTING.md',
         'HANDOFF.md',
-        'InputStitch.cs',
-        'ReleaseInfo.cs',
-        'UpdateInstaller.cs',
-        'RuntimeDiagnostics.cs',
-        'RawKeyboardFallback.cs',
-        'AtomicXmlFileStore.cs',
-        'ConfigPackageSerializer.cs',
-        'UpdateSourcePolicy.cs',
-        'UpdateUiCoordinator.cs',
-        'ProfileCatalog.cs',
-        'TargetWindowPolicy.cs',
-        'ConfigStore.cs',
-        'StepHistory.cs',
-        'QuickCreate.cs',
-        'ConcurrentRuntime.cs',
-        'OutputOwnership.cs',
-        'VirtualGamepadBackend.cs',
-        'VirtualKeyboard.cs',
-        'IdleGamepad.cs',
-        'XInputNative.cs',
-        'XInputInput.cs',
-        'WindowsDeviceDiscovery.cs',
-        'DeviceIdentity.cs',
-        'DeviceManagerDialog.cs',
-        'AnalogTransform.cs',
-        'AnalogTransformDialog.cs',
-        'ActivatorCondition.cs',
-        'ActivatorConditionDialog.cs',
-        'RouterSourcePolicy.cs',
-        'RouterSourceDialog.cs',
-        'GamepadRouter.cs',
-        'ControlledReplacement.cs',
-        'SlotAcquisition.cs',
         'InputStitch.csproj',
         'InputStitch.ico',
         'README.md',
@@ -218,6 +156,8 @@ function New-SourceArchive {
         'SECURITY.md',
         'THIRD_PARTY_NOTICES.md'
     )
+
+    foreach ($productionSource in $productionSources) { $includedFiles += (Split-Path $productionSource -Leaf) }
 
     $existingItems = foreach ($relativePath in $includedFiles) {
         $candidate = Join-Path $projectRoot $relativePath

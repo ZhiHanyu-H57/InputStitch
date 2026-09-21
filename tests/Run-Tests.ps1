@@ -4,6 +4,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
 $references = & (Join-Path $project 'scripts/Restore-NetFramework472.ps1')
+$productionSources = & (Join-Path $project 'scripts/Get-ProductionSources.ps1')
 $compiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 if(-not (Test-Path -LiteralPath $compiler)) { $compiler = $compiler.Replace('Framework64','Framework') }
 $output = Join-Path $project 'artifacts/tests'
@@ -32,13 +33,13 @@ function Invoke-NativeCaptured([string]$file, [object[]]$arguments) {
   return [pscustomobject]@{ ExitCode = $exitCode; Output = @($captured) }
 }
 
-foreach($suite in @('KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','MacroTimingTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests')) {
+foreach($suite in @('SourceManifestTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','MacroTimingTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests')) {
   $exe=Join-Path $output ($suite+'.exe')
   $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$suite","/out:$exe")
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
   $arguments += '/reference:'+$client
   $arguments += '/resource:'+$client+',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
-  foreach($file in @('InputStitch.cs','ReleaseInfo.cs','RawKeyboardFallback.cs','VirtualKeyboard.cs','IdleGamepad.cs','XInputNative.cs','XInputInput.cs','WindowsDeviceDiscovery.cs','DeviceIdentity.cs','DeviceManagerDialog.cs','AnalogTransform.cs','AnalogTransformDialog.cs','ActivatorCondition.cs','ActivatorConditionDialog.cs','RouterSourcePolicy.cs','RouterSourceDialog.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs','UpdateInstaller.cs','RuntimeDiagnostics.cs','AtomicXmlFileStore.cs','ConfigPackageSerializer.cs','UpdateSourcePolicy.cs','UpdateUiCoordinator.cs','ProfileCatalog.cs','TargetWindowPolicy.cs','ConfigStore.cs','StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualGamepadBackend.cs')) { $arguments += Join-Path $project $file }
+  foreach($file in $productionSources) { $arguments += $file }
   $arguments += Join-Path $PSScriptRoot ($suite+'.cs')
   $compile = Invoke-NativeCaptured $compiler $arguments
   $compileReport = $compile.Output

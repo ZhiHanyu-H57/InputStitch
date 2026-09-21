@@ -6,7 +6,7 @@ Thank you for helping improve InputStitch. Bug reports, reproducible compatibili
 
 ## Before opening an issue / 提交 Issue 前
 
-1. Use the latest public release, currently **1.1.0**. / 使用最新公开正式版，目前为 **1.1.0**。
+1. Use the latest public release, currently **1.4.3**. / 使用最新公开正式版，目前为 **1.4.3**。
 2. Search existing issues for the same symptom. / 搜索现有 Issue，确认是否已有相同问题。
 3. Test with a minimal macro in a harmless application when possible. / 尽可能在无关紧要的程序中用最小宏进行测试。
 4. Remove private paths, window titles, process names, profile data, and macro content from screenshots and logs. / 从截图和日志中移除私人路径、窗口标题、进程名、方案数据和宏内容。
@@ -27,6 +27,10 @@ For vulnerabilities, follow [SECURITY.md](SECURITY.md) instead of posting exploi
 - Keep UI layouts usable at common display scaling values and with longer English text. / 保持界面在常见显示缩放比例和较长英文文本下可用。
 - Avoid unrelated formatting or generated-file changes. / 避免无关的格式化或生成文件变更。
 - Update documentation and tests when behavior changes. / 行为发生变化时，同步更新文档和测试。
+- Add new production source files to `scripts/production-sources.txt`; build and test entry points consume
+  that manifest, and `tests/SourceManifestTests.cs` fails when the csproj list or a root-level `.cs` file
+  diverges. / 新增生产源码文件时，请登记到 `scripts/production-sources.txt`；构建与测试入口共用该清单，
+  `tests/SourceManifestTests.cs` 会在清单与 csproj 或根目录源码不一致时失败。
 
 ## Build and verify / 构建与验证
 

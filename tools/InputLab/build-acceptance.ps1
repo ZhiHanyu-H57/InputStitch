@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 $toolRoot = $PSScriptRoot
 $projectRoot = Split-Path (Split-Path $toolRoot -Parent) -Parent
 $references = & (Join-Path $projectRoot 'scripts\Restore-NetFramework472.ps1')
+$productionSources = & (Join-Path $projectRoot 'scripts\Get-ProductionSources.ps1')
 $compiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { $compiler = $compiler.Replace('Framework64', 'Framework') }
 if (-not (Test-Path -LiteralPath $compiler)) { throw '.NET Framework C# compiler was not found.' }
@@ -33,14 +34,8 @@ foreach ($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawin
 }
 $arguments += '/reference:' + $client
 
-foreach ($name in @(
-    'InputStitch.cs','ReleaseInfo.cs','RawKeyboardFallback.cs','VirtualKeyboard.cs','IdleGamepad.cs',
-    'XInputNative.cs','XInputInput.cs','WindowsDeviceDiscovery.cs','DeviceIdentity.cs','DeviceManagerDialog.cs','AnalogTransform.cs','AnalogTransformDialog.cs','ActivatorCondition.cs','ActivatorConditionDialog.cs','RouterSourcePolicy.cs','RouterSourceDialog.cs','GamepadRouter.cs','ControlledReplacement.cs','SlotAcquisition.cs',
-    'UpdateInstaller.cs','RuntimeDiagnostics.cs','AtomicXmlFileStore.cs','ConfigPackageSerializer.cs',
-    'UpdateSourcePolicy.cs','UpdateUiCoordinator.cs','ProfileCatalog.cs','TargetWindowPolicy.cs','ConfigStore.cs',
-    'StepHistory.cs','QuickCreate.cs','ConcurrentRuntime.cs','OutputOwnership.cs','VirtualGamepadBackend.cs'
-)) {
-    $arguments += Join-Path $projectRoot $name
+foreach ($productionSource in $productionSources) {
+    $arguments += $productionSource
 }
 foreach ($name in @('NativeInput.cs','XInputReader.cs','ObservationSnapshot.cs','StickView.cs','InputLabForm.cs','AcceptanceRunner.cs')) {
     $arguments += Join-Path $toolRoot $name
