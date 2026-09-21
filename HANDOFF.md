@@ -401,9 +401,10 @@ Next per the plan: continue H1.4 with the diagnostics/observation extraction, th
 statistics from Runtime Observation to confirm the dedicated input thread removed UI-stall delays.
 
 Second extraction (same day): the Runtime Observation / Diagnostics text builders moved to
-`MainForm.Diagnostics.cs` (248 lines). `InputStitch.cs` is now 11,379 lines (from 12,171 before the
-decomposition); the x64/x86 binaries are again identical in size and the full suite passed. Remaining
-extractions: controller takeover, macro editor.
+`MainForm.Diagnostics.cs` (248 lines). Third extraction (same day): controller-takeover coordination and
+the gamepad-router readiness helpers moved to `MainForm.ControlledReplacement.cs` (295 lines).
+`InputStitch.cs` is now 11,101 lines (from 12,171 before the decomposition); the x64/x86 binaries are again
+identical in size and the full suite passed. Remaining extraction: the macro editor.
 
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 

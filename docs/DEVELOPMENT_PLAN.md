@@ -127,3 +127,7 @@ Direction updates from the 2026-09-21 research:
   verified package/licence/OS facts and selects **SDL3** as the second provider behind a new
   `IInputProvider` seam (XInput remains provider #1). GameInput is deferred pending a user decision about an
   installer/redistributable. Next implementation step: the behaviour-neutral seam plus XInput adapter.
+- 2026-09-21: **H1.4 step 3** — controller-takeover coordination moved to
+  `MainForm.ControlledReplacement.cs` (295 lines); `InputStitch.cs` is now 11,101 lines with identical
+  x64/x86 binary sizes and a green regression (including the 52 controlled-replacement checks). Remaining
+  extraction: the macro editor.

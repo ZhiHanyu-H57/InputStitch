@@ -104,6 +104,12 @@ Second step (same day): the Runtime Observation / Diagnostics text builders move
 `MainForm.Diagnostics.cs` (248 lines); `InputStitch.cs` is now 11,379 lines. The x64/x86 binaries are again
 byte-size identical and the full suite passed.
 
+Third step (same day): controller-takeover coordination (`ShowControllerTakeoverDialog`, the controlled
+replacement health/validation/hand-off/stop methods and the gamepad-router readiness helpers) moved to
+`MainForm.ControlledReplacement.cs` (295 lines); `InputStitch.cs` is now 11,101 lines. Binaries are again
+identical in size (862,208 / 862,720 bytes) and the full suite — including the 52 controlled-replacement
+checks — passed.
+
 ### F5 — P2, maintainability/localization: bilingual strings are code, not data
 
 `Localizer.IsEnglish` appears **327 times** as inline ternaries. A third language or a wording audit would
@@ -159,7 +165,7 @@ decision register).
 | F1 input timing on UI thread | dedicated input thread + cadence stats | closed 2026-09-21 (real-world numbers pending) |
 | F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
-| F4 monolith | `partial` + Layer and Diagnostics extractions done 2026-09-21; takeover/editor pending | in progress |
+| F4 monolith | `partial` + Layer, Diagnostics and ControlledReplacement extractions done 2026-09-21; macro editor pending | in progress |
 | F5 localization data | deferred | deferred |
 | F6 input provider seam | decision taken (SDL3 provider; XInput first); implementation staged | decided 2026-09-21 |
 | F7 release choreography | checklist item | tracked |
