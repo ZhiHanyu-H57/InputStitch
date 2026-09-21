@@ -20,6 +20,9 @@ Before changing code in this repository, restore project context in this order:
 - Production source files are listed once in `scripts/production-sources.txt`; add or rename files there.
   `build.ps1`, `tests/Run-Tests.ps1` and `tools/InputLab/build-acceptance.ps1` consume that manifest, and
   `tests/SourceManifestTests.cs` fails when the `InputStitch.csproj` list or a root-level `.cs` file diverges.
+- The optional SDL3 input lane needs the native runtime, which is **not committed**. Run
+  `scripts/Restore-Sdl3.ps1` to fetch the pinned 3.4.16 assets into the gitignored `third-party/SDL3/<arch>/`
+  folder; `tests/Sdl3ProviderTests.cs` then runs the real-runtime smoke automatically (CI skips it).
 - Preserve existing behavior unless a change is explicitly required.
 - Reliability and safe input release take priority over feature count.
 - Do not weaken Emergency Stop, fail-closed cleanup, UI editing safety, or ownership isolation.

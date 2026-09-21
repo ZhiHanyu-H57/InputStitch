@@ -31,6 +31,11 @@ For vulnerabilities, follow [SECURITY.md](SECURITY.md) instead of posting exploi
   that manifest, and `tests/SourceManifestTests.cs` fails when the csproj list or a root-level `.cs` file
   diverges. / 新增生产源码文件时，请登记到 `scripts/production-sources.txt`；构建与测试入口共用该清单，
   `tests/SourceManifestTests.cs` 会在清单与 csproj 或根目录源码不一致时失败。
+- The optional SDL3 input lane downloads its native runtime through `scripts/Restore-Sdl3.ps1` (pinned
+  version + SHA-256, extracted into the gitignored `third-party/SDL3/<arch>/`); the binary is deliberately
+  not committed and is excluded from the source archive. / 可选 SDL3 输入通道通过
+  `scripts/Restore-Sdl3.ps1` 下载原生运行时（固定版本 + SHA-256，解包到被 git 忽略的
+  `third-party/SDL3/<arch>/`）；该二进制不提交、也不进入源码包。
 
 ## Build and verify / 构建与验证
 

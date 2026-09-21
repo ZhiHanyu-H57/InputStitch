@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using InputStitch;
 
 internal static class Sdl3ProviderTests
@@ -187,6 +188,16 @@ internal static class Sdl3ProviderTests
         //    normal (CI) runs stay independent of the native library while a developer machine can prove the
         //    P/Invoke binding against the real runtime.
         string nativePath = Environment.GetEnvironmentVariable(Sdl3NativeApi.DllPathEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(nativePath))
+        {
+            // Developer convenience: use the restored third-party copy when present (scripts/Restore-Sdl3.ps1).
+            DirectoryInfo root = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            if (root.Parent != null) root = root.Parent;
+            if (root.Parent != null) root = root.Parent;
+            string arch = Environment.Is64BitProcess ? "x64" : "x86";
+            string restored = System.IO.Path.Combine(root.FullName, "third-party", "SDL3", arch, "SDL3.dll");
+            if (System.IO.File.Exists(restored)) nativePath = restored;
+        }
         if (!string.IsNullOrWhiteSpace(nativePath) && System.IO.File.Exists(nativePath))
         {
             using (Sdl3NativeApi native = new Sdl3NativeApi(nativePath))

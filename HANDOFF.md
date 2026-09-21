@@ -427,6 +427,22 @@ Evidence: `CompositeInputProviderTests` (15 checks) plus the extended `Sdl3Provi
 full regression + x64/x86 release verification. Remaining: how SDL3.dll ships, device-identity evidence,
 provider column in Device Manager, Input Lab and real-device verification.
 
+**Optional SDL3 runtime restore added 2026-09-21:** `scripts/Restore-Sdl3.ps1` downloads the pinned SDL3
+3.4.16 release assets for x86/x64, verifies the archive SHA-256 and the extracted DLL SHA-256, and places
+`SDL3.dll` plus `LICENSE.txt` under `third-party/SDL3/<arch>/` (idempotent: a second run reports "already
+restored and verified"). Pinned values:
+
+- x64 archive `4217944b4e51457af4a59c82d883f8443b3e65964b2acd8943484c492756c4b6`, DLL
+  `1f98969319302a100931f4385e5918a0bd53ab07773040682d22e7edb54858c0`;
+- x86 archive `beb4e86e4a101f66556162c3efff9fd1ad88f1761b63be35867a3336a72f8c41`, DLL
+  `47d508b4232cf9462096bdb6f613a330d9a94a7eb09c305fad073430c6531920`.
+
+`third-party/SDL3/` is gitignored and deliberately excluded from the Source.zip (build.ps1 now packages the
+committed ViGEm third-party folder explicitly), so release artifacts stay deterministic; `Sdl3ProviderTests`
+auto-detects the restored DLL, which makes the local run execute the real-runtime smoke
+(`REAL-SDL3 smoke: device count=0; provider status=ready; devices=0`, 33 checks) while CI keeps skipping it
+(30 checks). The end-user shipping choice for SDL3.dll is still open.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

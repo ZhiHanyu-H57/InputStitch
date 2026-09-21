@@ -164,3 +164,10 @@ Direction updates from the 2026-09-21 research:
   the first observation of a device never synthesizes edges, and pinned triggers can no longer be satisfied
   by an unrelated pad (`XInputInputService.IsTriggerSatisfied` is strict for out-of-range pinned indices).
   `CompositeInputProviderTests` (15 checks) and the extended SDL3 suite (30 checks) cover the rules.
+- 2026-09-21: **H2.3 step 2d done** — `scripts/Restore-Sdl3.ps1` downloads the pinned SDL3 3.4.16 release
+  assets for x86/x64, verifies both the archive and the extracted DLL SHA-256 values, extracts `SDL3.dll`
+  plus its `LICENSE.txt` into `third-party/SDL3/<arch>/` and is idempotent. The folder is gitignored, the
+  source archive excludes it deliberately (build.ps1 now packages only the committed ViGEm third-party
+  folder, so release artifacts stay deterministic), and the SDL3 test suite auto-detects the restored DLL so
+  a developer machine runs the real-runtime smoke while CI skips it. Remaining for this item: the end-user
+  shipping decision (bundle/embed/optional).

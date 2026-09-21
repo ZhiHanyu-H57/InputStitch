@@ -98,6 +98,11 @@ InputDeviceState: buttons bitmask, DPad, LX/LY/RX/RY/triggers, connected flag
    device-identity evidence (VID/PID/serial) and a provider column in Device Manager; real-device
    verification stays on the hardware-blocked lane.
 
+   Developer enablement is in place: `scripts/Restore-Sdl3.ps1` fetches and verifies the pinned 3.4.16
+   assets into `third-party/SDL3/<arch>/` (gitignored, excluded from the source archive), and the SDL3 test
+   suite picks the restored DLL up automatically. The end-user shipping choice (bundle the DLL with the
+   release, embed it into the EXE like the ViGEm client, or keep SDL3 strictly optional) is still open.
+
 ## Risks and mitigations
 
 * Extracted DLL flagged by antivirus: keep the existing embedded-resource pattern (already shipped for the

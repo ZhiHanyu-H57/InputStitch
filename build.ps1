@@ -137,7 +137,9 @@ function New-SourceArchive {
         'scripts',
         'tests',
         'tools',
-        'third-party',
+        # The optional SDL3 runtime is downloaded locally by scripts/Restore-Sdl3.ps1 and is intentionally
+        # excluded from the source archive so release artifacts stay deterministic and small.
+        'third-party\Nefarius.ViGEm.Client',
         '.gitignore',
         'AGENTS.md',
         'app.manifest',

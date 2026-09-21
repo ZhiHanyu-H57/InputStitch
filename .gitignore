@@ -37,6 +37,9 @@ macro-packages/
 *.mpmacro
 *.mpprofile
 
+# Downloaded optional SDL3 runtime (scripts/Restore-Sdl3.ps1); never commit the binary
+third-party/SDL3/
+
 # Local tools and editors
 .idea/
 .vscode/
