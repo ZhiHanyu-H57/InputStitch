@@ -403,8 +403,11 @@ statistics from Runtime Observation to confirm the dedicated input thread remove
 Second extraction (same day): the Runtime Observation / Diagnostics text builders moved to
 `MainForm.Diagnostics.cs` (248 lines). Third extraction (same day): controller-takeover coordination and
 the gamepad-router readiness helpers moved to `MainForm.ControlledReplacement.cs` (295 lines).
-`InputStitch.cs` is now 11,101 lines (from 12,171 before the decomposition); the x64/x86 binaries are again
-identical in size and the full suite passed. Remaining extraction: the macro editor.
+Fourth extraction (same day): the main-window builder `BuildUi()` and `BuildTrayIcon()` moved to
+`MainForm.Ui.cs` (1,233 lines). `InputStitch.cs` is now **9,885 lines** (from 12,171 before the
+decomposition); the x64/x86 binaries are again identical in size, the full suite passed and the Settings
+smoke tests still render the moved layout. Remaining cohesive split: editor/runtime logic inside the
+remaining file.
 
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 

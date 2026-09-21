@@ -33,6 +33,7 @@
     <Compile Include="MainForm.Layers.cs" />
     <Compile Include="MainForm.Diagnostics.cs" />
     <Compile Include="MainForm.ControlledReplacement.cs" />
+    <Compile Include="MainForm.Ui.cs" />
     <Compile Include="ReleaseInfo.cs" />
     <Compile Include="UpdateInstaller.cs" />
     <Compile Include="RuntimeDiagnostics.cs" />

@@ -110,6 +110,11 @@ replacement health/validation/hand-off/stop methods and the gamepad-router readi
 identical in size (862,208 / 862,720 bytes) and the full suite — including the 52 controlled-replacement
 checks — passed.
 
+Fourth step (same day): the main-window builder `BuildUi()` and `BuildTrayIcon()` moved to
+`MainForm.Ui.cs` (1,233 lines). `InputStitch.cs` is now **9,885 lines** (from 12,171 before the
+decomposition). Binaries are again identical in size, the full suite passed and the Settings smoke tests
+(zh-CN/en-US, normal and narrow layouts) still render the moved layout correctly.
+
 ### F5 — P2, maintainability/localization: bilingual strings are code, not data
 
 `Localizer.IsEnglish` appears **327 times** as inline ternaries. A third language or a wording audit would
@@ -165,7 +170,7 @@ decision register).
 | F1 input timing on UI thread | dedicated input thread + cadence stats | closed 2026-09-21 (real-world numbers pending) |
 | F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
-| F4 monolith | `partial` + Layer, Diagnostics and ControlledReplacement extractions done 2026-09-21; macro editor pending | in progress |
+| F4 monolith | `partial` + four extractions done 2026-09-21 (Layer, Diagnostics, ControlledReplacement, Ui); editor/runtime split continues | in progress |
 | F5 localization data | deferred | deferred |
 | F6 input provider seam | decision taken (SDL3 provider; XInput first); implementation staged | decided 2026-09-21 |
 | F7 release choreography | checklist item | tracked |

@@ -131,3 +131,6 @@ Direction updates from the 2026-09-21 research:
   `MainForm.ControlledReplacement.cs` (295 lines); `InputStitch.cs` is now 11,101 lines with identical
   x64/x86 binary sizes and a green regression (including the 52 controlled-replacement checks). Remaining
   extraction: the macro editor.
+- 2026-09-21: **H1.4 step 4** — the main-window builder and tray icon moved to `MainForm.Ui.cs`
+  (1,233 lines); `InputStitch.cs` is now 9,885 lines with identical binary sizes, a green regression and
+  green Settings smoke tests. Remaining cohesive split: editor/runtime logic inside the remaining file.
