@@ -110,3 +110,7 @@ Direction updates from the 2026-09-21 research:
   condition..." (shared condition dialog in conditions-only mode) and "清除上下文条件 / Clear context
   condition"; the layer context suite covers 22 checks. Next in H1 is the incremental `MainForm`
   decomposition, then H2.2 (activator/condition stage 2) and H2.3 (`IInputProvider`).
+- 2026-09-21: **H1.4 started** — `MainForm` is `partial`; the Layer subsystem moved to
+  `MainForm.Layers.cs` (576 lines) with identical x64/x86 binary sizes and a fully green regression as the
+  behaviour-neutrality evidence. Next extractions: diagnostics/observation, controller takeover, macro
+  editor.

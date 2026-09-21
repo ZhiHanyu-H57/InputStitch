@@ -347,10 +347,19 @@ Evidence: `tests/LayerContextTests.cs` (22 checks — XML round trip, precedence
 Base context, condition clearing, diagnostics/observation, momentary override, conditions-only dialog title
 and round trip) plus the full regression suite.
 
-Next per the plan (H1 remainder + H2): layer-management context-condition editor, then incremental
-`MainForm` decomposition (make the class partial, extract Layer first). A real-world session should also
-read the new cadence statistics from Runtime Observation to confirm the input thread removed UI-stall
-delays.
+## 2026-09-21 MainForm decomposition — step 1
+
+`MainForm` is now declared `partial` and the Layer subsystem lives in `MainForm.Layers.cs` (576 lines):
+display/management helpers, the layer runtime state machine (toggle, momentary holds, context conditions),
+eligibility helpers and both layer combo handlers. `InputStitch.cs` went from 12,171 to 11,614 lines.
+
+Behaviour-neutrality evidence: the x64/x86 Release build produced **identical EXE sizes** to the
+pre-extraction build (860,672 / 861,184 bytes) and the full regression suite (including the reflection-based
+Layer and layer-context suites) passed unchanged; the source manifest drift guard now reports 220 checks.
+
+Next per the plan: continue H1.4 with the diagnostics/observation extraction, then H2.2
+(activator/condition stage 2) and H2.3 (`IInputProvider`). A real-world session should also read the cadence
+statistics from Runtime Observation to confirm the dedicated input thread removed UI-stall delays.
 
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 

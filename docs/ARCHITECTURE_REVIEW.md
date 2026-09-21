@@ -92,6 +92,14 @@ Recommendation: make `MainForm` `partial` and extract cohesive subsystems increm
 diagnostics/observation, then controller takeover, then the macro editor — one extraction per commit, no
 behavior change, full regression each time.
 
+**Started 2026-09-21:** `MainForm` is `partial` now, and the Layer subsystem moved to
+`MainForm.Layers.cs` (576 lines): display/management logic, the layer runtime state machine (toggle,
+momentary holds, context conditions) and both layer combo handlers. `InputStitch.cs` dropped from 12,171 to
+11,614 lines. Behaviour-neutrality evidence: the x64/x86 Release build produced **identical EXE sizes** to
+the pre-extraction build (860,672 / 861,184 bytes) and the full regression suite — including the
+reflection-based Layer and layer-context suites — passed unchanged. Remaining extractions:
+diagnostics/observation, controller takeover, macro editor.
+
 ### F5 — P2, maintainability/localization: bilingual strings are code, not data
 
 `Localizer.IsEnglish` appears **327 times** as inline ternaries. A third language or a wording audit would
@@ -142,7 +150,7 @@ decision register).
 | F1 input timing on UI thread | dedicated input thread + cadence stats | closed 2026-09-21 (real-world numbers pending) |
 | F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
-| F4 monolith | incremental partial extraction | open |
+| F4 monolith | `partial` + Layer extraction done 2026-09-21; diagnostics/takeover/editor pending | in progress |
 | F5 localization data | deferred | deferred |
 | F6 input provider seam | planned with input work | planned |
 | F7 release choreography | checklist item | tracked |

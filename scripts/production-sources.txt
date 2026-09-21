@@ -12,6 +12,7 @@
 # Format: one repo-root-relative file name per line. Comments (#) and blank lines are ignored.
 InputStitch.cs
 InputPipeline.cs
+MainForm.Layers.cs
 ReleaseInfo.cs
 UpdateInstaller.cs
 RuntimeDiagnostics.cs
