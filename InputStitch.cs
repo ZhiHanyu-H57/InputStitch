@@ -7839,6 +7839,7 @@ namespace InputStitch
         {
             if (mode == ActivatorModes.Press) return "Press";
             if (mode == ActivatorModes.Release) return "Release";
+            if (mode == ActivatorModes.ShortPress) return "Short Press";
             if (mode == ActivatorModes.WhileHeld) return "While Held";
             if (mode == ActivatorModes.LongPress) return "Long Press";
             if (mode == ActivatorModes.DoublePress) return "Double Press";
@@ -7849,6 +7850,7 @@ namespace InputStitch
         {
             if (mode == ActivatorModes.Press) return "按下";
             if (mode == ActivatorModes.Release) return "松开";
+            if (mode == ActivatorModes.ShortPress) return "短按";
             if (mode == ActivatorModes.WhileHeld) return "按住期间";
             if (mode == ActivatorModes.LongPress) return "长按";
             if (mode == ActivatorModes.DoublePress) return "双击";

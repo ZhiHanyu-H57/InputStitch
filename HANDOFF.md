@@ -347,6 +347,27 @@ Evidence: `tests/LayerContextTests.cs` (22 checks — XML round trip, precedence
 Base context, condition clearing, diagnostics/observation, momentary override, conditions-only dialog title
 and round trip) plus the full regression suite.
 
+## 2026-09-21 Activator stage 2 — Short Press
+
+`ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:
+
+- on press: record the press time and whether the conditions were satisfied at press time;
+- on release: fire once (`StartOnce`) only when the press was eligible, conditions still hold at release, and
+  the release lands inside `ActivatorConfig.ShortPressMs` (default 300 ms, normalized 50–2000 ms);
+- held past the window: the next activator tick disarms the press, so a later release never fires — the same
+  key stays usable for hold-style bindings;
+- an ineligible press, or condition loss during the press, cancels without firing;
+- wheel directions stay edge-only and never fire Short Press;
+- the condition dialog exposes the mode and its window row; the main editor summary and diagnostics show
+  "短按 / Short Press".
+
+Evidence: `tests/ActivatorConditionTests.cs` grew from 55 to 73 checks (window fire, re-arm, hold disarm,
+later tap, ineligible press, condition loss, wheel edge-only, bounds normalization, XML clone of the new
+field) and the full suite plus x64/x86 Release verification passed.
+
+Still deferred until their lifecycles are explicitly defined: Triple Press, Turbo/repeat,
+another-input-held and richer analog-region triggers.
+
 ## 2026-09-21 MainForm decomposition — step 1
 
 `MainForm` is now declared `partial` and the Layer subsystem lives in `MainForm.Layers.cs` (576 lines):

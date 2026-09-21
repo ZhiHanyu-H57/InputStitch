@@ -170,7 +170,11 @@ Condition
 
 The state machine owns only edge/timing/condition decisions. Execution still goes through the shared Concurrent Macro Runtime / Parallel Held Mapping and Output Ownership. Device conditions consume the stable identity layer and fail closed when a current DeviceKey↔XInput binding cannot be proven. Analog conditions reuse the signed half-axis/magnitude-zone primitives instead of inventing one-off stick-trigger math.
 
-Short Press, Triple Press, Turbo/repeat, another-input-held and richer direct analog-region triggers remain explicit stage-2 candidates. This is preferable to accumulating unrelated special-case trigger modes or shipping aliases whose stop/repeat semantics are ambiguous.
+**Short Press is implemented (2026-09-21)** with an explicit lifecycle (fire on release inside the window;
+disarm when held past it; cancel on ineligible press or condition loss). Triple Press, Turbo/repeat,
+another-input-held and richer direct analog-region triggers remain explicit stage-2 candidates. This is
+preferable to accumulating unrelated special-case trigger modes or shipping aliases whose stop/repeat
+semantics are ambiguous.
 
 ### 3. Persistent Device Identity stage 1 is now implemented
 

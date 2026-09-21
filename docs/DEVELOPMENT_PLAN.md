@@ -117,3 +117,8 @@ Direction updates from the 2026-09-21 research:
 - 2026-09-21: **H1.4 step 2** — Runtime Observation / Diagnostics builders moved to
   `MainForm.Diagnostics.cs` (248 lines); `InputStitch.cs` is now 11,379 lines with again identical
   x64/x86 binary sizes and a green regression. Next extractions: controller takeover, macro editor.
+- 2026-09-21: **H2.2a done** — Activator Short Press implemented with an explicit lifecycle (release inside
+  the window fires once; holding past the window disarms; ineligible press or condition loss cancels;
+  wheel stays edge-only). `ActivatorConditionTests` grew 55 -> 73 checks. Remaining stage-2 candidates
+  (Triple Press, Turbo/repeat, another-input-held, richer analog regions) stay deferred until their
+  lifecycles are defined.

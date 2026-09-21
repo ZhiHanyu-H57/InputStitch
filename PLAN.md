@@ -136,7 +136,11 @@ The first five platform-foundation items are now complete on post-`v1.4.3` `main
 The active non-hardware engineering order is now:
 
 1. **Layer ergonomics + profile/context integration** — Momentary/Hold-to-Layer is implemented (2026-09-21, local commit; 72 Layer checks). The remaining half is profile/manual-override/fallback behavior on the shared DeviceKey + Condition model instead of adding application-specific switches; see `docs/PROFILE_CONTEXT_DESIGN.md` (proposal, pending decisions 1-5 before implementation).
-2. **Activator/Condition stage 2 only when semantics are explicit** — Short Press, Triple Press, Turbo/repeat, another-input-held and richer analog-region triggers are candidates, but should reuse the same state/evaluation boundary rather than create a second executor.
+2. **Activator/Condition stage 2 only when semantics are explicit** — Short Press is **implemented**
+   (2026-09-21: release inside `ShortPressMs` fires once; holding past the window disarms; ineligible press or
+   condition loss cancels; wheel stays edge-only). Triple Press, Turbo/repeat, another-input-held and richer
+   analog-region triggers remain candidates and must reuse the same state/evaluation boundary rather than
+   create a second executor.
 3. After those semantics are stable, evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
 4. Only after the output backend interface has remained stable through those changes should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
 

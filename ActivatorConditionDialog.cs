@@ -24,6 +24,7 @@ namespace InputStitch
         private readonly ComboBox mode = new ComboBox();
         private readonly NumericUpDown longPress = Number(100, 10000, 500);
         private readonly NumericUpDown doubleWindow = Number(100, 2000, 300);
+        private readonly NumericUpDown shortPress = Number(50, 2000, 300);
         private readonly TextBox process = new TextBox();
         private readonly TextBox titleContains = new TextBox();
         private readonly ComboBox device = new ComboBox();
@@ -112,6 +113,7 @@ namespace InputStitch
                 Localizer.IsEnglish ? "Legacy (use current Toggle/Hold)" : "兼容旧方式（使用当前 Toggle / Hold）",
                 Localizer.IsEnglish ? "On Press" : "按下时",
                 Localizer.IsEnglish ? "On Release" : "松开时",
+                Localizer.IsEnglish ? "Short Press" : "短按",
                 Localizer.IsEnglish ? "While Held" : "按住期间",
                 Localizer.IsEnglish ? "Long Press" : "长按",
                 Localizer.IsEnglish ? "Double Press" : "双击"
@@ -121,11 +123,12 @@ namespace InputStitch
             AddRow(activation, 0, Localizer.IsEnglish ? "Mode" : "方式", mode);
             AddNumberRow(activation, 1, Localizer.IsEnglish ? "Long-press threshold" : "长按阈值", longPress, "ms");
             AddNumberRow(activation, 2, Localizer.IsEnglish ? "Double-press window" : "双击间隔", doubleWindow, "ms");
+            AddNumberRow(activation, 3, Localizer.IsEnglish ? "Short-press window" : "短按窗口", shortPress, "ms");
             behaviorNote.AutoSize = true;
             behaviorNote.MaximumSize = new Size(650, 0);
             behaviorNote.ForeColor = Color.FromArgb(86, 96, 112);
             behaviorNote.Margin = new Padding(0, 8, 0, 0);
-            activation.Controls.Add(behaviorNote, 0, 3);
+            activation.Controls.Add(behaviorNote, 0, 4);
             activation.SetColumnSpan(behaviorNote, 2);
             if (!conditionsOnly) root.Controls.Add(activationGroup, 0, 1);
 
@@ -238,6 +241,7 @@ namespace InputStitch
 
             longPress.Value = Math.Max(longPress.Minimum, Math.Min(longPress.Maximum, activator.LongPressMs));
             doubleWindow.Value = Math.Max(doubleWindow.Minimum, Math.Min(doubleWindow.Maximum, activator.DoublePressWindowMs));
+            shortPress.Value = Math.Max(shortPress.Minimum, Math.Min(shortPress.Maximum, activator.ShortPressMs));
             AnalogZoneCondition az = conditions.Analog ?? new AnalogZoneCondition();
             analogMin.Value = Math.Max(analogMin.Minimum, Math.Min(analogMin.Maximum, az.MinimumPercent));
             analogMax.Value = Math.Max(analogMax.Minimum, Math.Min(analogMax.Maximum, az.MaximumPercent));
@@ -254,6 +258,7 @@ namespace InputStitch
             activator.Mode = ModeFromIndex(mode.SelectedIndex);
             activator.LongPressMs = (int)longPress.Value;
             activator.DoublePressWindowMs = (int)doubleWindow.Value;
+            activator.ShortPressMs = (int)shortPress.Value;
             ActivatorConfig.Normalize(activator);
 
             conditions.ForegroundProcessName = (process.Text ?? "").Trim();
@@ -274,6 +279,7 @@ namespace InputStitch
             string selected = ModeFromIndex(mode.SelectedIndex);
             longPress.Enabled = string.Equals(selected, ActivatorModes.LongPress, StringComparison.OrdinalIgnoreCase);
             doubleWindow.Enabled = string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase);
+            shortPress.Enabled = string.Equals(selected, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase);
             if (string.Equals(selected, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish
                     ? "Legacy mode does not alter the current Toggle/Hold setting."
@@ -286,6 +292,10 @@ namespace InputStitch
                 behaviorNote.Text = Localizer.IsEnglish ? "Long Press fires once after the threshold while the trigger and conditions remain valid." : "长按会在触发键持续按住且条件一直满足时，于阈值到达后触发一次。";
             else if (string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish ? "Double Press fires on the second press within the configured window." : "双击会在第二次按下发生在设定时间窗内时触发。";
+            else if (string.Equals(selected, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase))
+                behaviorNote.Text = Localizer.IsEnglish
+                    ? "Short Press fires once on release, but only when the trigger is released inside the configured window. Holding longer disarms the press, so the same key stays usable for hold-style bindings."
+                    : "短按会在松开时触发一次，且要求松开发生在设定窗口内；按住超过窗口即作废，因此同一个键仍可安全用于按住类操作。";
             else
                 behaviorNote.Text = Localizer.IsEnglish ? "This mode starts the macro once at the selected physical edge." : "该方式会在指定的物理边沿触发宏一次。";
             if (edgeOnlyTrigger && !string.Equals(selected, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase) &&
@@ -354,9 +364,10 @@ namespace InputStitch
             string mode = ActivatorModes.Normalize(value);
             if (mode == ActivatorModes.Press) return 1;
             if (mode == ActivatorModes.Release) return 2;
-            if (mode == ActivatorModes.WhileHeld) return 3;
-            if (mode == ActivatorModes.LongPress) return 4;
-            if (mode == ActivatorModes.DoublePress) return 5;
+            if (mode == ActivatorModes.ShortPress) return 3;
+            if (mode == ActivatorModes.WhileHeld) return 4;
+            if (mode == ActivatorModes.LongPress) return 5;
+            if (mode == ActivatorModes.DoublePress) return 6;
             return 0;
         }
 
@@ -364,9 +375,10 @@ namespace InputStitch
         {
             if (index == 1) return ActivatorModes.Press;
             if (index == 2) return ActivatorModes.Release;
-            if (index == 3) return ActivatorModes.WhileHeld;
-            if (index == 4) return ActivatorModes.LongPress;
-            if (index == 5) return ActivatorModes.DoublePress;
+            if (index == 3) return ActivatorModes.ShortPress;
+            if (index == 4) return ActivatorModes.WhileHeld;
+            if (index == 5) return ActivatorModes.LongPress;
+            if (index == 6) return ActivatorModes.DoublePress;
             return ActivatorModes.Legacy;
         }
 

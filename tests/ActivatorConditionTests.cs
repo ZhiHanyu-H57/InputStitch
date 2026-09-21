@@ -42,6 +42,7 @@ internal static class ActivatorConditionTests
             ConfigAndClassifier();
             PressReleaseAndHeld();
             LongAndDoublePress();
+            ShortPressLifecycle();
             EdgeOnlyWheelSemantics();
             ConditionLossAndReset();
             AnalogZoneEvaluation();
@@ -155,6 +156,47 @@ internal static class ActivatorConditionTests
             "invalid-condition press resets DoublePress history instead of bridging two valid presses");
     }
 
+    private static void ShortPressLifecycle()
+    {
+        ActivatorRuntimeEngine engine = new ActivatorRuntimeEngine();
+        MacroDefinition tap = Macro(ActivatorModes.ShortPress);
+        tap.Activator.ShortPressMs = 300;
+
+        Check(engine.OnDown(tap, Key(Keys.F8), Trigger(Keys.F8), 1000, true) == null, "ShortPress waits for the release");
+        List<ActivatorDecision> fired = engine.OnUp(Key(Keys.F8), 1200, delegate { return true; });
+        Check(fired.Count == 1 && fired[0].Reason == "short-press", "a release inside the window fires ShortPress once");
+
+        Check(engine.OnDown(tap, Key(Keys.F8), Trigger(Keys.F8), 2000, true) == null, "ShortPress re-arms on the next press");
+        Check(engine.Tick(2400, delegate { return true; }).Count == 0, "holding past the window does not fire while held");
+        Check(engine.OnUp(Key(Keys.F8), 2401, delegate { return true; }).Count == 0, "release after the window stays disarmed");
+
+        Check(engine.OnDown(tap, Key(Keys.F8), Trigger(Keys.F8), 3000, true) == null, "ShortPress arms again after a disarmed hold");
+        Check(engine.OnUp(Key(Keys.F8), 3180, delegate { return true; }).Count == 1, "a later short tap fires again");
+
+        MacroDefinition gated = Macro(ActivatorModes.ShortPress);
+        Check(engine.OnDown(gated, Key(Keys.F8), Trigger(Keys.F8), 4000, false) == null, "ShortPress with unsatisfied conditions never arms");
+        Check(engine.OnUp(Key(Keys.F8), 4100, delegate { return true; }).Count == 0, "a press that started ineligible stays silent");
+
+        Check(engine.OnDown(gated, Key(Keys.F8), Trigger(Keys.F8), 5000, true) == null, "ShortPress arms with satisfied conditions");
+        Check(engine.Tick(5100, delegate { return false; }).Count == 0, "condition loss while held does not fire");
+        Check(engine.OnUp(Key(Keys.F8), 5150, delegate { return false; }).Count == 0, "release after condition loss stays silent");
+
+        // Wheel directions are edge-only inputs; ShortPress must not pretend they have a release.
+        InputEventInfo wheel = new InputEventInfo { Input = new InputSpec { Kind = InputKind.WheelUp } };
+        TriggerSpec wheelTrigger = new TriggerSpec { Kind = InputKind.WheelUp };
+        MacroDefinition wheelShort = Macro(ActivatorModes.ShortPress);
+        Check(engine.OnDown(wheelShort, wheel, wheelTrigger, 6000, true) == null, "wheel ShortPress never fires on the edge");
+        Check(engine.OnUp(wheel, 6010, delegate { return true; }).Count == 0, "wheel releases never fire ShortPress");
+
+        ActivatorConfig lower = new ActivatorConfig { Mode = ActivatorModes.ShortPress, ShortPressMs = 1 };
+        ActivatorConfig.Normalize(lower);
+        Check(lower.ShortPressMs == 50, "short-press window normalizes to its lower bound");
+        ActivatorConfig upper = new ActivatorConfig { Mode = ActivatorModes.ShortPress, ShortPressMs = 99999 };
+        ActivatorConfig.Normalize(upper);
+        Check(upper.ShortPressMs == 2000, "short-press window normalizes to its upper bound");
+        Check(ActivatorModes.Normalize("shortpress") == ActivatorModes.ShortPress, "short-press mode name normalizes case-insensitively");
+    }
+
     private static void EdgeOnlyWheelSemantics()
     {
         ActivatorRuntimeEngine engine = new ActivatorRuntimeEngine();
@@ -243,6 +285,7 @@ internal static class ActivatorConditionTests
         MacroConfig config = new MacroConfig();
         MacroDefinition macro = Macro(ActivatorModes.DoublePress);
         macro.Activator.DoublePressWindowMs = 420;
+        macro.Activator.ShortPressMs = 275;
         macro.Conditions.ForegroundProcessName = "GTA5_Enhanced";
         macro.Conditions.DeviceKey = "device:test";
         macro.Conditions.Analog.Enabled = true;
@@ -255,6 +298,8 @@ internal static class ActivatorConditionTests
         MacroDefinition loaded = clone.Macros[0];
         Check(loaded.Activator != null && loaded.Activator.Mode == ActivatorModes.DoublePress && loaded.Activator.DoublePressWindowMs == 420,
             "activator config survives real XML clone");
+        Check(loaded.Activator != null && loaded.Activator.ShortPressMs == 275,
+            "short-press window survives real XML clone");
         Check(loaded.Conditions != null && loaded.Conditions.ForegroundProcessName == "GTA5_Enhanced" && loaded.Conditions.DeviceKey == "device:test",
             "foreground/device conditions survive real XML clone");
         Check(loaded.Conditions.Analog.Enabled && loaded.Conditions.Analog.Control == GamepadControl.RightStick &&
@@ -280,8 +325,8 @@ internal static class ActivatorConditionTests
         {
             ComboBox mode = GetField<ComboBox>(dialog, "mode");
             Label deferred = FindLabelContaining(dialog, "Turbo");
-            Check(mode != null && mode.Items.Count == 6 && mode.SelectedIndex == 4,
-                "activation dialog exposes Legacy/Press/Release/WhileHeld/Long/Double without fake Turbo option");
+            Check(mode != null && mode.Items.Count == 7 && mode.SelectedIndex == 5,
+                "activation dialog exposes Legacy/Press/Release/Short/WhileHeld/Long/Double without fake Turbo option");
             Check(deferred != null, "activation dialog explicitly documents deferred Turbo semantics");
             MethodInfo capture = typeof(ActivatorConditionDialog).GetMethod("CaptureValues", BindingFlags.Instance | BindingFlags.NonPublic);
             Check(capture != null, "activation dialog has deterministic capture boundary");

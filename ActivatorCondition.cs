@@ -11,6 +11,7 @@ namespace InputStitch
         public const string WhileHeld = "WhileHeld";
         public const string LongPress = "LongPress";
         public const string DoublePress = "DoublePress";
+        public const string ShortPress = "ShortPress";
 
         public static string Normalize(string value)
         {
@@ -19,6 +20,7 @@ namespace InputStitch
             if (string.Equals(value, WhileHeld, StringComparison.OrdinalIgnoreCase)) return WhileHeld;
             if (string.Equals(value, LongPress, StringComparison.OrdinalIgnoreCase)) return LongPress;
             if (string.Equals(value, DoublePress, StringComparison.OrdinalIgnoreCase)) return DoublePress;
+            if (string.Equals(value, ShortPress, StringComparison.OrdinalIgnoreCase)) return ShortPress;
             return Legacy;
         }
 
@@ -52,6 +54,8 @@ namespace InputStitch
         public string Mode = ActivatorModes.Legacy;
         public int LongPressMs = 500;
         public int DoublePressWindowMs = 300;
+        // Maximum press duration that still counts as a "short press"; held longer, the press is disarmed.
+        public int ShortPressMs = 300;
 
         public ActivatorConfig Clone()
         {
@@ -59,6 +63,7 @@ namespace InputStitch
             copy.Mode = ActivatorModes.Normalize(Mode);
             copy.LongPressMs = LongPressMs;
             copy.DoublePressWindowMs = DoublePressWindowMs;
+            copy.ShortPressMs = ShortPressMs;
             Normalize(copy);
             return copy;
         }
@@ -69,6 +74,7 @@ namespace InputStitch
             value.Mode = ActivatorModes.Normalize(value.Mode);
             value.LongPressMs = Clamp(value.LongPressMs, 100, 10000);
             value.DoublePressWindowMs = Clamp(value.DoublePressWindowMs, 100, 2000);
+            value.ShortPressMs = Clamp(value.ShortPressMs, 50, 2000);
         }
 
         private static int Clamp(int value, int min, int max)
@@ -201,6 +207,7 @@ namespace InputStitch
             public bool Down;
             public bool EligibleAtDown;
             public bool LongFired;
+            public bool ShortDisarmed;
             public bool HeldStarted;
             public long DownAt;
             public long LastPressAt = -1;
@@ -226,6 +233,7 @@ namespace InputStitch
                 state.Down = !edgeOnly;
                 state.EligibleAtDown = conditionsSatisfied;
                 state.LongFired = false;
+                state.ShortDisarmed = false;
                 state.HeldStarted = false;
                 state.DownAt = nowMs;
                 state.DeviceIndex = inputEvent.DeviceIndex;
@@ -289,10 +297,15 @@ namespace InputStitch
                     if (string.Equals(mode, ActivatorModes.Release, StringComparison.OrdinalIgnoreCase) &&
                         state.EligibleAtDown && currentConditions)
                         result.Add(Decision(macro, ActivatorDecisionKind.StartOnce, CloneEvent(inputEvent), "release"));
+                    else if (string.Equals(mode, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase) &&
+                        state.EligibleAtDown && currentConditions && !state.ShortDisarmed &&
+                        nowMs >= state.DownAt && nowMs - state.DownAt <= ShortPressWindow(macro))
+                        result.Add(Decision(macro, ActivatorDecisionKind.StartOnce, CloneEvent(inputEvent), "short-press"));
                     // Existing hold-runtime release tracking remains authoritative for physical
                     // WhileHeld release; only condition loss below needs an explicit StopHeld.
                     state.EligibleAtDown = false;
                     state.LongFired = false;
+                    state.ShortDisarmed = false;
                     state.HeldStarted = false;
                     state.EffectiveTrigger = null;
                     state.DownEvent = null;
@@ -330,6 +343,14 @@ namespace InputStitch
                         state.LongFired = true;
                         result.Add(Decision(macro, ActivatorDecisionKind.StartOnce, state.DownEvent, "long-press"));
                     }
+                    else if (string.Equals(mode, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase) &&
+                        state.EligibleAtDown && !state.ShortDisarmed && nowMs >= state.DownAt &&
+                        nowMs - state.DownAt > ShortPressWindow(macro))
+                    {
+                        // Held past the short-press window: disarm now so a later release cannot fire.
+                        state.ShortDisarmed = true;
+                        state.EligibleAtDown = false;
+                    }
                 }
             }
             return result;
@@ -349,6 +370,11 @@ namespace InputStitch
         internal int TrackedCount
         {
             get { lock (sync) return states.Count; }
+        }
+
+        private static int ShortPressWindow(MacroDefinition macro)
+        {
+            return macro == null || macro.Activator == null ? 300 : macro.Activator.ShortPressMs;
         }
 
         private State GetStateLocked(MacroDefinition macro)
