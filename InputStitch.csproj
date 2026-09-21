@@ -36,6 +36,10 @@
     <Compile Include="Sdl3NativeApi.cs" />
     <Compile Include="Sdl3DeviceIdentity.cs" />
     <Compile Include="CompositeInputProvider.cs" />
+    <Compile Include="StepEditDialog.cs" />
+    <Compile Include="GamepadPreviewControl.cs" />
+    <Compile Include="Dialogs.cs" />
+    <Compile Include="SettingsDialog.cs" />
     <Compile Include="MainForm.Layers.cs" />
     <Compile Include="MainForm.Diagnostics.cs" />
     <Compile Include="MainForm.ControlledReplacement.cs" />

@@ -18,6 +18,10 @@ Sdl3InputProvider.cs
 Sdl3NativeApi.cs
 Sdl3DeviceIdentity.cs
 CompositeInputProvider.cs
+StepEditDialog.cs
+GamepadPreviewControl.cs
+Dialogs.cs
+SettingsDialog.cs
 MainForm.Layers.cs
 MainForm.Diagnostics.cs
 MainForm.ControlledReplacement.cs

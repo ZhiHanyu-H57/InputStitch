@@ -115,6 +115,13 @@ Fourth step (same day): the main-window builder `BuildUi()` and `BuildTrayIcon()
 decomposition). Binaries are again identical in size, the full suite passed and the Settings smoke tests
 (zh-CN/en-US, normal and narrow layouts) still render the moved layout correctly.
 
+Fifth step (same day): the remaining self-contained UI types moved out of the monolith — `StepEditDialog.cs`
+(571 lines), `GamepadPreviewControl.cs` (357, preview control plus input-sink helper), `Dialogs.cs` (336,
+macro export selection, batch delay, diagnostics and about dialogs) and `SettingsDialog.cs` (591, the
+settings dialog plus its gear button). `InputStitch.cs` is now **8,126 lines**, roughly a third smaller than
+the 12,171 it started at, and the x64/x86 binaries are again identical in size (883,712 / 884,224 bytes) with
+the full suite and zh-CN/en-US Settings smoke green.
+
 ### F5 — P2, maintainability/localization: bilingual strings are code, not data
 
 `Localizer.IsEnglish` appears **327 times** as inline ternaries. A third language or a wording audit would
@@ -178,7 +185,7 @@ decision register).
 | F1 input timing on UI thread | dedicated input thread + cadence stats | closed 2026-09-21 (real-world numbers pending) |
 | F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
-| F4 monolith | `partial` + four extractions done 2026-09-21 (Layer, Diagnostics, ControlledReplacement, Ui); editor/runtime split continues | in progress |
+| F4 monolith | `partial` + five extractions done 2026-09-21 (Layer, Diagnostics, ControlledReplacement, Ui, dialog types); 12,171 -> 8,126 lines | in progress |
 | F5 localization data | deferred | deferred |
 | F6 input provider seam | seam + XInput adapter implemented 2026-09-21; SDL3 provider next | in progress |
 | F7 release choreography | checklist item | tracked |

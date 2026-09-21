@@ -1,0 +1,571 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Windows.Forms;
+
+namespace InputStitch
+{
+    // Extracted from InputStitch.cs during the incremental MainForm decomposition (architecture-review
+    // finding F4); members moved verbatim, behaviour is unchanged.
+    public class StepEditDialog : Form
+    {
+        private ComboBox actionBox;
+        private ComboBox inputTypeBox;
+        private TextBox inputText;
+        private Button captureButton;
+        private FlowLayoutPanel captureInputControls;
+        private List<InputSpec> selectedKeyboardChord;
+        private Label physicalInputLabel;
+        private Label gamepadLabel;
+        private FlowLayoutPanel gamepadPanel;
+        private ComboBox gamepadControlBox;
+        private Label stickAngleLabel;
+        private Label stickStrengthLabel;
+        private Label triggerValueLabel;
+        private NumericUpDown stickAngleBox;
+        private NumericUpDown stickStrengthBox;
+        private NumericUpDown triggerValueBox;
+        private GamepadPreviewControl gamepadPreview;
+        private NumericUpDown holdBox;
+        private NumericUpDown delayBox;
+        private CheckBox randomDelayBox;
+        private NumericUpDown randomMinBox;
+        private NumericUpDown randomMaxBox;
+        private Label holdLabel;
+        private Label fixedDelayLabel;
+        private Label randomDelayLabel;
+        private InputSpec selectedInput;
+        private MainForm ownerMain;
+        private bool loadingControls = true;
+
+        public MacroStep ResultStep;
+        public List<MacroStep> ResultSteps;
+
+        public StepEditDialog(MainForm owner, MacroStep source)
+        {
+            ownerMain = owner;
+            Text = source == null ? "添加宏步骤" : "编辑宏步骤";
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterParent;
+            MinimumSize = new Size(820, 520);
+            ClientSize = new Size(980, 570);
+            Font = new Font("Microsoft YaHei UI", 9F);
+            BackColor = Color.FromArgb(247, 249, 252);
+
+            TableLayoutPanel root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.Padding = new Padding(20);
+            root.AutoScroll = true;
+            root.ColumnCount = 4;
+            root.RowCount = 8;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270F));
+            for (int i = 0; i < 7; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            Controls.Add(root);
+
+            Label aLabel = new Label();
+            aLabel.Text = "操作：";
+            aLabel.Dock = DockStyle.Fill;
+            aLabel.MinimumSize = new Size(0, 34);
+            aLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(aLabel, 0, 0);
+
+            actionBox = new ComboBox();
+            actionBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            actionBox.Items.AddRange(new object[] { Localizer.T("按一下（按下→等待→松开）"), Localizer.T("保持到宏停止 / KeyDown"), Localizer.T("松开 / KeyUp") });
+            actionBox.Dock = DockStyle.Fill;
+            actionBox.Margin = new Padding(3, 4, 3, 6);
+            actionBox.SelectedIndexChanged += delegate { UpdateHoldEnabled(); };
+            root.Controls.Add(actionBox, 1, 0);
+            root.SetColumnSpan(actionBox, 2);
+
+            Label typeLabel = new Label();
+            typeLabel.Text = "输入类型：";
+            typeLabel.Dock = DockStyle.Fill;
+            typeLabel.MinimumSize = new Size(0, 34);
+            typeLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(typeLabel, 0, 1);
+
+            inputTypeBox = new ComboBox();
+            inputTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            inputTypeBox.Items.Add(Localizer.T("键盘 / 鼠标"));
+            inputTypeBox.Items.Add(Localizer.T("虚拟手柄"));
+            inputTypeBox.Dock = DockStyle.Fill;
+            inputTypeBox.Margin = new Padding(3, 4, 3, 6);
+            inputTypeBox.SelectedIndexChanged += delegate { if (!loadingControls) UpdateInputMode(); };
+            root.Controls.Add(inputTypeBox, 1, 1);
+            root.SetColumnSpan(inputTypeBox, 2);
+
+            physicalInputLabel = new Label();
+            physicalInputLabel.Text = "按键/鼠标：";
+            physicalInputLabel.Dock = DockStyle.Fill;
+            physicalInputLabel.MinimumSize = new Size(0, 34);
+            physicalInputLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(physicalInputLabel, 0, 2);
+
+            inputText = new TextBox();
+            inputText.Dock = DockStyle.Fill;
+            inputText.Margin = new Padding(3, 4, 8, 6);
+            inputText.ReadOnly = true;
+            root.Controls.Add(inputText, 1, 2);
+
+            captureButton = new Button();
+            captureButton.Text = Localizer.T("捕获输入");
+            captureButton.AutoSize = true;
+            captureButton.MinimumSize = new Size(122, 32);
+            captureButton.Click += CaptureButton_Click;
+            captureInputControls = VirtualKeyboardDialog.WithDropDown(captureButton, CaptureButton_Click, SelectVirtualKeyboardInput);
+            root.Controls.Add(captureInputControls, 2, 2);
+
+            gamepadLabel = new Label();
+            gamepadLabel.Text = "手柄控制：";
+            gamepadLabel.Dock = DockStyle.Fill;
+            gamepadLabel.MinimumSize = new Size(0, 38);
+            gamepadLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(gamepadLabel, 0, 3);
+
+            gamepadPanel = new FlowLayoutPanel();
+            gamepadPanel.Dock = DockStyle.Fill;
+            gamepadPanel.AutoSize = true;
+            gamepadPanel.WrapContents = true;
+            gamepadPanel.Margin = new Padding(0);
+            gamepadControlBox = new ComboBox();
+            gamepadControlBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            gamepadControlBox.Width = 250;
+            gamepadControlBox.Margin = new Padding(3, 4, 14, 6);
+            foreach (GamepadControl control in Enum.GetValues(typeof(GamepadControl)))
+                gamepadControlBox.Items.Add(InputNames.FormatGamepadControl(control));
+            gamepadControlBox.SelectedIndexChanged += delegate { if (!loadingControls) UpdateGamepadControl(); };
+            gamepadPanel.Controls.Add(gamepadControlBox);
+
+            stickAngleLabel = MakeInlineLabel(Localizer.T("摇杆方向："));
+            gamepadPanel.Controls.Add(stickAngleLabel);
+            stickAngleBox = MakeNumberBox(-180, 180, 0, 5);
+            stickAngleBox.ValueChanged += GamepadVectorChanged;
+            gamepadPanel.Controls.Add(stickAngleBox);
+            stickStrengthLabel = MakeInlineLabel(Localizer.T("摇杆力度："));
+            gamepadPanel.Controls.Add(stickStrengthLabel);
+            stickStrengthBox = MakeNumberBox(0, 100, 100, 5);
+            stickStrengthBox.ValueChanged += GamepadVectorChanged;
+            gamepadPanel.Controls.Add(stickStrengthBox);
+            triggerValueLabel = MakeInlineLabel(Localizer.T("扳机力度："));
+            gamepadPanel.Controls.Add(triggerValueLabel);
+            triggerValueBox = MakeNumberBox(0, 100, 100, 5);
+            triggerValueBox.ValueChanged += TriggerValueChanged;
+            gamepadPanel.Controls.Add(triggerValueBox);
+            root.Controls.Add(gamepadPanel, 1, 3);
+            root.SetColumnSpan(gamepadPanel, 2);
+
+            gamepadPreview = new GamepadPreviewControl();
+            gamepadPreview.Dock = DockStyle.Fill;
+            gamepadPreview.Margin = new Padding(16, 0, 0, 8);
+            root.Controls.Add(gamepadPreview, 3, 0);
+            root.SetRowSpan(gamepadPreview, 7);
+
+            holdLabel = new Label();
+            holdLabel.Text = "按住时长：";
+            holdLabel.Dock = DockStyle.Fill;
+            holdLabel.MinimumSize = new Size(0, 36);
+            holdLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(holdLabel, 0, 4);
+
+            FlowLayoutPanel holdRow = new FlowLayoutPanel();
+            holdRow.Dock = DockStyle.Fill;
+            holdRow.AutoSize = true;
+            holdRow.WrapContents = true;
+            holdRow.Margin = new Padding(0);
+
+            holdBox = new NumericUpDown();
+            holdBox.Size = new Size(110, 26);
+            holdBox.Minimum = 0;
+            holdBox.Maximum = 600000;
+            holdBox.Value = 30;
+            holdBox.Margin = new Padding(3, 4, 6, 6);
+            holdRow.Controls.Add(holdBox);
+
+            Label ms1 = new Label();
+            ms1.Text = "ms";
+            ms1.AutoSize = true;
+            ms1.Margin = new Padding(0, 7, 24, 0);
+            holdRow.Controls.Add(ms1);
+
+            randomDelayBox = new CheckBox();
+            randomDelayBox.Text = "随机步骤间隔";
+            randomDelayBox.AutoSize = true;
+            randomDelayBox.Margin = new Padding(0, 6, 0, 0);
+            randomDelayBox.CheckedChanged += delegate { UpdateDelayControls(); };
+            holdRow.Controls.Add(randomDelayBox);
+            root.Controls.Add(holdRow, 1, 4);
+            root.SetColumnSpan(holdRow, 2);
+
+            fixedDelayLabel = new Label();
+            fixedDelayLabel.Text = "步骤后间隔：";
+            fixedDelayLabel.Dock = DockStyle.Fill;
+            fixedDelayLabel.MinimumSize = new Size(0, 36);
+            fixedDelayLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(fixedDelayLabel, 0, 5);
+
+            FlowLayoutPanel delayRow = new FlowLayoutPanel();
+            delayRow.Dock = DockStyle.Fill;
+            delayRow.AutoSize = true;
+            delayRow.WrapContents = false;
+            delayRow.Margin = new Padding(0);
+
+            delayBox = new NumericUpDown();
+            delayBox.Size = new Size(110, 26);
+            delayBox.Minimum = 0;
+            delayBox.Maximum = 600000;
+            delayBox.Value = 50;
+            delayBox.Margin = new Padding(3, 4, 6, 6);
+            delayRow.Controls.Add(delayBox);
+
+            Label ms2 = new Label();
+            ms2.Text = "ms";
+            ms2.AutoSize = true;
+            ms2.Margin = new Padding(0, 7, 0, 0);
+            delayRow.Controls.Add(ms2);
+            root.Controls.Add(delayRow, 1, 5);
+            root.SetColumnSpan(delayRow, 2);
+
+            randomDelayLabel = new Label();
+            randomDelayLabel.Text = "随机范围：";
+            randomDelayLabel.Dock = DockStyle.Fill;
+            randomDelayLabel.MinimumSize = new Size(0, 36);
+            randomDelayLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(randomDelayLabel, 0, 6);
+
+            FlowLayoutPanel randomRow = new FlowLayoutPanel();
+            randomRow.Dock = DockStyle.Fill;
+            randomRow.AutoSize = true;
+            randomRow.WrapContents = false;
+            randomRow.Margin = new Padding(0);
+
+            randomMinBox = new NumericUpDown();
+            randomMinBox.Size = new Size(90, 26);
+            randomMinBox.Minimum = 0;
+            randomMinBox.Maximum = 600000;
+            randomMinBox.Value = 45;
+            randomMinBox.Margin = new Padding(3, 4, 6, 6);
+            randomRow.Controls.Add(randomMinBox);
+
+            Label dash = new Label();
+            dash.Text = "～";
+            dash.AutoSize = true;
+            dash.Margin = new Padding(0, 7, 6, 0);
+            randomRow.Controls.Add(dash);
+
+            randomMaxBox = new NumericUpDown();
+            randomMaxBox.Size = new Size(90, 26);
+            randomMaxBox.Minimum = 0;
+            randomMaxBox.Maximum = 600000;
+            randomMaxBox.Value = 60;
+            randomMaxBox.Margin = new Padding(0, 4, 6, 6);
+            randomRow.Controls.Add(randomMaxBox);
+
+            Label ms3 = new Label();
+            ms3.Text = "ms";
+            ms3.AutoSize = true;
+            ms3.Margin = new Padding(0, 7, 0, 0);
+            randomRow.Controls.Add(ms3);
+            root.Controls.Add(randomRow, 1, 6);
+            root.SetColumnSpan(randomRow, 2);
+
+            FlowLayoutPanel buttons = new FlowLayoutPanel();
+            buttons.Dock = DockStyle.Fill;
+            buttons.AutoSize = true;
+            buttons.FlowDirection = FlowDirection.RightToLeft;
+            buttons.WrapContents = false;
+            buttons.Margin = new Padding(0, 16, 0, 0);
+
+            Button ok = new Button();
+            ok.Text = "确定";
+            ok.AutoSize = true;
+            ok.MinimumSize = new Size(96, 34);
+            ok.DialogResult = DialogResult.None;
+            ok.Click += Ok_Click;
+            buttons.Controls.Add(ok);
+
+            Button cancel = new Button();
+            cancel.Text = "取消";
+            cancel.AutoSize = true;
+            cancel.MinimumSize = new Size(96, 34);
+            cancel.DialogResult = DialogResult.Cancel;
+            buttons.Controls.Add(cancel);
+            root.Controls.Add(buttons, 0, 7);
+            root.SetColumnSpan(buttons, 4);
+            CancelButton = cancel;
+
+            if (source == null)
+            {
+                actionBox.SelectedIndex = 0;
+                selectedInput = new InputSpec();
+                selectedInput.Kind = InputKind.Keyboard;
+                selectedInput.VirtualKey = (int)Keys.A;
+            }
+            else
+            {
+                actionBox.SelectedIndex = source.Action == MacroAction.Press ? 0 : (source.Action == MacroAction.Down ? 1 : 2);
+                selectedInput = new InputSpec();
+                selectedInput.Kind = source.Kind;
+                selectedInput.VirtualKey = source.VirtualKey;
+                selectedInput.ScanCode = source.ScanCode;
+                selectedInput.Extended = source.Extended;
+                selectedInput.GamepadControl = source.GamepadControl;
+                selectedInput.GamepadX = source.GamepadX;
+                selectedInput.GamepadY = source.GamepadY;
+                selectedInput.GamepadValue = source.GamepadValue;
+                holdBox.Value = ClampDecimal(source.HoldMs, holdBox.Minimum, holdBox.Maximum);
+                delayBox.Value = ClampDecimal(source.DelayMs, delayBox.Minimum, delayBox.Maximum);
+                randomDelayBox.Checked = source.RandomDelay;
+                randomMinBox.Value = ClampDecimal(source.RandomDelayMinMs, randomMinBox.Minimum, randomMinBox.Maximum);
+                randomMaxBox.Value = ClampDecimal(source.RandomDelayMaxMs, randomMaxBox.Minimum, randomMaxBox.Maximum);
+            }
+            int initialAngle;
+            int initialStrength;
+            GamepadVector.FromCartesian(selectedInput.GamepadX, selectedInput.GamepadY, out initialAngle, out initialStrength);
+            inputTypeBox.SelectedIndex = selectedInput.Kind == InputKind.Gamepad ? 1 : 0;
+            gamepadControlBox.SelectedIndex = Math.Max(0, Math.Min(gamepadControlBox.Items.Count - 1, (int)selectedInput.GamepadControl));
+            stickAngleBox.Value = ClampDecimal(initialAngle, stickAngleBox.Minimum, stickAngleBox.Maximum);
+            stickStrengthBox.Value = ClampDecimal(initialStrength, stickStrengthBox.Minimum, stickStrengthBox.Maximum);
+            triggerValueBox.Value = ClampDecimal(selectedInput.GamepadValue, triggerValueBox.Minimum, triggerValueBox.Maximum);
+            loadingControls = false;
+            UpdateInputMode();
+            RefreshInputText();
+            UpdateHoldEnabled();
+            UpdateDelayControls();
+            Localizer.ApplyStaticControls(this);
+        }
+
+        private static decimal ClampDecimal(int x, decimal min, decimal max)
+        {
+            if (x < min) return min;
+            if (x > max) return max;
+            return x;
+        }
+
+        private static Label MakeInlineLabel(string text)
+        {
+            Label label = new Label();
+            label.Text = text;
+            label.AutoSize = true;
+            label.Margin = new Padding(0, 8, 5, 0);
+            return label;
+        }
+
+        private static NumericUpDown MakeNumberBox(int min, int max, int value, int increment)
+        {
+            NumericUpDown box = new NumericUpDown();
+            box.Minimum = min;
+            box.Maximum = max;
+            box.Value = value;
+            box.Increment = increment;
+            box.Width = 72;
+            box.Margin = new Padding(0, 4, 12, 6);
+            return box;
+        }
+
+        private void UpdateInputMode()
+        {
+            if (selectedInput == null) return;
+            bool gamepad = inputTypeBox.SelectedIndex == 1;
+            if (gamepad && selectedInput.Kind != InputKind.Gamepad)
+            {
+                selectedKeyboardChord = null;
+                selectedInput = new InputSpec();
+                selectedInput.Kind = InputKind.Gamepad;
+                selectedInput.GamepadControl = GamepadControl.South;
+                loadingControls = true;
+                gamepadControlBox.SelectedIndex = (int)GamepadControl.South;
+                stickAngleBox.Value = 0;
+                stickStrengthBox.Value = 100;
+                triggerValueBox.Value = 100;
+                loadingControls = false;
+            }
+            else if (!gamepad && selectedInput.Kind == InputKind.Gamepad)
+            {
+                selectedInput = new InputSpec();
+                selectedInput.Kind = InputKind.Keyboard;
+                selectedInput.VirtualKey = (int)Keys.A;
+            }
+            physicalInputLabel.Visible = !gamepad;
+            inputText.Visible = !gamepad;
+            captureInputControls.Visible = !gamepad;
+            gamepadLabel.Visible = gamepad;
+            gamepadPanel.Visible = gamepad;
+            if (gamepad)
+            {
+                int selectedIndex = Math.Max(0, Math.Min(gamepadControlBox.Items.Count - 1, (int)selectedInput.GamepadControl));
+                if (gamepadControlBox.SelectedIndex != selectedIndex)
+                {
+                    loadingControls = true;
+                    gamepadControlBox.SelectedIndex = selectedIndex;
+                    loadingControls = false;
+                }
+                UpdateGamepadControl();
+            }
+            RefreshInputText();
+            UpdateHoldEnabled();
+        }
+
+        private void UpdateGamepadControl()
+        {
+            if (selectedInput == null || inputTypeBox.SelectedIndex != 1 || gamepadControlBox.SelectedIndex < 0) return;
+            selectedInput.Kind = InputKind.Gamepad;
+            selectedInput.GamepadControl = (GamepadControl)gamepadControlBox.SelectedIndex;
+            bool stick = selectedInput.GamepadControl == GamepadControl.LeftStick || selectedInput.GamepadControl == GamepadControl.RightStick;
+            bool trigger = selectedInput.GamepadControl == GamepadControl.LeftTrigger || selectedInput.GamepadControl == GamepadControl.RightTrigger;
+            stickAngleLabel.Visible = stick;
+            stickAngleBox.Visible = stick;
+            stickStrengthLabel.Visible = stick;
+            stickStrengthBox.Visible = stick;
+            triggerValueLabel.Visible = trigger;
+            triggerValueBox.Visible = trigger;
+            RefreshInputText();
+        }
+
+        private void GamepadVectorChanged(object sender, EventArgs e)
+        {
+            if (loadingControls || selectedInput == null || selectedInput.Kind != InputKind.Gamepad) return;
+            GamepadVector.ToCartesian((int)stickAngleBox.Value, (int)stickStrengthBox.Value,
+                out selectedInput.GamepadX, out selectedInput.GamepadY);
+            RefreshInputText();
+        }
+
+        private void TriggerValueChanged(object sender, EventArgs e)
+        {
+            if (loadingControls || selectedInput == null || selectedInput.Kind != InputKind.Gamepad) return;
+            selectedInput.GamepadValue = (int)triggerValueBox.Value;
+            RefreshInputText();
+        }
+
+        private void CaptureButton_Click(object sender, EventArgs e)
+        {
+            captureButton.Text = Localizer.T("请按键…");
+            captureButton.Enabled = false;
+            ownerMain.BeginStepInputCapture(delegate(InputSpec input)
+            {
+                if (IsDisposed) return;
+                if (input != null)
+                {
+                    selectedKeyboardChord = null;
+                    selectedInput = input.Clone();
+                    RefreshInputText();
+                }
+                captureButton.Text = Localizer.T("捕获输入");
+                captureButton.Enabled = true;
+                UpdateHoldEnabled();
+            });
+        }
+
+        private void RefreshInputText()
+        {
+            if (selectedInput == null) return;
+            if (selectedKeyboardChord != null && selectedKeyboardChord.Count > 1)
+            {
+                List<string> names = new List<string>();
+                foreach (InputSpec input in selectedKeyboardChord) names.Add(VirtualKeyboardDialog.FormatKeyboardInput(input));
+                inputText.Text = string.Join(" + ", names.ToArray());
+            }
+            else inputText.Text = VirtualKeyboardDialog.FormatKeyboardInput(selectedInput);
+            if (gamepadPreview != null)
+            {
+                gamepadPreview.SetState(selectedInput.Kind == InputKind.Gamepad,
+                    selectedInput.GamepadControl, (int)stickAngleBox.Value,
+                    (int)stickStrengthBox.Value, (int)triggerValueBox.Value);
+            }
+        }
+
+        private void UpdateHoldEnabled()
+        {
+            bool press = actionBox.SelectedIndex == 0;
+            bool holdable = selectedInput == null || InputSender.IsHoldable(selectedInput);
+            holdBox.Enabled = press && holdable;
+            holdLabel.Enabled = press && holdable;
+        }
+
+        private void SelectVirtualKeyboardInput(object sender, EventArgs e)
+        {
+            ownerMain.CancelCapture();
+            IList<InputSpec> initial = selectedKeyboardChord;
+            if (initial == null && selectedInput != null && selectedInput.Kind == InputKind.Keyboard)
+                initial = new List<InputSpec>(new InputSpec[] { selectedInput });
+            using (VirtualKeyboardDialog dialog = new VirtualKeyboardDialog(false, initial))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                selectedKeyboardChord = dialog.SelectedInputs;
+                selectedInput = selectedKeyboardChord[0].Clone();
+                RefreshInputText();
+                UpdateHoldEnabled();
+            }
+        }
+
+        private void UpdateDelayControls()
+        {
+            bool random = randomDelayBox.Checked;
+            fixedDelayLabel.Enabled = !random;
+            delayBox.Enabled = !random;
+            randomDelayLabel.Enabled = random;
+            randomMinBox.Enabled = random;
+            randomMaxBox.Enabled = random;
+        }
+
+        private void Ok_Click(object sender, EventArgs e)
+        {
+            if (selectedInput == null)
+            {
+                LocalizedMessageBox.Show(this, "请先选择一个按键、鼠标或手柄输入。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if ((selectedInput.Kind == InputKind.WheelUp || selectedInput.Kind == InputKind.WheelDown) && actionBox.SelectedIndex != 0)
+            {
+                LocalizedMessageBox.Show(this, "滚轮只支持“按一下”动作，因为滚轮没有持续按下/松开的状态。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (randomDelayBox.Checked && randomMinBox.Value > randomMaxBox.Value)
+            {
+                LocalizedMessageBox.Show(this, "随机间隔的最小值不能大于最大值。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            // Editing a virtual-controller step is configuration only. Do not create a ViGEm
+            // device merely because the user saved an editable step; runtime connection is lazy.
+            MacroStep s = new MacroStep();
+            s.Action = actionBox.SelectedIndex == 0 ? MacroAction.Press : (actionBox.SelectedIndex == 1 ? MacroAction.Down : MacroAction.Up);
+            s.Kind = selectedInput.Kind;
+            s.VirtualKey = selectedInput.VirtualKey;
+            s.ScanCode = selectedInput.ScanCode;
+            s.Extended = selectedInput.Extended;
+            s.GamepadControl = selectedInput.GamepadControl;
+            s.GamepadX = selectedInput.GamepadX;
+            s.GamepadY = selectedInput.GamepadY;
+            s.GamepadValue = selectedInput.GamepadValue;
+            s.HoldMs = (int)holdBox.Value;
+            s.DelayMs = (int)delayBox.Value;
+            s.RandomDelay = randomDelayBox.Checked;
+            s.RandomDelayMinMs = (int)randomMinBox.Value;
+            s.RandomDelayMaxMs = (int)randomMaxBox.Value;
+            ResultStep = s;
+            ResultSteps = selectedKeyboardChord != null && selectedKeyboardChord.Count > 1
+                ? VirtualKeyboardDialog.BuildChordSteps(selectedKeyboardChord, s)
+                : new List<MacroStep>(new MacroStep[] { s });
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            ownerMain.CancelCapture();
+            base.OnFormClosed(e);
+        }
+    }
+}

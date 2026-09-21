@@ -191,3 +191,8 @@ Direction updates from the 2026-09-21 research:
   lane, and diagnostics report `sdl3=disabled(setting)` when it is off. `VirtualGamepadPreferenceTests` grew
   from 23 to 27 checks (default, dialog reflection both ways, real config clone) and the Settings smoke still
   renders in both languages.
+- 2026-09-21: **H1.4 step 5 done** — the remaining self-contained UI types left the monolith:
+  `StepEditDialog.cs`, `GamepadPreviewControl.cs` (preview + input-sink controls), `Dialogs.cs` (export/batch
+  delay/diagnostics/about) and `SettingsDialog.cs` (settings + gear button). `InputStitch.cs` is now 8,126
+  lines (from 12,171 at the start of the decomposition) with again identical x64/x86 binary sizes and a green
+  regression including the Settings smoke.

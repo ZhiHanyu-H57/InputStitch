@@ -474,6 +474,14 @@ diagnostics report `sdl3=disabled(setting)` while it is off. Evidence: `VirtualG
 from 23 to 27 checks (default value, dialog reflection in both states, real config clone) plus the
 zh-CN/en-US Settings smoke tests and the full regression.
 
+**UI dialog types extracted 2026-09-21:** the remaining self-contained UI classes left `InputStitch.cs`:
+`StepEditDialog.cs` (571 lines), `GamepadPreviewControl.cs` (357, preview control plus the input-sink helper),
+`Dialogs.cs` (336, macro export selection, batch delay, diagnostics and about dialogs) and `SettingsDialog.cs`
+(591, settings dialog plus its gear button). `InputStitch.cs` is now 8,126 lines compared with 12,171 before
+the decomposition. Evidence: identical x64/x86 binary sizes to the previous commit (883,712 / 884,224 bytes),
+the full regression suite (source manifest drift guard now 298 checks, productivity 360 unchanged) and the
+zh-CN/en-US Settings smoke tests.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:
