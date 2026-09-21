@@ -98,3 +98,5 @@ Direction updates from the 2026-09-21 research:
 ## Stage log
 
 - 2026-09-21: plan created from the architecture review and the external research above.
+- 2026-09-21: **H1.1 done** — single production-source manifest + drift guard (`80eb025`).
+- 2026-09-21: **H1.2 done** — foreground identity cache with TTL + concurrency test (F2 closed).

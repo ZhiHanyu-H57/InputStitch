@@ -4930,6 +4930,16 @@ namespace InputStitch
 
         private readonly RuntimeTrace runtimeTrace = new RuntimeTrace();
         private readonly ActivatorRuntimeEngine activatorEngine = new ActivatorRuntimeEngine();
+        // Foreground identity is consumed by condition evaluation for every trigger event and by the
+        // 10 ms activator tick. Describing a window reads its text/class and opens a process handle, so the
+        // result is cached briefly instead of repeating that work once per macro per tick (review finding F2).
+        private const int ForegroundIdentityCacheMs = 250;
+        private readonly object foregroundIdentityCacheSync = new object();
+        private TargetWindowIdentity foregroundIdentityCache;
+        private bool foregroundIdentityCacheValid;
+        private IntPtr foregroundIdentityCacheHandle = IntPtr.Zero;
+        private long foregroundIdentityCacheStamp;
+        private int foregroundIdentityCacheMisses;
         private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
         private readonly Dictionary<long, MacroRunRuntime> activeMacroRuns = new Dictionary<long, MacroRunRuntime>();
@@ -7744,6 +7754,29 @@ namespace InputStitch
             return IsMacroLayerEligibleFor(macro, activeMappingLayerId);
         }
 
+        // Cached foreground identity for condition evaluation (architecture-review finding F2). The cache is
+        // keyed by the current foreground window handle and refreshed at most every ForegroundIdentityCacheMs
+        // so window title changes stay observable while the per-macro, per-tick cost collapses to a few
+        // lookups per second. Callers treat the returned instance as read-only.
+        private TargetWindowIdentity DescribeForegroundIdentityCached()
+        {
+            long now = Stopwatch.GetTimestamp();
+            long ttlTicks = ForegroundIdentityCacheMs * Stopwatch.Frequency / 1000L;
+            lock (foregroundIdentityCacheSync)
+            {
+                IntPtr hwnd = NativeWindowFocus.ForegroundWindow();
+                if (foregroundIdentityCacheValid && hwnd == foregroundIdentityCacheHandle &&
+                    now - foregroundIdentityCacheStamp < ttlTicks)
+                    return foregroundIdentityCache;
+                foregroundIdentityCache = NativeWindowFocus.Describe(hwnd);
+                foregroundIdentityCacheValid = true;
+                foregroundIdentityCacheHandle = hwnd;
+                foregroundIdentityCacheStamp = now;
+                foregroundIdentityCacheMisses++;
+                return foregroundIdentityCache;
+            }
+        }
+
         private bool AreMacroConditionsSatisfied(MacroDefinition macro, int triggerDeviceIndex)
         {
             if (macro == null || !IsMacroLayerEligible(macro)) return false;
@@ -7753,7 +7786,7 @@ namespace InputStitch
             TargetWindowIdentity foreground = null;
             if (!string.IsNullOrWhiteSpace(conditions.ForegroundProcessName) ||
                 !string.IsNullOrWhiteSpace(conditions.ForegroundTitleContains))
-                foreground = NativeWindowFocus.Describe(NativeWindowFocus.ForegroundWindow());
+                foreground = DescribeForegroundIdentityCached();
             if (!string.IsNullOrWhiteSpace(conditions.ForegroundProcessName))
             {
                 string expected = conditions.ForegroundProcessName.Trim();

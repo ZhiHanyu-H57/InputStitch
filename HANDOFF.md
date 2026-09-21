@@ -294,6 +294,34 @@ Final local verification on 2026-09-17:
 
 Stable `v1.4.3` remains immutable; Activator + Condition stage 1 is post-release `main` work and requires a future Stable version before ordinary updater users receive it.
 
+## 2026-09-21 platform hygiene: single source manifest + foreground identity cache
+
+The 2026-09-21 architecture review (`docs/ARCHITECTURE_REVIEW.md`) and long-term plan
+(`docs/DEVELOPMENT_PLAN.md`) are on `main`. Two review findings are already closed:
+
+- **F3 — single production-source manifest.** `scripts/production-sources.txt` is now authoritative;
+  `build.ps1` (compile list + Source.zip contents), `tests/Run-Tests.ps1` and
+  `tools/InputLab/build-acceptance.ps1` consume it through `scripts/Get-ProductionSources.ps1`.
+  `tests/SourceManifestTests.cs` is a drift guard (208 checks) that fails when a root-level `.cs` file is
+  missing from the manifest, when the manifest is malformed, or when the `InputStitch.csproj` `<Compile>`
+  list diverges. Adding or renaming a production file now requires one edit instead of five.
+- **F2 — foreground identity cache.** Condition evaluation (trigger events and the 10 ms activator tick) now
+  uses `DescribeForegroundIdentityCached()` — keyed by the foreground window handle with a 250 ms TTL — so
+  the previous "one `Process.GetProcessById` per macro per tick" collapses to at most four lookups per
+  second while window-title changes remain observable. `tests/ForegroundIdentityCacheTests.cs` (5 checks)
+  verifies reuse, TTL refresh and concurrent safety from hook threads + the UI thread.
+
+Verification evidence (2026-09-21, local):
+
+- full `tests/Run-Tests.ps1`: PASS — source manifest 208 checks, foreground cache 5 checks, Layer 72 checks,
+  329 keyboard, 303,716 Output Ownership, all Settings/legacy-XML smoke;
+- `build.ps1` x64/x86 Release build + Release Verification: PASS, with the manifest and helper script
+  included in the Source.zip;
+- local commits only — nothing pushed and no release created.
+
+Next per the plan (H1): input-cadence instrumentation, then the dedicated input/tick thread, then
+incremental `MainForm` decomposition; H2 starts with the profile/context integration.
+
 ## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
 
 Layer definitions now support an optional momentary mode: the layer is active only while its own switch

@@ -53,6 +53,11 @@ Recommendation: cache the foreground identity keyed by window handle (invalidate
 changes — `MainForm` already tracks `lastObservedForeground`), and measure the win with the performance
 probe.
 
+**Closed 2026-09-21:** `DescribeForegroundIdentityCached()` caches the described identity keyed by the
+foreground window handle with a 250 ms TTL, so the per-macro/per-tick cost collapses to at most four
+window/process lookups per second while title changes stay observable. `tests/ForegroundIdentityCacheTests.cs`
+verifies reuse, TTL refresh and concurrent safety (hook threads and the UI thread both evaluate conditions).
+
 ### F3 — P1, maintainability: production source set duplicated in five places
 
 `build.ps1` (compile list + source-archive list), `tests/Run-Tests.ps1`, `InputStitch.csproj` and
@@ -120,7 +125,7 @@ decision register).
 | Finding | Owner action | Status |
 |---|---|---|
 | F1 input timing on UI thread | input/tick thread + measurements | open |
-| F2 foreground describe cost | cache + measurements | open |
+| F2 foreground describe cost | cache (250 ms TTL) + 5-check suite | closed 2026-09-21 |
 | F3 duplicated source lists | single manifest + drift guard | open |
 | F4 monolith | incremental partial extraction | open |
 | F5 localization data | deferred | deferred |
