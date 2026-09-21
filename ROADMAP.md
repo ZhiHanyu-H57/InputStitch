@@ -2,7 +2,7 @@
 
 # InputStitch Roadmap / 开发路线
 
-Updated: 2026-09-17
+Updated: 2026-09-21
 
 ## Current position / 当前阶段
 
@@ -101,6 +101,12 @@ Current model:
 - leaving a layer stops only that layer's active sources;
 - newly eligible triggers that were already held require release + press;
 - modern XML uses an authoritative replacement list so deleting legacy Layer 1 survives restart, while truly old configs without layer data still migrate to Base + Layer 1.
+- any layer, including Base, can switch in **momentary / hold-to-layer** mode: it is active only while its
+  own shortcut is physically held, releasing returns to the previous layer, and the persistent
+  click-to-switch selection is never rewritten by a temporary hold;
+- several momentary layers can be held at once (newest held wins), a missed release edge is recovered from
+  the same physical release probe used by held mappings, and deleting or converting a held layer back to
+  click-to-switch safely drops the hold.
 
 ### F. Controlled Replacement transaction + runtime health — experimental, hardware acceptance pending
 
@@ -284,7 +290,7 @@ The engine must continue to use the common Concurrent Macro Runtime and Output O
 
 Current Base + one active named Layer is intentionally easy to reason about. Extend ergonomics in this order:
 
-1. Momentary / Hold-to-Layer;
+1. Momentary / Hold-to-Layer — **implemented 2026-09-21** (local commit; 72 Layer checks);
 2. Toggle/Latch/Cycle if real workflows justify them;
 3. profile/context integration.
 
@@ -340,20 +346,25 @@ InputStitch is source-visible but currently declares no open-source license. Tha
 
 ## Validation status / 验证状态
 
-Latest clean 2026-09-10 automated regression:
+Latest clean 2026-09-21 automated regression:
 
 | Area | Result |
 |---|---:|
-| Keyboard / trigger | 323 pass |
+| Keyboard / trigger | 329 pass |
 | Idle Gamepad | 58 pass |
 | XInput input | 26 pass |
+| Persistent Device Identity | 36 pass; temporary XML/fake metadata only |
+| Router Source Policy | 22 pass; fake XInput/device metadata/output only |
+| Analog Transform | 49 pass; pure math/fake XInput/output only |
+| Activator / Condition | 55 pass; pure state/fake config only |
 | Gamepad Router | 28 pass |
 | Controlled Replacement transaction/runtime health/recovery | 52 pass |
 | Slot acquisition / PnP recovery | 27 pass; fake PnP/XInput, no real device disabled |
-| Optional virtual-controller preference | 15 pass; no ViGEm device created |
-| Flexible Layer / XML / observation | 39 pass |
+| Optional virtual-controller preference | 23 pass; no ViGEm device created |
+| Flexible Layer / XML / observation / momentary | 72 pass |
 | Macro timing | 7 pass |
 | Updater | 43 pass |
+| Update network | 29 pass; injected failures only |
 | UI safety / diagnostics | 26 pass |
 | Productivity/config/UI | 360 pass |
 | Output Ownership | 303,716 pass |

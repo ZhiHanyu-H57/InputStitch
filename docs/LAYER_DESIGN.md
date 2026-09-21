@@ -2,7 +2,11 @@
 
 Status: **Flexible Layer implemented for `v1.3.1-beta.2`: mandatory Base + arbitrary named user layers, one non-Base layer active at a time, keyboard/mouse/controller switch bindings, all macro types covered.**
 
+Momentary / hold-to-layer semantics were added on post-`v1.4.3` `main` (2026-09-21) and are documented below.
+
 状态：**`v1.3.1-beta.2` 已把 Layer 扩展为“基础层 + 任意多个可命名层”，支持键盘/鼠标/手柄快捷切层，并继续覆盖所有宏类型。**
+
+2026-09-21 在 `v1.4.3` 之后的 `main` 上新增「按住临时切层（Momentary / Hold-to-Layer）」语义，见下文。
 
 ## Product role / 产品定位
 
@@ -76,6 +80,35 @@ Semantics:
 - the physical input itself is **not suppressed** merely because it switched Layer, so a game key may also serve as an InputStitch context selector.
 
 A layer-switch trigger changes eligibility only. It does not itself submit keyboard/mouse/gamepad output.
+
+## Momentary / hold-to-layer / 按住临时切层
+
+Each layer definition carries an optional `MomentarySwitch` flag. It is stored in `config.xml` as a
+plain boolean, so old configuration files load as click-to-switch and older builds simply ignore the
+new element.
+
+Semantics:
+
+- a momentary layer becomes active only while its own switch trigger is physically held;
+- releasing the trigger returns to the previously active layer instead of unconditionally returning to Base;
+- a momentary hold never rewrites the persistent click-to-switch selection, so a temporary hold cannot
+  silently change the layer the user chose;
+- the Base layer may also be momentary: holding its shortcut temporarily returns to Base-only;
+- several momentary layers can be held at once; the newest still-held layer is effective, and releasing
+  it falls back to the next still-held layer or to the persistent selection;
+- entering and leaving a momentary layer uses the same `SwitchActiveMappingLayer` transaction as any other
+  layer change, so leaving it stops or suspends only that layer's sources;
+- duplicate press edges (key repeat or repeated controller reports) for an already-held momentary layer are ignored;
+- a trigger that was already held when the momentary layer becomes eligible still requires release + fresh press;
+- missed release edges (hook loss or a dropped controller edge) are recovered by the same physical release
+  probe used by held mappings, so a momentary layer cannot stay stuck;
+- deleting a layer, or switching it back to click-to-switch while it is held, safely drops the hold;
+- layer management exposes 按住生效（松开返回） / "Hold to activate (release returns)" beside the switch
+  shortcut, and layer names plus diagnostics show the momentary mode.
+
+This remains eligibility/grouping only: momentary switching does not suppress the physical input, does not
+change Emergency Stop, UI safety, Output Ownership or source-local cleanup semantics, and never becomes a
+second macro engine.
 
 ## Switching semantics
 
@@ -198,7 +231,7 @@ Observation must be side-effect free. In the isolated UI test host, virtual-cont
 
 ## Automated coverage
 
-`tests/LayerTests.cs` currently verifies **39 checks** with isolated UI/fake output, including:
+`tests/LayerTests.cs` currently verifies **72 checks** with isolated UI/fake output, including:
 
 - Base-only eligibility;
 - inactive layer exclusion;
@@ -219,6 +252,19 @@ Observation must be side-effect free. In the isolated UI test host, virtual-cont
 - deleted legacy Layer 1 survives a real XML save/reload round trip;
 - Runtime Observation shows user-facing active layer and controller-platform state;
 - Diagnostics enumerate flexible layers and takeover state without loading real devices.
+- momentary hold activates the layer and keeps Base eligible;
+- releasing a momentary hold returns to the persistent layer, not unconditionally to Base;
+- a momentary Base-layer shortcut temporarily returns to Base-only;
+- several held momentary layers fall back in activation order;
+- releasing a momentary hold stops its worker-backed and held-mapping output while Base survives;
+- deleting a held layer safely returns to the persistent layer;
+- a missed release edge is recovered by the physical-state fallback;
+- momentary mode and switch shortcuts survive an XML save/reload round trip;
+- layer display names and diagnostics report the momentary mode.
+- a chorded momentary shortcut also returns when its modifier is released first;
+- releasing an unrelated key never ends a momentary hold;
+- changing the persistent selection while held keeps the hold active and the release lands on the new selection;
+- converting a held layer back to click-to-switch drops the hold, and click-to-switch layers refuse momentary holds.
 
 No real input or virtual device is created by this suite.
 
@@ -233,7 +279,6 @@ Only add these when a concrete workflow justifies them:
 - user-defined layer ordering if list order becomes meaningful beyond management display;
 - reusable Layer presets/groups;
 - per-controller Layer state;
-- **momentary “hold key for temporary layer” semantics — next active Layer item;**
 - reusable condition groups/presets beyond the current per-macro AND conditions;
 - optional active-Layer persistence.
 

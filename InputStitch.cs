@@ -1295,6 +1295,10 @@ namespace InputStitch
         public bool IsBase = true;
         // Optional physical shortcut that activates this layer. Base means returning to Base-only.
         public TriggerSpec SwitchTrigger;
+        // When true this layer is active only while SwitchTrigger is physically held; releasing the
+        // shortcut returns to the previous layer. Momentary holds never change the persistent
+        // (click-to-switch) layer selection.
+        public bool MomentarySwitch;
     }
 
     [Serializable]
@@ -4758,6 +4762,15 @@ namespace InputStitch
             public override string ToString() { return Text; }
         }
 
+        // One physically held momentary layer switch. List order is the activation order; the newest
+        // still-held entry is the effective layer. ReleaseProbeSince supports the physical-release
+        // fallback when a hook or controller release edge is missed.
+        private sealed class MomentaryLayerHold
+        {
+            public string LayerId;
+            public long ReleaseProbeSince;
+        }
+
         private MacroConfig config;
         private string appDir;
         private string configPath;
@@ -4908,6 +4921,10 @@ namespace InputStitch
         private readonly HashSet<MacroDefinition> layerBlockedUntilRelease = new HashSet<MacroDefinition>();
         // Empty means only Base is eligible. This is intentionally runtime-only in Layer v1.
         private string activeMappingLayerId = "";
+        // Underlying click-to-switch / UI selection. Momentary holds temporarily override this value.
+        private string persistentMappingLayerId = "";
+        // Momentary layer holds in activation order; the last still-valid entry is the effective layer.
+        private readonly List<MomentaryLayerHold> momentaryLayerHolds = new List<MomentaryLayerHold>();
         private const string IdleOutputSourceId = "idle-gamepad";
         private long outputSourceSequence;
 
@@ -6550,6 +6567,8 @@ namespace InputStitch
             string layerText = activeMappingLayerId.Length == 0
                 ? (Localizer.IsEnglish ? "Base only" : "仅基础层")
                 : (Localizer.IsEnglish ? "Base + " : "基础层 + ") + (activeLayer == null ? activeMappingLayerId : activeLayer.Name);
+            if (IsMomentaryLayerHoldActive(activeMappingLayerId))
+                layerText += Localizer.IsEnglish ? " (momentary hold)" : "（按住临时生效）";
             sb.AppendLine((Localizer.IsEnglish ? "Layer: " : "映射层：") + layerText);
             sb.AppendLine((Localizer.IsEnglish ? "Virtual Xbox slot: " : "虚拟 Xbox 槽位：") + ObservedVirtualXboxSlot().ToString());
             sb.AppendLine((Localizer.IsEnglish ? "Device identity: " : "设备身份：") +
@@ -6679,7 +6698,10 @@ namespace InputStitch
             sb.AppendLine("ReplacementRecoveryWarning: " + (string.IsNullOrWhiteSpace(replacementRecoveryWarning) ? "none" : replacementRecoveryWarning));
             sb.AppendLine("SlotAcquisitionRecoveryWarning: " + (string.IsNullOrWhiteSpace(slotAcquisitionRecoveryWarning) ? "none" : slotAcquisitionRecoveryWarning));
             MappingLayerDefinition diagnosticActiveLayer = FindMappingLayer(activeMappingLayerId);
-            sb.AppendLine("ActiveMappingLayer: " + (activeMappingLayerId.Length == 0 ? "Base only" : "Base + " + (diagnosticActiveLayer == null ? activeMappingLayerId : diagnosticActiveLayer.Name)));
+            sb.AppendLine("ActiveMappingLayer: " + (activeMappingLayerId.Length == 0 ? "Base only" : "Base + " + (diagnosticActiveLayer == null ? activeMappingLayerId : diagnosticActiveLayer.Name)) +
+                "; MomentaryHold=" + IsMomentaryLayerHoldActive(activeMappingLayerId).ToString() +
+                "; PersistentLayer=" + (persistentMappingLayerId.Length == 0 ? "base-only" : persistentMappingLayerId) +
+                "; MomentaryHolds=" + MomentaryLayerHoldCount().ToString());
             sb.AppendLine("MappingLayerCount: " + (config == null || config.MappingLayers == null ? "0" : config.MappingLayers.Count.ToString()));
             if (config != null && config.MappingLayers != null)
             {
@@ -6688,6 +6710,7 @@ namespace InputStitch
                     if (layer == null) continue;
                     sb.AppendLine("Layer[" + layer.Id + "]: " + (layer.Name ?? "") +
                         "; Base=" + layer.IsBase.ToString() +
+                        "; Mode=" + (layer.MomentarySwitch ? "hold" : "toggle") +
                         "; Switch=" + (layer.SwitchTrigger == null ? "none" : InputNames.FormatTrigger(layer.SwitchTrigger)));
                 }
             }
@@ -7067,12 +7090,27 @@ namespace InputStitch
             long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
             List<MacroDefinition> parallelToStop = new List<MacroDefinition>();
             List<long> holdRunsToStop = new List<long>();
+            List<MomentaryLayerHold> momentaryToEnd = new List<MomentaryLayerHold>();
             lock (runLock)
             {
                 List<MacroDefinition> layerBlocksToClear = new List<MacroDefinition>();
                 foreach (MacroDefinition blocked in layerBlockedUntilRelease)
                     if (blocked == null || !IsPhysicalHoldTriggerSatisfied(blocked.Trigger)) layerBlocksToClear.Add(blocked);
                 foreach (MacroDefinition blocked in layerBlocksToClear) layerBlockedUntilRelease.Remove(blocked);
+
+                // Momentary layers must not stay stuck when a release edge is missed. The physical
+                // probe is the same release authority used by held mappings, so hold and layer state
+                // can never disagree about whether the switch shortcut is still down.
+                foreach (MomentaryLayerHold momentaryHold in momentaryLayerHolds)
+                {
+                    if (momentaryHold == null) { momentaryToEnd.Add(null); continue; }
+                    MappingLayerDefinition momentaryLayer = FindMomentaryLayer(momentaryHold.LayerId);
+                    if (momentaryLayer == null || momentaryLayer.SwitchTrigger == null) { momentaryToEnd.Add(momentaryHold); continue; }
+                    bool momentaryHeld = IsPhysicalHoldTriggerSatisfied(momentaryLayer.SwitchTrigger);
+                    if (momentaryHeld) { momentaryHold.ReleaseProbeSince = 0; continue; }
+                    if (momentaryHold.ReleaseProbeSince == 0) momentaryHold.ReleaseProbeSince = now;
+                    else if (now - momentaryHold.ReleaseProbeSince >= requiredTicks) momentaryToEnd.Add(momentaryHold);
+                }
 
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
                 {
@@ -7100,6 +7138,15 @@ namespace InputStitch
                     bool released = !IsPhysicalHoldTriggerSatisfied(runtime.HoldTrigger);
                     if (UpdateRunReleaseProbe(runtime, released, now)) holdRunsToStop.Add(runtime.RunId);
                 }
+            }
+            if (momentaryToEnd.Count != 0)
+            {
+                lock (runLock)
+                {
+                    foreach (MomentaryLayerHold momentaryHold in momentaryToEnd) momentaryLayerHolds.Remove(momentaryHold);
+                }
+                runtimeTrace.Add("momentary-layer-release-fallback", "physical release detected without a terminal release callback");
+                ApplyEffectiveMappingLayer();
             }
             foreach (MacroDefinition parallel in parallelToStop)
             {
@@ -7466,14 +7513,17 @@ namespace InputStitch
         private string LayerDisplayName(MappingLayerDefinition layer)
         {
             if (layer == null) return "";
+            string modeSuffix = layer.MomentarySwitch && layer.SwitchTrigger != null
+                ? (Localizer.IsEnglish ? " (hold)" : "（按住）")
+                : "";
             if (string.Equals(layer.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase))
             {
                 string baseName = Localizer.IsEnglish ? "Base layer" : "基础层（始终启用）";
-                if (layer.SwitchTrigger != null) baseName += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]";
+                if (layer.SwitchTrigger != null) baseName += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]" + modeSuffix;
                 return baseName;
             }
             string name = string.IsNullOrWhiteSpace(layer.Name) ? layer.Id : layer.Name;
-            if (layer.SwitchTrigger != null) name += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]";
+            if (layer.SwitchTrigger != null) name += "  [" + InputNames.FormatTrigger(layer.SwitchTrigger) + "]" + modeSuffix;
             return name;
         }
 
@@ -7588,7 +7638,15 @@ namespace InputStitch
         private void RemoveMappingLayerCore(MappingLayerDefinition layer)
         {
             if (layer == null || layer.IsBase || config == null || config.MappingLayers == null) return;
-            if (string.Equals(activeMappingLayerId, layer.Id, StringComparison.OrdinalIgnoreCase)) SwitchActiveMappingLayer("");
+            lock (runLock)
+            {
+                momentaryLayerHolds.RemoveAll(delegate(MomentaryLayerHold hold)
+                {
+                    return hold == null || string.Equals(hold.LayerId, layer.Id, StringComparison.OrdinalIgnoreCase);
+                });
+                if (string.Equals(persistentMappingLayerId, layer.Id, StringComparison.OrdinalIgnoreCase)) persistentMappingLayerId = "";
+            }
+            if (string.Equals(activeMappingLayerId, layer.Id, StringComparison.OrdinalIgnoreCase)) ApplyEffectiveMappingLayer();
             foreach (MacroDefinition macro in config.Macros)
             {
                 if (macro == null || !string.Equals(MacroLayerId(macro), layer.Id, StringComparison.OrdinalIgnoreCase)) continue;
@@ -7631,13 +7689,35 @@ namespace InputStitch
             shortcut.Enabled = target != null;
             shortcut.Click += delegate { BeginLayerSwitchCapture(target); };
             menu.Items.Add(shortcut);
+            ToolStripMenuItem momentaryMode = new ToolStripMenuItem(Localizer.IsEnglish ? "Hold to activate (release returns)" : "按住生效（松开返回）");
+            momentaryMode.CheckOnClick = false;
+            momentaryMode.Checked = target != null && target.MomentarySwitch;
+            momentaryMode.Enabled = target != null && target.SwitchTrigger != null;
+            momentaryMode.Click += delegate
+            {
+                if (target == null) return;
+                target.MomentarySwitch = !target.MomentarySwitch;
+                SaveConfig();
+                ApplyEffectiveMappingLayer();
+                RefreshLayerChoiceLists();
+                SetStatusSafe(target.MomentarySwitch
+                    ? (Localizer.IsEnglish
+                        ? "Layer '" + target.Name + "' now activates while its switch shortcut is held."
+                        : "映射层“" + target.Name + "”已改为按住生效：松开切换键后返回上一层。")
+                    : (Localizer.IsEnglish
+                        ? "Layer '" + target.Name + "' switched back to click-to-switch."
+                        : "映射层“" + target.Name + "”已改回按一下切换。"));
+            };
+            menu.Items.Add(momentaryMode);
             ToolStripMenuItem clearShortcut = new ToolStripMenuItem(Localizer.IsEnglish ? "Clear switch shortcut" : "清除当前层切换快捷键");
             clearShortcut.Enabled = target != null && target.SwitchTrigger != null;
             clearShortcut.Click += delegate
             {
                 if (target == null) return;
                 target.SwitchTrigger = null;
+                target.MomentarySwitch = false;
                 SaveConfig();
+                ApplyEffectiveMappingLayer();
                 RefreshLayerChoiceLists();
             };
             menu.Items.Add(clearShortcut);
@@ -7860,11 +7940,139 @@ namespace InputStitch
                 : (Localizer.IsEnglish ? "Active layer: " : "当前映射层：") + activeLayerName + (Localizer.IsEnglish ? "." : "。"));
         }
 
+        private MappingLayerDefinition FindMomentaryLayer(string layerId)
+        {
+            MappingLayerDefinition layer = FindMappingLayer(layerId);
+            return layer != null && layer.MomentarySwitch ? layer : null;
+        }
+
+        // True when the effective layer id currently comes from a momentary hold. An empty effective
+        // id is the Base-only state, which a momentary Base-layer shortcut can also hold temporarily.
+        private bool IsMomentaryLayerHoldActive(string effectiveLayerId)
+        {
+            effectiveLayerId = effectiveLayerId ?? "";
+            lock (runLock)
+            {
+                foreach (MomentaryLayerHold hold in momentaryLayerHolds)
+                {
+                    if (hold == null) continue;
+                    MappingLayerDefinition layer = FindMappingLayer(hold.LayerId);
+                    if (layer == null || !layer.MomentarySwitch) continue;
+                    if (string.Equals(layer.IsBase ? "" : layer.Id, effectiveLayerId, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
+            return false;
+        }
+
+        private int MomentaryLayerHoldCount()
+        {
+            lock (runLock) return momentaryLayerHolds.Count;
+        }
+
+        // The effective layer is the newest still-valid momentary hold, otherwise the persistent
+        // click-to-switch / UI selection. Callers must hold runLock.
+        private string ComputeEffectiveMappingLayerId_NoLock()
+        {
+            for (int i = momentaryLayerHolds.Count - 1; i >= 0; i--)
+            {
+                MomentaryLayerHold hold = momentaryLayerHolds[i];
+                if (hold == null)
+                {
+                    momentaryLayerHolds.RemoveAt(i);
+                    continue;
+                }
+                MappingLayerDefinition layer = FindMappingLayer(hold.LayerId);
+                if (layer == null || !layer.MomentarySwitch || layer.SwitchTrigger == null)
+                {
+                    // The layer was deleted, or converted back to click-to-switch, while held.
+                    momentaryLayerHolds.RemoveAt(i);
+                    runtimeTrace.Add("momentary-layer-drop", hold.LayerId ?? "null");
+                    continue;
+                }
+                return layer.IsBase ? "" : layer.Id;
+            }
+            return persistentMappingLayerId ?? "";
+        }
+
+        private void ApplyEffectiveMappingLayer()
+        {
+            string desired;
+            lock (runLock) { desired = ComputeEffectiveMappingLayerId_NoLock(); }
+            SwitchActiveMappingLayer(desired);
+        }
+
+        // Physical edges arrive on hook/poll threads while layer transitions touch UI controls, so the
+        // apply step is marshalled to the UI thread whenever a window handle exists.
+        private void RequestApplyEffectiveMappingLayer()
+        {
+            if (IsDisposed) return;
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke((MethodInvoker)ApplyEffectiveMappingLayer);
+                    return;
+                }
+            }
+            catch { return; }
+            ApplyEffectiveMappingLayer();
+        }
+
+        private void SetPersistentMappingLayer(string layerId)
+        {
+            layerId = layerId ?? "";
+            lock (runLock) { persistentMappingLayerId = layerId; }
+            ApplyEffectiveMappingLayer();
+        }
+
+        private bool BeginMomentaryLayerHold(MappingLayerDefinition layer)
+        {
+            if (layer == null || !layer.MomentarySwitch || layer.SwitchTrigger == null) return false;
+            lock (runLock)
+            {
+                foreach (MomentaryLayerHold existing in momentaryLayerHolds)
+                    if (existing != null && string.Equals(existing.LayerId, layer.Id, StringComparison.OrdinalIgnoreCase)) return false;
+                momentaryLayerHolds.Add(new MomentaryLayerHold { LayerId = layer.Id });
+            }
+            runtimeTrace.Add("momentary-layer-hold", layer.Id);
+            RequestApplyEffectiveMappingLayer();
+            return true;
+        }
+
+        private bool EndMomentaryLayerHoldsForRelease(InputEventInfo releaseEvent)
+        {
+            if (releaseEvent == null || releaseEvent.Input == null) return false;
+            bool changed = false;
+            lock (runLock)
+            {
+                for (int i = momentaryLayerHolds.Count - 1; i >= 0; i--)
+                {
+                    MomentaryLayerHold hold = momentaryLayerHolds[i];
+                    if (hold == null)
+                    {
+                        momentaryLayerHolds.RemoveAt(i);
+                        changed = true;
+                        continue;
+                    }
+                    MappingLayerDefinition layer = FindMappingLayer(hold.LayerId);
+                    if (layer == null || !layer.MomentarySwitch || layer.SwitchTrigger == null ||
+                        ModifierSafetyPolicy.HoldTriggerReleasedByEvent(layer.SwitchTrigger, releaseEvent))
+                    {
+                        momentaryLayerHolds.RemoveAt(i);
+                        changed = true;
+                        runtimeTrace.Add("momentary-layer-release", hold.LayerId ?? "null");
+                    }
+                }
+            }
+            if (changed) RequestApplyEffectiveMappingLayer();
+            return changed;
+        }
+
         private void ActiveLayerBox_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (loadingUi || activeLayerBox == null) return;
             LayerChoice choice = activeLayerBox.SelectedItem as LayerChoice;
-            if (choice != null) SwitchActiveMappingLayer(choice.Id);
+            if (choice != null) SetPersistentMappingLayer(choice.Id);
         }
 
         private void MappingLayerBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -8763,7 +8971,8 @@ namespace InputStitch
                 if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
                 if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
                 activeMappingLayerId = "";
-                lock (runLock) layerBlockedUntilRelease.Clear();
+                persistentMappingLayerId = "";
+                lock (runLock) { layerBlockedUntilRelease.Clear(); momentaryLayerHolds.Clear(); }
                 config.HasSeenWelcome = welcome;
                 config.LastShownReleaseSummaryVersion = lastReleaseSummary;
                 EnsureDefaultMacro();
@@ -8787,7 +8996,8 @@ namespace InputStitch
                 if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
                 if (gamepadRouter != null) gamepadRouter.Configure(config.GamepadRouterEnabled);
                 activeMappingLayerId = "";
-                lock (runLock) layerBlockedUntilRelease.Clear();
+                persistentMappingLayerId = "";
+                lock (runLock) { layerBlockedUntilRelease.Clear(); momentaryLayerHolds.Clear(); }
                 InputSender.UseScanCodeInput = config.UseScanCodeInput;
                 targetWindowHandle = IntPtr.Zero;
                 ResolveTargetWindowFromConfig();
@@ -9438,14 +9648,16 @@ namespace InputStitch
                 if (layerSwitch != null)
                 {
                     string targetLayerId = layerSwitch.IsBase || string.Equals(layerSwitch.Id, MappingLayerIds.Base, StringComparison.OrdinalIgnoreCase) ? "" : layerSwitch.Id;
-                    runtimeTrace.Add("layer-hotkey", targetLayerId.Length == 0 ? "base-only" : targetLayerId);
+                    bool momentarySwitch = layerSwitch.MomentarySwitch && layerSwitch.SwitchTrigger != null;
+                    runtimeTrace.Add("layer-hotkey", (momentarySwitch ? "hold:" : "") + (targetLayerId.Length == 0 ? "base-only" : targetLayerId));
                     try
                     {
                         BeginInvoke((MethodInvoker)delegate
                         {
                             UpdateUiSafetyPauseState();
                             if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None || recordingActive) return;
-                            SwitchActiveMappingLayer(targetLayerId);
+                            if (momentarySwitch) BeginMomentaryLayerHold(layerSwitch);
+                            else SetPersistentMappingLayer(targetLayerId);
                             RefreshLayerChoiceLists();
                         });
                     }
@@ -9601,6 +9813,11 @@ namespace InputStitch
                     catch { }
                 }
             }
+
+            // A momentary layer returns to its previous layer as soon as its switch shortcut is
+            // physically released. Keyboard, mouse and controller up edges all arrive here; the
+            // physical-state fallback in ReconcileHeldTriggerRelease covers missed edges.
+            EndMomentaryLayerHoldsForRelease(e);
 
             lock (runLock)
             {

@@ -2,7 +2,7 @@
 
 # Current Development Plan
 
-Updated: 2026-09-17
+Updated: 2026-09-21
 
 ## Current milestone
 
@@ -80,6 +80,9 @@ Current Layer model:
 - active layer is runtime-only and resets to Base-only after restart;
 - every macro type can belong to a layer: ordinary timed, Toggle, Advanced/complex Hold and Parallel Held Mapping;
 - each layer, including Base, may have a keyboard/mouse/controller switch trigger; the Base trigger returns to Base-only;
+- any layer, including Base, can switch in **momentary / hold-to-layer** mode: it is active only while its
+  shortcut is physically held, releasing returns to the previous layer, and the persistent click-to-switch
+  selection is preserved;
 - user-facing management supports add, rename and delete;
 - deleting a layer stops its active runs, moves assigned macros back to Base, and deleting the active layer first returns runtime state to Base-only;
 - duplicate triggers still use normal list priority inside the currently eligible set;
@@ -132,7 +135,7 @@ The first five platform-foundation items are now complete on post-`v1.4.3` `main
 
 The active non-hardware engineering order is now:
 
-1. **Layer ergonomics + profile/context integration** — implement Momentary/Hold-to-Layer before more complex Layer modes, then build profile/manual-override/fallback behavior on the shared DeviceKey + Condition model instead of adding application-specific switches.
+1. **Layer ergonomics + profile/context integration** — Momentary/Hold-to-Layer is implemented (2026-09-21, local commit; 72 Layer checks). The remaining half is profile/manual-override/fallback behavior on the shared DeviceKey + Condition model instead of adding application-specific switches; see `docs/PROFILE_CONTEXT_DESIGN.md` (proposal, pending decisions 1-5 before implementation).
 2. **Activator/Condition stage 2 only when semantics are explicit** — Short Press, Triple Press, Turbo/repeat, another-input-held and richer analog-region triggers are candidates, but should reuse the same state/evaluation boundary rather than create a second executor.
 3. After those semantics are stable, evaluate an `IInputProvider` architecture with SDL3 as the first broad-controller candidate.
 4. Only after the output backend interface has remained stable through those changes should a second virtual-output backend such as HIDMaestro or the standalone VIIPER server/API be prototyped and compared.
@@ -147,7 +150,7 @@ When physical hardware becomes available in parallel:
 
 ## Current automated evidence
 
-Latest clean regression on 2026-09-17:
+Latest clean regression on 2026-09-21:
 
 - 329 keyboard/trigger checks;
 - 58 Idle Gamepad assertions;
@@ -160,7 +163,7 @@ Latest clean regression on 2026-09-17:
 - 52 Controlled Replacement transaction/runtime-health/recovery checks (fake backend; HidHide not invoked);
 - 27 slot-acquisition/PnP recovery checks (fake PnP/XInput; no real device disabled);
 - 23 optional-virtual-controller preference checks (`no ViGEm device created`);
-- 39 flexible-Layer/XML/observation checks;
+- **72 flexible-Layer/XML/observation/momentary checks** (39 pre-existing + 33 momentary hold checks);
 - 7 macro-timing checks;
 - modifier safety suite: PASS;
 - release-channel policy: PASS;

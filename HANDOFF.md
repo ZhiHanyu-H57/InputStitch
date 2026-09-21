@@ -2,7 +2,7 @@
 
 # Current Development State
 
-Updated: 2026-09-17
+Updated: 2026-09-21
 
 ## Current versions
 
@@ -294,9 +294,45 @@ Final local verification on 2026-09-17:
 
 Stable `v1.4.3` remains immutable; Activator + Condition stage 1 is post-release `main` work and requires a future Stable version before ordinary updater users receive it.
 
+## 2026-09-21 Layer ergonomics stage 1 — Momentary / Hold-to-Layer
+
+Layer definitions now support an optional momentary mode: the layer is active only while its own switch
+shortcut is physically held, and releasing the shortcut returns to the previously active layer instead of
+unconditionally returning to Base. The persistent click-to-switch / UI selection is never rewritten by a
+temporary hold.
+
+Design boundary:
+
+- `MappingLayerDefinition.MomentarySwitch` is a plain boolean inside the existing layer XML; old
+  configuration files load as click-to-switch, and older builds ignore the new element.
+- Runtime keeps the persistent (click-to-switch / UI) layer plus an ordered list of currently held
+  momentary layers; the newest still-held entry is effective. Base can be momentary as well, so holding its
+  shortcut temporarily returns to Base-only.
+- Entering and leaving a momentary layer reuses `SwitchActiveMappingLayer`, so cleanup remains source-local,
+  the pre-held-trigger release rule is unchanged, and Emergency Stop / UI safety / Output Ownership are not
+  touched. Layer is still eligibility/grouping only.
+- Duplicate press edges (key repeat or repeated controller reports) for an already-held momentary layer are
+  ignored.
+- Missed release edges (keyboard hook loss or a dropped controller edge) are recovered by the same physical
+  release probe used by held mappings, so a momentary layer cannot stay stuck. Deleting a held layer, or
+  converting it back to click-to-switch while held, safely drops the hold.
+- Layer management exposes 按住生效（松开返回） / "Hold to activate (release returns)" beside the switch
+  shortcut; layer names, runtime observation and diagnostics report the momentary mode.
+
+Verification evidence (2026-09-21, local development-laptop session):
+
+- x64 + x86 `build.ps1` Release build and Release Verification: PASS on the new code;
+- full `tests/Run-Tests.ps1`: PASS, including **72 flexible-Layer checks** (39 pre-existing + 33 new
+  momentary checks), 329 keyboard/trigger checks, 303,716 Output Ownership checks, and all
+  zh-CN/en-US Settings plus legacy-XML smoke tests;
+- real-output Input Lab acceptance was intentionally **not** rerun in this unattended session to avoid
+  injecting real input on a desktop the user had left; record it as not-rerun rather than passed;
+- this change is a **local commit only**: not pushed and not released in this session. A future Stable or
+  Beta release still has to follow the normal publish flow before ordinary users receive it.
+
 ## Working on
 
-**Stable `v1.4.3` is published and immutable. Post-release `main` now contains controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, Router Source Policy stage 1, Analog Transform Engine stage 1, and Activator + Condition Engine stage 1.** The next active non-hardware platform item is Layer ergonomics + profile/context integration. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
+**Stable `v1.4.3` is published and immutable. Post-release `main` now contains controller hot-plug/takeover-UI diagnostic hardening, Persistent Device Identity / Device Manager stage 1, Router Source Policy stage 1, Analog Transform Engine stage 1, Activator + Condition Engine stage 1, and Layer ergonomics stage 1 (Momentary / Hold-to-Layer).** The remaining Layer ergonomics work is profile/context integration built on the shared DeviceKey + Condition model. Physical controller + HidHide + real-game takeover acceptance remains a parallel hardware-blocked lane.
 
 The same refactor branch now also completes the planned **Virtual Output Backend abstraction**. `GamepadOutput` remains the stable synchronized facade and preserves existing Xbox 360 / DualShock 4 / `None` semantics, while direct ViGEm controller creation, report mapping, connection lifecycle and driver-specific exception translation have moved behind `IVirtualGamepadBackend` into `VigemVirtualGamepadBackend`. ViGEm is still the only production backend; no second driver or new user-facing option was added.
 
@@ -306,7 +342,7 @@ Stable update transport now prefers the project download domain end-to-end. The 
 
 1.4.2 release verification requires the full `tests/Run-Tests.ps1` suite, including Layer/Productivity/Updater/UI safety, 303,716 Output Ownership checks, 29 UpdateNetwork checks and 23 VirtualGamepadPreference checks; all zh-CN/en-US Settings smoke tests; x64/x86 `build.ps1` Release verification; and a Python 3.12 CI gate that executes the real R2 manifest derivation against the built Stable manifest before publication. The GitHub Stable manifest must retain GitHub asset URLs, while the derived R2 manifest must retain the same version, file names and hashes but use version-pinned `download.zhihanyu.com` assets. No configuration format, macro semantics, controller routing policy or output timing is intentionally changed; updater transport/source behavior is the intentional user-visible change.
 
-**`v1.4.3` is the current Stable line. Persistent Device Identity, Router Source Policy, Analog Transform stage 1 and Activator + Condition stage 1 are complete on post-release `main`; the next active non-hardware platform item is Layer ergonomics + profile/context integration. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
+**`v1.4.3` is the current Stable line. Persistent Device Identity, Router Source Policy, Analog Transform stage 1, Activator + Condition stage 1 and Layer Momentary/Hold-to-Layer are complete on post-release `main`; the remaining Layer ergonomics half is profile/context integration. Physical controller + HidHide + real-game acceptance remains a parallel hardware-blocked lane.**
 
 Beta.2 adds two major non-hardware improvements on top of beta.1:
 
@@ -813,7 +849,7 @@ Technical design notes may use internal English type/API names freely.
 
 The v1.4.3 keyboard-hotkey reliability incident is closed. Virtual Output Backend abstraction, persistent Device Identity, Router Source Policy, Analog Transform stage 1 and Activator + Condition stage 1 are now completed foundations on post-release `main`. Active non-hardware order is now:
 
-1. improve Layer ergonomics, starting with Momentary/Hold-to-Layer, and integrate profile/context behavior with DeviceKey + Condition instead of adding new application-specific switches;
+1. Layer ergonomics: Momentary/Hold-to-Layer is **implemented** (2026-09-21, local commit); the remaining half is profile/context integration built on the shared DeviceKey + Condition model instead of adding new application-specific switches. A design proposal with the open product decisions is recorded in `docs/PROFILE_CONTEXT_DESIGN.md` (status: proposal, not implemented);
 2. add Activator/Condition stage-2 semantics (Short Press, Triple Press, Turbo/repeat, another-input-held, richer analog regions) only where the lifecycle is explicitly defined;
 3. evaluate `IInputProvider` + SDL3 after the action/condition boundary remains stable through those changes;
 4. only after the output interface has remained stable through these changes, prototype/compare a second virtual-output backend when justified.
