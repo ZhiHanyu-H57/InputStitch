@@ -459,6 +459,13 @@ Evidence: `tests/Sdl3DeviceIdentityTests.cs` (18 checks: mapping rules, basis ra
 including the moved-port case, inventory integration) and the unchanged 36-check device-identity suite. The
 Device Manager provider column is the remaining UI step.
 
+**Device Manager presentation updated 2026-09-21:** the identity-basis cell now names the provider lane for
+provider-sourced records ("PnP path · sdl3", "Provider-reported · sdl3"), which identifies the device without
+opening the tooltip and without adding a ninth grid column (8 columns already fill the 1120 px window).
+`BasisLabel` gained the `provider` basis, and metadata-only providers (HidHide, Windows XUSB/PnP) keep their
+previous presentation. `tests/Sdl3DeviceIdentityTests.cs` grew to 23 checks by exercising the static basis
+helper through the existing reflection pattern.
+
 ## 2026-09-21 Activator stage 2 — Short Press
 
 `ActivatorModes.ShortPress` ("Short Press" / 短按) is implemented with an explicit lifecycle:

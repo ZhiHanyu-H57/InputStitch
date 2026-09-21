@@ -180,3 +180,8 @@ Direction updates from the 2026-09-21 research:
   an optional provider-device lane, and `MainForm` feeds the SDL3 devices into the device registry. Evidence:
   `tests/Sdl3DeviceIdentityTests.cs` (18 checks) plus the unchanged 36-check device-identity suite; the
   provider column in Device Manager is the remaining UI step.
+- 2026-09-21: **H2.4 UI step done** — Device Manager now names the provider lane directly in the identity
+  basis cell ("PnP path · sdl3" / "Provider-reported · sdl3") instead of adding a ninth column, which would
+  have pushed the grid past its window width; the `provider` basis gained a proper label and metadata-only
+  providers (HidHide, Windows XUSB) keep their previous presentation. `tests/Sdl3DeviceIdentityTests.cs` grew
+  to 23 checks covering the label rules via the existing static hook.

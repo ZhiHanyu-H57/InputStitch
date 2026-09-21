@@ -106,7 +106,8 @@ InputDeviceState: buttons bitmask, DPad, LX/LY/RX/RY/triggers, connected flag
    Device-identity evidence is wired as well: `Sdl3DeviceIdentity.cs` converts SDL3 descriptors into the
    persistent model (path → pnp evidence, VID/PID + name → a provider-scoped alias ranked weakest), the
    registry merges them like any other device, and the inventory lists them as persistent records with
-   `XInputSlot = -1`. The Device Manager provider column is the remaining UI step.
+   `XInputSlot = -1`. Device Manager names the provider in its identity-basis cell
+   ("PnP path · sdl3" / "Provider-reported · sdl3"), so no extra column was needed.
 
 ## Risks and mitigations
 

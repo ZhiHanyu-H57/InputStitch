@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using InputStitch;
 
 internal static class Sdl3DeviceIdentityTests
@@ -23,6 +24,19 @@ internal static class Sdl3DeviceIdentityTests
     private static Sdl3DeviceDescriptor Device(string name, ushort vendorId, ushort productId, string path)
     {
         return new Sdl3DeviceDescriptor { DeviceId = 1, Name = name, VendorId = vendorId, ProductId = productId, Path = path };
+    }
+
+    private static string BasisText(string identityBasis, string provider)
+    {
+        MethodInfo method = typeof(DeviceManagerDialog).GetMethod("BasisText", BindingFlags.Static | BindingFlags.NonPublic);
+        if (method == null) throw new Exception("Device Manager basis hook was not found.");
+        DeviceInventoryItem item = new DeviceInventoryItem
+        {
+            Role = DeviceInventoryRole.PersistentGamingDevice,
+            IdentityBasis = identityBasis,
+            Provider = provider
+        };
+        return (string)method.Invoke(null, new object[] { item });
     }
 
     public static int Main()
@@ -88,6 +102,17 @@ internal static class Sdl3DeviceIdentityTests
                 "SDL3 devices are persistent records without an XInput slot claim");
             Check(item != null && item.IdentityBasis == "pnp", "the inventory reports the identity basis");
             Check(item != null && item.Vid == "054C" && item.Pid == "0CE6", "the inventory reports VID/PID");
+
+            // Device Manager presentation: provider-lane rows name their provider next to the basis label.
+            Check(BasisText("provider", "sdl3") == "Provider-reported · sdl3",
+                "the device manager labels provider-reported records with their provider");
+            Check(BasisText("pnp", "sdl3") == "PnP path · sdl3",
+                "SDL3 records that carry a device path still name their provider");
+            Check(BasisText("pnp", "HidHide") == "PnP path",
+                "metadata-enrichment providers keep their existing presentation");
+            Check(BasisText("container-id", "Windows XUSB/PnP") == "PnP Container ID",
+                "PnP container records keep their label");
+            Check(BasisText("", "sdl3") == "—", "records without a basis keep the placeholder");
         }
         finally
         {

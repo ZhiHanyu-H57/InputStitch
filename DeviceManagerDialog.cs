@@ -202,12 +202,25 @@ namespace InputStitch
                 return Localizer.IsEnglish ? "runtime slot only" : "仅运行时槽位";
             if (item.Role == DeviceInventoryRole.InputStitchVirtual)
                 return Localizer.IsEnglish ? "owned virtual ID" : "自有虚拟身份";
-            if (string.Equals(item.IdentityBasis, "container-id", StringComparison.OrdinalIgnoreCase)) return "PnP Container ID";
-            if (string.Equals(item.IdentityBasis, "container-path", StringComparison.OrdinalIgnoreCase)) return "PnP container path";
-            if (string.Equals(item.IdentityBasis, "serial", StringComparison.OrdinalIgnoreCase)) return "VID/PID + serial";
-            if (string.Equals(item.IdentityBasis, "xusb", StringComparison.OrdinalIgnoreCase)) return "XUSB path";
-            if (string.Equals(item.IdentityBasis, "pnp", StringComparison.OrdinalIgnoreCase)) return "PnP path";
-            return string.IsNullOrWhiteSpace(item.IdentityBasis) ? "—" : item.IdentityBasis;
+            string label = BasisLabel(item.IdentityBasis);
+            // Records that come from a third-party input provider lane (currently SDL3) name their provider
+            // directly, so a row can be identified without opening the tooltip. Providers that only enrich the
+            // Windows device metadata (HidHide) keep their existing presentation.
+            if (!string.IsNullOrWhiteSpace(item.IdentityBasis) &&
+                string.Equals(item.Provider, Sdl3DeviceIdentity.ProviderName, StringComparison.OrdinalIgnoreCase))
+                return label + " · " + item.Provider.Trim();
+            return label;
+        }
+
+        private static string BasisLabel(string identityBasis)
+        {
+            if (string.Equals(identityBasis, "container-id", StringComparison.OrdinalIgnoreCase)) return "PnP Container ID";
+            if (string.Equals(identityBasis, "container-path", StringComparison.OrdinalIgnoreCase)) return "PnP container path";
+            if (string.Equals(identityBasis, "serial", StringComparison.OrdinalIgnoreCase)) return "VID/PID + serial";
+            if (string.Equals(identityBasis, "xusb", StringComparison.OrdinalIgnoreCase)) return "XUSB path";
+            if (string.Equals(identityBasis, "pnp", StringComparison.OrdinalIgnoreCase)) return "PnP path";
+            if (string.Equals(identityBasis, "provider", StringComparison.OrdinalIgnoreCase)) return "Provider-reported";
+            return string.IsNullOrWhiteSpace(identityBasis) ? "—" : identityBasis;
         }
 
         private static string VidPidText(DeviceInventoryItem item)
