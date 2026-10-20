@@ -98,7 +98,7 @@ internal static class ProductAcceptanceTests
         {
             if (args.Length >= 2 && args[0] == "--soak-minutes") Soak(int.Parse(args[1], CultureInfo.InvariantCulture));
             else if (args.Length > 0 && args[0] == "--layout") ModesAndLayout();
-            else { Workflow(); ModesAndLayout(); }
+            else { Workflow(); ModesAndLayout(); FriendlyInteractions(); }
             Console.WriteLine("PASS product acceptance: " + checks + " checks; isolated editor, saved files and runtime observer; no user configuration or real input.");
             return 0;
         }
@@ -267,6 +267,104 @@ internal static class ProductAcceptanceTests
                 Check(Field<TableLayoutPanel>(form, "optionalSettingsPanel").Visible, "optional grouping and target settings expand");
                 Call(form, "ToggleOptionalSettings", null, EventArgs.Empty);
                 Check(!Field<TableLayoutPanel>(form, "optionalSettingsPanel").Visible, "optional settings collapse");
+            }
+        }
+    }
+
+    private static void FriendlyInteractions()
+    {
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        {
+            Localizer.SetLanguage(language);
+            MacroConfig config = new MacroConfig { Language = language, GamepadDeviceType = VirtualGamepadTypes.None };
+            config.Macros.Add(new MacroDefinition());
+            using (MainForm form = new MainForm(config, Path.Combine(root, "friendly-" + Guid.NewGuid().ToString("N")), new Observer()))
+            {
+                Render(form, "empty-steps-" + language);
+                Check(Field<Panel>(form, "emptyStepsPanel").Visible && !Field<Button>(form, "editStepButton").Enabled,
+                    "empty macro offers a first action and disables editing a missing step");
+                foreach (bool create in new[] { false, true })
+                {
+                    bool handled = false;
+                    using (System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer())
+                    {
+                        timer.Interval = 50;
+                        timer.Tick += delegate
+                        {
+                            NewMacroDialog chooser = Application.OpenForms.OfType<NewMacroDialog>().FirstOrDefault();
+                            if (chooser == null) return;
+                            timer.Stop();
+                            Check(Field<bool>(form, "pauseHotkeys") && Field<int>(form, "uiSafetyModalDepth") > 0,
+                                "new macro chooser pauses shortcuts while the modal is open");
+                            handled = true;
+                            if (create) All(chooser).OfType<Button>().Single(x => x.Name == "template3").PerformClick();
+                            else { chooser.DialogResult = DialogResult.Cancel; chooser.Close(); }
+                        };
+                        timer.Start();
+                        Field<Button>(form, "newMacroButton").PerformClick();
+                    }
+                    Check(handled && config.Macros.Count == (create ? 2 : 1), "chooser cancel/create uses the real main-window action");
+                    Check(!Field<bool>(form, "pauseHotkeys") && Field<int>(form, "uiSafetyModalDepth") == 0,
+                        "chooser restores shortcut state on cancel and create");
+                }
+                MacroDefinition saved = ConfigPackageSerializer.DeserializeConfigFromFile(Path.Combine(Field<string>(form, "appDir"), "config.xml")).Macros.Last();
+                Check(saved.Steps.Count == 0 && saved.Name == config.Macros.Last().Name, "blank choice saves the ordinary compatible macro definition");
+            }
+            foreach (float scale in new[] { 1F, 1.25F, 1.5F, 2F })
+            {
+                using (NewMacroDialog chooser = new NewMacroDialog())
+                {
+                    chooser.Scale(new SizeF(scale, scale));
+                    chooser.ClientSize = new Size((int)(800 * scale), (int)(570 * scale));
+                    Render(chooser, "new-macro-" + language + "-" + (int)(scale * 100));
+                    EditorTemplateCard[] cards = All(chooser).OfType<EditorTemplateCard>().ToArray();
+                    Check(cards.Length == 4 && cards.All(x => x.TabStop && x.AccessibleDescription == x.Description && x.AccessibleName == x.Text),
+                        "all starting points support keyboard focus and descriptive accessibility text");
+                    foreach (EditorTemplateCard card in cards)
+                    {
+                        int bottom = card.Font.Height + 52;
+                        Size measured = TextRenderer.MeasureText(card.Description, card.Font, new Size(card.Width - 36, 0), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                        Check(measured.Height <= card.Height - bottom - 22, "template purpose fits inside its card at " + scale);
+                    }
+                }
+                using (StepEditDialog editor = new StepEditDialog(null, new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F6, HoldMs = 11, DelayMs = 15 }))
+                {
+                    editor.Scale(new SizeF(scale, scale));
+                    editor.ClientSize = new Size((int)(980 * scale), (int)(590 * scale));
+                    Render(editor, "step-preview-" + language + "-" + (int)(scale * 100));
+                    Label preview = Field<Label>(editor, "stepPreviewText");
+                    Check(preview.Text.Contains("11") && preview.Text.Contains("15") && preview.Text.Contains("F6"), "step explanation reflects input and both timings");
+                    Field<ComboBox>(editor, "actionBox").SelectedIndex = 1;
+                    Check(!Field<NumericUpDown>(editor, "holdBox").Enabled && !preview.Text.Contains("11"), "held action explains release instead of irrelevant press duration");
+                    Field<CheckBox>(editor, "randomDelayBox").Checked = true;
+                    Field<NumericUpDown>(editor, "randomMinBox").Value = 32;
+                    Field<NumericUpDown>(editor, "randomMaxBox").Value = 54;
+                    Check(preview.Text.Contains("32–54"), "random waiting explanation updates immediately");
+                    Button save = (Button)editor.AcceptButton;
+                    Check(editor.RectangleToClient(save.RectangleToScreen(save.ClientRectangle)).Bottom <= editor.ClientSize.Height,
+                        "step confirmation stays reachable at " + scale);
+                }
+            }
+            foreach (QuickTemplate template in Enum.GetValues(typeof(QuickTemplate)))
+            {
+                using (QuickCreateDialog quick = new QuickCreateDialog(null, template))
+                {
+                    Render(quick, "quick-create-" + language + "-" + template);
+                    Button create = (Button)quick.AcceptButton;
+                    Check(!create.Enabled && Field<Label>(quick, "readyLabel").Text.Length > 10, "incomplete quick setup shows its next step");
+                    quick.GetType().GetField("trigger", Private).SetValue(quick, new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F8 });
+                    Call(quick, "UpdateTrigger");
+                    if (template != QuickTemplate.HeldMapping)
+                    {
+                        Check(!create.Enabled, "shortcut alone does not finish a sequence");
+                        Field<List<MacroStep>>(quick, "steps").Add(new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, HoldMs = 18, DelayMs = 23 });
+                        Call(quick, "RefreshActions");
+                    }
+                    Check(create.Enabled, "complete setup enables Create");
+                    Call(quick, "CreateMacro", null, EventArgs.Empty);
+                    Check(quick.Result != null && quick.Result.Trigger.VirtualKey == (int)Keys.F8 && quick.Result.Steps.Count == 1,
+                        "each quick starting point creates an editable ordinary definition");
+                }
             }
         }
     }

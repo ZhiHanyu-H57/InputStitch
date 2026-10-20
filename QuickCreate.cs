@@ -59,6 +59,8 @@ namespace InputStitch
         private readonly GamepadPreviewControl preview = new GamepadPreviewControl();
         private readonly ListBox stepList = new ListBox();
         private readonly List<MacroStep> steps = new List<MacroStep>();
+        private Button createButton;
+        private Label readyLabel;
         internal MacroDefinition Result { get; private set; }
         private static string T(string zh, string en) { return VirtualKeyboardDialog.TextFor(zh, en); }
 
@@ -67,31 +69,32 @@ namespace InputStitch
             main = owner;
             template = kind;
             Text = T("快捷创建", "Quick create") + " · " + Title(kind);
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            MinimumSize = new Size(720, 500);
-            ClientSize = new Size(820, 560);
+            MinimumSize = new Size(820, 620);
+            ClientSize = new Size(860, 640);
             StartPosition = FormStartPosition.CenterParent;
-            Load += delegate { EditorTheme.Apply(this); };
             MinimizeBox = MaximizeBox = false;
             BackColor = Color.FromArgb(247, 249, 252);
-            TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(16) };
+            TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(24, 16, 24, 12) };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(root);
-            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 2, RowCount = 1 };
+            root.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = Title(kind), Description = T("设置触发键和执行操作，完成后即可在主界面使用。", "Choose a shortcut and an action. Your macro will be ready in the main window.") }, 0, 0);
+            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 2, RowCount = 1, BackColor = Color.White, Padding = new Padding(16) };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
-            root.Controls.Add(body, 0, 0);
+            root.Controls.Add(body, 0, 1);
             TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 0, 12, 0) };
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             body.Controls.Add(fields, 0, 0);
             nameBox.Text = Title(kind);
             AddRow(fields, T("名称", "Name"), nameBox);
-            triggerButton = new Button { AutoSize = true, Text = T("选择触发键…", "Choose trigger…"), MinimumSize = new Size(140, 32) };
+            triggerButton = new EditorButton { AutoSize = true, Text = T("选择触发键…", "Choose trigger…"), MinimumSize = new Size(140, 36) };
             triggerButton.Click += ChooseTrigger;
             AddRow(fields, T("触发键", "Trigger"), VirtualKeyboardDialog.WithDropDown(triggerButton, CaptureTrigger, ChooseTrigger));
             FlowLayoutPanel mouse = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
@@ -129,7 +132,9 @@ namespace InputStitch
             {
                 body.SetColumnSpan(fields, 2);
                 if (kind == QuickTemplate.Repeat) AddRow(fields, T("执行次数", "Repeat count"), count);
-                stepList.Height = 175;
+                stepList.Height = 125;
+                stepList.BorderStyle = BorderStyle.FixedSingle;
+                stepList.ItemHeight = 28;
                 AddRow(fields, T("执行操作", "Actions"), stepList);
                 FlowLayoutPanel actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
                 Button add = ButtonFor(T("添加操作…", "Add action…"), delegate { EditAction(false); });
@@ -148,26 +153,30 @@ namespace InputStitch
                 : T("按一次触发开始；再次触发可停止。创建后可在主界面继续编辑步骤和高级参数。",
                     "Press the trigger to start; press again to stop. After creation, edit steps and advanced options in the main window.") };
             AddRow(fields, "", help);
-            Label limit = new Label { AutoSize = true, Dock = DockStyle.Fill, Text = kind == QuickTemplate.HeldMapping
-                ? T("多个宏可以同时运行。同一个触发键用于多个宏时，优先执行列表中靠前的宏。预览不会操作电脑。",
-                    "Macros can run together. If shortcuts are shared, the first macro in the list takes priority. Preview does not control your computer.")
-                : T("多个宏可以同时运行。预览不会操作电脑；创建后可在主界面继续编辑。",
-                    "Macros can run together. Preview does not control your computer. You can edit the macro after creating it.") };
-            AddRow(fields, "", limit);
-            FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+            readyLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Accent, TextAlign = ContentAlignment.MiddleLeft, MaximumSize = new Size(520, 0), Padding = new Padding(0, 4, 12, 4) };
+            TableLayoutPanel footer = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, Padding = new Padding(0, 12, 0, 0), MinimumSize = new Size(0, 58) };
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             Button cancel = ButtonFor(T("取消", "Cancel"), delegate { DialogResult = DialogResult.Cancel; });
             cancel.DialogResult = DialogResult.Cancel;
             Button create = ButtonFor(T("创建", "Create"), CreateMacro);
-            footer.Controls.AddRange(new Control[] { cancel, create });
-            root.Controls.Add(footer, 0, 1);
+            createButton = create;
+            footer.Controls.Add(readyLabel, 0, 0);
+            footer.Controls.Add(create, 1, 0);
+            footer.Controls.Add(cancel, 2, 0);
+            root.Controls.Add(footer, 0, 2);
             CancelButton = cancel;
             AcceptButton = create;
+            EditorTheme.Apply(this);
+            EditorTheme.Primary(create, false);
+            UpdateReadyState();
         }
 
         internal static string Title(QuickTemplate kind)
         {
-            return kind == QuickTemplate.HeldMapping ? T("按住映射", "Held mapping") :
-                kind == QuickTemplate.Repeat ? T("定次数连按", "Repeat an action") : T("顺序执行", "Sequence");
+            return kind == QuickTemplate.HeldMapping ? T("按住控制手柄", "Hold a controller input") :
+                kind == QuickTemplate.Repeat ? T("重复按键", "Repeat an action") : T("按顺序执行", "Run a sequence");
         }
         private static NumericUpDown Number(int min, int max, int value)
         {
@@ -175,7 +184,7 @@ namespace InputStitch
         }
         private static Button ButtonFor(string text, EventHandler click)
         {
-            Button result = new Button { Text = text, AutoSize = true, MinimumSize = new Size(80, 32) };
+            Button result = new EditorButton { Text = text, AutoSize = true, MinimumSize = new Size(80, 36) };
             result.Click += click;
             return result;
         }
@@ -194,6 +203,7 @@ namespace InputStitch
         {
             triggerButton.Text = trigger == null ? T("选择触发键…", "Choose trigger…") : InputNames.FormatTrigger(trigger);
             triggerButton.Enabled = true;
+            UpdateReadyState();
         }
         private void ChooseTrigger(object sender, EventArgs e)
         {
@@ -243,6 +253,16 @@ namespace InputStitch
             stepList.Items.Clear();
             foreach (MacroStep step in steps) stepList.Items.Add(InputNames.FormatAction(step.Action) + " · " + InputNames.FormatInput(step));
             if (stepList.Items.Count > 0) stepList.SelectedIndex = stepList.Items.Count - 1;
+            UpdateReadyState();
+        }
+        private void UpdateReadyState()
+        {
+            if (createButton == null) return;
+            bool hasActions = template == QuickTemplate.HeldMapping || steps.Count > 0;
+            createButton.Enabled = trigger != null && hasActions;
+            readyLabel.Text = trigger == null ? T("下一步：选择用来启动宏的触发键。", "Next: choose the shortcut that starts your macro.")
+                : !hasActions ? T("下一步：点击“添加操作”，选择宏要替你按的键。", "Next: add an action and choose the key your macro will press.")
+                : T("已准备好，点击“创建”保存到宏列表。", "Ready. Click Create to save it to your macro list.");
         }
         private void CreateMacro(object sender, EventArgs e)
         {

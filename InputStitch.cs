@@ -76,6 +76,12 @@ namespace InputStitch
 
         private static readonly Dictionary<string, string> En = new Dictionary<string, string>()
         {
+            { "＋ 新建宏", "＋ New macro" },
+            { "导入与备份 ▾", "Import & backup ▾" },
+            { "＋ 添加步骤", "＋ Add step" },
+            { "＋ 添加第一个步骤", "＋ Add your first step" },
+            { "每个步骤就是一次按键或鼠标操作。\r\n试着添加第一个步骤，设置要按的键和等待时间。", "A step is one keyboard or mouse action.\r\nAdd your first step, then choose a key and a wait time." },
+            { "导入宏、分享宏，或备份与载入整套方案。", "Import or share macros, or back up and restore your full setup." },
             { "如何触发", "When to run" },
             { "启用触发键", "Shortcut enabled" },
             { "全部停止", "Stop all" },
@@ -3223,8 +3229,8 @@ namespace InputStitch
             Text = AppInfo.ProductName + " " + AppInfo.Version;
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(900, 600);
-            Size = new Size(1180, 760);
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Size = new Size(1240, 860);
+            Font = new Font("Microsoft YaHei UI", 10F);
             BackColor = Color.FromArgb(244, 247, 251);
             try
             {
@@ -3623,7 +3629,7 @@ namespace InputStitch
 
         private Button MakeButton(string text, int x, int y, int w)
         {
-            Button b = new Button();
+            Button b = new EditorButton();
             b.Text = text;
             if (w > 0) b.Size = new Size(w, 32);
             else b.Size = new Size(88, 32);
@@ -3638,7 +3644,7 @@ namespace InputStitch
             box.Dock = DockStyle.Top;
             box.AutoSize = true;
             box.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            box.Padding = new Padding(16, 38, 16, 14);
+            box.Padding = new Padding(18, 48, 18, 16);
             box.Margin = new Padding(0, 0, 0, 12);
             box.BackColor = Color.White;
             return box;
@@ -4610,6 +4616,7 @@ namespace InputStitch
                 redoStepsButton.Text = VirtualKeyboardDialog.TextFor("重做", "Redo");
             }
             RefreshSaveWarning();
+            RefreshEditorGuidance();
             if (m == null || m.Steps == null) return;
             int i = 1;
             foreach (MacroStep step in m.Steps)

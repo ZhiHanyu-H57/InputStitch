@@ -41,6 +41,8 @@ namespace InputStitch
         private InputSpec selectedInput;
         private MainForm ownerMain;
         private bool loadingControls = true;
+        private Label stepPreviewText;
+        private EditorKeyPreview keyPreview;
 
         public MacroStep ResultStep;
         public List<MacroStep> ResultSteps;
@@ -55,15 +57,24 @@ namespace InputStitch
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            Load += delegate { EditorTheme.Apply(this); };
-            MinimumSize = new Size(820, 520);
-            ClientSize = new Size(980, 570);
-            Font = new Font("Microsoft YaHei UI", 9F);
+            MinimumSize = new Size(900, 600);
+            ClientSize = new Size(980, 590);
+            Font = new Font("Microsoft YaHei UI", 10F);
             BackColor = Color.FromArgb(247, 249, 252);
+
+            TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(24, 16, 24, 12) };
+            shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
+            shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+            Controls.Add(shell);
+            shell.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = source == null ? Localizer.T("添加宏步骤") : Localizer.T("编辑宏步骤"),
+                Description = Localizer.IsEnglish ? "Choose what to press, how long to hold it, and when to move on." : "选择要按的键、按住多久，以及多久后执行下一步。" }, 0, 0);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
-            root.Padding = new Padding(20);
+            root.Padding = new Padding(16);
+            root.BackColor = Color.White;
             root.AutoScroll = true;
             root.ColumnCount = 4;
             root.RowCount = 8;
@@ -73,7 +84,7 @@ namespace InputStitch
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270F));
             for (int i = 0; i < 7; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            Controls.Add(root);
+            shell.Controls.Add(root, 0, 1);
 
             Label aLabel = new Label();
             aLabel.Text = "操作：";
@@ -82,7 +93,7 @@ namespace InputStitch
             aLabel.TextAlign = ContentAlignment.MiddleLeft;
             root.Controls.Add(aLabel, 0, 0);
 
-            actionBox = new ComboBox();
+            actionBox = new EditorChoice();
             actionBox.DropDownStyle = ComboBoxStyle.DropDownList;
             actionBox.Items.AddRange(new object[] { Localizer.T("按一下（按下→等待→松开）"), Localizer.T("持续按住（直到松开或宏停止）"), Localizer.T("松开按键") });
             actionBox.Dock = DockStyle.Fill;
@@ -98,7 +109,7 @@ namespace InputStitch
             typeLabel.TextAlign = ContentAlignment.MiddleLeft;
             root.Controls.Add(typeLabel, 0, 1);
 
-            inputTypeBox = new ComboBox();
+            inputTypeBox = new EditorChoice();
             inputTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
             inputTypeBox.Items.Add(Localizer.T("键盘 / 鼠标"));
             inputTypeBox.Items.Add(Localizer.T("虚拟手柄"));
@@ -121,7 +132,7 @@ namespace InputStitch
             inputText.ReadOnly = true;
             root.Controls.Add(inputText, 1, 2);
 
-            captureButton = new Button();
+            captureButton = new EditorButton();
             captureButton.Text = Localizer.T("捕获输入");
             captureButton.AutoSize = true;
             captureButton.MinimumSize = new Size(122, 32);
@@ -141,7 +152,7 @@ namespace InputStitch
             gamepadPanel.AutoSize = true;
             gamepadPanel.WrapContents = true;
             gamepadPanel.Margin = new Padding(0);
-            gamepadControlBox = new ComboBox();
+            gamepadControlBox = new EditorChoice();
             gamepadControlBox.DropDownStyle = ComboBoxStyle.DropDownList;
             gamepadControlBox.Width = 250;
             gamepadControlBox.Margin = new Padding(3, 4, 14, 6);
@@ -173,6 +184,9 @@ namespace InputStitch
             gamepadPreview.Margin = new Padding(16, 0, 0, 8);
             root.Controls.Add(gamepadPreview, 3, 0);
             root.SetRowSpan(gamepadPreview, 7);
+            keyPreview = new EditorKeyPreview { Dock = DockStyle.Fill, Margin = new Padding(16, 0, 0, 8) };
+            root.Controls.Add(keyPreview, 3, 0);
+            root.SetRowSpan(keyPreview, 7);
 
             holdLabel = new Label();
             holdLabel.Text = "按住时长：";
@@ -289,23 +303,29 @@ namespace InputStitch
             buttons.WrapContents = false;
             buttons.Margin = new Padding(0, 16, 0, 0);
 
-            Button ok = new Button();
-            ok.Text = "确定";
+            Button ok = new EditorButton();
+            ok.Text = source == null ? (Localizer.IsEnglish ? "Add step" : "添加步骤") : (Localizer.IsEnglish ? "Save step" : "保存步骤");
             ok.AutoSize = true;
             ok.MinimumSize = new Size(96, 34);
             ok.DialogResult = DialogResult.None;
             ok.Click += Ok_Click;
             buttons.Controls.Add(ok);
 
-            Button cancel = new Button();
+            Button cancel = new EditorButton();
             cancel.Text = "取消";
             cancel.AutoSize = true;
             cancel.MinimumSize = new Size(96, 34);
             cancel.DialogResult = DialogResult.Cancel;
             buttons.Controls.Add(cancel);
-            root.Controls.Add(buttons, 0, 7);
-            root.SetColumnSpan(buttons, 4);
+            shell.Controls.Add(buttons, 0, 2);
             CancelButton = cancel;
+            AcceptButton = ok;
+            stepPreviewText = new Label { AutoSize = true, Dock = DockStyle.Top, ForeColor = EditorTheme.Accent,
+                BackColor = EditorTheme.Selection, Padding = new Padding(12), Margin = new Padding(0, 14, 0, 0), MaximumSize = new Size(840, 0), MinimumSize = new Size(0, 70) };
+            root.Controls.Add(stepPreviewText, 0, 7);
+            root.SetColumnSpan(stepPreviewText, 4);
+            foreach (NumericUpDown number in new[] { holdBox, delayBox, randomMinBox, randomMaxBox })
+                number.ValueChanged += delegate { UpdateStepPreview(); };
 
             if (source == null)
             {
@@ -346,6 +366,9 @@ namespace InputStitch
             UpdateHoldEnabled();
             UpdateDelayControls();
             Localizer.ApplyStaticControls(this);
+            EditorTheme.Apply(this);
+            EditorTheme.Primary(ok, false);
+            UpdateStepPreview();
         }
 
         private static decimal ClampDecimal(int x, decimal min, decimal max)
@@ -485,6 +508,15 @@ namespace InputStitch
                     selectedInput.GamepadControl, (int)stickAngleBox.Value,
                     (int)stickStrengthBox.Value, (int)triggerValueBox.Value);
             }
+            if (keyPreview != null)
+            {
+                bool gamepad = selectedInput.Kind == InputKind.Gamepad;
+                keyPreview.Visible = !gamepad;
+                gamepadPreview.Visible = gamepad;
+                keyPreview.Text = inputText.Text;
+                keyPreview.Invalidate();
+            }
+            UpdateStepPreview();
         }
 
         private void UpdateHoldEnabled()
@@ -493,6 +525,7 @@ namespace InputStitch
             bool holdable = selectedInput == null || InputSender.IsHoldable(selectedInput);
             holdBox.Enabled = press && holdable;
             holdLabel.Enabled = press && holdable;
+            UpdateStepPreview();
         }
 
         private void SelectVirtualKeyboardInput(object sender, EventArgs e)
@@ -519,6 +552,22 @@ namespace InputStitch
             randomDelayLabel.Enabled = random;
             randomMinBox.Enabled = random;
             randomMaxBox.Enabled = random;
+            UpdateStepPreview();
+        }
+
+        private void UpdateStepPreview()
+        {
+            if (loadingControls || stepPreviewText == null || selectedInput == null) return;
+            string input = selectedInput.Kind == InputKind.Gamepad ? InputNames.FormatInput(selectedInput) : inputText.Text;
+            bool english = Localizer.IsEnglish;
+            string action = actionBox.SelectedIndex == 0
+                ? (english ? "Press " + input + (holdBox.Enabled ? " for " + holdBox.Value + " ms, then release." : ".") : "按一下 " + input + (holdBox.Enabled ? "，按住 " + holdBox.Value + " 毫秒后松开。" : "。"))
+                : actionBox.SelectedIndex == 1
+                    ? (english ? "Hold " + input + " until a release step or the macro stops." : "持续按住 " + input + "，直到松开步骤或宏停止。")
+                    : (english ? "Release " + input + "." : "松开 " + input + "。");
+            string wait = randomDelayBox.Checked ? randomMinBox.Value + "–" + randomMaxBox.Value : delayBox.Value.ToString();
+            stepPreviewText.Text = (english ? "THIS STEP\r\n" : "这个步骤会\r\n") + action + (english ? " Then wait " + wait + " ms before the next step." : " 再等待 " + wait + " 毫秒，进入下一步。") +
+                (english ? "\r\n1000 ms = 1 second" : "\r\n1000 毫秒 = 1 秒");
         }
 
         private void Ok_Click(object sender, EventArgs e)

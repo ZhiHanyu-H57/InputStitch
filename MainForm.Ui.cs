@@ -31,14 +31,15 @@ namespace InputStitch
             Controls.Add(split);
             split.Panel1MinSize = 220;
             split.Panel2MinSize = 600;
-            split.SplitterDistance = 278;
+            split.SplitterDistance = 280;
 
             TableLayoutPanel leftRoot = new TableLayoutPanel();
             leftRoot.Dock = DockStyle.Fill;
             leftRoot.Padding = new Padding(12);
             leftRoot.ColumnCount = 1;
-            leftRoot.RowCount = 4;
+            leftRoot.RowCount = 5;
             leftRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -52,10 +53,9 @@ namespace InputStitch
             leftHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             leftHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             leftHeader.Margin = new Padding(0, 0, 0, 10);
-            Label leftTitle = new Label();
-            leftTitle.Text = "InputStitch";
-            leftTitle.Font = new Font(Font.FontFamily, 16F, FontStyle.Bold);
-            leftTitle.AutoSize = true;
+            Control leftTitle = new EditorWordmark();
+            leftTitle.Size = new Size(202, 48);
+            leftTitle.Dock = DockStyle.Fill;
             leftTitle.Anchor = AnchorStyles.Left;
             toolsButton = new GearButton();
             toolsButton.Size = new Size(36, 36);
@@ -67,37 +67,16 @@ namespace InputStitch
             leftHeader.Controls.Add(toolsButton, 1, 0);
             leftRoot.Controls.Add(leftHeader, 0, 0);
 
-            TableLayoutPanel packageButtons = new TableLayoutPanel();
-            packageButtons.Dock = DockStyle.Fill;
-            packageButtons.AutoSize = true;
-            packageButtons.ColumnCount = 2;
-            packageButtons.RowCount = 2;
-            packageButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            packageButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            packageButtons.Margin = new Padding(0, 0, 0, 10);
-            Button importConfigButton = MakeButton("导入宏", 0, 0, 0);
-            Button exportConfigButton = MakeButton("导出宏", 0, 0, 0);
-            Button loadProfileButton = MakeButton("载入方案", 0, 0, 0);
-            Button saveProfileButton = MakeButton("保存方案", 0, 0, 0);
-            foreach (Button b in new Button[] { importConfigButton, exportConfigButton, loadProfileButton, saveProfileButton })
-            {
-                b.Dock = DockStyle.Fill;
-                b.AutoSize = true;
-                b.MinimumSize = new Size(0, 34);
-            }
-            importConfigButton.Margin = new Padding(0, 0, 3, 3);
-            exportConfigButton.Margin = new Padding(3, 0, 0, 3);
-            loadProfileButton.Margin = new Padding(0, 3, 3, 0);
-            saveProfileButton.Margin = new Padding(3, 3, 0, 0);
-            importConfigButton.Click += ImportConfigButton_Click;
-            exportConfigButton.Click += ExportConfigButton_Click;
-            loadProfileButton.Click += LoadProfileButton_Click;
-            saveProfileButton.Click += SaveProfileButton_Click;
-            packageButtons.Controls.Add(importConfigButton, 0, 0);
-            packageButtons.Controls.Add(exportConfigButton, 1, 0);
-            packageButtons.Controls.Add(loadProfileButton, 0, 1);
-            packageButtons.Controls.Add(saveProfileButton, 1, 1);
-            leftRoot.Controls.Add(packageButtons, 0, 1);
+            Button addMacro = MakeButton("＋ 新建宏", 0, 0, 0);
+            newMacroButton = addMacro;
+            addMacro.Dock = DockStyle.Fill;
+            addMacro.MinimumSize = new Size(0, 44);
+            addMacro.Margin = new Padding(0, 4, 0, 18);
+            addMacro.Font = new Font(Font, FontStyle.Bold);
+            addMacro.Click += ShowNewMacroChooser;
+            leftRoot.Controls.Add(addMacro, 0, 1);
+            macroCountLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 0, 0, 10) };
+            leftRoot.Controls.Add(macroCountLabel, 0, 2);
 
             macroList = new ListBox();
             macroList.Dock = DockStyle.Fill;
@@ -105,43 +84,36 @@ namespace InputStitch
             macroList.BorderStyle = BorderStyle.None;
             macroList.BackColor = Color.White;
             macroList.DrawMode = DrawMode.OwnerDrawFixed;
-            macroList.ItemHeight = 60;
+            macroList.ItemHeight = 76;
             macroList.DrawItem += DrawMacroItem;
             macroList.Margin = new Padding(0, 0, 0, 10);
             macroList.SelectedIndexChanged += MacroList_SelectedIndexChanged;
-            leftRoot.Controls.Add(macroList, 0, 2);
+            leftRoot.Controls.Add(macroList, 0, 3);
 
             FlowLayoutPanel macroButtons = new FlowLayoutPanel();
             macroButtons.Dock = DockStyle.Fill;
             macroButtons.AutoSize = true;
             macroButtons.WrapContents = true;
             macroButtons.Margin = new Padding(0);
-            Button addMacro = MakeButton("新增", 0, 0, 0);
             Button copyMacro = MakeButton("复制", 0, 0, 0);
             Button delMacro = MakeButton("删除", 0, 0, 0);
             Button upMacro = MakeButton("↑", 0, 0, 0);
             Button downMacro = MakeButton("↓", 0, 0, 0);
-            foreach (Button b in new Button[] { addMacro, copyMacro, delMacro }) { b.AutoSize = true; b.AutoSizeMode = AutoSizeMode.GrowAndShrink; b.MinimumSize = new Size(72, 32); }
+            foreach (Button b in new Button[] { copyMacro, delMacro }) { b.AutoSize = true; b.AutoSizeMode = AutoSizeMode.GrowAndShrink; b.MinimumSize = new Size(62, 32); }
             upMacro.Size = downMacro.Size = new Size(34, 32);
-            addMacro.Click += delegate
-            {
-                ContextMenuStrip menu = new ContextMenuStrip();
-                foreach (QuickTemplate kind in Enum.GetValues(typeof(QuickTemplate)))
-                {
-                    QuickTemplate selected = kind;
-                    menu.Items.Add(QuickCreateDialog.Title(kind), null, delegate { QuickCreateMacro(selected); });
-                }
-                menu.Items.Add(new ToolStripSeparator());
-                menu.Items.Add(VirtualKeyboardDialog.TextFor("空白宏（高级）", "Blank macro (advanced)"), null, AddMacro_Click);
-                menu.Closed += delegate { DeferContextMenuDispose(this, menu); };
-                menu.Show(addMacro, new Point(0, addMacro.Height));
-            };
             copyMacro.Click += CopyMacro_Click;
             delMacro.Click += DeleteMacro_Click;
             upMacro.Click += delegate { MoveSelectedMacro(-1); };
             downMacro.Click += delegate { MoveSelectedMacro(1); };
-            macroButtons.Controls.AddRange(new Control[] { addMacro, copyMacro, delMacro, upMacro, downMacro });
-            leftRoot.Controls.Add(macroButtons, 0, 3);
+            Button libraryButton = MakeButton("导入与备份 ▾", 0, 0, 0);
+            libraryButton.AutoSize = true;
+            libraryButton.MinimumSize = new Size(238, 36);
+            libraryButton.Margin = new Padding(0, 0, 0, 8);
+            libraryButton.Click += ShowLibraryMenu;
+            macroButtons.Controls.Add(libraryButton);
+            macroButtons.SetFlowBreak(libraryButton, true);
+            macroButtons.Controls.AddRange(new Control[] { copyMacro, delMacro, upMacro, downMacro });
+            leftRoot.Controls.Add(macroButtons, 0, 4);
 
             Panel rightHost = new Panel();
             rightHost.Dock = DockStyle.Fill;
@@ -199,6 +171,7 @@ namespace InputStitch
             rightRoot.Controls.Add(detailsGroup, 0, 0);
 
             GroupBox triggerGroup = MakeMainGroup("如何触发");
+            ((EditorSection)triggerGroup).Badge = "1";
             TableLayoutPanel triggerLayout = MakeFormGrid();
             triggerGroup.Controls.Add(triggerLayout);
 
@@ -336,14 +309,16 @@ namespace InputStitch
             rightRoot.Controls.Add(targetGroup, 0, 2);
 
             GroupBox stepsGroup = MakeMainGroup("执行步骤");
+            ((EditorSection)stepsGroup).Badge = "2";
             stepsGroup.Dock = DockStyle.Fill;
             stepsGroup.AutoSize = false;
-            stepsGroup.MinimumSize = new Size(0, 300);
+            stepsGroup.MinimumSize = new Size(0, 340);
             TableLayoutPanel stepsLayout = new TableLayoutPanel();
             stepsLayout.Dock = DockStyle.Fill;
             stepsLayout.ColumnCount = 1;
-            stepsLayout.RowCount = 3;
+            stepsLayout.RowCount = 4;
             stepsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            stepsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             // Leave room for the horizontal scrollbar as well as a full-height button.
@@ -412,7 +387,9 @@ namespace InputStitch
             primaryActions.Controls.Add(stepRunButton);
             primaryActions.Controls.Add(recordButton);
             stepsHeader.Controls.Add(primaryActions, 1, 0);
-            stepsLayout.Controls.Add(stepsHeader, 0, 0);
+            stepsHintLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(0, 0, 0, 10) };
+            stepsLayout.Controls.Add(stepsHintLabel, 0, 0);
+            stepsLayout.Controls.Add(stepsHeader, 0, 1);
             FlowLayoutPanel historyButtons = new FlowLayoutPanel();
             historyButtons.AutoSize = true;
             historyButtons.WrapContents = false;
@@ -444,8 +421,8 @@ namespace InputStitch
             grid.Columns.Add("Index", "#");
             grid.Columns.Add("Action", "操作");
             grid.Columns.Add("Input", "按键 / 鼠标 / 手柄");
-            grid.Columns.Add("Hold", "按住时长 (ms)");
-            grid.Columns.Add("Delay", "步骤后间隔 (ms)");
+            grid.Columns.Add("Hold", "按住 (ms)");
+            grid.Columns.Add("Delay", "等待 (ms)");
             grid.Columns[0].Width = 45;
             grid.Columns[0].MinimumWidth = 40;
             grid.Columns[1].Width = 125;
@@ -466,14 +443,32 @@ namespace InputStitch
                     e.SuppressKeyPress = true;
                 }
             };
-            stepsLayout.Controls.Add(grid, 0, 1);
+            Panel stepsHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 8) };
+            stepsHost.Controls.Add(grid);
+            emptyStepsPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 253) };
+            TableLayoutPanel emptyContent = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 2 };
+            emptyContent.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            emptyContent.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            emptyContent.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            Label emptyText = new Label { Text = "每个步骤就是一次按键或鼠标操作。\r\n试着添加第一个步骤，设置要按的键和等待时间。", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = EditorTheme.Muted };
+            Button firstStep = MakeButton("＋ 添加第一个步骤", 0, 0, 190);
+            firstStep.AutoSize = true;
+            firstStep.Anchor = AnchorStyles.None;
+            firstStep.Click += delegate { AddStep(); };
+            emptyContent.Controls.Add(emptyText, 0, 0);
+            emptyContent.Controls.Add(firstStep, 0, 1);
+            emptyStepsPanel.Controls.Add(emptyContent);
+            stepsHost.Controls.Add(emptyStepsPanel);
+            emptyStepsPanel.BringToFront();
+            RegisterUiSafetyControl(firstStep, "添加宏步骤");
+            stepsLayout.Controls.Add(stepsHost, 0, 2);
 
             FlowLayoutPanel stepFooter = new FlowLayoutPanel();
             stepFooter.Dock = DockStyle.Fill;
             stepFooter.AutoSize = false;
             stepFooter.WrapContents = false;
             stepFooter.AutoScroll = true;
-            Button addStep = MakeButton("添加", 0, 0, 0);
+            Button addStep = MakeButton("＋ 添加步骤", 0, 0, 0);
             Button editStep = MakeButton("编辑", 0, 0, 0);
             Button copyStep = MakeButton("复制步骤", 0, 0, 0);
             Button delStep = MakeButton("删除", 0, 0, 0);
@@ -486,6 +481,8 @@ namespace InputStitch
                 b.MinimumSize = new Size(66, 32);
                 b.Margin = new Padding(0, 0, 6, 4);
             }
+            addStepButton = addStep;
+            editStepButton = editStep;
             addStep.Click += delegate { AddStep(); };
             editStep.Click += delegate { EditSelectedStep(); };
             copyStep.Click += delegate { CopySelectedSteps(); };
@@ -494,13 +491,10 @@ namespace InputStitch
             downStep.Click += delegate { MoveSelectedStep(1); };
             batchDelayStep.Click += delegate { BatchEditSelectedStepDelay(); };
             stepFooter.Controls.AddRange(new Control[] { addStep, editStep, copyStep, delStep, upStep, downStep, batchDelayStep });
-            stepsLayout.Controls.Add(stepFooter, 0, 2);
+            stepsLayout.Controls.Add(stepFooter, 0, 3);
             rightRoot.Controls.Add(stepsGroup, 0, 3);
 
-            SetTip(importConfigButton, "导入一个或多个宏包，把其中的宏追加到当前列表末尾，不覆盖已有宏。" );
-            SetTip(exportConfigButton, "选择一个或多个宏导出为宏包，适合分享、备份或合并到其他列表。" );
-            SetTip(loadProfileButton, "载入一套完整配置方案。方案会替换当前宏列表和相关设置，载入前自动备份。" );
-            SetTip(saveProfileButton, "把当前宏列表和程序设置保存为一套方案；可选择绑定目标进程以供自动切换。" );
+            SetTip(libraryButton, "导入宏、分享宏，或备份与载入整套方案。");
             SetTip(toolsButton, "打开安全、诊断、托盘和关于选项。" );
             SetTip(upMacro, "将当前宏在列表中上移一位；多个已启用宏共用触发键时，列表靠上的宏优先触发。" );
             SetTip(downMacro, "将当前宏在列表中下移一位；多个已启用宏共用触发键时，列表靠上的宏优先触发。" );
@@ -521,10 +515,7 @@ namespace InputStitch
             SetTip(batchDelayStep, "批量设置所选步骤的固定间隔或简单随机间隔范围。" );
             SetTip(runButton, "开始执行所选宏；所选宏正在运行时用于停止所选宏。" );
 
-            RegisterUiSafetyControl(importConfigButton, "导入宏");
-            RegisterUiSafetyControl(exportConfigButton, "导出宏");
-            RegisterUiSafetyControl(loadProfileButton, "载入配置方案");
-            RegisterUiSafetyControl(saveProfileButton, "保存配置方案");
+            RegisterUiSafetyControl(libraryButton, "导入与备份");
             RegisterUiSafetyControl(toolsButton, "打开工具菜单");
             RegisterUiSafetyControl(macroList, "选择宏");
             RegisterUiSafetyControl(addMacro, "新增宏");
@@ -630,6 +621,8 @@ namespace InputStitch
             CaptureLocalizableControlTexts(this);
             ApplyLanguageToMainUi(false);
             EditorTheme.Apply(this);
+            EditorTheme.Primary(newMacroButton, false);
+            RefreshEditorGuidance();
             UpdateRunButton();
             ApplyStatusVisuals();
         }
@@ -640,7 +633,7 @@ namespace InputStitch
             foreach (Control child in root.Controls)
             {
                 bool isStaticTextControl = child is Label || child is Button || child is CheckBox || child is RadioButton || child is GroupBox;
-                bool isDynamic = child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton || child == activatorConditionButton;
+                bool isDynamic = child == macroCountLabel || child == stepsHintLabel || child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton || child == activatorConditionButton;
                 if (isStaticTextControl && !isDynamic && !localizableControlTexts.ContainsKey(child))
                     localizableControlTexts.Add(child, child.Text ?? "");
                 CaptureLocalizableControlTexts(child);
@@ -673,8 +666,10 @@ namespace InputStitch
                 grid.Columns[0].HeaderText = "#";
                 grid.Columns[1].HeaderText = Localizer.T("操作");
                 grid.Columns[2].HeaderText = Localizer.T("按键 / 鼠标 / 手柄");
-                grid.Columns[3].HeaderText = Localizer.T("按住时长 (ms)");
-                grid.Columns[4].HeaderText = Localizer.T("步骤后间隔 (ms)");
+                grid.Columns[3].HeaderText = Localizer.IsEnglish ? "Hold (ms)" : "按住 (ms)";
+                grid.Columns[4].HeaderText = Localizer.IsEnglish ? "Wait (ms)" : "等待 (ms)";
+                grid.Columns[3].ToolTipText = Localizer.IsEnglish ? "How long to hold the input before releasing it. 1000 ms = 1 second." : "按住按键后，经过多久松开。1000 毫秒 = 1 秒。";
+                grid.Columns[4].ToolTipText = Localizer.IsEnglish ? "How long to wait after this action before the next step." : "这个操作完成后，等待多久再执行下一步。";
             }
 
             RefreshMenuLanguage();
@@ -1096,8 +1091,10 @@ namespace InputStitch
                         config.Language = dialog.SelectedLanguage;
                         Localizer.SetLanguage(config.Language);
                         ApplyLanguageToMainUi(false);
-            EditorTheme.Apply(this);
-            UpdateRunButton();
+                        EditorTheme.Apply(this);
+                        EditorTheme.Primary(newMacroButton, false);
+                        RefreshEditorGuidance();
+                        UpdateRunButton();
                     }
                     UpdateUiSafetyPauseState();
                     SaveConfig();
