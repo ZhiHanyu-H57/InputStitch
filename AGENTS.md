@@ -66,3 +66,16 @@ Before switching development machines:
 4. Update `HANDOFF.md` with the exact current state, remaining work, known issues, constraints, and last verified code commit.
 5. Commit and push the handoff documentation.
 6. Confirm the working tree is clean and `main` is synchronized with the remote.
+
+## Product acceptance policy (2026-10-20)
+
+- New feature work is paused during the product refresh; see `docs/PRODUCT_REFRESH.md`.
+- Stable 1.4.3 is a user-confirmed long-used baseline. Preserve its official behavior.
+- Routine UI/editing/runtime completion is determined by regression, automated workflow,
+  output acceptance and sustained-run evidence. Do not require another user trial run.
+- Run `tests/Run-ProductAcceptance.ps1` for editor changes and the sustained variant for
+  runtime/release acceptance; report its actual duration and backend, never an assumed one.
+- Specific physical-device/driver/game compatibility claims retain their own evidence
+  scope and do not become blanket manual gates for the ordinary macro product.
+- Keep development history and compatibility adapters out of user-facing settings.
+  See `docs/AUTOMATED_ACCEPTANCE.md` for commands and evidence limits.

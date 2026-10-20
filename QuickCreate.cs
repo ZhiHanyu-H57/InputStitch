@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -73,6 +73,7 @@ namespace InputStitch
             MinimumSize = new Size(720, 500);
             ClientSize = new Size(820, 560);
             StartPosition = FormStartPosition.CenterParent;
+            Load += delegate { EditorTheme.Apply(this); };
             MinimizeBox = MaximizeBox = false;
             BackColor = Color.FromArgb(247, 249, 252);
             TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(16) };
@@ -148,10 +149,10 @@ namespace InputStitch
                     "Press the trigger to start; press again to stop. After creation, edit steps and advanced options in the main window.") };
             AddRow(fields, "", help);
             Label limit = new Label { AutoSize = true, Dock = DockStyle.Fill, Text = kind == QuickTemplate.HeldMapping
-                ? T("按住映射、普通时序宏和高级 Hold 可以并发运行；同触发键继续按宏列表顺序决定优先级。此处预览不发送真实输入。",
-                    "Held Mappings, ordinary timed macros, and Advanced Hold runs can execute concurrently. Shared triggers still use macro-list priority. Preview sends no input.")
-                : T("不同的普通时序宏可以同时运行，并可与按住映射和高级 Hold 共存。此处预览不发送真实输入。",
-                    "Distinct ordinary timed macros can run concurrently and coexist with Held Mappings and Advanced Hold runs. Preview sends no input.") };
+                ? T("多个宏可以同时运行。同一个触发键用于多个宏时，优先执行列表中靠前的宏。预览不会操作电脑。",
+                    "Macros can run together. If shortcuts are shared, the first macro in the list takes priority. Preview does not control your computer.")
+                : T("多个宏可以同时运行。预览不会操作电脑；创建后可在主界面继续编辑。",
+                    "Macros can run together. Preview does not control your computer. You can edit the macro after creating it.") };
             AddRow(fields, "", limit);
             FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
             Button cancel = ButtonFor(T("取消", "Cancel"), delegate { DialogResult = DialogResult.Cancel; });

@@ -1,4 +1,4 @@
-# Production source manifest — the single authoritative list of files compiled into InputStitch.
+﻿# Production source manifest — the single authoritative list of files compiled into InputStitch.
 #
 # Consumed by:
 #   - build.ps1                      (x64/x86 release build + Source.zip contents)
@@ -26,6 +26,7 @@ MainForm.Layers.cs
 MainForm.Diagnostics.cs
 MainForm.ControlledReplacement.cs
 MainForm.Ui.cs
+EditorPresentation.cs
 ReleaseInfo.cs
 UpdateInstaller.cs
 RuntimeDiagnostics.cs

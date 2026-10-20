@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -114,6 +114,7 @@ namespace InputStitch
             Text = Localizer.T("设置");
             Font = new Font("Microsoft YaHei UI", 9F);
             StartPosition = FormStartPosition.CenterParent;
+            Load += delegate { EditorTheme.Apply(this); };
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimizeBox = false;
             MaximizeBox = false;
@@ -489,8 +490,8 @@ namespace InputStitch
             if (string.Equals(policy.Mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase))
             {
                 gamepadRouterSourcesSummary.Text = Localizer.IsEnglish
-                    ? "Source policy: all visible external XInput controllers (backward-compatible default)."
-                    : "来源策略：所有可见的外部 XInput 手柄（兼容旧版本的默认行为）。";
+                    ? "Route all connected, identifiable external controllers."
+                    : "汇总所有已连接且可识别的外部手柄。";
                 gamepadRouterSourcesSummary.ForeColor = Color.FromArgb(86, 96, 112);
                 return;
             }

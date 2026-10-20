@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -31,7 +31,7 @@ namespace InputStitch
             Controls.Add(split);
             split.Panel1MinSize = 220;
             split.Panel2MinSize = 600;
-            split.SplitterDistance = 260;
+            split.SplitterDistance = 278;
 
             TableLayoutPanel leftRoot = new TableLayoutPanel();
             leftRoot.Dock = DockStyle.Fill;
@@ -53,8 +53,8 @@ namespace InputStitch
             leftHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             leftHeader.Margin = new Padding(0, 0, 0, 10);
             Label leftTitle = new Label();
-            leftTitle.Text = "宏列表";
-            leftTitle.Font = new Font(Font.FontFamily, 11F, FontStyle.Bold);
+            leftTitle.Text = "InputStitch";
+            leftTitle.Font = new Font(Font.FontFamily, 16F, FontStyle.Bold);
             leftTitle.AutoSize = true;
             leftTitle.Anchor = AnchorStyles.Left;
             toolsButton = new GearButton();
@@ -102,7 +102,11 @@ namespace InputStitch
             macroList = new ListBox();
             macroList.Dock = DockStyle.Fill;
             macroList.IntegralHeight = false;
-            macroList.BorderStyle = BorderStyle.FixedSingle;
+            macroList.BorderStyle = BorderStyle.None;
+            macroList.BackColor = Color.White;
+            macroList.DrawMode = DrawMode.OwnerDrawFixed;
+            macroList.ItemHeight = 60;
+            macroList.DrawItem += DrawMacroItem;
             macroList.Margin = new Padding(0, 0, 0, 10);
             macroList.SelectedIndexChanged += MacroList_SelectedIndexChanged;
             leftRoot.Controls.Add(macroList, 0, 2);
@@ -117,7 +121,7 @@ namespace InputStitch
             Button delMacro = MakeButton("删除", 0, 0, 0);
             Button upMacro = MakeButton("↑", 0, 0, 0);
             Button downMacro = MakeButton("↓", 0, 0, 0);
-            foreach (Button b in new Button[] { addMacro, copyMacro, delMacro }) { b.AutoSize = true; b.MinimumSize = new Size(54, 32); }
+            foreach (Button b in new Button[] { addMacro, copyMacro, delMacro }) { b.AutoSize = true; b.AutoSizeMode = AutoSizeMode.GrowAndShrink; b.MinimumSize = new Size(72, 32); }
             upMacro.Size = downMacro.Size = new Size(34, 32);
             addMacro.Click += delegate
             {
@@ -176,7 +180,7 @@ namespace InputStitch
             nameBox.TextChanged += NameBox_TextChanged;
             nameBox.Leave += NameBox_Leave;
             enabledBox = new CheckBox();
-            enabledBox.Text = "启用全局触发";
+            enabledBox.Text = "启用触发键";
             enabledBox.AutoSize = true;
             enabledBox.Anchor = AnchorStyles.Left;
             enabledBox.Margin = new Padding(12, 4, 0, 4);
@@ -194,83 +198,45 @@ namespace InputStitch
             details.SetColumnSpan(descriptionBox, 2);
             rightRoot.Controls.Add(detailsGroup, 0, 0);
 
-            GroupBox triggerGroup = MakeMainGroup("触发与循环");
+            GroupBox triggerGroup = MakeMainGroup("如何触发");
             TableLayoutPanel triggerLayout = MakeFormGrid();
             triggerGroup.Controls.Add(triggerLayout);
 
-            FlowLayoutPanel triggerTop = new FlowLayoutPanel();
-            triggerTop.Dock = DockStyle.Fill;
+            TableLayoutPanel triggerTop = new TableLayoutPanel();
+            triggerTop.Dock = DockStyle.Top;
             triggerTop.AutoSize = true;
-            triggerTop.WrapContents = true;
-            triggerTop.FlowDirection = FlowDirection.LeftToRight;
-            triggerTop.Margin = new Padding(0, 0, 0, 2);
-
-            TableLayoutPanel triggerKeyLine = new TableLayoutPanel();
-            triggerKeyLine.Height = 34;
-            triggerKeyLine.Margin = new Padding(0, 0, 8, 0);
-            triggerKeyLine.ColumnCount = 3;
-            triggerKeyLine.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92F));
-            triggerKeyLine.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            triggerKeyLine.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            Label triggerLabel = MakeFieldLabel("触发键：");
-            triggerBox = new TextBox();
-            triggerBox.Dock = DockStyle.Fill;
-            triggerBox.Margin = new Padding(0, 4, 8, 3);
-            triggerBox.ReadOnly = true;
+            triggerTop.ColumnCount = 3;
+            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108F));
+            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            triggerTop.Margin = new Padding(0, 0, 0, 8);
+            triggerBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, Margin = new Padding(0, 5, 10, 5) };
             captureTriggerButton = MakeButton(Localizer.T("录制触发键"), 0, 0, 0);
             captureTriggerButton.AutoSize = true;
             captureTriggerButton.MinimumSize = new Size(128, 32);
-            captureTriggerButton.Margin = new Padding(0);
             captureTriggerButton.Click += CaptureTriggerButton_Click;
-            triggerKeyLine.Controls.Add(triggerLabel, 0, 0);
-            triggerKeyLine.Controls.Add(triggerBox, 1, 0);
-            triggerKeyLine.Controls.Add(VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
+            triggerTop.Controls.Add(MakeFieldLabel("触发键："), 0, 0);
+            triggerTop.Controls.Add(triggerBox, 1, 0);
+            triggerTop.Controls.Add(VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
                 CaptureTriggerButton_Click, SelectVirtualKeyboardTrigger), 2, 0);
-
-            TableLayoutPanel triggerModeLine = new TableLayoutPanel();
-            triggerModeLine.Height = 34;
-            triggerModeLine.Margin = new Padding(0);
-            triggerModeLine.ColumnCount = 2;
-            triggerModeLine.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108F));
-            triggerModeLine.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            Label triggerModeLabel = MakeFieldLabel("触发方式：");
-            triggerModeBox = new ComboBox();
-            triggerModeBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            triggerModeBox.Dock = DockStyle.Fill;
-            triggerModeBox.Margin = new Padding(0, 3, 0, 3);
-            triggerModeBox.Items.AddRange(new object[] { Localizer.T("按一次切换启动/停止"), Localizer.T("按住运行，松开停止") });
+            triggerModeBox = new EditorChoice { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList,
+                Margin = new Padding(0, 5, 10, 5), DropDownWidth = 330 };
+            triggerModeBox.Items.AddRange(TriggerEditor.Names);
             triggerModeBox.SelectedIndexChanged += TriggerModeBox_SelectedIndexChanged;
-            triggerModeLine.Controls.Add(triggerModeLabel, 0, 0);
-            triggerModeLine.Controls.Add(triggerModeBox, 1, 0);
-            activatorConditionButton = MakeButton(Localizer.IsEnglish ? "Activation & conditions..." : "激活与条件...", 0, 0, 0);
+            triggerTop.Controls.Add(MakeFieldLabel("触发方式："), 0, 1);
+            triggerTop.Controls.Add(triggerModeBox, 1, 1);
+            activatorConditionButton = MakeButton(Localizer.IsEnglish ? "Timing & conditions…" : "时间与条件…", 0, 0, 0);
             activatorConditionButton.AutoSize = true;
-            activatorConditionButton.MinimumSize = new Size(154, 32);
-            activatorConditionButton.Margin = new Padding(8, 1, 0, 0);
+            activatorConditionButton.UseMnemonic = false;
+            activatorConditionButton.MinimumSize = new Size(128, 32);
             activatorConditionButton.Click += ActivatorConditionButton_Click;
-            triggerTop.Controls.Add(triggerKeyLine);
-            triggerTop.Controls.Add(triggerModeLine);
-            triggerTop.Controls.Add(activatorConditionButton);
+            triggerTop.Controls.Add(activatorConditionButton, 2, 1);
+            triggerBehaviorLabel = new Label { AutoSize = true, Dock = DockStyle.Fill,
+                ForeColor = EditorTheme.Muted, Margin = new Padding(0, 3, 0, 6), MaximumSize = new Size(560, 0) };
+            triggerTop.Controls.Add(triggerBehaviorLabel, 1, 2);
+            triggerTop.SetColumnSpan(triggerBehaviorLabel, 2);
             triggerLayout.Controls.Add(triggerTop, 0, 0);
             triggerLayout.SetColumnSpan(triggerTop, 3);
-            EventHandler resizeTriggerTop = delegate
-            {
-                int available = triggerLayout.ClientSize.Width;
-                if (available <= 0) return;
-                if (available >= 720)
-                {
-                    int first = Math.Max(350, (available - 8) * 52 / 100);
-                    triggerKeyLine.Width = first;
-                    triggerModeLine.Width = Math.Max(300, available - first - 8);
-                }
-                else
-                {
-                    int lineWidth = Math.Max(350, available - 4);
-                    triggerKeyLine.Width = lineWidth;
-                    triggerModeLine.Width = lineWidth;
-                }
-            };
-            triggerLayout.Resize += resizeTriggerTop;
-            Shown += delegate { resizeTriggerTop(triggerLayout, EventArgs.Empty); };
 
             Label repeatLabel = MakeFieldLabel("执行次数：");
             repeatBox = new NumericUpDown();
@@ -294,11 +260,21 @@ namespace InputStitch
             suppressBox.AutoSize = true;
             suppressBox.Anchor = AnchorStyles.Left;
             suppressBox.CheckedChanged += Settings_Changed;
-            triggerLayout.Controls.Add(suppressBox, 1, 2);
-            triggerLayout.SetColumnSpan(suppressBox, 2);
+            optionalSettingsButton = MakeButton("", 0, 0, 0);
+            optionalSettingsButton.AutoSize = true;
+            optionalSettingsButton.UseMnemonic = false;
+            optionalSettingsButton.Click += ToggleOptionalSettings;
+            triggerLayout.Controls.Add(optionalSettingsButton, 0, 3);
+            triggerLayout.SetColumnSpan(optionalSettingsButton, 3);
+            optionalSettingsPanel = MakeFormGrid();
+            optionalSettingsPanel.Visible = false;
+            optionalSettingsPanel.Controls.Add(suppressBox, 1, 0);
+            optionalSettingsPanel.SetColumnSpan(suppressBox, 2);
+            triggerLayout.Controls.Add(optionalSettingsPanel, 0, 4);
+            triggerLayout.SetColumnSpan(optionalSettingsPanel, 3);
 
             Label activeLayerLabel = MakeFieldLabel("当前映射层：");
-            activeLayerBox = new ComboBox();
+            activeLayerBox = new EditorChoice();
             activeLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
             activeLayerBox.Dock = DockStyle.Fill;
             activeLayerBox.SelectedIndexChanged += ActiveLayerBox_SelectedIndexChanged;
@@ -306,28 +282,28 @@ namespace InputStitch
             layerManageButton.AutoSize = true;
             layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
             layerManageButton.Click += delegate { ShowLayerManagementMenu(); };
-            triggerLayout.Controls.Add(activeLayerLabel, 0, 3);
-            triggerLayout.Controls.Add(activeLayerBox, 1, 3);
-            triggerLayout.Controls.Add(layerManageButton, 2, 3);
+            optionalSettingsPanel.Controls.Add(activeLayerLabel, 0, 1);
+            optionalSettingsPanel.Controls.Add(activeLayerBox, 1, 1);
+            optionalSettingsPanel.Controls.Add(layerManageButton, 2, 1);
 
             Label mappingLayerLabel = MakeFieldLabel("此宏属于：");
-            mappingLayerBox = new ComboBox();
+            mappingLayerBox = new EditorChoice();
             mappingLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
             mappingLayerBox.Dock = DockStyle.Fill;
             mappingLayerBox.SelectedIndexChanged += MappingLayerBox_SelectedIndexChanged;
-            triggerLayout.Controls.Add(mappingLayerLabel, 0, 4);
-            triggerLayout.Controls.Add(mappingLayerBox, 1, 4);
-            triggerLayout.SetColumnSpan(mappingLayerBox, 2);
+            optionalSettingsPanel.Controls.Add(mappingLayerLabel, 0, 2);
+            optionalSettingsPanel.Controls.Add(mappingLayerBox, 1, 2);
+            optionalSettingsPanel.SetColumnSpan(mappingLayerBox, 2);
 
-            runtimeCapabilityTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Runtime:" : "运行资格：");
+            runtimeCapabilityTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Status:" : "运行状态：");
             runtimeCapabilityLabel = new Label();
             runtimeCapabilityLabel.AutoSize = true;
             runtimeCapabilityLabel.Dock = DockStyle.Fill;
             runtimeCapabilityLabel.Margin = new Padding(0, 5, 0, 3);
             runtimeCapabilityLabel.Padding = new Padding(0, 2, 0, 2);
             runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
-            triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 5);
-            triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 5);
+            triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 2);
+            triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 2);
             triggerLayout.SetColumnSpan(runtimeCapabilityLabel, 2);
             rightRoot.Controls.Add(triggerGroup, 0, 1);
 
@@ -356,6 +332,7 @@ namespace InputStitch
             targetLayout.Controls.Add(targetLabel, 0, 0);
             targetLayout.Controls.Add(targetWindowBox, 1, 0);
             targetLayout.Controls.Add(targetButtons, 2, 0);
+            targetGroup.Visible = false;
             rightRoot.Controls.Add(targetGroup, 0, 2);
 
             GroupBox stepsGroup = MakeMainGroup("执行步骤");
@@ -533,7 +510,7 @@ namespace InputStitch
             SetTip(infiniteBox, "持续重复整个宏，直到再次触发、松开按住型触发键、点击停止或使用紧急停止键。" );
             SetTip(repeatBox, "宏完整执行的次数。勾选无限循环后忽略此数值。" );
             SetTip(triggerModeBox, "选择按一次切换启动/停止，或按住触发键运行、松开立即停止。" );
-            SetTip(activatorConditionButton, "配置可选的按下/松开/按住/长按/双击激活规则，以及前台程序、稳定设备身份和模拟量区间条件。默认兼容旧触发方式。" );
+            SetTip(activatorConditionButton, Localizer.IsEnglish ? "Adjust press timing or limit when this macro can run." : "调整短按、长按、双击的时间，或限制这个宏在哪些情况下生效。" );
             SetTip(captureTriggerButton, "点击后按下希望使用的键盘键、鼠标按钮或滚轮方向来设置触发方式。" );
             SetTip(suppressBox, "触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。" );
             SetTip(targetWindowBox, "当前锁定的目标窗口。用于 UI 自动切换和保存方案时的进程绑定。" );
@@ -561,7 +538,7 @@ namespace InputStitch
             RegisterUiSafetyControl(triggerBox, "触发键设置");
             RegisterUiSafetyControl(captureTriggerButton, "录制触发键");
             RegisterUiSafetyControl(triggerModeBox, "修改触发方式");
-            RegisterUiSafetyControl(activatorConditionButton, "修改激活与条件规则");
+            RegisterUiSafetyControl(activatorConditionButton, "修改时间与条件");
             RegisterUiSafetyControl(suppressBox, "修改触发屏蔽设置");
             RegisterUiSafetyControl(repeatBox, "修改执行次数");
             RegisterUiSafetyControl(infiniteBox, "修改循环设置");
@@ -596,9 +573,11 @@ namespace InputStitch
             TableLayoutPanel statusLayout = new TableLayoutPanel();
             statusLayout.Dock = DockStyle.Fill;
             statusLayout.Padding = new Padding(14, 7, 14, 6);
-            statusLayout.ColumnCount = 1;
+            statusLayout.ColumnCount = 3;
             statusLayout.RowCount = 2;
             statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             statusLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
             statusLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
             bottom.Controls.Add(statusLayout);
@@ -618,6 +597,18 @@ namespace InputStitch
             panicHintLabel.TextAlign = ContentAlignment.MiddleLeft;
             panicHintLabel.ForeColor = SystemColors.GrayText;
             statusLayout.Controls.Add(panicHintLabel, 0, 1);
+            // Running and global stop remain reachable while the editor scrolls.
+            if (runButton.Parent != null) runButton.Parent.Controls.Remove(runButton);
+            runButton.MinimumSize = new Size(180, 38);
+            runButton.Anchor = AnchorStyles.Right;
+            statusLayout.Controls.Add(runButton, 1, 0);
+            statusLayout.SetRowSpan(runButton, 2);
+            Button emergencyStopButton = MakeButton("全部停止", 0, 0, 112);
+            emergencyStopButton.Anchor = AnchorStyles.Right;
+            emergencyStopButton.Margin = new Padding(12, 0, 0, 0);
+            emergencyStopButton.Click += delegate { EmergencyStop("ui-stop-all"); };
+            statusLayout.Controls.Add(emergencyStopButton, 2, 0);
+            statusLayout.SetRowSpan(emergencyStopButton, 2);
             saveWarning = new LinkLabel();
             saveWarning.Dock = DockStyle.Top;
             saveWarning.Height = 34;
@@ -638,6 +629,8 @@ namespace InputStitch
             UpdateTargetSectionVisibility();
             CaptureLocalizableControlTexts(this);
             ApplyLanguageToMainUi(false);
+            EditorTheme.Apply(this);
+            UpdateRunButton();
             ApplyStatusVisuals();
         }
 
@@ -670,8 +663,7 @@ namespace InputStitch
             {
                 loadingUi = true;
                 triggerModeBox.Items.Clear();
-                triggerModeBox.Items.Add(Localizer.T("按一次切换启动/停止"));
-                triggerModeBox.Items.Add(Localizer.T("按住运行，松开停止"));
+                triggerModeBox.Items.AddRange(TriggerEditor.Names);
                 if (triggerModeIndex >= 0 && triggerModeIndex < triggerModeBox.Items.Count) triggerModeBox.SelectedIndex = triggerModeIndex;
                 loadingUi = false;
             }
@@ -1104,6 +1096,8 @@ namespace InputStitch
                         config.Language = dialog.SelectedLanguage;
                         Localizer.SetLanguage(config.Language);
                         ApplyLanguageToMainUi(false);
+            EditorTheme.Apply(this);
+            UpdateRunButton();
                     }
                     UpdateUiSafetyPauseState();
                     SaveConfig();
@@ -1142,7 +1136,7 @@ namespace InputStitch
         private void UpdateTargetSectionVisibility()
         {
             if (targetGroup == null || config == null) return;
-            bool shouldShow = config.ActivateTargetWindowOnUiRun || config.AutoSwitchProfiles;
+            bool shouldShow = optionalSettingsExpanded && (config.ActivateTargetWindowOnUiRun || config.AutoSwitchProfiles);
             // Assign unconditionally: before the form is shown, Control.Visible reports false
             // when an ancestor is hidden even if the control's own visibility flag is still true.
             targetGroup.Visible = shouldShow;

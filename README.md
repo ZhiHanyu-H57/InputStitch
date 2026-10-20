@@ -1,4 +1,14 @@
-# InputStitch
+﻿# InputStitch
+
+## Local 1.5.0-beta.2 editor refresh
+
+Create or import a macro, choose a shortcut and its behavior in one trigger
+selector, then edit the steps. Timing and optional conditions have their own
+editor. Existing macros display their actual behavior directly. Run and Stop all
+stay at the bottom while the editor scrolls. Grouping and input forwarding are
+under More options. This local build does not replace published Stable 1.4.3.
+See [`docs/AUTOMATED_ACCEPTANCE.md`](docs/AUTOMATED_ACCEPTANCE.md).
+
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 

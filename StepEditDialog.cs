@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -55,6 +55,7 @@ namespace InputStitch
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
+            Load += delegate { EditorTheme.Apply(this); };
             MinimumSize = new Size(820, 520);
             ClientSize = new Size(980, 570);
             Font = new Font("Microsoft YaHei UI", 9F);
@@ -83,7 +84,7 @@ namespace InputStitch
 
             actionBox = new ComboBox();
             actionBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            actionBox.Items.AddRange(new object[] { Localizer.T("按一下（按下→等待→松开）"), Localizer.T("保持到宏停止 / KeyDown"), Localizer.T("松开 / KeyUp") });
+            actionBox.Items.AddRange(new object[] { Localizer.T("按一下（按下→等待→松开）"), Localizer.T("持续按住（直到松开或宏停止）"), Localizer.T("松开按键") });
             actionBox.Dock = DockStyle.Fill;
             actionBox.Margin = new Padding(3, 4, 3, 6);
             actionBox.SelectedIndexChanged += delegate { UpdateHoldEnabled(); };

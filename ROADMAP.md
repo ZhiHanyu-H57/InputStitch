@@ -1,4 +1,17 @@
-# ROADMAP.md
+﻿# ROADMAP.md
+
+## Active priority override — 2026-10-20
+
+Pause feature expansion. Complete product usability and repeatable automated
+acceptance first: one trigger editor, ordinary-language labels, consistent
+visuals, compatible old configurations, real editing/save/reopen/package flows,
+real-output verification and sustained-run reports. Stable 1.4.3 is a
+user-confirmed long-used baseline. Specific experimental takeover compatibility
+claims are independent; they do not gate the ordinary macro product.
+
+User manual testing is optional feedback, not a routine release prerequisite.
+This priority supersedes older feature-order sections retained below.
+
 
 # InputStitch Roadmap / 开发路线
 
@@ -428,7 +441,7 @@ controlled replacement hardware maturity
 - Every release build must verify x64/x86 architecture, ProductVersion/FileVersion, release manifest and SHA-256.
 - Public Simplified Chinese text should begin with an understandable user-level summary; internal API/type names belong later in technical details.
 - Runtime changes require the complete regression suite before commit.
-- API/output submission success is never a substitute for real-game acceptance.
+- Routine macro acceptance uses automated workflow/output/soak evidence. A specific game compatibility claim needs evidence from that target environment; it is not a blanket user-testing gate.
 
 ## Long-term product goal / 长期目标
 

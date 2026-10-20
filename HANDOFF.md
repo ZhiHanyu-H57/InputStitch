@@ -1,4 +1,23 @@
-# HANDOFF.md
+﻿# HANDOFF.md
+
+## Active work — 2026-10-20 product refresh
+
+Branch: `ui/product-refresh`, based on clean `7dcea05` / matching remote main.
+The user authorized implementation and runnable artifacts with verification.
+They confirm Stable 1.4.3 is long-used and reliable in official features; user
+manual trial runs must no longer gate routine acceptance. New features paused.
+
+Unified trigger selection, editor styling/copy and optional grouping are
+implemented. XML and the execution/ownership design stay compatible. Isolated
+test windows now establish their dispatcher handle before workers can update UI.
+Product workflow/layout tests and a configurable sustained runtime host are in
+`tests/ProductAcceptanceTests.cs`. The local package is `1.5.0-beta.2`, not a
+published release. Final verification evidence is pending below; do not mistake
+historical test counts in this file for this build's result.
+
+See `docs/PRODUCT_REFRESH.md` and `docs/AUTOMATED_ACCEPTANCE.md` for the current
+scope and repeatable commands. All older milestones below are history.
+
 
 # Current Development State
 

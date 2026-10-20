@@ -693,12 +693,12 @@ internal static class OutputOwnershipTests
                     "wheel Hold trigger eligibility text reports unavailable");
 
                 Label capabilityLabel = (Label)Field(form, "runtimeCapabilityLabel");
-                Check(capabilityLabel != null && capabilityLabel.Text.Contains(keyCapability.CategoryText(Localizer.IsEnglish)),
+                Check(capabilityLabel != null && capabilityLabel.Text.Contains(Localizer.IsEnglish ? "Ready" : "可以运行"),
                     "editor runtime eligibility text is driven by the authoritative classifier");
                 ListBox macroList = (ListBox)Field(form, "macroList");
                 macroList.SelectedIndex = config.Macros.IndexOf(wheelHold);
                 Call(form, "RefreshRuntimeCapabilityUi");
-                Check(capabilityLabel.Text.Contains(wheelCapability.CategoryText(Localizer.IsEnglish)) &&
+                Check(capabilityLabel.Text.Contains(wheelCapability.ReasonText(Localizer.IsEnglish)) &&
                     capabilityLabel.Text.Contains(wheelCapability.TriggerEligibilityText(Localizer.IsEnglish)),
                     "editor exposes the same wheel Hold trigger eligibility returned by the classifier");
                 macroList.SelectedIndex = config.Macros.IndexOf(timedKey);

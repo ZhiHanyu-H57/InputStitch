@@ -1,4 +1,18 @@
-# PLAN.md
+﻿# PLAN.md
+
+## Current priority — product refresh (2026-10-20)
+
+New features are paused. The active work is the unified editor, plain-language
+copy, one trigger entry, configuration compatibility, complete workflow tests
+and sustained-run automation. Local deliverable: `1.5.0-beta.2`; this is not a
+publication or a change to Stable `1.4.3`.
+
+The user confirms long-term successful use of 1.4.3 official features, including
+recommendations to other users. Treat this as the established stable baseline.
+Routine completion uses automated evidence; no repeated user trial-run gate.
+The older next-feature lists below are paused and retained as development history.
+See `docs/PRODUCT_REFRESH.md` and `docs/AUTOMATED_ACCEPTANCE.md`.
+
 
 # Current Development Plan
 

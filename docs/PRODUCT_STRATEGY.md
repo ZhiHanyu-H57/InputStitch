@@ -1,4 +1,18 @@
-# InputStitch product positioning and competitive strategy
+﻿# InputStitch product positioning and competitive strategy
+
+## Product priority — 2026-10-20
+
+Keep the supported architecture, but present the product as a simple workflow:
+set up a macro, then use it. New features are paused. Compatibility and runtime
+implementation details belong inside the program and diagnostics, not in the
+basic editor. Do not expose separate old/new trigger entry points.
+
+Stable 1.4.3 has user-confirmed long-term successful use. Preserve its official
+behavior while improving the editor. Routine quality is established through
+automated workflow, output, layout and sustained-run evidence; the user does not
+have to act as per-iteration QA. The historical feature strategy below remains
+background context, not the current engineering queue.
+
 
 Updated: 2026-09-10
 

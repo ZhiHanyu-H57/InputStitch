@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -21,8 +21,7 @@ namespace InputStitch
         private readonly bool edgeOnlyTrigger;
         private readonly bool conditionsOnly;
 
-        private readonly ComboBox mode = new ComboBox();
-        private readonly NumericUpDown longPress = Number(100, 10000, 500);
+                private readonly NumericUpDown longPress = Number(100, 10000, 500);
         private readonly NumericUpDown doubleWindow = Number(100, 2000, 300);
         private readonly NumericUpDown shortPress = Number(50, 2000, 300);
         private readonly TextBox process = new TextBox();
@@ -46,7 +45,7 @@ namespace InputStitch
                 (macro.Trigger.Kind == InputKind.WheelUp || macro.Trigger.Kind == InputKind.WheelDown);
             conditionsOnly = false;
 
-            Text = Localizer.IsEnglish ? "Activation & conditions" : "激活与条件";
+            Text = Localizer.IsEnglish ? "Timing & conditions" : "时间与条件";
             BuildLayout();
         }
 
@@ -91,39 +90,25 @@ namespace InputStitch
             intro.MaximumSize = new Size(730, 0);
             intro.Text = conditionsOnly
                 ? (Localizer.IsEnglish
-                    ? "The condition is AND-combined with the layer switch. While it matches, this layer becomes eligible automatically; your manual layer selection stays untouched and returns as soon as the condition stops matching."
-                    : "该条件按 AND 参与切层判断。命中时这一层自动生效；你手动选择的层不会被改写，条件失效后会自动返回。")
+                    ? "This group is active while all the conditions below match. Your manually selected group returns when they stop matching."
+                    : "下面的条件全部满足时，自动启用这个分组；不再满足时，返回你手动选择的分组。")
                 : (Localizer.IsEnglish
-                    ? "Advanced activation is opt-in. 'Legacy' preserves the existing Toggle/Hold behavior exactly. Additional conditions are AND gates. The macro still runs through the normal concurrent runtime and Output Ownership."
-                    : "高级激活规则需要主动启用。“兼容旧方式”会严格保留现有 Toggle / Hold 行为。下面的附加条件按 AND 同时判断；宏本身仍使用现有并发运行时和 Output Ownership。");
+                    ? "Trigger behavior is selected in the main window. Here you can adjust timing and add optional limits. Leave fields empty to run without those limits."
+                    : "触发方式在主界面选择。在这里可以调整触发时间、添加生效条件；不需要的条件留空即可。");
             intro.Margin = new Padding(0, 0, 0, 10);
             root.Controls.Add(intro, 0, 0);
 
             GroupBox activationGroup = new GroupBox();
-            activationGroup.Text = Localizer.IsEnglish ? "Activator" : "激活方式";
+            activationGroup.Text = Localizer.IsEnglish ? "Press timing" : "触发时间";
             activationGroup.AutoSize = true;
             activationGroup.Dock = DockStyle.Top;
             activationGroup.Padding = new Padding(10);
             TableLayoutPanel activation = Grid();
             activationGroup.Controls.Add(activation);
 
-            mode.DropDownStyle = ComboBoxStyle.DropDownList;
-            mode.Items.AddRange(new object[]
-            {
-                Localizer.IsEnglish ? "Legacy (use current Toggle/Hold)" : "兼容旧方式（使用当前 Toggle / Hold）",
-                Localizer.IsEnglish ? "On Press" : "按下时",
-                Localizer.IsEnglish ? "On Release" : "松开时",
-                Localizer.IsEnglish ? "Short Press" : "短按",
-                Localizer.IsEnglish ? "While Held" : "按住期间",
-                Localizer.IsEnglish ? "Long Press" : "长按",
-                Localizer.IsEnglish ? "Double Press" : "双击"
-            });
-            mode.SelectedIndex = ModeIndex(activator.Mode);
-            mode.SelectedIndexChanged += delegate { UpdateActivatorUi(); };
-            AddRow(activation, 0, Localizer.IsEnglish ? "Mode" : "方式", mode);
-            AddNumberRow(activation, 1, Localizer.IsEnglish ? "Long-press threshold" : "长按阈值", longPress, "ms");
-            AddNumberRow(activation, 2, Localizer.IsEnglish ? "Double-press window" : "双击间隔", doubleWindow, "ms");
-            AddNumberRow(activation, 3, Localizer.IsEnglish ? "Short-press window" : "短按窗口", shortPress, "ms");
+            AddNumberRow(activation, 1, Localizer.IsEnglish ? "Hold duration before running" : "长按多久后执行", longPress, "ms");
+            AddNumberRow(activation, 2, Localizer.IsEnglish ? "Maximum double-press gap" : "两次按键的最长间隔", doubleWindow, "ms");
+            AddNumberRow(activation, 3, Localizer.IsEnglish ? "Maximum short-press duration" : "短按最长时长", shortPress, "ms");
             behaviorNote.AutoSize = true;
             behaviorNote.MaximumSize = new Size(650, 0);
             behaviorNote.ForeColor = Color.FromArgb(86, 96, 112);
@@ -145,7 +130,7 @@ namespace InputStitch
                 : layerText);
             AddRow(condition, 0, Localizer.IsEnglish ? "Layer" : "映射层", layer);
             process.Text = conditions.ForegroundProcessName ?? "";
-            AddRow(condition, 1, Localizer.IsEnglish ? "Foreground process" : "前台进程", process);
+            AddRow(condition, 1, Localizer.IsEnglish ? "Only in this program" : "仅在此程序中生效", process);
             titleContains.Text = conditions.ForegroundTitleContains ?? "";
             AddRow(condition, 2, Localizer.IsEnglish ? "Title contains" : "窗口标题包含", titleContains);
 
@@ -161,13 +146,13 @@ namespace InputStitch
             refreshDevices.Click += delegate { RefreshDeviceChoices(true); };
             deviceLine.Controls.Add(device);
             deviceLine.Controls.Add(refreshDevices);
-            AddRow(condition, 3, Localizer.IsEnglish ? "DeviceKey" : "来源设备", deviceLine);
+            AddRow(condition, 3, Localizer.IsEnglish ? "Source controller" : "来源手柄", deviceLine);
 
             analogEnabled.AutoSize = true;
-            analogEnabled.Text = Localizer.IsEnglish ? "Require an analog zone" : "要求模拟量位于指定区间";
+            analogEnabled.Text = Localizer.IsEnglish ? "Only while a stick or trigger is in this range" : "仅在摇杆或扳机处于指定范围时生效";
             analogEnabled.Checked = conditions.Analog != null && conditions.Analog.Enabled;
             analogEnabled.CheckedChanged += delegate { UpdateAnalogUi(); };
-            AddRow(condition, 4, Localizer.IsEnglish ? "Analog gate" : "模拟量条件", analogEnabled);
+            AddRow(condition, 4, Localizer.IsEnglish ? "Stick / trigger limit" : "摇杆 / 扳机条件", analogEnabled);
 
             analogControl.DropDownStyle = ComboBoxStyle.DropDownList;
             analogControl.Items.AddRange(new object[]
@@ -179,7 +164,7 @@ namespace InputStitch
             });
             analogControl.SelectedIndex = ControlIndex(conditions.Analog == null ? GamepadControl.LeftTrigger : conditions.Analog.Control);
             analogControl.SelectedIndexChanged += delegate { UpdateAnalogUi(); };
-            AddRow(condition, 5, Localizer.IsEnglish ? "Analog control" : "模拟量来源", analogControl);
+            AddRow(condition, 5, Localizer.IsEnglish ? "Control to check" : "检查哪个控件", analogControl);
 
             analogDirection.DropDownStyle = ComboBoxStyle.DropDownList;
             analogDirection.Items.AddRange(new object[]
@@ -188,7 +173,7 @@ namespace InputStitch
                 "+X", "-X", "+Y", "-Y"
             });
             analogDirection.SelectedIndex = Math.Max(0, Math.Min(4, (int)(conditions.Analog == null ? AnalogConditionDirection.Magnitude : conditions.Analog.Direction)));
-            AddRow(condition, 6, Localizer.IsEnglish ? "Direction" : "方向 / 半轴", analogDirection);
+            AddRow(condition, 6, Localizer.IsEnglish ? "Stick direction" : "摇杆方向", analogDirection);
 
             FlowLayoutPanel zone = new FlowLayoutPanel();
             zone.AutoSize = true;
@@ -197,28 +182,18 @@ namespace InputStitch
             zone.Controls.Add(ValueLabel("%  —  "));
             zone.Controls.Add(analogMax);
             zone.Controls.Add(ValueLabel("%"));
-            AddRow(condition, 7, Localizer.IsEnglish ? "Accepted range" : "有效区间", zone);
+            AddRow(condition, 7, Localizer.IsEnglish ? "Strength range" : "力度范围", zone);
 
             Label conditionsHelp = new Label();
             conditionsHelp.AutoSize = true;
             conditionsHelp.MaximumSize = new Size(650, 0);
             conditionsHelp.ForeColor = Color.FromArgb(86, 96, 112);
             conditionsHelp.Text = Localizer.IsEnglish
-                ? "Leave process/title/DeviceKey empty to ignore them. DeviceKey uses the stable Device Identity layer and fails closed when the runtime source cannot be proven. Analog zone is an additional condition, not a new stick-as-trigger mode."
-                : "进程、标题、DeviceKey 留空即不限制。DeviceKey 使用稳定设备身份；运行时无法证明设备对应关系时会安全地判定为不满足。模拟量区间只是附加条件，不是新的“摇杆直接作为触发键”模式。";
+                ? "All filled conditions must match. Select a source controller to restrict which device can trigger the macro. A disconnected or unidentified controller does not match."
+                : "已填写的条件需要全部满足。选择来源手柄后，仅允许该手柄触发；设备未连接或无法识别时不会触发。";
             condition.Controls.Add(conditionsHelp, 0, 8);
             condition.SetColumnSpan(conditionsHelp, 2);
             root.Controls.Add(conditionGroup, 0, 2);
-
-            Label deferred = new Label();
-            deferred.AutoSize = true;
-            deferred.MaximumSize = new Size(730, 0);
-            deferred.ForeColor = Color.DarkOrange;
-            deferred.Text = Localizer.IsEnglish
-                ? "Stage 1 deliberately does not emulate Turbo/repeat or arbitrary stick-region triggers. Those need explicit semantics rather than another hidden execution path. Infinite one-shot macros still require the normal Stop button or Emergency Stop."
-                : "第一阶段不会假装实现 Turbo / 连发，也不会把任意摇杆区域直接当触发器。这些功能需要先定义清楚语义，不能偷偷再造一套执行逻辑。一次性激活的无限宏仍需使用原有“停止”按钮或紧急停止。";
-            deferred.Margin = new Padding(0, 8, 0, 8);
-            root.Controls.Add(deferred, 0, 3);
 
             FlowLayoutPanel actions = new FlowLayoutPanel();
             actions.AutoSize = true;
@@ -248,6 +223,8 @@ namespace InputStitch
             RefreshDeviceChoices(false);
             UpdateActivatorUi();
             UpdateAnalogUi();
+            EditorTheme.Apply(this);
+            EditorTheme.Primary(ok, false);
         }
 
         internal ActivatorConfig SelectedActivator { get { return activator.Clone(); } }
@@ -255,7 +232,6 @@ namespace InputStitch
 
         private void CaptureValues()
         {
-            activator.Mode = ModeFromIndex(mode.SelectedIndex);
             activator.LongPressMs = (int)longPress.Value;
             activator.DoublePressWindowMs = (int)doubleWindow.Value;
             activator.ShortPressMs = (int)shortPress.Value;
@@ -276,18 +252,18 @@ namespace InputStitch
 
         private void UpdateActivatorUi()
         {
-            string selected = ModeFromIndex(mode.SelectedIndex);
+            string selected = ActivatorModes.Normalize(activator.Mode);
             longPress.Enabled = string.Equals(selected, ActivatorModes.LongPress, StringComparison.OrdinalIgnoreCase);
             doubleWindow.Enabled = string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase);
             shortPress.Enabled = string.Equals(selected, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase);
             if (string.Equals(selected, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish
-                    ? "Legacy mode does not alter the current Toggle/Hold setting."
-                    : "兼容旧方式不会改变当前的 Toggle / Hold 设置。";
+                    ? "The shortcut behavior stays as selected in the main window."
+                    : "触发方式沿用主界面的选择。";
             else if (string.Equals(selected, ActivatorModes.WhileHeld, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish
-                    ? "While Held uses the existing Hold runtime. Releasing the trigger or losing an active condition stops only this macro's source."
-                    : "按住期间使用现有 Hold 运行时。松开触发键或活动条件失效时，只停止这个宏自己的输出来源。";
+                    ? "Releasing the shortcut stops this macro. Other macros keep running."
+                    : "松开触发键会停止这个宏，不影响其他正在运行的宏。";
             else if (string.Equals(selected, ActivatorModes.LongPress, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish ? "Long Press fires once after the threshold while the trigger and conditions remain valid." : "长按会在触发键持续按住且条件一直满足时，于阈值到达后触发一次。";
             else if (string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase))
@@ -297,7 +273,7 @@ namespace InputStitch
                     ? "Short Press fires once on release, but only when the trigger is released inside the configured window. Holding longer disarms the press, so the same key stays usable for hold-style bindings."
                     : "短按会在松开时触发一次，且要求松开发生在设定窗口内；按住超过窗口即作废，因此同一个键仍可安全用于按住类操作。";
             else
-                behaviorNote.Text = Localizer.IsEnglish ? "This mode starts the macro once at the selected physical edge." : "该方式会在指定的物理边沿触发宏一次。";
+                behaviorNote.Text = Localizer.IsEnglish ? "The macro starts at the moment selected in the main window." : "这个宏会在主界面选择的时机开始执行。";
             if (edgeOnlyTrigger && !string.Equals(selected, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(selected, ActivatorModes.Press, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase))
@@ -357,29 +333,6 @@ namespace InputStitch
             if (separator >= 0 && separator + 3 < value.Length) value = value.Substring(separator + 3).Trim();
             if (value.StartsWith("(", StringComparison.Ordinal) || value.StartsWith("（", StringComparison.Ordinal)) return "";
             return value;
-        }
-
-        private static int ModeIndex(string value)
-        {
-            string mode = ActivatorModes.Normalize(value);
-            if (mode == ActivatorModes.Press) return 1;
-            if (mode == ActivatorModes.Release) return 2;
-            if (mode == ActivatorModes.ShortPress) return 3;
-            if (mode == ActivatorModes.WhileHeld) return 4;
-            if (mode == ActivatorModes.LongPress) return 5;
-            if (mode == ActivatorModes.DoublePress) return 6;
-            return 0;
-        }
-
-        private static string ModeFromIndex(int index)
-        {
-            if (index == 1) return ActivatorModes.Press;
-            if (index == 2) return ActivatorModes.Release;
-            if (index == 3) return ActivatorModes.ShortPress;
-            if (index == 4) return ActivatorModes.WhileHeld;
-            if (index == 5) return ActivatorModes.LongPress;
-            if (index == 6) return ActivatorModes.DoublePress;
-            return ActivatorModes.Legacy;
         }
 
         private static int ControlIndex(GamepadControl control)

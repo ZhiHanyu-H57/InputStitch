@@ -1,0 +1,36 @@
+name: Product sustained acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: Sustained runtime duration in minutes (1-240)
+        required: true
+        default: '120'
+
+permissions:
+  contents: read
+
+jobs:
+  sustained:
+    runs-on: windows-2022
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run sustained product acceptance
+        shell: powershell
+        env:
+          SOAK_MINUTES: ${{ inputs.minutes }}
+        run: |
+          $minutes = 0
+          if (-not [int]::TryParse($env:SOAK_MINUTES, [ref]$minutes) -or $minutes -lt 1 -or $minutes -gt 240) {
+            throw 'Minutes must be an integer between 1 and 240.'
+          }
+          ./tests/Run-ProductAcceptance.ps1 -SoakMinutes $minutes
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-sustained-acceptance
+          path: artifacts/product-tests/product-acceptance
+          if-no-files-found: warn

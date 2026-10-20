@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -76,6 +76,9 @@ namespace InputStitch
 
         private static readonly Dictionary<string, string> En = new Dictionary<string, string>()
         {
+            { "如何触发", "When to run" },
+            { "启用触发键", "Shortcut enabled" },
+            { "全部停止", "Stop all" },
             { "键鼠与手柄宏工具", "Keyboard, Mouse & Gamepad Macro Tool" },
             { "宏列表", "Macros" },
             { "导入宏", "Import Macros" },
@@ -221,8 +224,8 @@ namespace InputStitch
             { "操作：", "Action:" },
             { "按一下（按下→等待→松开）", "Press (Down → Wait → Up)" },
             { "按一下", "Press" },
-            { "保持到宏停止 / KeyDown", "Hold until macro stops / KeyDown" },
-            { "松开 / KeyUp", "Release / KeyUp" },
+            { "持续按住（直到松开或宏停止）", "Keep pressed until released or stopped" },
+            { "松开按键", "Release" },
             { "按键/鼠标：", "Key/Mouse:" },
             { "输入类型：", "Input type:" },
             { "键盘 / 鼠标", "Keyboard / Mouse" },
@@ -1812,8 +1815,8 @@ namespace InputStitch
         public static string FormatAction(MacroAction action)
         {
             if (action == MacroAction.Press) return Localizer.T("按一下");
-            if (action == MacroAction.Down) return Localizer.T("保持到宏停止 / KeyDown");
-            return Localizer.T("松开 / KeyUp");
+            if (action == MacroAction.Down) return Localizer.T("持续按住（直到松开或宏停止）");
+            return Localizer.T("松开按键");
         }
     }
 
@@ -3241,6 +3244,9 @@ namespace InputStitch
                 Localizer.SetLanguage(config.Language);
                 BuildUi();
                 RefreshMacroList(0);
+                // Workers must marshal UI updates even before this isolated window is shown.
+                // Without a handle InvokeRequired can return false on a worker thread.
+                IntPtr dispatcherHandle = Handle;
                 return;
             }
 
@@ -3627,13 +3633,13 @@ namespace InputStitch
 
         private GroupBox MakeMainGroup(string text)
         {
-            GroupBox box = new GroupBox();
+            GroupBox box = new EditorSection();
             box.Text = text;
             box.Dock = DockStyle.Top;
             box.AutoSize = true;
             box.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            box.Padding = new Padding(12, 9, 12, 10);
-            box.Margin = new Padding(0, 0, 0, 9);
+            box.Padding = new Padding(16, 38, 16, 14);
+            box.Margin = new Padding(0, 0, 0, 12);
             box.BackColor = Color.White;
             return box;
         }
@@ -4536,7 +4542,7 @@ namespace InputStitch
             descriptionBox.Enabled = has;
             enabledBox.Enabled = has;
             captureTriggerButton.Enabled = has;
-            triggerModeBox.Enabled = has && !ActivatorModes.UsesAdvancedPolicy(m);
+            triggerModeBox.Enabled = has;
             if (activatorConditionButton != null) activatorConditionButton.Enabled = has;
             mappingLayerBox.Enabled = has;
             suppressBox.Enabled = has;
@@ -4555,7 +4561,7 @@ namespace InputStitch
                 enabledBox.Checked = m.Enabled;
                 triggerBox.Text = InputNames.FormatTrigger(m.Trigger);
                 try { triggerBox.SelectionStart = 0; triggerBox.SelectionLength = 0; } catch { }
-                triggerModeBox.SelectedIndex = m.RunMode == TriggerRunMode.Hold ? 1 : 0;
+                triggerModeBox.SelectedIndex = TriggerEditor.Index(m);
                 int layerIndex = 0;
                 for (int i = 0; i < mappingLayerBox.Items.Count; i++)
                 {
@@ -4694,12 +4700,13 @@ namespace InputStitch
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
             StopMacroForDefinitionChange(m, "run-mode-change");
-            m.RunMode = triggerModeBox.SelectedIndex == 1 ? TriggerRunMode.Hold : TriggerRunMode.Toggle;
+            TriggerEditor.Select(m, triggerModeBox.SelectedIndex);
+            RefreshActivatorConditionUi();
             UpdateTriggerModeUiText();
             SaveConfig();
             RefreshRuntimeCapabilityUi();
 
-            if (m.RunMode == TriggerRunMode.Hold && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
+            if (ActivatorModes.IsHoldLifecycle(m) && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
             {
                 statusLabel.Text = "提示：按住运行模式支持单键、修饰键组合和鼠标按钮；滚轮没有持续按下状态，不能作为按住触发键，请重新录制触发键。";
             }
@@ -4738,10 +4745,10 @@ namespace InputStitch
                     if (ActivatorModes.UsesAdvancedPolicy(macro) && macro.Infinite &&
                         !string.Equals(ActivatorModes.Normalize(macro.Activator.Mode), ActivatorModes.WhileHeld, StringComparison.OrdinalIgnoreCase))
                         statusLabel.Text = Localizer.IsEnglish
-                            ? "Advanced one-shot activation is enabled on an infinite macro; stop it with the normal Stop button or Emergency Stop."
-                            : "提示：一次性高级激活用于无限宏时，不会用同一个触发键切换停止；请使用正常“停止”按钮或紧急停止。";
+                            ? "This macro repeats until you click Stop or use Emergency Stop."
+                            : "这个宏会持续循环；点击“停止”或使用紧急停止键即可结束。";
                     else
-                        statusLabel.Text = Localizer.IsEnglish ? "Activation and conditions updated." : "状态：已更新激活与条件规则。";
+                        statusLabel.Text = Localizer.IsEnglish ? "Timing and conditions saved." : "时间与条件已保存。";
                 }
             }
             finally
@@ -4796,13 +4803,12 @@ namespace InputStitch
             activatorConditionButton.Enabled = macro != null;
             if (macro == null)
             {
-                activatorConditionButton.Text = Localizer.IsEnglish ? "Activation & conditions..." : "激活与条件...";
+                activatorConditionButton.Text = Localizer.IsEnglish ? "Timing & conditions…" : "时间与条件…";
+                if (triggerBehaviorLabel != null) triggerBehaviorLabel.Text = "";
                 if (triggerModeBox != null) triggerModeBox.Enabled = false;
                 return;
             }
 
-            string mode = macro.Activator == null ? ActivatorModes.Legacy : ActivatorModes.Normalize(macro.Activator.Mode);
-            bool advanced = !string.Equals(mode, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase);
             int conditionCount = 0;
             MacroConditionConfig c = macro.Conditions;
             if (c != null)
@@ -4812,37 +4818,12 @@ namespace InputStitch
                 if (!string.IsNullOrWhiteSpace(c.DeviceKey)) conditionCount++;
                 if (c.Analog != null && c.Analog.Enabled) conditionCount++;
             }
-
-            string modeText = Localizer.IsEnglish ? ActivatorModeTextEnglish(mode) : ActivatorModeTextChinese(mode);
-            string conditionText = conditionCount == 0 ? "" : (Localizer.IsEnglish
-                ? ", " + conditionCount.ToString() + " condition" + (conditionCount == 1 ? "" : "s")
-                : "，" + conditionCount.ToString() + " 个条件");
             activatorConditionButton.Text = Localizer.IsEnglish
-                ? "Activation & conditions... (" + modeText + conditionText + ")"
-                : "激活与条件...（" + modeText + conditionText + "）";
-            if (triggerModeBox != null) triggerModeBox.Enabled = !advanced;
-        }
-
-        private static string ActivatorModeTextEnglish(string mode)
-        {
-            if (mode == ActivatorModes.Press) return "Press";
-            if (mode == ActivatorModes.Release) return "Release";
-            if (mode == ActivatorModes.ShortPress) return "Short Press";
-            if (mode == ActivatorModes.WhileHeld) return "While Held";
-            if (mode == ActivatorModes.LongPress) return "Long Press";
-            if (mode == ActivatorModes.DoublePress) return "Double Press";
-            return "Legacy";
-        }
-
-        private static string ActivatorModeTextChinese(string mode)
-        {
-            if (mode == ActivatorModes.Press) return "按下";
-            if (mode == ActivatorModes.Release) return "松开";
-            if (mode == ActivatorModes.ShortPress) return "短按";
-            if (mode == ActivatorModes.WhileHeld) return "按住期间";
-            if (mode == ActivatorModes.LongPress) return "长按";
-            if (mode == ActivatorModes.DoublePress) return "双击";
-            return "兼容旧方式";
+                ? "Timing & conditions…" + (conditionCount == 0 ? "" : " (" + conditionCount + ")")
+                : "时间与条件…" + (conditionCount == 0 ? "" : "（" + conditionCount + "）");
+            triggerModeBox.Enabled = true;
+            triggerBehaviorLabel.Text = TriggerEditor.Hint(macro);
+            RefreshOptionalSettingsText(optionalSettingsExpanded);
         }
 
         private static string DescribeActivationRule(MacroDefinition macro)
@@ -4885,15 +4866,13 @@ namespace InputStitch
         {
             if (runtimeCapabilityLabel == null || runtimeCapabilityLabel.IsDisposed) return;
             if (runtimeCapabilityTitleLabel != null && !runtimeCapabilityTitleLabel.IsDisposed)
-                runtimeCapabilityTitleLabel.Text = Localizer.IsEnglish ? "Runtime:" : "运行资格：";
+                runtimeCapabilityTitleLabel.Text = Localizer.IsEnglish ? "Status:" : "运行状态：";
 
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(SelectedMacro);
             string triggerEligibility = capability.TriggerEligibilityText(Localizer.IsEnglish);
-            string capabilityText = capability.CategoryText(Localizer.IsEnglish) + " · " +
-                capability.ConcurrencyText(Localizer.IsEnglish) + Environment.NewLine +
-                capability.ReasonText(Localizer.IsEnglish);
-            if (!string.IsNullOrWhiteSpace(triggerEligibility))
-                capabilityText += Environment.NewLine + triggerEligibility;
+            string capabilityText = !capability.CanStart || !capability.CanStartFromConfiguredTrigger
+                ? capability.ReasonText(Localizer.IsEnglish) + (string.IsNullOrWhiteSpace(triggerEligibility) ? "" : " · " + triggerEligibility)
+                : (Localizer.IsEnglish ? "Ready · can run alongside other macros" : "可以运行 · 支持与其他宏同时运行");
             runtimeCapabilityLabel.Text = capabilityText;
             runtimeCapabilityLabel.ForeColor = !capability.CanStart ||
                 (!string.IsNullOrWhiteSpace(triggerEligibility) && !capability.CanStartFromConfiguredTrigger)
@@ -6027,7 +6006,7 @@ namespace InputStitch
                                 RefreshConflictIndicators(true);
                                 RefreshRuntimeCapabilityUi();
                                 UpdateRunButton();
-                                if (m.RunMode == TriggerRunMode.Hold && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
+                                if (ActivatorModes.IsHoldLifecycle(m) && !MacroRuntimeClassifier.IsHoldTriggerSupported(m.Trigger))
                                     statusLabel.Text = "提示：按住运行模式支持修饰键组合；滚轮没有持续按下状态，不能作为按住触发键。";
                             });
                         }
@@ -7004,7 +6983,8 @@ namespace InputStitch
             m.RepeatCount = (int)repeatBox.Value;
             m.Enabled = enabledBox.Checked;
             if (!ModifierSafetyPolicy.PreserveNativeShiftForGamepad(m)) m.SuppressTrigger = suppressBox.Checked;
-            m.RunMode = triggerModeBox.SelectedIndex == 1 ? TriggerRunMode.Hold : TriggerRunMode.Toggle;
+            TriggerEditor.Select(m, triggerModeBox.SelectedIndex);
+            RefreshActivatorConditionUi();
             SaveConfig();
 
             InputSender.UseScanCodeInput = config.UseScanCodeInput;
@@ -7077,14 +7057,15 @@ namespace InputStitch
             m.RepeatCount = (int)repeatBox.Value;
             m.Enabled = enabledBox.Checked;
             if (!ModifierSafetyPolicy.PreserveNativeShiftForGamepad(m)) m.SuppressTrigger = suppressBox.Checked;
-            m.RunMode = triggerModeBox.SelectedIndex == 1 ? TriggerRunMode.Hold : TriggerRunMode.Toggle;
+            TriggerEditor.Select(m, triggerModeBox.SelectedIndex);
+            RefreshActivatorConditionUi();
             SaveConfig();
 
-            if (m.RunMode == TriggerRunMode.Hold)
+            if (ActivatorModes.IsHoldLifecycle(m))
             {
                 statusLabel.Text = Localizer.IsEnglish
-                    ? "Single-step is for timed/toggle macros. Test Hold macros with their physical trigger."
-                    : "单步执行用于时序 / Toggle 宏；Hold 宏请使用其物理触发键测试。";
+                    ? "Use single-step for step sequences. For hold-to-run macros, use the shortcut."
+                    : "单步执行用于按步骤执行的宏；按住运行的宏请使用触发键。";
                 return;
             }
 
@@ -7934,7 +7915,7 @@ namespace InputStitch
                 runButton.Enabled = canStart;
                 runButton.ForeColor = canStart ? Color.ForestGreen : SystemColors.GrayText;
             }
-            runButton.BackColor = SystemColors.Control;
+            EditorTheme.Primary(runButton, selected != null && IsMacroActuallyRunning(selected));
 
             if (stepRunButton != null && !stepRunButton.IsDisposed)
             {
@@ -7949,7 +7930,7 @@ namespace InputStitch
                 {
                     stepRunButton.Text = Localizer.T("▷ 单步执行");
                     stepRunButton.Enabled = !recordingActive && runCount == 0 && selected != null &&
-                        selected.RunMode != TriggerRunMode.Hold && MacroRuntimeClassifier.Classify(selected).CanStart;
+                        !ActivatorModes.IsHoldLifecycle(selected) && MacroRuntimeClassifier.Classify(selected).CanStart;
                     stepRunButton.ForeColor = stepRunButton.Enabled ? Color.RoyalBlue : SystemColors.GrayText;
                 }
                 stepRunButton.BackColor = SystemColors.Control;

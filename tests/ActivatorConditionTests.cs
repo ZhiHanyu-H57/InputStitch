@@ -323,11 +323,10 @@ internal static class ActivatorConditionTests
         DeviceInventorySnapshot snapshot = new DeviceInventorySnapshot();
         using (ActivatorConditionDialog dialog = new ActivatorConditionDialog(macro, delegate { return snapshot; }, "基础层"))
         {
-            ComboBox mode = GetField<ComboBox>(dialog, "mode");
-            Label deferred = FindLabelContaining(dialog, "Turbo");
-            Check(mode != null && mode.Items.Count == 7 && mode.SelectedIndex == 5,
-                "activation dialog exposes Legacy/Press/Release/Short/WhileHeld/Long/Double without fake Turbo option");
-            Check(deferred != null, "activation dialog explicitly documents deferred Turbo semantics");
+            Check(typeof(ActivatorConditionDialog).GetField("mode", BindingFlags.Instance | BindingFlags.NonPublic) == null,
+                "timing/conditions dialog has no competing trigger-mode selector");
+            Check(FindLabelContaining(dialog, "Turbo") == null,
+                "editing dialog contains no deferred-feature development notes");
             MethodInfo capture = typeof(ActivatorConditionDialog).GetMethod("CaptureValues", BindingFlags.Instance | BindingFlags.NonPublic);
             Check(capture != null, "activation dialog has deterministic capture boundary");
             capture.Invoke(dialog, null);
@@ -346,12 +345,12 @@ internal static class ActivatorConditionTests
         {
             Button button = GetField<Button>(form, "activatorConditionButton");
             ComboBox legacyMode = GetField<ComboBox>(form, "triggerModeBox");
-            Check(button != null && button.Enabled && button.Text.IndexOf("双击", StringComparison.Ordinal) >= 0,
-                "main editor visibly summarizes advanced activator mode");
-            Check(button.Text.IndexOf("1 个条件", StringComparison.Ordinal) >= 0,
+            Check(button != null && button.Enabled && legacyMode.SelectedIndex == 6,
+                "unified trigger selector displays Double Press");
+            Check(button.Text.IndexOf("（1）", StringComparison.Ordinal) >= 0,
                 "main editor visibly summarizes active condition count");
-            Check(legacyMode != null && !legacyMode.Enabled,
-                "legacy Toggle/Hold selector is disabled while an explicit advanced activator owns semantics");
+            Check(legacyMode != null && legacyMode.Enabled && legacyMode.Items.Count == 7,
+                "one trigger selector remains editable for every activation mode");
             MethodInfo diagnosticsMethod = typeof(MainForm).GetMethod("BuildDiagnosticsText", BindingFlags.Instance | BindingFlags.NonPublic);
             MethodInfo observationMethod = typeof(MainForm).GetMethod("BuildRuntimeObservationText", BindingFlags.Instance | BindingFlags.NonPublic);
             string diagnostics = diagnosticsMethod == null ? "" : diagnosticsMethod.Invoke(form, null) as string;
