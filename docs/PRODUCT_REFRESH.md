@@ -1,5 +1,55 @@
 ﻿# Product refresh — 2026-10-20
 
+## Third pass — remaining dialogs and first-run workflow
+
+Local target: `1.5.0-beta.4`, FileVersion `1.5.0.3`.
+
+- Shared dialog frame, heading, colors, tab styling and persistent footer across
+  Settings, timing/conditions, keyboard selection, export, batch waits, device
+  tools, controller options, diagnostics, About and group naming.
+- Timing shows only fields used by the selected trigger. Inactive saved values
+  remain intact. Optional analog limits expand when enabled; condition fields
+  include examples and explain whether any limits are set.
+- Keyboard selection is the primary action in the main editor, quick creation
+  and step editor. Physical/mouse capture stays available in the dropdown.
+  Empty/invalid chords are explained immediately and cannot be confirmed.
+- Settings keep changes pending until Save; Cancel preserves the configuration.
+  Restore defaults now includes the optional controller input setting.
+- Export selection and batch waits give immediate readiness/invalid-range feedback.
+- Main-window guidance explains the next action, automatic saving and Run/Stop all.
+  Group-name editing retains modal output protection.
+- Product acceptance drives the actual nested chooser, quick-create, keyboard,
+  step editor and first Run button in Chinese and English, with isolated files
+  and an output observer. No user trial-run gate and no new runtime features.
+
+### Third-pass verification
+
+- Verified production-code commit: `b06b0f2` on `ui/product-refresh`.
+- Local package: `1.5.0-beta.4`, FileVersion `1.5.0.3`; no remote release and
+  no replacement of the user-confirmed Stable 1.4.3 baseline.
+- Complete regression: **30 suites PASS**, including **903 product workflow,
+  interaction and layout checks**, 303,716 output-ownership checks, bilingual
+  Settings smoke, old XML defaults and stored gamepad vector initialization.
+- Actual first-user nested windows complete in Chinese and English: creation
+  card, quick creation, shortcut keyboard, step editor, action keyboard, save,
+  main Run button, completion and zero pressed keys. No manual trial gate.
+- Settings, timing and keyboard dialogs checked at compact sizes and synthetic
+  100/125/150/200% scales. Other secondary dialogs have bilingual default-layout
+  and reachable-footer checks; group naming has actual modal protection checks.
+- Real-output Input Lab: **77/77 PASS, failures=0**; actual SendInput and
+  ViGEm/XInput reports. Physical-device hiding/takeover was not exercised.
+- x64/x86 builds and Release Verification PASS; final executable normal startup,
+  live message loop and orderly shutdown PASS in isolated directories.
+- Current-build sustained observer: **300.1 seconds / 3,436 cycles PASS**;
+  keyboard down/up 13,253/13,253; final output sources and pressed outputs zero.
+  Max UI dispatch 73 ms; continuous-output gap 80 ms;
+  private bytes 36241408 to 36491264; handles
+  498 to 494; threads 15 to 8.
+- Historical beta.2 1800.1-second / 21,023-cycle evidence stays historical. The
+  executor, output ownership and XML format were not changed in this UI pass.
+- Production sources remained unchanged during final acceptance; normal
+  config.xml/devices.xml hashes unchanged. New feature work remains paused.
+
 ## Second pass — visual design and friendly interaction
 
 Local version: `1.5.0-beta.3` / FileVersion `1.5.0.2`.

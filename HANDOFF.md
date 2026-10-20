@@ -1,5 +1,43 @@
 ﻿# HANDOFF.md
 
+## Latest completed pass — remaining dialogs and first run (2026-10-20)
+
+Unified Settings, Timing/Conditions, key selection and secondary dialogs with a
+shared frame and persistent actions. Relevant-only timing, optional analog limit
+fields, examples, inline selection validation, staged settings/defaults and main
+next-step guidance improve the existing product without adding runtime features.
+Keyboard selection is the primary editing action; physical/mouse capture remains
+available in the dropdown. Group-name prompts retain modal output protection.
+
+- Verified production-code commit: `b06b0f2` on `ui/product-refresh`.
+- Local package: `1.5.0-beta.4`, FileVersion `1.5.0.3`; no remote release and
+  no replacement of the user-confirmed Stable 1.4.3 baseline.
+- Complete regression: **30 suites PASS**, including **903 product workflow,
+  interaction and layout checks**, 303,716 output-ownership checks, bilingual
+  Settings smoke, old XML defaults and stored gamepad vector initialization.
+- Actual first-user nested windows complete in Chinese and English: creation
+  card, quick creation, shortcut keyboard, step editor, action keyboard, save,
+  main Run button, completion and zero pressed keys. No manual trial gate.
+- Settings, timing and keyboard dialogs checked at compact sizes and synthetic
+  100/125/150/200% scales. Other secondary dialogs have bilingual default-layout
+  and reachable-footer checks; group naming has actual modal protection checks.
+- Real-output Input Lab: **77/77 PASS, failures=0**; actual SendInput and
+  ViGEm/XInput reports. Physical-device hiding/takeover was not exercised.
+- x64/x86 builds and Release Verification PASS; final executable normal startup,
+  live message loop and orderly shutdown PASS in isolated directories.
+- Current-build sustained observer: **300.1 seconds / 3,436 cycles PASS**;
+  keyboard down/up 13,253/13,253; final output sources and pressed outputs zero.
+  Max UI dispatch 73 ms; continuous-output gap 80 ms;
+  private bytes 36241408 to 36491264; handles
+  498 to 494; threads 15 to 8.
+- Historical beta.2 1800.1-second / 21,023-cycle evidence stays historical. The
+  executor, output ownership and XML format were not changed in this UI pass.
+- Production sources remained unchanged during final acceptance; normal
+  config.xml/devices.xml hashes unchanged. New feature work remains paused.
+
+The requested pass is complete and committed locally. Older beta.3/beta.2
+sections below retain historical evidence; current local target is beta.4.
+
 ## Latest completed pass — 2026-10-20 visual design and interaction
 
 The user's latest direction is further art and friendly interaction work.

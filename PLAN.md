@@ -1,6 +1,21 @@
 ﻿# PLAN.md
 
-## Active pass — visual design and friendly interaction (2026-10-20)
+## Active pass — remaining dialogs and first-run workflow (2026-10-20)
+
+User-authorized local target: `1.5.0-beta.4`. Unify Settings, Timing/Conditions,
+keyboard selection, export, batch waits, devices, controller options, diagnostics,
+About and group-name prompts. Keep persistent dialog actions, show only relevant
+timing/limit fields, explain invalid selections inline, and drive the actual
+nested create/choose/edit/save/run windows in bilingual automated acceptance.
+No feature expansion. Runtime, ownership and configuration formats are retained.
+Routine completion does not depend on user trial runs.
+
+Completed locally: 30 regression suites, 903 workflow/interaction/layout
+checks, 77 real-output checks, current-build five-minute sustained regression and
+both architecture startup checks PASS. See `docs/PRODUCT_REFRESH.md` for evidence.
+Runnable packages and screenshots delivered separately.
+
+## Previous pass — visual design and friendly interaction (2026-10-20)
 
 The user requested a further art/interaction pass after beta.2. Local target:
 `1.5.0-beta.3`. Make creation prominent, explain templates with purpose cards,
