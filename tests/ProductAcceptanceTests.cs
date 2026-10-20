@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -92,13 +92,15 @@ internal static class ProductAcceptanceTests
     private static int Main(string[] args)
     {
         Application.EnableVisualStyles();
+        EmbeddedDependencyLoader.Register();
         root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "product-acceptance");
         Directory.CreateDirectory(root);
         try
         {
             if (args.Length >= 2 && args[0] == "--soak-minutes") Soak(int.Parse(args[1], CultureInfo.InvariantCulture));
             else if (args.Length > 0 && args[0] == "--layout") ModesAndLayout();
-            else { Workflow(); ModesAndLayout(); FriendlyInteractions(); }
+            else if (args.Length > 0 && args[0] == "--dialogs") { RemainingDialogs(); NewUserJourney(); }
+            else { Workflow(); ModesAndLayout(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); }
             Console.WriteLine("PASS product acceptance: " + checks + " checks; isolated editor, saved files and runtime observer; no user configuration or real input.");
             return 0;
         }
@@ -366,6 +368,215 @@ internal static class ProductAcceptanceTests
                     Check(quick.Result != null && quick.Result.Trigger.VirtualKey == (int)Keys.F8 && quick.Result.Steps.Count == 1,
                         "each quick starting point creates an editable ordinary definition");
                 }
+            }
+        }
+    }
+
+    private static void FooterVisible(Form form)
+    {
+        Control shell = All(form).Single(x => x.Name == "dialogShell");
+        Control footer = ((TableLayoutPanel)shell).GetControlFromPosition(0, 2);
+        foreach (Button button in All(footer).OfType<Button>().Where(x => x.Visible))
+        {
+            Rectangle bounds = form.RectangleToClient(button.RectangleToScreen(button.ClientRectangle));
+            Check(bounds.Left >= 0 && bounds.Top >= 0 && bounds.Right <= form.ClientSize.Width && bounds.Bottom <= form.ClientSize.Height,
+                form.GetType().Name + " footer reachable: " + button.Text);
+        }
+    }
+
+    private static void RemainingDialogs()
+    {
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        {
+            Localizer.SetLanguage(language);
+            foreach (float scale in new[] { 1F, 1.25F, 1.5F, 2F })
+            {
+                MacroConfig originalSettings = new MacroConfig { Language = language };
+                using (SettingsDialog settings = new SettingsDialog(originalSettings))
+                {
+                    if (scale == 1F)
+                    {
+                        TabControl fullTabs = All(settings).OfType<TabControl>().Single();
+                        for (int tab = 0; tab < fullTabs.TabPages.Count; tab++) { fullTabs.SelectedIndex = tab; Render(settings, "settings-full-" + language + "-" + tab); }
+                    }
+                    settings.Scale(new SizeF(scale, scale));
+                    settings.ClientSize = new Size((int)(604 * scale), (int)(441 * scale));
+                    TabControl tabs = All(settings).OfType<TabControl>().Single();
+                    for (int i = 0; i < tabs.TabPages.Count; i++)
+                    {
+                        tabs.SelectedIndex = i;
+                        Render(settings, "settings-unified-" + language + "-" + i + "-" + (int)(scale * 100));
+                        FooterVisible(settings);
+                    }
+                    Field<CheckBox>(settings, "topMostBox").Checked = true;
+                    Check(settings.KeepWindowTopMost && !originalSettings.KeepWindowTopMost, "settings stage changes until Save; cancel keeps the original configuration");
+                    Field<CheckBox>(settings, "sdl3InputBox").Checked = false;
+                    All(settings).OfType<Button>().Single(x => x.Text == Localizer.T("恢复默认")).PerformClick();
+                    Check(!settings.KeepWindowTopMost && settings.Sdl3InputEnabled == new MacroConfig().Sdl3InputEnabled, "Restore defaults includes optional controller input");
+                    settings.DialogResult = DialogResult.Cancel;
+                }
+                foreach (int mode in new[] { 0, 4, 5, 6 })
+                using (ActivatorConditionDialog dialog = new ActivatorConditionDialog(new MacroDefinition { Activator = new ActivatorConfig { Mode = mode == 0 ? ActivatorModes.Legacy : mode == 4 ? ActivatorModes.ShortPress : mode == 5 ? ActivatorModes.LongPress : ActivatorModes.DoublePress } }, null, "Base"))
+                {
+                    if (scale == 1F) Render(dialog, "conditions-full-" + language + "-" + mode);
+                    dialog.Scale(new SizeF(scale, scale));
+                    dialog.ClientSize = new Size((int)(700 * scale), (int)(590 * scale));
+                    Render(dialog, "conditions-unified-" + language + "-" + mode + "-" + (int)(scale * 100));
+                    Check(Field<NumericUpDown>(dialog, "shortPress").Visible == (mode == 4) && Field<NumericUpDown>(dialog, "longPress").Visible == (mode == 5) && Field<NumericUpDown>(dialog, "doubleWindow").Visible == (mode == 6),
+                        "only timing used by the selected trigger is presented");
+                    Check(!Field<ComboBox>(dialog, "analogControl").Visible, "unused analog limits are collapsed");
+                    Field<CheckBox>(dialog, "analogEnabled").Checked = true;
+                    Check(Field<ComboBox>(dialog, "analogControl").Visible, "enabling an analog limit reveals its controls");
+                    Field<TextBox>(dialog, "process").Text = "game.exe";
+                    Call(dialog, "CaptureValues");
+                    Check(dialog.SelectedConditions.ForegroundProcessName == "game.exe" && dialog.SelectedConditions.Analog.Enabled, "condition edits survive presentation changes");
+                    FooterVisible(dialog);
+                }
+                using (VirtualKeyboardDialog keyboard = new VirtualKeyboardDialog(true, null))
+                {
+                    if (scale == 1F) Render(keyboard, "keyboard-full-" + language);
+                    keyboard.Scale(new SizeF(scale, scale));
+                    keyboard.ClientSize = new Size((int)(1000 * scale), (int)(620 * scale));
+                    Render(keyboard, "keyboard-unified-" + language + "-" + (int)(scale * 100));
+                    Button use = (Button)keyboard.AcceptButton;
+                    Check(!use.Enabled, "empty key selection cannot be confirmed");
+                    Field<RadioButton>(keyboard, "multipleButton").Checked = true;
+                    PressKey(keyboard, Keys.A, false); PressKey(keyboard, Keys.B, false);
+                    Check(!use.Enabled && Field<Label>(keyboard, "selectionLabel").ForeColor != EditorTheme.Accent,
+                        "invalid trigger combinations are explained before confirmation");
+                    PressKey(keyboard, Keys.B, false); PressKey(keyboard, Keys.LControlKey, false);
+                    Check(use.Enabled, "a modifier plus one main key enables confirmation");
+                    FooterVisible(keyboard);
+                    Call(keyboard, "ConfirmSelection", null, EventArgs.Empty);
+                    Check(keyboard.SelectedTrigger != null && keyboard.SelectedTrigger.Ctrl && keyboard.SelectedTrigger.VirtualKey == (int)Keys.A,
+                        "confirmed key selection preserves trigger semantics");
+                }
+            }
+            using (BatchDelayDialog delay = new BatchDelayDialog())
+            {
+                Render(delay, "batch-wait-" + language);
+                Field<RadioButton>(delay, "randomMode").Checked = true;
+                Field<NumericUpDown>(delay, "minBox").Value = 90;
+                Check(!((Button)delay.AcceptButton).Enabled, "invalid batch wait is explained without a popup");
+                Field<NumericUpDown>(delay, "maxBox").Value = 110;
+                Check(((Button)delay.AcceptButton).Enabled, "correcting batch wait restores confirmation");
+                FooterVisible(delay);
+                ((Button)delay.AcceptButton).PerformClick();
+                Check(delay.UseRandom && delay.MinMs == 90 && delay.MaxMs == 110, "batch wait confirmation commits the chosen range");
+            }
+            using (MacroExportSelectionForm export = new MacroExportSelectionForm(new List<MacroDefinition> { new MacroDefinition { Name = "Export example" } }, 0))
+            {
+                Render(export, "export-unified-" + language); FooterVisible(export);
+                CheckedListBox list = Field<CheckedListBox>(export, "list");
+                list.SetItemChecked(0, false); Check(!((Button)export.AcceptButton).Enabled, "empty export selection cannot be confirmed");
+                list.SetItemChecked(0, true); ((Button)export.AcceptButton).PerformClick();
+                Check(export.SelectedIndices.SequenceEqual(new[] { 0 }), "export still returns the checked macro indices");
+            }
+            using (RouterSourceDialog router = new RouterSourceDialog(new RouterSourcePolicyConfig(), null)) { Render(router, "router-unified-" + language); FooterVisible(router); }
+            using (AnalogTransformDialog analog = new AnalogTransformDialog(new AnalogTransformProfile())) { Render(analog, "analog-unified-" + language); FooterVisible(analog); }
+            using (DeviceManagerDialog devices = new DeviceManagerDialog(null)) { Render(devices, "devices-unified-" + language); FooterVisible(devices); }
+            using (ControlledReplacementDialog takeover = new ControlledReplacementDialog(null, delegate { return -1; }, delegate { return false; }, delegate { return VirtualGamepadTypes.None; }, delegate { return false; }, delegate { return false; }, null, null))
+            { Render(takeover, "takeover-unified-" + language); FooterVisible(takeover); }
+            using (AboutForm about = new AboutForm()) { Render(about, "about-unified-" + language); FooterVisible(about); }
+            using (DiagnosticsForm diagnostics = new DiagnosticsForm(delegate { return "Isolated diagnostic example"; })) { Render(diagnostics, "diagnostics-unified-" + language); FooterVisible(diagnostics); }
+        }
+    }
+
+    private static void PressKey(VirtualKeyboardDialog keyboard, Keys key, bool extended)
+    {
+        Field<List<Button>>(keyboard, "keyButtons").Single(x => ((InputSpec)x.Tag).VirtualKey == (int)key && ((InputSpec)x.Tag).Extended == extended).PerformClick();
+    }
+
+    private static void NewUserJourney()
+    {
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        {
+            MacroConfig config = new MacroConfig { Language = language, GamepadDeviceType = VirtualGamepadTypes.None };
+            string directory = Path.Combine(root, "new-user-" + Guid.NewGuid().ToString("N"));
+            Observer observer = new Observer();
+            using (MainForm form = new MainForm(config, directory, observer))
+            using (System.Windows.Forms.Timer driver = new System.Windows.Forms.Timer())
+            {
+                Render(form, "new-user-start-" + language);
+                int stage = 0;
+                driver.Interval = 40;
+                driver.Tick += delegate
+                {
+                    Form top = Application.OpenForms.Cast<Form>().LastOrDefault(x => x != form);
+                    NewMacroDialog chooser = top as NewMacroDialog;
+                    QuickCreateDialog quick = top as QuickCreateDialog;
+                    StepEditDialog editor = top as StepEditDialog;
+                    VirtualKeyboardDialog keyboard = top as VirtualKeyboardDialog;
+                    if (stage == 0 && chooser != null)
+                    {
+                        stage++;
+                        chooser.BeginInvoke((MethodInvoker)delegate { All(chooser).OfType<Button>().Single(x => x.Name == "template1").PerformClick(); });
+                    }
+                    else if (stage == 1 && quick != null)
+                    {
+                        Field<TextBox>(quick, "nameBox").Text = "First macro";
+                        stage++;
+                        quick.BeginInvoke((MethodInvoker)delegate { Field<Button>(quick, "triggerButton").PerformClick(); });
+                    }
+                    else if (stage == 2 && keyboard != null)
+                    { PressKey(keyboard, Keys.F8, false); stage++; ((Button)keyboard.AcceptButton).PerformClick(); }
+                    else if (stage == 3 && quick != null)
+                    {
+                        stage++;
+                        quick.BeginInvoke((MethodInvoker)delegate { All(quick).OfType<Button>().Single(x => x.Name == "addActionButton").PerformClick(); });
+                    }
+                    else if (stage == 4 && editor != null)
+                    {
+                        stage++;
+                        editor.BeginInvoke((MethodInvoker)delegate { Field<Button>(editor, "captureButton").PerformClick(); });
+                    }
+                    else if (stage == 5 && keyboard != null)
+                    { PressKey(keyboard, Keys.F6, false); stage++; ((Button)keyboard.AcceptButton).PerformClick(); }
+                    else if (stage == 6 && editor != null)
+                    {
+                        Field<NumericUpDown>(editor, "holdBox").Value = 11;
+                        Field<NumericUpDown>(editor, "delayBox").Value = 15;
+                        stage++; ((Button)editor.AcceptButton).PerformClick();
+                    }
+                    else if (stage == 7 && quick != null)
+                    {
+                        Check(((Button)quick.AcceptButton).Enabled, "first-time setup becomes ready after choosing shortcut and action");
+                        stage++; driver.Stop(); ((Button)quick.AcceptButton).PerformClick();
+                    }
+                };
+                driver.Start();
+                Field<Button>(form, "newMacroButton").PerformClick();
+                Check(stage == 8, "the actual nested creation, key selection and step windows complete");
+                Check(config.Macros.Count == 1 && config.Macros[0].Trigger.VirtualKey == (int)Keys.F8 && config.Macros[0].Steps[0].VirtualKey == (int)Keys.F6,
+                    "new user reaches a configured macro using only visible controls");
+                Check(Field<Label>(form, "workflowGuide").Text.Length > 40, "created macro explains saving and where to run");
+                MacroConfig saved = ConfigPackageSerializer.DeserializeConfigFromFile(Path.Combine(directory, "config.xml"));
+                Check(saved.Macros[0].Steps[0].HoldMs == 11 && saved.Macros[0].Steps[0].DelayMs == 15, "complete modal journey is saved without an extra save step");
+                Field<Button>(form, "runButton").PerformClick();
+                Wait(delegate { return observer.Downs > 0; }, "Run button executes the newly created macro", 2000);
+                Wait(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); }, "first run completes", 3000);
+                Check(observer.Pressed == 0 && observer.KeyboardDowns == observer.KeyboardUps, "first run leaves no pressed key");
+                Field<CheckBox>(form, "enabledBox").Checked = false;
+                Check(Field<Label>(form, "workflowGuide").Text.Contains(Localizer.IsEnglish ? "enable" : "启用"), "guidance follows shortcut enable/disable edits");
+                Field<CheckBox>(form, "enabledBox").Checked = true;
+                using (System.Windows.Forms.Timer nameDriver = new System.Windows.Forms.Timer())
+                {
+                    nameDriver.Interval = 40;
+                    nameDriver.Tick += delegate
+                    {
+                        Form prompt = Application.OpenForms.Cast<Form>().SingleOrDefault(x => x.Text == "Test group");
+                        if (prompt == null) return;
+                        nameDriver.Stop();
+                        Check(Field<int>(form, "uiSafetyModalDepth") > 0, "group name editing retains modal output protection");
+                        All(prompt).OfType<TextBox>().Single().Text = "My group";
+                        Render(prompt, "group-name-" + language); FooterVisible(prompt);
+                        ((Button)prompt.AcceptButton).PerformClick();
+                    };
+                    nameDriver.Start();
+                    Check((string)Call(form, "PromptLayerName", "Test group", "") == "My group" && Field<int>(form, "uiSafetyModalDepth") == 0,
+                        "group name editing returns its value and restores modal protection");
+                }
+                Render(form, "new-user-complete-" + language);
             }
         }
     }

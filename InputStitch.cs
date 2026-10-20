@@ -4698,6 +4698,7 @@ namespace InputStitch
             if (sender == enabledBox) UpdateMacroListItem(idx);
             RefreshConflictIndicators(false);
             RefreshRuntimeCapabilityUi();
+            RefreshEditorGuidance();
             UpdateRunButton();
         }
 
@@ -5699,7 +5700,7 @@ namespace InputStitch
             stepCaptureCallback = null;
             if (captureTriggerButton != null)
             {
-                captureTriggerButton.Text = Localizer.T("录制触发键");
+                captureTriggerButton.Text = EditorDialogs.T("选择触发键…", "Choose shortcut…");
                 captureTriggerButton.Enabled = SelectedMacro != null;
             }
             RefreshPanicUi();

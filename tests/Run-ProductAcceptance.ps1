@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateRange(0, 1440)][int]$SoakMinutes = 0)
+param([ValidateRange(0, 1440)][int]$SoakMinutes = 0, [switch]$DialogsOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
@@ -18,5 +18,5 @@ $arguments += $productionSources
 $arguments += Join-Path $PSScriptRoot 'ProductAcceptanceTests.cs'
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Product acceptance compilation failed.' }
-if ($SoakMinutes -gt 0) { & $exe --soak-minutes $SoakMinutes } else { & $exe }
+if ($SoakMinutes -gt 0) { & $exe --soak-minutes $SoakMinutes } elseif ($DialogsOnly) { & $exe --dialogs } else { & $exe }
 if ($LASTEXITCODE -ne 0) { throw 'Product acceptance failed. See artifacts/product-tests/product-acceptance/failure.txt.' }

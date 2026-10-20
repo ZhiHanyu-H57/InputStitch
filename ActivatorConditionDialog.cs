@@ -21,19 +21,22 @@ namespace InputStitch
         private readonly bool edgeOnlyTrigger;
         private readonly bool conditionsOnly;
 
-                private readonly NumericUpDown longPress = Number(100, 10000, 500);
+        private readonly NumericUpDown longPress = Number(100, 10000, 500);
         private readonly NumericUpDown doubleWindow = Number(100, 2000, 300);
         private readonly NumericUpDown shortPress = Number(50, 2000, 300);
         private readonly TextBox process = new TextBox();
         private readonly TextBox titleContains = new TextBox();
         private readonly ComboBox device = new ComboBox();
-        private readonly Button refreshDevices = new Button();
+        private readonly Button refreshDevices = new EditorButton();
         private readonly CheckBox analogEnabled = new CheckBox();
-        private readonly ComboBox analogControl = new ComboBox();
-        private readonly ComboBox analogDirection = new ComboBox();
+        private readonly ComboBox analogControl = new EditorChoice();
+        private readonly ComboBox analogDirection = new EditorChoice();
         private readonly NumericUpDown analogMin = Number(0, 100, 80);
         private readonly NumericUpDown analogMax = Number(0, 100, 100);
         private readonly Label behaviorNote = new Label();
+        private TableLayoutPanel timingFields;
+        private TableLayoutPanel conditionFields;
+        private Label conditionSummary;
 
         internal ActivatorConditionDialog(MacroDefinition macro, Func<DeviceInventorySnapshot> provider, string currentLayerText)
         {
@@ -68,19 +71,22 @@ namespace InputStitch
         private void BuildLayout()
         {
             StartPosition = FormStartPosition.CenterParent;
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleDimensions = new SizeF(96, 96);
             MinimumSize = new Size(700, 590);
-            ClientSize = new Size(780, 690);
+            ClientSize = new Size(820, 720);
 
             TableLayoutPanel root = new TableLayoutPanel();
-            root.Dock = DockStyle.Fill;
-            root.Padding = new Padding(14);
+            root.Dock = DockStyle.Top;
+            root.AutoSize = true;
+            root.Padding = new Padding(0);
             root.ColumnCount = 1;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowCount = 5;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(root);
@@ -98,12 +104,9 @@ namespace InputStitch
             intro.Margin = new Padding(0, 0, 0, 10);
             root.Controls.Add(intro, 0, 0);
 
-            GroupBox activationGroup = new GroupBox();
-            activationGroup.Text = Localizer.IsEnglish ? "Press timing" : "触发时间";
-            activationGroup.AutoSize = true;
-            activationGroup.Dock = DockStyle.Top;
-            activationGroup.Padding = new Padding(10);
+            GroupBox activationGroup = EditorDialogs.Section(EditorDialogs.T("触发时间", "Press timing"));
             TableLayoutPanel activation = Grid();
+            timingFields = activation;
             activationGroup.Controls.Add(activation);
 
             AddNumberRow(activation, 1, Localizer.IsEnglish ? "Hold duration before running" : "长按多久后执行", longPress, "ms");
@@ -115,23 +118,23 @@ namespace InputStitch
             behaviorNote.Margin = new Padding(0, 8, 0, 0);
             activation.Controls.Add(behaviorNote, 0, 4);
             activation.SetColumnSpan(behaviorNote, 2);
-            if (!conditionsOnly) root.Controls.Add(activationGroup, 0, 1);
+            root.Controls.Add(activationGroup, 0, 1);
+            activationGroup.Visible = !conditionsOnly;
 
-            GroupBox conditionGroup = new GroupBox();
-            conditionGroup.Text = Localizer.IsEnglish ? "Conditions (all must match)" : "条件（全部满足才生效）";
-            conditionGroup.Dock = DockStyle.Fill;
-            conditionGroup.Padding = new Padding(10);
+            GroupBox conditionGroup = EditorDialogs.Section(EditorDialogs.T("在哪些情况下生效", "When this applies"));
             TableLayoutPanel condition = Grid();
-            condition.AutoScroll = true;
+            conditionFields = condition;
             conditionGroup.Controls.Add(condition);
 
             Label layer = ValueLabel(string.IsNullOrWhiteSpace(layerText)
                 ? (Localizer.IsEnglish ? "Base / current macro layer" : "基础层 / 当前宏所属层")
                 : layerText);
-            AddRow(condition, 0, Localizer.IsEnglish ? "Layer" : "映射层", layer);
+            AddRow(condition, 0, Localizer.IsEnglish ? "Group" : "所属分组", layer);
             process.Text = conditions.ForegroundProcessName ?? "";
+            EditorDialogs.Hint(process, EditorDialogs.T("例如 game.exe；留空表示所有程序", "For example game.exe; blank means any program"));
             AddRow(condition, 1, Localizer.IsEnglish ? "Only in this program" : "仅在此程序中生效", process);
             titleContains.Text = conditions.ForegroundTitleContains ?? "";
+            EditorDialogs.Hint(titleContains, EditorDialogs.T("例如窗口名称中的一段文字；可留空", "Part of the window title; optional"));
             AddRow(condition, 2, Localizer.IsEnglish ? "Title contains" : "窗口标题包含", titleContains);
 
             device.DropDownStyle = ComboBoxStyle.DropDown;
@@ -140,7 +143,7 @@ namespace InputStitch
             FlowLayoutPanel deviceLine = new FlowLayoutPanel();
             deviceLine.AutoSize = true;
             deviceLine.Dock = DockStyle.Top;
-            device.Width = 400;
+            device.Width = 325;
             refreshDevices.Text = Localizer.IsEnglish ? "Refresh" : "刷新设备";
             refreshDevices.AutoSize = true;
             refreshDevices.Click += delegate { RefreshDeviceChoices(true); };
@@ -185,6 +188,7 @@ namespace InputStitch
             AddRow(condition, 7, Localizer.IsEnglish ? "Strength range" : "力度范围", zone);
 
             Label conditionsHelp = new Label();
+            conditionSummary = conditionsHelp;
             conditionsHelp.AutoSize = true;
             conditionsHelp.MaximumSize = new Size(650, 0);
             conditionsHelp.ForeColor = Color.FromArgb(86, 96, 112);
@@ -199,12 +203,12 @@ namespace InputStitch
             actions.AutoSize = true;
             actions.Dock = DockStyle.Fill;
             actions.FlowDirection = FlowDirection.RightToLeft;
-            Button cancel = new Button();
+            Button cancel = new EditorButton();
             cancel.Text = Localizer.IsEnglish ? "Cancel" : "取消";
             cancel.AutoSize = true;
             cancel.DialogResult = DialogResult.Cancel;
-            Button ok = new Button();
-            ok.Text = Localizer.IsEnglish ? "OK" : "确定";
+            Button ok = new EditorButton();
+            ok.Text = EditorDialogs.T("保存条件", "Save conditions");
             ok.AutoSize = true;
             ok.DialogResult = DialogResult.OK;
             ok.Click += delegate { CaptureValues(); };
@@ -223,8 +227,14 @@ namespace InputStitch
             RefreshDeviceChoices(false);
             UpdateActivatorUi();
             UpdateAnalogUi();
-            EditorTheme.Apply(this);
-            EditorTheme.Primary(ok, false);
+            Panel viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            viewport.Controls.Add(root);
+            Controls.Add(viewport);
+            EditorDialogs.Frame(this, viewport, actions, intro.Text, intro);
+            process.TextChanged += delegate { UpdateConditionSummary(); };
+            titleContains.TextChanged += delegate { UpdateConditionSummary(); };
+            device.TextChanged += delegate { UpdateConditionSummary(); };
+            UpdateConditionSummary();
         }
 
         internal ActivatorConfig SelectedActivator { get { return activator.Clone(); } }
@@ -256,24 +266,28 @@ namespace InputStitch
             longPress.Enabled = string.Equals(selected, ActivatorModes.LongPress, StringComparison.OrdinalIgnoreCase);
             doubleWindow.Enabled = string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase);
             shortPress.Enabled = string.Equals(selected, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase);
+            EditorDialogs.RowVisible(timingFields, 1, longPress.Enabled);
+            EditorDialogs.RowVisible(timingFields, 2, doubleWindow.Enabled);
+            EditorDialogs.RowVisible(timingFields, 3, shortPress.Enabled);
             if (string.Equals(selected, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish
-                    ? "The shortcut behavior stays as selected in the main window."
-                    : "触发方式沿用主界面的选择。";
+                    ? "This trigger behavior needs no extra timing. You can set optional limits below."
+                    : "当前触发方式不需要额外计时，可以直接设置下方生效条件。";
             else if (string.Equals(selected, ActivatorModes.WhileHeld, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish
                     ? "Releasing the shortcut stops this macro. Other macros keep running."
                     : "松开触发键会停止这个宏，不影响其他正在运行的宏。";
             else if (string.Equals(selected, ActivatorModes.LongPress, StringComparison.OrdinalIgnoreCase))
-                behaviorNote.Text = Localizer.IsEnglish ? "Long Press fires once after the threshold while the trigger and conditions remain valid." : "长按会在触发键持续按住且条件一直满足时，于阈值到达后触发一次。";
+                behaviorNote.Text = EditorDialogs.T("按住触发键达到上面的时间后，执行一次。期间需要一直满足所填条件。", "Hold the shortcut for the time above to run once. Any conditions you set must remain true while holding.");
             else if (string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase))
-                behaviorNote.Text = Localizer.IsEnglish ? "Double Press fires on the second press within the configured window." : "双击会在第二次按下发生在设定时间窗内时触发。";
+                behaviorNote.Text = EditorDialogs.T("两次按下的间隔不超过上面的时间，在第二次按下时执行。", "Press twice within the time above. The second press starts the macro.");
             else if (string.Equals(selected, ActivatorModes.ShortPress, StringComparison.OrdinalIgnoreCase))
                 behaviorNote.Text = Localizer.IsEnglish
-                    ? "Short Press fires once on release, but only when the trigger is released inside the configured window. Holding longer disarms the press, so the same key stays usable for hold-style bindings."
-                    : "短按会在松开时触发一次，且要求松开发生在设定窗口内；按住超过窗口即作废，因此同一个键仍可安全用于按住类操作。";
+                    ? "Release the shortcut within the time above to run once. Holding it longer will not run this macro."
+                    : "在上面的时间内松开触发键，执行一次；超过时间再松开则不执行。";
             else
                 behaviorNote.Text = Localizer.IsEnglish ? "The macro starts at the moment selected in the main window." : "这个宏会在主界面选择的时机开始执行。";
+            behaviorNote.Text += EditorDialogs.T("\r\n1000 毫秒 = 1 秒。这里只调整当前触发方式需要的时间。", "\r\n1000 ms = 1 second. Only timing used by your selected trigger behavior is shown.");
             if (edgeOnlyTrigger && !string.Equals(selected, ActivatorModes.Legacy, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(selected, ActivatorModes.Press, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(selected, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase))
@@ -291,6 +305,23 @@ namespace InputStitch
             bool stick = analogControl.SelectedIndex == 0 || analogControl.SelectedIndex == 1;
             analogDirection.Enabled = enabled && stick;
             if (!stick) analogDirection.SelectedIndex = 0;
+            if (conditionFields != null)
+            {
+                EditorDialogs.RowVisible(conditionFields, 5, enabled);
+                EditorDialogs.RowVisible(conditionFields, 6, enabled && stick);
+                EditorDialogs.RowVisible(conditionFields, 7, enabled);
+            }
+            UpdateConditionSummary();
+        }
+
+        private void UpdateConditionSummary()
+        {
+            if (conditionSummary == null) return;
+            int count = (string.IsNullOrWhiteSpace(process.Text) ? 0 : 1) + (string.IsNullOrWhiteSpace(titleContains.Text) ? 0 : 1) +
+                (device.SelectedIndex == 0 || string.IsNullOrWhiteSpace(device.Text) ? 0 : 1) + (analogEnabled.Checked ? 1 : 0);
+            conditionSummary.Text = count == 0
+                ? EditorDialogs.T("未设置限制：可以在任何程序中生效。需要限制时再填写，留空表示不限制。", "No limits set: available in any program. Fill in only the limits you need; blank fields mean no restriction.")
+                : EditorDialogs.T("已设置 " + count + " 项限制，需要全部满足才生效。来源手柄离线或无法识别时不生效。", count + " limits set. All must match. A selected source controller must be connected and identifiable.");
         }
 
         private void RefreshDeviceChoices(bool preserveEdit)

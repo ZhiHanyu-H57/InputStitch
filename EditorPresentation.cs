@@ -175,6 +175,7 @@ namespace InputStitch
     // Native Buttons retain keyboard navigation, default-button and accessibility behavior.
     internal class EditorButton : Button
     {
+        internal bool CompactText;
         private bool hovered;
         private bool pressed;
         internal EditorButton() { DoubleBuffered = true; FlatStyle = FlatStyle.Flat; }
@@ -191,8 +192,9 @@ namespace InputStitch
             using (Brush brush = new SolidBrush(fill))
             using (Pen pen = new Pen(Focused ? EditorTheme.Accent : FlatAppearance.BorderColor))
             { e.Graphics.FillPath(brush, shape); e.Graphics.DrawPath(pen, shape); }
-            TextRenderer.DrawText(e.Graphics, Text, Font, Rectangle.Inflate(ClientRectangle, -5, -2),
-                Enabled ? ForeColor : EditorTheme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(e.Graphics, Text, Font, Rectangle.Inflate(ClientRectangle, CompactText ? -1 : -5, -2),
+                Enabled ? ForeColor : EditorTheme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix |
+                (CompactText ? TextFormatFlags.NoPadding : TextFormatFlags.Default));
             if (Focused && ShowFocusCues) ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -4, -4));
         }
     }
@@ -335,16 +337,21 @@ namespace InputStitch
         {
             base.WndProc(ref message);
             if ((message.Msg == 0x0317 || message.Msg == 0x0318) && message.WParam != IntPtr.Zero &&
-                DropDownStyle == ComboBoxStyle.DropDownList && SelectedIndex >= 0)
+                Visible && DropDownStyle == ComboBoxStyle.DropDownList && SelectedIndex >= 0)
             {
                 using (Graphics graphics = Graphics.FromHdc(message.WParam))
                 {
                     Rectangle content = new Rectangle(4, 3, Math.Max(0, Width - SystemInformation.VerticalScrollBarWidth - 8), Height - 6);
+                    Rectangle visible = ClientRectangle;
+                    for (Control parent = Parent; parent != null; parent = parent.Parent)
+                        visible.Intersect(RectangleToClient(parent.RectangleToScreen(parent.ClientRectangle)));
+                    if (visible.IsEmpty) return;
+                    graphics.SetClip(visible);
                     using (Brush background = new SolidBrush(Enabled ? SystemColors.Window : SystemColors.Control)) graphics.FillRectangle(background, content);
                     TextRenderer.DrawText(graphics, GetItemText(SelectedItem), Font,
                         content,
                         Enabled ? EditorTheme.Ink : SystemColors.GrayText,
-                        TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                        TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix | TextFormatFlags.PreserveGraphicsClipping);
                 }
             }
         }
@@ -362,6 +369,7 @@ namespace InputStitch
         private Button addStepButton;
         private Button editStepButton;
         private Button newMacroButton;
+        private Label workflowGuide;
 
         private void ShowNewMacroChooser(object sender, EventArgs e)
         {
@@ -403,6 +411,11 @@ namespace InputStitch
             if (macroCountLabel != null) macroCountLabel.Text = Localizer.IsEnglish ? "MY MACROS  ·  " + config.Macros.Count : "我的宏  ·  " + config.Macros.Count;
             MacroDefinition macro = SelectedMacro;
             int count = macro == null || macro.Steps == null ? 0 : macro.Steps.Count;
+            if (workflowGuide != null) workflowGuide.Text = count == 0
+                ? EditorDialogs.T("下一步：在“执行步骤”中添加要按的键，或录制一次操作。", "Next: add the keys to press under Macro Steps, or record your actions.")
+                : macro != null && !macro.Enabled
+                    ? EditorDialogs.T("设置会自动保存。点击底部运行按钮即可执行；启用触发键后，也能用快捷键启动。", "Changes save automatically. Use Run at the bottom, or enable the shortcut to start with a key.")
+                    : EditorDialogs.T("设置会自动保存。点击底部运行按钮，或切到目标程序后按触发键启动；使用“全部停止”可结束所有宏。", "Changes save automatically. Use Run below, or switch to your target app and press the shortcut. Stop all ends every macro.");
             if (stepsHintLabel != null) stepsHintLabel.Text = count == 0
                 ? (Localizer.IsEnglish ? "Add a key or record your actions to get started." : "添加一个按键，或直接录制你的操作。")
                 : (Localizer.IsEnglish ? count + " step(s), in order · Double-click a row to edit" : count + " 个步骤，按顺序执行 · 双击任意一行可编辑");

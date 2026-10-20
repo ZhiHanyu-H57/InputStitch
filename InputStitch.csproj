@@ -45,6 +45,7 @@
     <Compile Include="MainForm.ControlledReplacement.cs" />
     <Compile Include="MainForm.Ui.cs" />
     <Compile Include="EditorPresentation.cs" />
+    <Compile Include="DialogPresentation.cs" />
     <Compile Include="ReleaseInfo.cs" />
     <Compile Include="UpdateInstaller.cs" />
     <Compile Include="RuntimeDiagnostics.cs" />

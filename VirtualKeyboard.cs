@@ -15,6 +15,7 @@ namespace InputStitch
         private readonly RadioButton singleButton;
         private readonly RadioButton multipleButton;
         private readonly KeyboardSurface keyboard;
+        private Button confirmButton;
         public List<InputSpec> SelectedInputs { get; private set; }
         public TriggerSpec SelectedTrigger { get; private set; }
 
@@ -29,7 +30,7 @@ namespace InputStitch
             group.Margin = new Padding(0);
             primary.Margin = new Padding(0);
             group.Controls.Add(primary);
-            Button arrow = new Button();
+            Button arrow = new EditorButton { CompactText = true };
             arrow.Text = "▾";
             arrow.AccessibleName = TextFor("更多输入方式", "More input methods");
             arrow.MinimumSize = new Size(30, primary.MinimumSize.Height);
@@ -54,15 +55,15 @@ namespace InputStitch
         public VirtualKeyboardDialog(bool forTrigger, IList<InputSpec> initial)
         {
             triggerMode = forTrigger;
-            Text = TextFor("虚拟键盘 · 选择按键", "Virtual keyboard · Select keys");
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Text = forTrigger ? TextFor("选择触发键", "Choose a shortcut") : TextFor("选择执行按键", "Choose keys to press");
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             BackColor = Color.FromArgb(245, 247, 251);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
-            MinimumSize = new Size(800, 490);
-            ClientSize = new Size(1110, 480);
+            MinimumSize = new Size(800, 600);
+            ClientSize = new Size(1160, 620);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
@@ -91,14 +92,14 @@ namespace InputStitch
             modeRow.Margin = new Padding(0, 0, 0, 10);
             singleButton = new RadioButton();
             singleButton.AutoSize = true;
-            singleButton.Text = TextFor("记录单个按键", "Single key");
+            singleButton.Text = TextFor("选择一个键", "One key");
             singleButton.Margin = new Padding(0, 3, 24, 3);
             multipleButton = new RadioButton();
             multipleButton.AutoSize = true;
-            multipleButton.Text = TextFor("记录多个按键（组合键）", "Multiple keys (chord)");
+            multipleButton.Text = TextFor("选择组合键", "Key combination");
             modeRow.Controls.Add(singleButton);
             modeRow.Controls.Add(multipleButton);
-            Button clear = new Button();
+            Button clear = new EditorButton();
             clear.Text = TextFor("清空选择", "Clear selection");
             clear.AutoSize = true;
             clear.Margin = new Padding(24, 0, 0, 0);
@@ -111,6 +112,7 @@ namespace InputStitch
             viewport.AutoScroll = true;
             viewport.Margin = new Padding(0);
             keyboard = new KeyboardSurface();
+            keyboard.BackColor = Color.White;
             keyboard.Dock = DockStyle.None;
             keyboard.Height = 300;
             keyboard.MinimumSize = new Size(1058, 285);
@@ -129,19 +131,22 @@ namespace InputStitch
             selectionLabel.Dock = DockStyle.Fill;
             selectionLabel.MinimumSize = new Size(0, 44);
             selectionLabel.Margin = new Padding(0, 10, 0, 5);
+            selectionLabel.BackColor = EditorTheme.Selection;
+            selectionLabel.Padding = new Padding(12);
             root.Controls.Add(selectionLabel, 0, 3);
 
             FlowLayoutPanel footer = new FlowLayoutPanel();
             footer.AutoSize = true;
             footer.Dock = DockStyle.Fill;
             footer.FlowDirection = FlowDirection.RightToLeft;
-            Button ok = new Button();
-            ok.Text = TextFor("确定", "OK");
+            Button ok = new EditorButton();
+            confirmButton = ok;
+            ok.Text = TextFor("使用所选按键", "Use selected keys");
             ok.AutoSize = true;
             ok.MinimumSize = new Size(96, 34);
             ok.Click += ConfirmSelection;
-            Button cancel = new Button();
-            cancel.Text = TextFor("取消（退出）", "Cancel / Close");
+            Button cancel = new EditorButton();
+            cancel.Text = TextFor("取消", "Cancel");
             cancel.AutoSize = true;
             cancel.MinimumSize = new Size(120, 34);
             cancel.DialogResult = DialogResult.Cancel;
@@ -162,6 +167,10 @@ namespace InputStitch
                 RefreshSelection();
             };
             multipleButton.CheckedChanged += delegate { RefreshSelection(); };
+            root.Padding = new Padding(0);
+            EditorDialogs.Frame(this, root, footer, forTrigger
+                ? TextFor("这是用来启动宏的快捷键。点击下方按键；需要 Ctrl、Shift 等组合时，先选“选择组合键”。", "This shortcut starts your macro. Click keys below; choose Key combination to include Ctrl, Shift or other modifiers.")
+                : TextFor("这是宏替你按的键。点击选中，再次点击取消；确认后回到步骤编辑。", "These are the keys your macro will press. Click to select, click again to clear, then confirm to return to the step editor."), help);
             RefreshSelection();
         }
 
@@ -185,7 +194,7 @@ namespace InputStitch
             InputSpec input = new InputSpec();
             input.VirtualKey = (int)key;
             input.Extended = extended;
-            Button button = new Button();
+            Button button = new EditorButton { CompactText = true };
             button.Text = label;
             button.AccessibleName = label;
             button.Tag = input;
@@ -291,17 +300,25 @@ namespace InputStitch
             foreach (Button key in keyButtons)
             {
                 bool on = ContainsKey((InputSpec)key.Tag);
-                key.BackColor = on ? Color.FromArgb(34, 101, 207) : Color.White;
+                key.BackColor = on ? EditorTheme.Accent : Color.White;
                 key.ForeColor = on ? Color.White : Color.FromArgb(34, 46, 62);
+                key.FlatAppearance.MouseOverBackColor = on ? Color.FromArgb(31, 75, 148) : EditorTheme.Selection;
+                key.FlatAppearance.MouseDownBackColor = key.FlatAppearance.MouseOverBackColor;
                 key.AccessibleDescription = on ? TextFor("已选中", "Selected") : TextFor("未选中", "Not selected");
             }
             if (selectionLabel == null) return;
             List<string> names = new List<string>();
-            foreach (InputSpec input in selected) names.Add(FormatKeyboardInput(input));
+            foreach (InputSpec input in selected) if (ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) names.Add(FormatKeyboardInput(input));
+            foreach (InputSpec input in selected) if (!ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) names.Add(FormatKeyboardInput(input));
             string hint = triggerMode
                 ? TextFor("组合触发键支持 Ctrl / Shift / Alt / Win 加一个主键；也可单独选择修饰键。", "Trigger chords support Ctrl / Shift / Alt / Win plus one main key. A modifier can also be used alone.")
-                : TextFor("多个按键按组合键执行；确认后展开为可编辑的按下、按一下和松开步骤。", "Multiple keys form a chord, expanded into editable Down, Press and Up steps when confirmed.");
-            selectionLabel.Text = TextFor("已选：", "Selected: ") + (names.Count == 0 ? TextFor("无", "None") : string.Join(" + ", names.ToArray())) + Environment.NewLine + hint;
+                : TextFor("所选按键会作为组合执行；确认后仍可编辑每个按键的按下与松开步骤。", "Selected keys run as a combination. You can still edit each press and release step after confirming.");
+            string error = null;
+            TriggerSpec ignored;
+            bool valid = selected.Count > 0 && (!triggerMode || TryCreateTrigger(selected, out ignored, out error));
+            if (confirmButton != null) confirmButton.Enabled = valid;
+            selectionLabel.ForeColor = error == null ? EditorTheme.Accent : Color.FromArgb(148, 87, 15);
+            selectionLabel.Text = TextFor("已选：", "Selected: ") + (names.Count == 0 ? TextFor("请点选下方按键", "Choose keys below") : string.Join(" + ", names.ToArray())) + Environment.NewLine + (error ?? hint);
         }
 
         public static string FormatKeyboardInput(InputSpec input)

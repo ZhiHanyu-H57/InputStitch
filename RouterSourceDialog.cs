@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -20,11 +20,11 @@ namespace InputStitch
         private readonly RadioButton selectedOnly = new RadioButton();
         private readonly CheckedListBox devices = new CheckedListBox();
         private readonly Label status = new Label();
-        private readonly Button analogTransform = new Button();
+        private readonly Button analogTransform = new EditorButton();
         private readonly Label analogSummary = new Label();
-        private readonly Button refresh = new Button();
-        private readonly Button ok = new Button();
-        private readonly Button cancel = new Button();
+        private readonly Button refresh = new EditorButton();
+        private readonly Button ok = new EditorButton();
+        private readonly Button cancel = new EditorButton();
 
         internal RouterSourceDialog(RouterSourcePolicyConfig current, Func<DeviceInventorySnapshot> provider)
         {
@@ -33,7 +33,7 @@ namespace InputStitch
 
             Text = Localizer.IsEnglish ? "Router source selection" : "手柄汇总来源";
             StartPosition = FormStartPosition.CenterParent;
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
             MinimumSize = new Size(680, 500);
             ClientSize = new Size(760, 560);
@@ -65,15 +65,15 @@ namespace InputStitch
 
             allVisible.AutoSize = true;
             allVisible.Text = Localizer.IsEnglish
-                ? "Route all visible external XInput sources (current/default behavior)"
-                : "转发所有可见的外部 XInput 来源（当前/默认行为）";
+                ? "All connected external XInput controllers"
+                : "所有已连接的外部 XInput 手柄";
             allVisible.Checked = string.Equals(working.Mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase);
             root.Controls.Add(allVisible, 0, 1);
 
             selectedOnly.AutoSize = true;
             selectedOnly.Text = Localizer.IsEnglish
-                ? "Route only the selected stable devices"
-                : "仅转发下面勾选的稳定设备";
+                ? "Only the controllers selected below"
+                : "仅转发下面勾选的手柄";
             selectedOnly.Checked = !allVisible.Checked;
             selectedOnly.Margin = new Padding(0, 6, 0, 6);
             root.Controls.Add(selectedOnly, 0, 2);
@@ -140,6 +140,8 @@ namespace InputStitch
 
             AcceptButton = ok;
             CancelButton = cancel;
+            root.Padding = new Padding(12);
+            EditorDialogs.Frame(this, root, actions, EditorDialogs.T("选择哪些实体手柄的操作会转发给虚拟手柄。无法识别或离线的设备不会被转发。", "Choose which physical controllers feed the virtual controller. Offline or unidentified devices are not routed."), intro);
             allVisible.CheckedChanged += delegate { UpdateEnabledState(); };
             selectedOnly.CheckedChanged += delegate { UpdateEnabledState(); };
             Shown += delegate { RefreshInventory(); };

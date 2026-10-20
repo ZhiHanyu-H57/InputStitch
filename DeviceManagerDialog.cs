@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Globalization;
 using System.Text;
@@ -14,8 +14,8 @@ namespace InputStitch
         private readonly Func<DeviceInventorySnapshot> refreshInventory;
         private readonly Label summaryLabel = new Label();
         private readonly DataGridView grid = new DataGridView();
-        private readonly Button refreshButton = new Button();
-        private readonly Button closeButton = new Button();
+        private readonly Button refreshButton = new EditorButton();
+        private readonly Button closeButton = new EditorButton();
 
         internal DeviceManagerDialog(Func<DeviceInventorySnapshot> refresh)
         {
@@ -24,7 +24,7 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(900, 520);
             Size = new Size(1120, 650);
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
 
             TableLayoutPanel root = new TableLayoutPanel();
@@ -68,6 +68,8 @@ namespace InputStitch
             actions.Controls.Add(refreshButton);
             root.Controls.Add(actions, 0, 3);
             CancelButton = closeButton;
+            root.Padding = new Padding(0);
+            EditorDialogs.Frame(this, root, actions, EditorDialogs.T("查看已连接和曾连接的手柄。设备身份用于区分手柄；XInput 编号可能随重连变化。", "View current and previously connected controllers. Device identity identifies a controller; its XInput number may change after reconnecting."), intro);
 
             Shown += delegate { RefreshDevices(); };
         }

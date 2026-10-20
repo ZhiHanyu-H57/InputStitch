@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -17,7 +17,7 @@ namespace InputStitch
             working = current == null ? new AnalogTransformProfile() : current.Clone();
             Text = Localizer.IsEnglish ? "Analog Transform" : "模拟量处理";
             StartPosition = FormStartPosition.CenterParent;
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
             MinimumSize = new Size(650, 560);
             ClientSize = new Size(720, 620);
@@ -42,7 +42,7 @@ namespace InputStitch
             intro.Margin = new Padding(0, 0, 0, 10);
             root.Controls.Add(intro, 0, 0);
 
-            TabControl tabs = new TabControl();
+            TabControl tabs = new EditorTabs();
             tabs.Dock = DockStyle.Fill;
             leftStick = new StickEditor(working.LeftStick);
             rightStick = new StickEditor(working.RightStick);
@@ -58,25 +58,23 @@ namespace InputStitch
             merge.AutoSize = true;
             merge.MaximumSize = new Size(670, 0);
             merge.Margin = new Padding(0, 8, 0, 8);
-            merge.Text = Localizer.IsEnglish
-                ? "Cross-source merge semantics are unchanged in this stage: sticks use normalized sum, triggers use maximum, and digital ownership is reference-counted."
-                : "这一阶段不会改变多来源合并规则：摇杆仍使用归一化求和，扳机仍取最大值，数字按键仍按来源所有权合并。";
+            merge.Text = EditorDialogs.T("曲线 100% 为线性；数值更高时，摇杆中心附近的控制更细腻。", "A 100% curve is linear. Higher values provide finer control near the stick center.");
             root.Controls.Add(merge, 0, 2);
 
             FlowLayoutPanel actions = new FlowLayoutPanel();
             actions.AutoSize = true;
             actions.Dock = DockStyle.Fill;
             actions.FlowDirection = FlowDirection.RightToLeft;
-            Button cancel = new Button();
+            Button cancel = new EditorButton();
             cancel.Text = Localizer.IsEnglish ? "Cancel" : "取消";
             cancel.AutoSize = true;
             cancel.DialogResult = DialogResult.Cancel;
-            Button ok = new Button();
+            Button ok = new EditorButton();
             ok.Text = Localizer.IsEnglish ? "OK" : "确定";
             ok.AutoSize = true;
             ok.DialogResult = DialogResult.OK;
             ok.Click += delegate { CaptureProfile(); };
-            Button reset = new Button();
+            Button reset = new EditorButton();
             reset.Text = Localizer.IsEnglish ? "Reset all" : "全部恢复默认";
             reset.AutoSize = true;
             reset.Click += delegate
@@ -92,6 +90,8 @@ namespace InputStitch
             root.Controls.Add(actions, 0, 3);
             AcceptButton = ok;
             CancelButton = cancel;
+            root.Padding = new Padding(0);
+            EditorDialogs.Frame(this, root, actions, EditorDialogs.T("调整摇杆与扳机的灵敏度和输出范围。恢复默认即可使用原始响应。", "Adjust stick and trigger sensitivity and output limits. Reset to defaults for the original response."), intro);
         }
 
         internal AnalogTransformProfile SelectedProfile

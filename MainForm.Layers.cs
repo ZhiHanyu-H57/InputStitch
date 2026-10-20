@@ -111,18 +111,29 @@ namespace InputStitch
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MinimizeBox = false;
                 dialog.MaximizeBox = false;
-                dialog.ClientSize = new Size(420, 118);
+                dialog.AutoScaleMode = AutoScaleMode.Dpi;
+                dialog.AutoScaleDimensions = new SizeF(96, 96);
+                dialog.ClientSize = new Size(500, 260);
                 dialog.Font = Font;
-                Label label = new Label { Left = 14, Top = 14, Width = 390, Text = Localizer.IsEnglish ? "Layer name:" : "映射层名称：" };
-                TextBox input = new TextBox { Left = 14, Top = 38, Width = 390, Text = initialValue ?? "" };
-                Button ok = new Button { Text = Localizer.IsEnglish ? "OK" : "确定", DialogResult = DialogResult.OK, Left = 248, Top = 76, Width = 76 };
-                Button cancel = new Button { Text = Localizer.IsEnglish ? "Cancel" : "取消", DialogResult = DialogResult.Cancel, Left = 328, Top = 76, Width = 76 };
-                dialog.Controls.Add(label); dialog.Controls.Add(input); dialog.Controls.Add(ok); dialog.Controls.Add(cancel);
+                TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, BackColor = Color.White };
+                body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                Label label = new Label { AutoSize = true, Text = Localizer.IsEnglish ? "Group name:" : "分组名称：" };
+                TextBox input = new TextBox { Dock = DockStyle.Top, Text = initialValue ?? "" };
+                body.Controls.Add(label, 0, 0); body.Controls.Add(input, 0, 1);
+                Button ok = EditorDialogs.Button(Localizer.IsEnglish ? "Save name" : "保存名称", DialogResult.OK);
+                Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel);
                 dialog.AcceptButton = ok; dialog.CancelButton = cancel;
+                EditorDialogs.Frame(dialog, body, EditorDialogs.Actions(ok, cancel), EditorDialogs.T("用名称区分不同用途的宏分组。", "Use a name that describes this group of macros."), null);
                 dialog.Shown += delegate { input.Focus(); input.SelectAll(); };
-                if (dialog.ShowDialog(this) != DialogResult.OK) return null;
-                string value = (input.Text ?? "").Trim();
-                return value.Length == 0 ? null : value;
+                uiSafetyModalDepth++;
+                UpdateUiSafetyPauseState();
+                try
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return null;
+                    string value = (input.Text ?? "").Trim();
+                    return value.Length == 0 ? null : value;
+                }
+                finally { uiSafetyModalDepth--; UpdateUiSafetyPauseState(); }
             }
         }
 

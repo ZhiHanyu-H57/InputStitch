@@ -112,14 +112,13 @@ namespace InputStitch
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             Text = Localizer.T("设置");
-            Font = new Font("Microsoft YaHei UI", 9F);
+            Font = new Font("Microsoft YaHei UI", 10F);
             StartPosition = FormStartPosition.CenterParent;
-            Load += delegate { EditorTheme.Apply(this); };
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimizeBox = false;
             MaximizeBox = false;
             MinimumSize = new Size(620, 480);
-            ClientSize = new Size(700, 660);
+            ClientSize = new Size(780, 740);
             BackColor = Color.FromArgb(247, 249, 252);
             AutoScroll = true;
 
@@ -149,7 +148,7 @@ namespace InputStitch
             GroupBox general = MakeGroup(Localizer.T("常规"));
             TableLayoutPanel generalLayout = MakeStack();
             general.Controls.Add(generalLayout);
-            languageBox = new ComboBox();
+            languageBox = new EditorChoice();
             languageBox.DropDownStyle = ComboBoxStyle.DropDownList;
             languageBox.Items.Add("简体中文");
             languageBox.Items.Add("English");
@@ -197,7 +196,7 @@ namespace InputStitch
             gamepadTypeLabel.AutoSize = true;
             gamepadTypeLabel.Anchor = AnchorStyles.Left;
             gamepadTypeLabel.Margin = new Padding(0, 5, 12, 5);
-            gamepadTypeBox = new ComboBox();
+            gamepadTypeBox = new EditorChoice();
             gamepadTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
             gamepadTypeBox.Dock = DockStyle.Fill;
             gamepadTypeBox.Items.Add(Localizer.T("Xbox 360（推荐，Windows 游戏兼容性最好）"));
@@ -240,13 +239,13 @@ namespace InputStitch
             routerHint.ForeColor = Color.FromArgb(86, 96, 112);
             routerHint.Margin = new Padding(24, 0, 0, 6);
             routerHint.Text = Localizer.IsEnglish
-                ? "This mirrors buttons, sticks and triggers from the other visible XInput slots. For games that only read XInput 0, the InputStitch virtual controller must also own slot 0. Device hiding/forced replacement is not enabled yet."
-                : "开启后会持续转发其他可见 XInput 手柄的按键、摇杆和扳机。对于只读取 0 号槽位的游戏，InputStitch 自己的虚拟手柄也必须位于 0 号；目前还没有自动隐藏原手柄、强制抢占 0 号槽位。";
+                ? "Forward physical controller buttons, sticks and triggers to the virtual controller. Games that only read XInput 0 also require the virtual controller in slot 0. This switch does not hide physical controllers."
+                : "把实体手柄的按键、摇杆和扳机操作转发给虚拟手柄。只读取首个手柄的游戏需要虚拟手柄处于 XInput 0；此开关不会隐藏原手柄。";
             gamepadLayout.Controls.Add(routerHint);
             sdl3InputBox = MakeCheck(
                 Localizer.IsEnglish
-                    ? "Enable the optional SDL3 input lane when its runtime is available (restart required)"
-                    : "运行时可用时启用可选 SDL3 输入通道（重启后生效）",
+                    ? "Support more controller types (SDL3; restart required)"
+                    : "支持更多类型的手柄（SDL3，重启后生效）",
                 config.Sdl3InputEnabled);
             gamepadLayout.Controls.Add(sdl3InputBox);
             Label sdl3Hint = new Label();
@@ -255,8 +254,8 @@ namespace InputStitch
             sdl3Hint.ForeColor = Color.FromArgb(86, 96, 112);
             sdl3Hint.Margin = new Padding(24, 0, 0, 6);
             sdl3Hint.Text = Localizer.IsEnglish
-                ? "Adds non-XInput controllers (PlayStation/Switch/HID gamepads) through the bundled-optional SDL3 runtime. Xbox-family pads stay on the XInput lane, and the lane costs nothing when SDL3 is not installed; the change applies after the next start."
-                : "通过“按需获取”的 SDL3 运行时接入非 XInput 手柄（PS / Switch / HID 手柄）。微软系手柄仍走 XInput 通道；未安装 SDL3 时该通道不产生任何开销。该开关在下次启动后生效。";
+                ? "Adds PlayStation, Switch and other HID controllers. Xbox controllers keep using XInput. Changes apply after restarting InputStitch."
+                : "接入 PlayStation、Switch 等手柄。Xbox 手柄继续使用 XInput；更改后需重启 InputStitch。";
             gamepadLayout.Controls.Add(sdl3Hint);
 
             gamepadRouterSourcesButton = MakeDialogButton(Localizer.IsEnglish ? "Choose routed controllers..." : "选择汇总来源...");
@@ -379,7 +378,7 @@ namespace InputStitch
             updateLabel.AutoSize = true;
             updateLabel.Anchor = AnchorStyles.Left;
             updateLabel.Margin = new Padding(0, 5, 12, 5);
-            updateModeBox = new ComboBox();
+            updateModeBox = new EditorChoice();
             updateModeBox.DropDownStyle = ComboBoxStyle.DropDownList;
             updateModeBox.Dock = DockStyle.Fill;
             updateModeBox.Items.Add(Localizer.T("启动时自动检查并提示安装"));
@@ -414,7 +413,7 @@ namespace InputStitch
             idleSettings = new IdleGamepadSettingsPanel(config.IdleGamepad ?? new IdleGamepadOptions(), recentIdleTargetProvider);
             GroupBox idleGroup = MakeGroup(Localizer.IsEnglish ? "Idle gamepad input" : "闲置自动手柄输入");
             idleGroup.Controls.Add(idleSettings);
-            TabControl tabs = new TabControl();
+            TabControl tabs = new EditorTabs();
             tabs.Dock = DockStyle.Fill;
             AddSettingsTab(tabs, Localizer.T("常规"), general, updates);
             AddSettingsTab(tabs, Localizer.T("输入与安全"), input, gamepad);
@@ -431,7 +430,7 @@ namespace InputStitch
             buttons.Dock = DockStyle.Fill;
             buttons.FlowDirection = FlowDirection.RightToLeft;
             buttons.WrapContents = false;
-            Button ok = MakeDialogButton(Localizer.T("确定"));
+            Button ok = MakeDialogButton(EditorDialogs.T("保存设置", "Save settings"));
             ok.DialogResult = DialogResult.OK;
             Button cancel = MakeDialogButton(Localizer.T("取消"));
             cancel.DialogResult = DialogResult.Cancel;
@@ -450,6 +449,7 @@ namespace InputStitch
                 routerSourcePolicy = new RouterSourcePolicyConfig();
                 RefreshRouterSourceSummary();
                 gamepadTypeBox.SelectedIndex = 0;
+                sdl3InputBox.Checked = new MacroConfig().Sdl3InputEnabled;
                 idleSettings.LoadOptions(new IdleGamepadOptions());
             };
             buttons.Controls.Add(ok);
@@ -458,6 +458,8 @@ namespace InputStitch
             root.Controls.Add(buttons, 0, 2);
             AcceptButton = ok;
             CancelButton = cancel;
+            root.Padding = new Padding(0);
+            EditorDialogs.Frame(this, root, buttons, EditorDialogs.T("常用选项保持默认即可。点击保存设置后生效，取消不会修改当前设置。", "Defaults work for most macros. Save settings to apply your changes, or cancel to keep your current setup."), hint);
         }
 
         private static void AddSettingsTab(TabControl tabs, string title, params Control[] groups)
@@ -549,12 +551,12 @@ namespace InputStitch
 
         private static GroupBox MakeGroup(string text)
         {
-            GroupBox box = new GroupBox();
+            GroupBox box = new EditorSection();
             box.Text = text;
             box.Dock = DockStyle.Top;
             box.AutoSize = true;
             box.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            box.Padding = new Padding(14, 10, 14, 12);
+            box.Padding = new Padding(16, 46, 16, 14);
             box.Margin = new Padding(0, 0, 0, 12);
             box.BackColor = Color.White;
             return box;
@@ -583,7 +585,7 @@ namespace InputStitch
 
         private static Button MakeDialogButton(string text)
         {
-            Button button = new Button();
+            Button button = new EditorButton();
             button.Text = text;
             button.AutoSize = true;
             button.MinimumSize = new Size(96, 34);

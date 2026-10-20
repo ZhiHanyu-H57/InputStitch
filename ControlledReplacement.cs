@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -388,11 +388,11 @@ namespace InputStitch
         private readonly Label virtualOutputLabel = new Label();
         private readonly Label stateLabel = new Label();
         private readonly Label deviceListLabel = new Label();
-        private readonly Button refreshButton = new Button();
-        private readonly Button selectAllButton = new Button();
-        private readonly Button startButton = new Button();
-        private readonly Button stopButton = new Button();
-        private readonly Button closeButton = new Button();
+        private readonly Button refreshButton = new EditorButton();
+        private readonly Button selectAllButton = new EditorButton();
+        private readonly Button startButton = new EditorButton();
+        private readonly Button stopButton = new EditorButton();
+        private readonly Button closeButton = new EditorButton();
 
         internal ControlledReplacementDialog(IDeviceHidingBackend hidingBackend, Func<int> virtualSlot,
             Func<bool> isVirtualConnected, Func<string> connectedVirtualType,
@@ -411,9 +411,9 @@ namespace InputStitch
 
             Text = Localizer.IsEnglish ? "Controller takeover (Experimental)" : "手柄接管（实验）";
             StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(680, 470);
-            Size = new Size(820, 560);
-            Font = new Font("Microsoft YaHei UI", 9F);
+            MinimumSize = new Size(760, 600);
+            Size = new Size(900, 720);
+            Font = new Font("Microsoft YaHei UI", 10F);
             AutoScaleMode = AutoScaleMode.Dpi;
 
             TableLayoutPanel root = new TableLayoutPanel();
@@ -497,6 +497,8 @@ namespace InputStitch
             actions.Controls.Add(startButton);
             root.Controls.Add(actions, 0, 6);
             CancelButton = closeButton;
+            root.Padding = new Padding(12);
+            EditorDialogs.Frame(this, root, actions, EditorDialogs.T("实验选项：操作前请阅读下方说明。停止接管会恢复原手柄。", "Experimental: read the instructions below before starting. Stop takeover restores the original controllers."), null);
 
             Shown += delegate { RefreshDevices(); };
         }

@@ -168,6 +168,9 @@ namespace InputStitch
             details.Controls.Add(descLabel, 0, 1);
             details.Controls.Add(descriptionBox, 1, 1);
             details.SetColumnSpan(descriptionBox, 2);
+            workflowGuide = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, MaximumSize = new Size(800, 0), Margin = new Padding(0, 8, 0, 0) };
+            details.Controls.Add(workflowGuide, 0, 2);
+            details.SetColumnSpan(workflowGuide, 3);
             rightRoot.Controls.Add(detailsGroup, 0, 0);
 
             GroupBox triggerGroup = MakeMainGroup("如何触发");
@@ -184,10 +187,10 @@ namespace InputStitch
             triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             triggerTop.Margin = new Padding(0, 0, 0, 8);
             triggerBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, Margin = new Padding(0, 5, 10, 5) };
-            captureTriggerButton = MakeButton(Localizer.T("录制触发键"), 0, 0, 0);
+            captureTriggerButton = MakeButton(EditorDialogs.T("选择触发键…", "Choose shortcut…"), 0, 0, 0);
             captureTriggerButton.AutoSize = true;
             captureTriggerButton.MinimumSize = new Size(128, 32);
-            captureTriggerButton.Click += CaptureTriggerButton_Click;
+            captureTriggerButton.Click += SelectVirtualKeyboardTrigger;
             triggerTop.Controls.Add(MakeFieldLabel("触发键："), 0, 0);
             triggerTop.Controls.Add(triggerBox, 1, 0);
             triggerTop.Controls.Add(VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
@@ -633,7 +636,7 @@ namespace InputStitch
             foreach (Control child in root.Controls)
             {
                 bool isStaticTextControl = child is Label || child is Button || child is CheckBox || child is RadioButton || child is GroupBox;
-                bool isDynamic = child == macroCountLabel || child == stepsHintLabel || child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton || child == activatorConditionButton;
+                bool isDynamic = child == workflowGuide || child == macroCountLabel || child == stepsHintLabel || child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton || child == activatorConditionButton;
                 if (isStaticTextControl && !isDynamic && !localizableControlTexts.ContainsKey(child))
                     localizableControlTexts.Add(child, child.Text ?? "");
                 CaptureLocalizableControlTexts(child);
@@ -678,7 +681,7 @@ namespace InputStitch
             UpdateTriggerModeUiText();
             RefreshActivatorConditionUi();
             if (captureTriggerButton != null)
-                captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") : Localizer.T("录制触发键");
+                captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") : EditorDialogs.T("选择触发键…", "Choose shortcut…");
             RefreshSteps();
             RefreshPanicUi();
             UpdateRunButton();

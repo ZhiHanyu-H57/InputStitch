@@ -27,6 +27,7 @@ MainForm.Diagnostics.cs
 MainForm.ControlledReplacement.cs
 MainForm.Ui.cs
 EditorPresentation.cs
+DialogPresentation.cs
 ReleaseInfo.cs
 UpdateInstaller.cs
 RuntimeDiagnostics.cs

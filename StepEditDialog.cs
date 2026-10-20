@@ -133,10 +133,10 @@ namespace InputStitch
             root.Controls.Add(inputText, 1, 2);
 
             captureButton = new EditorButton();
-            captureButton.Text = Localizer.T("捕获输入");
+            captureButton.Text = EditorDialogs.T("选择按键…", "Choose key…");
             captureButton.AutoSize = true;
             captureButton.MinimumSize = new Size(122, 32);
-            captureButton.Click += CaptureButton_Click;
+            captureButton.Click += SelectVirtualKeyboardInput;
             captureInputControls = VirtualKeyboardDialog.WithDropDown(captureButton, CaptureButton_Click, SelectVirtualKeyboardInput);
             root.Controls.Add(captureInputControls, 2, 2);
 
@@ -486,7 +486,7 @@ namespace InputStitch
                     selectedInput = input.Clone();
                     RefreshInputText();
                 }
-                captureButton.Text = Localizer.T("捕获输入");
+                captureButton.Text = EditorDialogs.T("选择按键…", "Choose key…");
                 captureButton.Enabled = true;
                 UpdateHoldEnabled();
             });
@@ -530,7 +530,7 @@ namespace InputStitch
 
         private void SelectVirtualKeyboardInput(object sender, EventArgs e)
         {
-            ownerMain.CancelCapture();
+            if (ownerMain != null) ownerMain.CancelCapture();
             IList<InputSpec> initial = selectedKeyboardChord;
             if (initial == null && selectedInput != null && selectedInput.Kind == InputKind.Keyboard)
                 initial = new List<InputSpec>(new InputSpec[] { selectedInput });
@@ -614,7 +614,7 @@ namespace InputStitch
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
-            ownerMain.CancelCapture();
+            if (ownerMain != null) ownerMain.CancelCapture();
             base.OnFormClosed(e);
         }
     }

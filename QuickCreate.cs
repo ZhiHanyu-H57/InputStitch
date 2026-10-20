@@ -138,6 +138,7 @@ namespace InputStitch
                 AddRow(fields, T("执行操作", "Actions"), stepList);
                 FlowLayoutPanel actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
                 Button add = ButtonFor(T("添加操作…", "Add action…"), delegate { EditAction(false); });
+                add.Name = "addActionButton";
                 Button edit = ButtonFor(T("编辑", "Edit"), delegate { EditAction(true); });
                 Button remove = ButtonFor(T("删除", "Remove"), delegate
                 {
