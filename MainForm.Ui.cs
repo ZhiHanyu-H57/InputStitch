@@ -446,7 +446,7 @@ namespace InputStitch
             Panel stepsHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 8) };
             stepsHost.Controls.Add(grid);
             emptyStepsPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 253) };
-            TableLayoutPanel emptyContent = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 2 };
+            TableLayoutPanel emptyContent = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, RowCount = 2 };
             emptyContent.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             emptyContent.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             emptyContent.RowStyles.Add(new RowStyle(SizeType.AutoSize));

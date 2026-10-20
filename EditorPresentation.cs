@@ -407,6 +407,7 @@ namespace InputStitch
                 ? (Localizer.IsEnglish ? "Add a key or record your actions to get started." : "添加一个按键，或直接录制你的操作。")
                 : (Localizer.IsEnglish ? count + " step(s), in order · Double-click a row to edit" : count + " 个步骤，按顺序执行 · 双击任意一行可编辑");
             if (emptyStepsPanel != null) emptyStepsPanel.Visible = macro != null && count == 0;
+            if (grid != null) grid.Visible = count > 0;
             if (addStepButton != null) addStepButton.Enabled = macro != null && !recordingActive;
             if (editStepButton != null) editStepButton.Enabled = macro != null && count > 0 && !recordingActive;
             if (macroList != null) macroList.Invalidate();

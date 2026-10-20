@@ -283,6 +283,7 @@ internal static class ProductAcceptanceTests
                 Render(form, "empty-steps-" + language);
                 Check(Field<Panel>(form, "emptyStepsPanel").Visible && !Field<Button>(form, "editStepButton").Enabled,
                     "empty macro offers a first action and disables editing a missing step");
+                Check(!Field<DataGridView>(form, "grid").Visible, "empty-step guidance and the table never draw over each other");
                 foreach (bool create in new[] { false, true })
                 {
                     bool handled = false;
