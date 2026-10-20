@@ -1,5 +1,22 @@
 ﻿# Product refresh — 2026-10-20
 
+## Fourth pass — larger text and readability
+
+Local target: `1.5.0-beta.5`, FileVersion `1.5.0.4`.
+
+- Shared body, form, button and helper text: 10pt to 12pt; virtual-keyboard
+  labels: 8pt to 10pt. Headings retain their visual hierarchy.
+- Increase button minimum height, macro/table row heights, sidebar width,
+  field-label widths, persistent status height and dialog heading space.
+- Give key selection, quick creation and step editing more default room.
+  Smaller windows retain scrolling and reachable confirmation actions.
+- Controller preview captions use the inherited interface font rather than
+  shrinking with the drawing. Diagnostic monospace text grows from 9pt to 11pt.
+- Preserve execution, output ownership, XML and existing macro behavior.
+  New feature work remains paused; automated acceptance determines completion.
+
+Verification in progress for beta.5; previous results below remain historical.
+
 ## Third pass — remaining dialogs and first-run workflow
 
 Local target: `1.5.0-beta.4`, FileVersion `1.5.0.3`.

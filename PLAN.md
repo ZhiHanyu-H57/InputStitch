@@ -1,6 +1,17 @@
 ﻿# PLAN.md
 
-## Active pass — remaining dialogs and first-run workflow (2026-10-20)
+## Active pass — larger text and readability (2026-10-20)
+
+User feedback: text is too small. Local target: `1.5.0-beta.5`, FileVersion
+`1.5.0.4`. Increase shared body/form/button text from 10pt to 12pt and keyboard
+key labels from 8pt to 10pt. Accommodate this with taller controls, list rows,
+headers and more room in editors. Controller preview captions keep the normal
+interface size independently of the diagram scale. No runtime feature changes.
+
+Implementation complete; final automated regression, sustained acceptance and
+packaging are in progress. User trial is not an acceptance prerequisite.
+
+## Previous pass — remaining dialogs and first-run workflow (2026-10-20)
 
 User-authorized local target: `1.5.0-beta.4`. Unify Settings, Timing/Conditions,
 keyboard selection, export, batch waits, devices, controller options, diagnostics,

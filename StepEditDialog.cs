@@ -58,13 +58,13 @@ namespace InputStitch
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(900, 600);
-            ClientSize = new Size(980, 590);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            ClientSize = new Size(1040, 680);
+            Font = EditorTheme.BodyFont();
             BackColor = Color.FromArgb(247, 249, 252);
 
             TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(24, 16, 24, 12) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
             Controls.Add(shell);
@@ -78,10 +78,10 @@ namespace InputStitch
             root.AutoScroll = true;
             root.ColumnCount = 4;
             root.RowCount = 8;
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 166F));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 284F));
             for (int i = 0; i < 7; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             shell.Controls.Add(root, 0, 1);

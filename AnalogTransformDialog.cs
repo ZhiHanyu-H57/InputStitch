@@ -17,7 +17,7 @@ namespace InputStitch
             working = current == null ? new AnalogTransformProfile() : current.Clone();
             Text = Localizer.IsEnglish ? "Analog Transform" : "模拟量处理";
             StartPosition = FormStartPosition.CenterParent;
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             MinimumSize = new Size(650, 560);
             ClientSize = new Size(720, 620);

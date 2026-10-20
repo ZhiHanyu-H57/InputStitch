@@ -31,7 +31,7 @@ namespace InputStitch
             Controls.Add(split);
             split.Panel1MinSize = 220;
             split.Panel2MinSize = 600;
-            split.SplitterDistance = 280;
+            split.SplitterDistance = 312;
 
             TableLayoutPanel leftRoot = new TableLayoutPanel();
             leftRoot.Dock = DockStyle.Fill;
@@ -84,7 +84,7 @@ namespace InputStitch
             macroList.BorderStyle = BorderStyle.None;
             macroList.BackColor = Color.White;
             macroList.DrawMode = DrawMode.OwnerDrawFixed;
-            macroList.ItemHeight = 76;
+            macroList.ItemHeight = 88;
             macroList.DrawItem += DrawMacroItem;
             macroList.Margin = new Padding(0, 0, 0, 10);
             macroList.SelectedIndexChanged += MacroList_SelectedIndexChanged;
@@ -182,7 +182,7 @@ namespace InputStitch
             triggerTop.Dock = DockStyle.Top;
             triggerTop.AutoSize = true;
             triggerTop.ColumnCount = 3;
-            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108F));
+            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
             triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             triggerTop.Margin = new Padding(0, 0, 0, 8);
@@ -559,7 +559,7 @@ namespace InputStitch
 
             Panel bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
-            bottom.Height = 62;
+            bottom.Height = 76;
             bottom.BackColor = Color.White;
             Controls.Add(bottom);
             bottom.SendToBack();

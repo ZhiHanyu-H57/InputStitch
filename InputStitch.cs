@@ -3230,7 +3230,7 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(900, 600);
             Size = new Size(1240, 860);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             BackColor = Color.FromArgb(244, 247, 251);
             try
             {
@@ -3657,7 +3657,7 @@ namespace InputStitch
             panel.AutoSize = true;
             panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             panel.ColumnCount = 3;
-            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108F));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             return panel;
@@ -3669,7 +3669,7 @@ namespace InputStitch
             label.Text = text;
             label.Dock = DockStyle.Fill;
             label.AutoSize = false;
-            label.MinimumSize = new Size(0, 30);
+            label.MinimumSize = new Size(0, 36);
             label.TextAlign = ContentAlignment.MiddleLeft;
             label.Margin = new Padding(0, 2, 8, 2);
             return label;

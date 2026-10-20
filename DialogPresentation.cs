@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -32,7 +32,7 @@ namespace InputStitch
             if (body.Parent != null) body.Parent.Controls.Remove(body);
             TableLayoutPanel shell = new TableLayoutPanel { Name = "dialogShell", Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(20, 16, 20, 12) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             shell.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = form.Text, Description = description, Margin = new Padding(0) }, 0, 0);
@@ -66,7 +66,7 @@ namespace InputStitch
 
         internal static Button Button(string text, DialogResult result)
         {
-            return new EditorButton { Text = text, AutoSize = true, MinimumSize = new Size(100, 36), DialogResult = result };
+            return new EditorButton { Text = text, AutoSize = true, MinimumSize = new Size(112, 40), DialogResult = result };
         }
 
         internal static void RowVisible(TableLayoutPanel table, int row, bool visible)
@@ -84,7 +84,7 @@ namespace InputStitch
         {
             DrawMode = TabDrawMode.OwnerDrawFixed;
             SizeMode = TabSizeMode.Fixed;
-            ItemSize = new Size(145, 36);
+            ItemSize = new Size(160, 42);
             Padding = new Point(16, 8);
         }
         protected override void OnDrawItem(DrawItemEventArgs e)

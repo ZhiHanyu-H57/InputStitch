@@ -69,11 +69,11 @@ namespace InputStitch
             main = owner;
             template = kind;
             Text = T("快捷创建", "Quick create") + " · " + Title(kind);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
             MinimumSize = new Size(820, 620);
-            ClientSize = new Size(860, 640);
+            ClientSize = new Size(940, 740);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = MaximizeBox = false;
             BackColor = Color.FromArgb(247, 249, 252);

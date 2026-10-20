@@ -25,7 +25,7 @@ namespace InputStitch
             AutoScaleDimensions = new SizeF(96, 96);
             ClientSize = new Size(560, 580);
             MinimumSize = new Size(500, 480);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             MaximizeBox = MinimizeBox = false;
             TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -83,7 +83,7 @@ namespace InputStitch
             ClientSize = new Size(600, 390);
             MinimumSize = new Size(580, 410);
             MaximizeBox = MinimizeBox = false;
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             TableLayoutPanel body = new TableLayoutPanel { AutoScroll = true, Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = Color.White };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -164,11 +164,11 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(650, 520);
             MinimumSize = new Size(520, 380);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
 
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            text = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, WordWrap = false, Font = new Font("Consolas", 9F), BorderStyle = BorderStyle.FixedSingle };
+            text = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, WordWrap = false, Font = new Font("Consolas", 11F), BorderStyle = BorderStyle.FixedSingle };
             Button copy = EditorDialogs.Button(Localizer.T("复制"), DialogResult.None);
             copy.Click += delegate { try { Clipboard.SetText(text.Text ?? ""); } catch { } };
             Button close = EditorDialogs.Button(Localizer.T("关闭"), DialogResult.Cancel);
@@ -218,7 +218,7 @@ namespace InputStitch
             MaximizeBox = false;
             MinimizeBox = false;
             ClientSize = new Size(520, 310);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
 
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);

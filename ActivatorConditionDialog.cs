@@ -71,7 +71,7 @@ namespace InputStitch
         private void BuildLayout()
         {
             StartPosition = FormStartPosition.CenterParent;
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
             MinimumSize = new Size(700, 590);

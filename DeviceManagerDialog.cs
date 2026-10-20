@@ -24,7 +24,7 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(900, 520);
             Size = new Size(1120, 650);
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
 
             TableLayoutPanel root = new TableLayoutPanel();

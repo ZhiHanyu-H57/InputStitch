@@ -45,8 +45,11 @@ namespace InputStitch
             base.OnPaint(e);
             Graphics g = e.Graphics;
             g.Clear(BackColor);
-            float scale = Math.Min(ClientSize.Width / 300F, ClientSize.Height / 250F);
+            int diagramHeight = Math.Max(1, ClientSize.Height - Font.Height * 2 - 12);
+            float scale = Math.Min(ClientSize.Width / 300F, diagramHeight / 210F);
             if (scale <= 0F) return;
+            float contentTop = (ClientSize.Height - (210F * scale + Font.Height * 2 + 12)) / 2F;
+            int captionTop = (int)Math.Ceiling(contentTop + 210F * scale + 4);
             GraphicsState saved = g.Save();
             try
             {
@@ -54,7 +57,7 @@ namespace InputStitch
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
                 g.TranslateTransform((ClientSize.Width - 300F * scale) / 2F,
-                    (ClientSize.Height - 250F * scale) / 2F);
+                    contentTop);
                 g.ScaleTransform(scale, scale);
                 bool ps4 = string.Equals(GamepadOutput.PreferredType, VirtualGamepadTypes.DualShock4,
                     StringComparison.OrdinalIgnoreCase);
@@ -103,12 +106,16 @@ namespace InputStitch
                     detail += "  ·  " + stickAngle + "° / " + stickStrength + "%";
                 else if (active && (selectedControl == GamepadControl.LeftTrigger || selectedControl == GamepadControl.RightTrigger))
                     detail += "  ·  " + triggerStrength + "%";
-                DrawText(g, ps4 ? "DUALSHOCK 4" : "XBOX 360", new RectangleF(12, 214, 276, 15), 10F,
-                    Color.FromArgb(126, 137, 150), false);
-                DrawText(g, detail, new RectangleF(4, 232, 292, 16), 10.5F, active ? Accent : Ink, true);
                 AccessibleName = detail;
             }
             finally { g.Restore(saved); }
+            // Captions use the interface font, independent of the controller drawing scale.
+            TextRenderer.DrawText(g, string.Equals(GamepadOutput.PreferredType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase) ? "DUALSHOCK 4" : "XBOX 360",
+                Font, new Rectangle(0, captionTop, Width, Font.Height), EditorTheme.Muted,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            using (Font detailFont = new Font(Font, FontStyle.Bold))
+                TextRenderer.DrawText(g, AccessibleName, detailFont, new Rectangle(0, captionTop + Font.Height + 4, Width, Font.Height), active ? Accent : Ink,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
 
         private static readonly Color Accent = Color.FromArgb(38, 114, 211);

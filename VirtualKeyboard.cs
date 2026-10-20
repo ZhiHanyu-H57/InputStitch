@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -56,14 +56,14 @@ namespace InputStitch
         {
             triggerMode = forTrigger;
             Text = forTrigger ? TextFor("选择触发键", "Choose a shortcut") : TextFor("选择执行按键", "Choose keys to press");
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             BackColor = Color.FromArgb(245, 247, 251);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             MinimumSize = new Size(800, 600);
-            ClientSize = new Size(1160, 620);
+            ClientSize = new Size(1200, 700);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
@@ -114,13 +114,13 @@ namespace InputStitch
             keyboard = new KeyboardSurface();
             keyboard.BackColor = Color.White;
             keyboard.Dock = DockStyle.None;
-            keyboard.Height = 300;
-            keyboard.MinimumSize = new Size(1058, 285);
+            keyboard.Height = 332;
+            keyboard.MinimumSize = new Size(1104, 315);
             viewport.Controls.Add(keyboard);
             viewport.SizeChanged += delegate
             {
                 keyboard.Size = new Size(Math.Max(keyboard.MinimumSize.Width, viewport.ClientSize.Width),
-                    keyboard.MinimumSize.Height * 300 / 285);
+                    keyboard.MinimumSize.Height * 332 / 315);
                 viewport.AutoScrollMinSize = keyboard.Size;
             };
             root.Controls.Add(viewport, 0, 2);
@@ -203,7 +203,7 @@ namespace InputStitch
             button.BackColor = Color.White;
             button.ForeColor = Color.FromArgb(34, 46, 62);
             button.UseVisualStyleBackColor = false;
-            button.Font = new Font("Segoe UI", 8F);
+            button.Font = new Font("Segoe UI", EditorTheme.KeyFontSize);
             button.Click += delegate
             {
                 int index = selected.FindIndex(delegate(InputSpec item) { return item.VirtualKey == input.VirtualKey && item.Extended == input.Extended; });

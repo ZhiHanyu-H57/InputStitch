@@ -33,7 +33,7 @@ namespace InputStitch
 
             Text = Localizer.IsEnglish ? "Router source selection" : "手柄汇总来源";
             StartPosition = FormStartPosition.CenterParent;
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             MinimumSize = new Size(680, 500);
             ClientSize = new Size(760, 560);

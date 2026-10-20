@@ -49,6 +49,9 @@ namespace InputStitch
 
     internal static class EditorTheme
     {
+        internal const float BodyFontSize = 12F;
+        internal const float KeyFontSize = 10F;
+        internal static Font BodyFont() { return new Font("Microsoft YaHei UI", BodyFontSize); }
         internal static readonly Color Canvas = Color.FromArgb(241, 244, 248);
         internal static readonly Color Ink = Color.FromArgb(30, 43, 62);
         internal static readonly Color Muted = Color.FromArgb(99, 113, 133);
@@ -84,7 +87,7 @@ namespace InputStitch
                     button.ForeColor = Ink;
                     button.UseVisualStyleBackColor = false;
                     button.Padding = new Padding(8, 2, 8, 2);
-                    if (button.MinimumSize.Height < 30) button.MinimumSize = new Size(button.MinimumSize.Width, 30);
+                    if (button.MinimumSize.Height < 40) button.MinimumSize = new Size(button.MinimumSize.Width, 40);
                 }
                 DataGridView grid = child as DataGridView;
                 if (grid != null)
@@ -103,7 +106,7 @@ namespace InputStitch
                     grid.DefaultCellStyle.ForeColor = Ink;
                     grid.DefaultCellStyle.SelectionBackColor = Selection;
                     grid.DefaultCellStyle.SelectionForeColor = Ink;
-                    grid.RowTemplate.Height = 42;
+                    grid.RowTemplate.Height = 46;
                     grid.DefaultCellStyle.SelectionForeColor = Accent;
                     grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(249, 251, 254);
                 }
@@ -226,7 +229,7 @@ namespace InputStitch
             using (GraphicsPath first = EditorTheme.Rounded(new Rectangle(2, 5, mark - 9, mark - 9), 5))
             using (GraphicsPath second = EditorTheme.Rounded(new Rectangle(10, 13, mark - 9, mark - 9), 5))
             { e.Graphics.DrawPath(back, first); e.Graphics.DrawPath(front, second); }
-            using (Font brand = new Font(Font.FontFamily, 14F, FontStyle.Bold))
+            using (Font brand = new Font(Font.FontFamily, Font.Size + 4F, FontStyle.Bold))
                 TextRenderer.DrawText(e.Graphics, "InputStitch", brand, new Rectangle(mark + 10, 5, Width - mark - 10, 34), EditorTheme.Ink,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
         }
@@ -268,7 +271,7 @@ namespace InputStitch
         internal NewMacroDialog()
         {
             Text = Localizer.IsEnglish ? "Create a macro" : "新建宏";
-            Font = new Font("Microsoft YaHei UI", 10F);
+            Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
             ClientSize = new Size(800, 570);
@@ -277,7 +280,7 @@ namespace InputStitch
             MinimizeBox = MaximizeBox = false;
             TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 3 };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
             Controls.Add(root);
