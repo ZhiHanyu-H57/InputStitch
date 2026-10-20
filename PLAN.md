@@ -2,6 +2,10 @@
 
 ## Current priority — product refresh (2026-10-20)
 
+**Completed locally:** 1.5.0-beta.2; 30 regression suites, 389 workflow/layout
+checks, 77 real-output checks and 30-minute / 21,023-cycle sustained acceptance
+PASS. Runnable x64/x86 packages delivered separately. New features stay paused.
+
 New features are paused. The active work is the unified editor, plain-language
 copy, one trigger entry, configuration compatibility, complete workflow tests
 and sustained-run automation. Local deliverable: `1.5.0-beta.2`; this is not a

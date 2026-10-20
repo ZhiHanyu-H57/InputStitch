@@ -1,5 +1,32 @@
 ﻿# HANDOFF.md
 
+## Completed locally — 2026-10-20 product refresh
+
+- Verified production-code commit: `f6dfab9` on `ui/product-refresh`.
+- Local runnable package: `1.5.0-beta.2`, FileVersion `1.5.0.1`; no remote
+  Release publication and no replacement of Stable 1.4.3.
+- Complete regression: **30 suites PASS**, including **389 workflow/layout
+  checks**, **303,716 ownership checks**, bilingual Settings and old XML smoke.
+- Real-output Input Lab: **77/77 PASS, failures=0** (actual SendInput and
+  ViGEm/XInput reports).
+- Final x64/x86 executable startup/message-loop/shutdown: **PASS** in isolated
+  directories; macros disabled, normal user configuration untouched.
+- Sustained runtime: **1800.1 seconds / 21,023 cycles PASS**,
+  80,226 keyboard downs and matching ups; zero final sources
+  and pressed outputs. Backend: isolated observer; real output boundary verified
+  separately by Input Lab.
+- Private bytes: 35606528 → 36544512;
+  handles 435 → 426;
+  threads 13 → 4;
+  max UI dispatch 51 ms; max continuous-output gap 93 ms.
+- Normal config.xml and devices.xml hashes remained unchanged.
+- No in-scope acceptance blocker and no required user trial run remain.
+  New feature work stays paused until a new user instruction.
+- The sustained host supports longer runs through `-SoakMinutes` (up to 1440).
+  Report actual measured duration. The new manual GitHub workflow has not been
+  run remotely in this local task; do not claim remote CI evidence.
+
+
 ## Active work — 2026-10-20 product refresh
 
 Branch: `ui/product-refresh`, based on clean `7dcea05` / matching remote main.
