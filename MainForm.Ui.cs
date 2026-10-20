@@ -37,8 +37,9 @@ namespace InputStitch
             leftRoot.Dock = DockStyle.Fill;
             leftRoot.Padding = new Padding(12);
             leftRoot.ColumnCount = 1;
-            leftRoot.RowCount = 5;
+            leftRoot.RowCount = 6;
             leftRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             leftRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -75,8 +76,12 @@ namespace InputStitch
             addMacro.Font = new Font(Font, FontStyle.Bold);
             addMacro.Click += ShowNewMacroChooser;
             leftRoot.Controls.Add(addMacro, 0, 1);
+            crosshairButton = new EditorButton { Text = EditorDialogs.T("屏幕准星…", "Screen crosshair…"), Name = "crosshairButton",
+                Dock = DockStyle.Fill, AutoSize = true, MinimumSize = new Size(0, 40), Margin = new Padding(0, 0, 0, 14) };
+            crosshairButton.Click += ShowCrosshairDialog;
+            leftRoot.Controls.Add(crosshairButton, 0, 2);
             macroCountLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 0, 0, 10) };
-            leftRoot.Controls.Add(macroCountLabel, 0, 2);
+            leftRoot.Controls.Add(macroCountLabel, 0, 3);
 
             macroList = new ListBox();
             macroList.Dock = DockStyle.Fill;
@@ -88,7 +93,7 @@ namespace InputStitch
             macroList.DrawItem += DrawMacroItem;
             macroList.Margin = new Padding(0, 0, 0, 10);
             macroList.SelectedIndexChanged += MacroList_SelectedIndexChanged;
-            leftRoot.Controls.Add(macroList, 0, 3);
+            leftRoot.Controls.Add(macroList, 0, 4);
 
             FlowLayoutPanel macroButtons = new FlowLayoutPanel();
             macroButtons.Dock = DockStyle.Fill;
@@ -113,7 +118,7 @@ namespace InputStitch
             macroButtons.Controls.Add(libraryButton);
             macroButtons.SetFlowBreak(libraryButton, true);
             macroButtons.Controls.AddRange(new Control[] { copyMacro, delMacro, upMacro, downMacro });
-            leftRoot.Controls.Add(macroButtons, 0, 4);
+            leftRoot.Controls.Add(macroButtons, 0, 5);
 
             Panel rightHost = new Panel();
             rightHost.Dock = DockStyle.Fill;
@@ -739,6 +744,7 @@ namespace InputStitch
         private void RefreshMenuLanguage()
         {
             if (settingsMenuItem != null) settingsMenuItem.Text = Localizer.T("设置...");
+            if (crosshairButton != null) crosshairButton.Text = EditorDialogs.T("屏幕准星…", "Screen crosshair…");
             if (suspendTriggersMenuItem != null) suspendTriggersMenuItem.Text = Localizer.T("暂停全局宏触发");
             if (minimizeToTrayMenuItem != null) minimizeToTrayMenuItem.Text = Localizer.T("最小化到系统托盘");
             if (languageMenuItem != null) languageMenuItem.Text = Localizer.T("语言 / Language");

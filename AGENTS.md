@@ -79,3 +79,10 @@ Before switching development machines:
   scope and do not become blanket manual gates for the ordinary macro product.
 - Keep development history and compatibility adapters out of user-facing settings.
   See `docs/AUTOMATED_ACCEPTANCE.md` for commands and evidence limits.
+
+## Explicit feature exception (2026-10-21)
+
+The user authorized a screen-crosshair overlay after the readability pass. This
+specific feature supersedes the earlier feature pause; unrelated feature work
+remains paused. Preserve the Stable macro baseline and the automated acceptance
+policy. See `docs/CROSSHAIR.md` for scope, research and verification.

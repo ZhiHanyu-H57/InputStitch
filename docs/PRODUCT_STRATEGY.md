@@ -1,5 +1,11 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Authorized exception — screen crosshair (2026-10-21)
+
+The user explicitly requested a screen crosshair after the readability pass.
+Deliver this bounded feature while preserving the macro baseline and automated
+acceptance policy. Other feature expansion remains paused. See `docs/CROSSHAIR.md`.
+
 ## Product priority — 2026-10-20
 
 Keep the supported architecture, but present the product as a simple workflow:

@@ -78,6 +78,10 @@
     <Compile Include="GamepadRouter.cs" />
     <Compile Include="ControlledReplacement.cs" />
     <Compile Include="SlotAcquisition.cs" />
+    <Compile Include="Crosshair.cs" />
+    <Compile Include="CrosshairOverlay.cs" />
+    <Compile Include="CrosshairSettingsDialog.cs" />
+    <Compile Include="MainForm.Crosshair.cs" />
     <None Include="InputStitch.ico" />
     <None Include="app.manifest" />
     <EmbeddedResource Include="third-party\Nefarius.ViGEm.Client\Nefarius.ViGEm.Client.dll">

@@ -33,7 +33,7 @@ function Invoke-NativeCaptured([string]$file, [object[]]$arguments) {
   return [pscustomobject]@{ ExitCode = $exitCode; Output = @($captured) }
 }
 
-foreach($suite in @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests')) {
+foreach($suite in @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests')) {
   $exe=Join-Path $output ($suite+'.exe')
   $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$suite","/out:$exe")
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
@@ -49,6 +49,6 @@ foreach($suite in @('SourceManifestTests','ForegroundIdentityCacheTests','TickCa
   if($execution.ExitCode -ne 0) { $report | Write-Output; Write-CiError "$suite failed" $report; throw "$suite failed" }
   $report | Select-Object -Last 1 | Write-Output
 }
-Write-Output 'All regression suites passed. No real input or virtual devices were used.'
+Write-Output 'All regression suites passed. Crosshair tests use an isolated native target window; no real input or virtual devices were used.'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
 if($LASTEXITCODE -ne 0) { Write-CiError 'Settings smoke tests failed' @('SettingsSmoke.ps1 returned a non-zero exit code.'); throw 'Settings smoke tests failed' }

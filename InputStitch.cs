@@ -1404,6 +1404,7 @@ namespace InputStitch
         // to AllVisible so existing Router behavior remains unchanged until the user opts in.
         public RouterSourcePolicyConfig GamepadRouterSourcePolicy = new RouterSourcePolicyConfig();
         public IdleGamepadOptions IdleGamepad = new IdleGamepadOptions();
+        public CrosshairOptions Crosshair = new CrosshairOptions();
         public bool HasSeenWelcome = false;
         // Empty on configurations created by older versions. Existing users then see the
         // current release summary once; fresh installs mark it seen together with Welcome.
@@ -3224,6 +3225,7 @@ namespace InputStitch
         internal MainForm(MacroConfig isolatedConfig, string isolatedDirectory, IOutputBackend outputBackend)
         {
             outputOwnership = new OutputOwnershipManager(outputBackend ?? (IOutputBackend)new DirectOutputBackend());
+            Disposed += delegate { DisposeCrosshair(); };
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             Text = AppInfo.ProductName + " " + AppInfo.Version;
@@ -3409,6 +3411,7 @@ namespace InputStitch
             FormClosing += MainForm_FormClosing;
             Shown += delegate
             {
+                ApplyCrosshair();
                 if (rawKeyboardFallback != null)
                 {
                     rawKeyboardFallback.AttachWindow(Handle);
@@ -4018,6 +4021,7 @@ namespace InputStitch
             if (hwnd != lastObservedForeground)
             {
                 lastObservedForeground = hwnd;
+                if (crosshairController != null) crosshairController.KeepOnTop();
                 RememberExternalForeground(hwnd);
                 if (recordingActive && NativeWindowFocus.IsCurrentProcessWindow(hwnd))
                     TrimRecordingTailForUiReturn();
@@ -5385,6 +5389,7 @@ namespace InputStitch
             RouterSourcePolicyConfig gamepadRouterSourcePolicy = config.GamepadRouterSourcePolicy == null
                 ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             IdleGamepadOptions idleOptions = config.IdleGamepad;
+            CrosshairOptions crosshairOptions = config.Crosshair;
             bool welcome = config.HasSeenWelcome;
             string lastReleaseSummary = config.LastShownReleaseSummaryVersion;
             try
@@ -5400,6 +5405,7 @@ namespace InputStitch
                 config.Sdl3InputEnabled = sdl3InputEnabled;
                 config.GamepadRouterSourcePolicy = gamepadRouterSourcePolicy;
                 config.IdleGamepad = idleOptions;
+                config.Crosshair = crosshairOptions;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
                 if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
@@ -6072,6 +6078,8 @@ namespace InputStitch
             // Refresh synchronously on a physical edge: a queued foreground/focus
             // notification must not leave the previous UI protection state cached.
             UpdateUiSafetyPauseState();
+
+            if (HandleCrosshairShortcut(e)) return true;
 
             // Layer switching has priority over ordinary macro matching, but it does not suppress
             // the physical input from the foreground application. This lets a game key also act as
@@ -8003,6 +8011,7 @@ namespace InputStitch
             try
             {
                 if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
+                DisposeCrosshair();
                 if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
                 if (inputPipelineScheduler != null)
                 {

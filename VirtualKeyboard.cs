@@ -52,10 +52,10 @@ namespace InputStitch
             return group;
         }
 
-        public VirtualKeyboardDialog(bool forTrigger, IList<InputSpec> initial)
+        public VirtualKeyboardDialog(bool forTrigger, IList<InputSpec> initial, string triggerDescription = null, string title = null)
         {
             triggerMode = forTrigger;
-            Text = forTrigger ? TextFor("选择触发键", "Choose a shortcut") : TextFor("选择执行按键", "Choose keys to press");
+            Text = title ?? (forTrigger ? TextFor("选择触发键", "Choose a shortcut") : TextFor("选择执行按键", "Choose keys to press"));
             Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -169,7 +169,7 @@ namespace InputStitch
             multipleButton.CheckedChanged += delegate { RefreshSelection(); };
             root.Padding = new Padding(0);
             EditorDialogs.Frame(this, root, footer, forTrigger
-                ? TextFor("这是用来启动宏的快捷键。点击下方按键；需要 Ctrl、Shift 等组合时，先选“选择组合键”。", "This shortcut starts your macro. Click keys below; choose Key combination to include Ctrl, Shift or other modifiers.")
+                ? triggerDescription ?? TextFor("这是用来启动宏的快捷键。点击下方按键；需要 Ctrl、Shift 等组合时，先选“选择组合键”。", "This shortcut starts your macro. Click keys below; choose Key combination to include Ctrl, Shift or other modifiers.")
                 : TextFor("这是宏替你按的键。点击选中，再次点击取消；确认后回到步骤编辑。", "These are the keys your macro will press. Click to select, click again to clear, then confirm to return to the step editor."), help);
             RefreshSelection();
         }

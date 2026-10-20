@@ -1,6 +1,19 @@
 ﻿# PLAN.md
 
-## Active pass — larger text and readability (2026-10-20)
+## Active pass — screen crosshair (2026-10-21)
+
+Explicit user request authorizes this feature after the product refresh;
+unrelated feature expansion stays paused. Local target: `1.5.0-beta.6`,
+FileVersion `1.5.0.5`. Implement eight styles, outline/fill colors, sizes,
+line width/gap/dot controls, opacity, monitor selection, physical-pixel offsets,
+live preview, center reset, saved settings/visibility and a configurable
+show/hide shortcut. Reuse physical keyboard-edge dispatch, retain Emergency Stop
+priority and protect macro editing. Preserve all Stable macro behavior.
+
+Implementation complete. Final regression, native-overlay sustained acceptance
+and packaging are in progress. See `docs/CROSSHAIR.md`.
+
+## Previous pass — larger text and readability (2026-10-20)
 
 User feedback: text is too small. Local target: `1.5.0-beta.5`, FileVersion
 `1.5.0.4`. Increase shared body/form/button text from 10pt to 12pt and keyboard

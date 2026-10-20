@@ -33,6 +33,11 @@ $config.UpdateMode = 'Disabled'
 $config.Sdl3InputEnabled = $false
 $config.HasSeenWelcome = $true
 $config.LastShownReleaseSummaryVersion = $info.Version
+$config.Crosshair.Enabled = $true
+$config.Crosshair.Visible = $true
+$config.Crosshair.Size = 31
+$config.Crosshair.OffsetX = 7
+$config.Crosshair.OffsetY = -9
 $macro = New-Object InputStitch.MacroDefinition
 $macro.Name = 'Packaged startup check'
 $macro.Enabled = $false
@@ -53,9 +58,18 @@ $timer.add_Tick({
         if ($form.IsDisposed -or -not $form.IsHandleCreated) { throw 'Packaged main window did not start.' }
         $mode = $form.GetType().GetField('triggerModeBox',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($form)
         if ($mode.Items.Count -ne 7 -or $mode.SelectedIndex -ne 0) { throw 'Packaged unified editor did not initialize.' }
+        $privateFlags = [Reflection.BindingFlags]'Instance,NonPublic'
+        $controller = $form.GetType().GetField('crosshairController',$privateFlags).GetValue($form)
+        if ($null -eq $controller -or -not $controller.GetType().GetProperty('Visible',$privateFlags).GetValue($controller)) { throw 'Saved enabled crosshair did not restore at startup.' }
+        $window = $controller.GetType().GetProperty('Window',$privateFlags).GetValue($controller)
+        $bounds = $window.GetType().GetProperty('Bounds',$privateFlags).GetValue($window)
+        $screen = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+        if (($bounds.Left + [Math]::Floor($bounds.Width / 2)) -ne ($screen.Left + [Math]::Floor($screen.Width / 2) + 7) -or
+            ($bounds.Top + [Math]::Floor($bounds.Height / 2)) -ne ($screen.Top + [Math]::Floor($screen.Height / 2) - 9)) { throw 'Packaged crosshair did not restore pixel offsets.' }
+        $script:crosshairWindow = $window
         $bitmap = New-Object Drawing.Bitmap($form.Width,$form.Height)
         try { $form.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$bitmap.Width,$bitmap.Height))); $bitmap.Save((Join-Path $output 'startup.png')) } finally { $bitmap.Dispose() }
-        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text } |
+        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9 } |
             ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding UTF8
     } catch { $script:smokeFailure = $_ }
     finally { $form.Close() }
@@ -63,4 +77,5 @@ $timer.add_Tick({
 $timer.Start()
 try { [Windows.Forms.Application]::Run($form) } finally { $timer.Dispose(); $form.Dispose() }
 if ($script:smokeFailure) { throw $script:smokeFailure }
+if ($script:crosshairWindow -and $script:crosshairWindow.Handle -ne [IntPtr]::Zero) { throw 'Crosshair native window survived application shutdown.' }
 Write-Output ("PASS packaged {0} startup, live message loop and orderly shutdown; isolated configuration, disabled macros." -f $Architecture)

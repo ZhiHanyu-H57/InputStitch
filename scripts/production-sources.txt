@@ -60,3 +60,7 @@ RouterSourceDialog.cs
 GamepadRouter.cs
 ControlledReplacement.cs
 SlotAcquisition.cs
+Crosshair.cs
+CrosshairOverlay.cs
+CrosshairSettingsDialog.cs
+MainForm.Crosshair.cs
