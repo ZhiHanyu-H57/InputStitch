@@ -1,5 +1,41 @@
 ﻿# HANDOFF.md
 
+## Latest completed pass — larger text and readability (2026-10-20)
+
+User feedback was that text was too small. Shared body/forms/buttons now use
+12pt instead of 10pt, virtual key labels 10pt instead of 8pt, and diagnostics
+11pt instead of 9pt. Buttons, rows, field columns, headings and default editor
+sizes accommodate the larger text. Controller preview captions retain the
+normal interface font and stay adjacent to the scaled diagram. This pass does
+not change the executor, ownership rules, XML or existing macro semantics.
+
+- Verified production-code commit: `e24cc39` on `ui/product-refresh`.
+- Local beta.5 / FileVersion 1.5.0.4; published Stable 1.4.3 is unchanged.
+- **30 regression suites PASS**, including **903 workflow/interaction/layout
+  checks** and 303,716 output-ownership assertions. Bilingual compact Settings
+  smoke, old XML defaults and stored gamepad vectors PASS.
+- Chinese/English layout checks cover main-window compact/default sizes and
+  synthetic 100/125/150/200% scales. Creation cards, step explanations, Settings,
+  timing and keyboard confirmation actions remain usable with the larger text.
+- Actual nested new-user creation, key selection, editing, automatic saving and
+  first Run complete in both languages with an isolated output observer.
+- Real-output Input Lab **77/77 PASS, failures=0**, using SendInput and
+  ViGEm/XInput. No new physical-device/game compatibility claim is made.
+- x64/x86 build and Release Verification PASS; packaged startup, live message
+  loop and orderly close PASS using isolated configuration.
+- Current-build sustained observer: **300.1 seconds / 3,444 cycles PASS**;
+  keyboard downs/ups 13,300/13,300; final sources and pressed outputs zero.
+  Max UI dispatch 76 ms; maximum continuous-output gap 56 ms.
+  Private bytes 36106240 to 37347328; handles
+  499 to 494; threads 15 to 8.
+- All 50 production sources unchanged during final acceptance. Normal user
+  config.xml and devices.xml hashes unchanged. No user trial-run prerequisite.
+- The beta.2 1800.1-second / 21,023-cycle report remains historical; the above
+  five-minute sustained regression was measured on this beta.5 code.
+
+The readability pass is complete locally. Current local target is beta.5;
+previous beta.4/beta.3/beta.2 evidence below remains historical.
+
 ## Latest completed pass — remaining dialogs and first run (2026-10-20)
 
 Unified Settings, Timing/Conditions, key selection and secondary dialogs with a

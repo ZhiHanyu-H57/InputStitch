@@ -8,8 +8,10 @@ key labels from 8pt to 10pt. Accommodate this with taller controls, list rows,
 headers and more room in editors. Controller preview captions keep the normal
 interface size independently of the diagram scale. No runtime feature changes.
 
-Implementation complete; final automated regression, sustained acceptance and
-packaging are in progress. User trial is not an acceptance prerequisite.
+Completed locally: 30 regression suites, 903 workflow/layout checks,
+77 real-output checks, five-minute current-build sustained regression and
+x64/x86 packaged startup PASS. See `docs/PRODUCT_REFRESH.md` for measured evidence.
+User trial is not an acceptance prerequisite.
 
 ## Previous pass — remaining dialogs and first-run workflow (2026-10-20)
 
