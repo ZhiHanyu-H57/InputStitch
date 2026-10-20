@@ -1,4 +1,47 @@
-# Product refresh — 2026-10-20
+﻿# Product refresh — 2026-10-20
+
+## Second pass — visual design and friendly interaction
+
+Local version: `1.5.0-beta.3` / FileVersion `1.5.0.2`.
+The user specifically requested further visual and interaction work after beta.2.
+
+- New macro is the sidebar's primary action. Four keyboard-accessible purpose
+  cards explain repeat, sequence, held controller input and blank starting points.
+- Import/share and whole-profile backup/restore stay available in one menu;
+  it describes appending macros versus replacing the full setup.
+- A stitched vector mark, rounded surfaces, numbered sections, larger typography,
+  consistent button states and calmer table styling establish a shared appearance.
+- Empty steps offer a direct first action. Existing steps show the count and
+  explain double-click editing.
+- The step editor previews the selected keyboard/mouse input and explains the
+  action, press duration and fixed/random wait in ordinary language as fields change.
+  Controller inputs retain their existing diagram. The dialog explains milliseconds.
+- Quick create keeps next-step guidance and Create/Cancel visible in the footer;
+  Create becomes available once the trigger and action are present.
+- The executor, output ownership, trigger policies and XML schema are unchanged.
+  Feature expansion remains paused. No user trial-run gate is introduced.
+
+### Second-pass verification
+
+- Verified production-code commit: `d14c84f` on `ui/product-refresh`.
+- Local version `1.5.0-beta.3`, FileVersion `1.5.0.2`; x64/x86 builds and
+  Release Verification PASS. No remote release or Stable 1.4.3 replacement.
+- Complete regression: **30 suites PASS**, including **501 workflow/interaction/
+  layout checks**, 303,716 ownership checks and bilingual Settings/old XML smoke.
+- Real-output Input Lab: **77/77 PASS, failures=0**; actual SendInput and
+  ViGEm/XInput observations on the final production sources.
+- Final-package x64/x86 normal startup, live message loop and orderly shutdown
+  PASS in isolated directories, with macros disabled.
+- Current-build sustained observer: **300.1 seconds / 3,509 cycles PASS**;
+  keyboard down/up 13,250/13,250; final sources and pressed outputs zero.
+  Max UI dispatch 53 ms, continuous-output gap 56 ms;
+  private bytes 35758080 to 37814272, handles
+  474 to 465, threads 13 to 6.
+- Beta.2's 1800.1-second / 21,023-cycle run remains a historical runtime baseline.
+  It is not relabeled as a new beta.3 run. The executor/ownership/XML schema did
+  not change in this visual pass. Report actual duration and backend.
+- Normal config.xml/devices.xml hashes unchanged. No manual user trial is
+  required for completion. Feature expansion remains paused.
 
 ## Authorized scope and stable baseline
 

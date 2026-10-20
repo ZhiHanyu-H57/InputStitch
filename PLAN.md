@@ -1,6 +1,21 @@
 ﻿# PLAN.md
 
-## Current priority — product refresh (2026-10-20)
+## Active pass — visual design and friendly interaction (2026-10-20)
+
+The user requested a further art/interaction pass after beta.2. Local target:
+`1.5.0-beta.3`. Make creation prominent, explain templates with purpose cards,
+guide empty steps, and preview the meaning of step input/timing changes.
+Use a consistent restrained Windows visual style and keep everyday actions clear.
+Feature expansion remains paused. Preserve runtime behavior and configuration
+compatibility. Re-run the full automated regression and package checks; user
+manual testing is optional feedback, never a completion prerequisite.
+
+Completed locally: 30 regression suites, 501 workflow/interaction/layout checks,
+77 real-output checks, five-minute current-build sustained regression and both
+architecture startup checks PASS. Runnable packages and actual screenshots are
+delivered separately. See `docs/PRODUCT_REFRESH.md` for evidence and scope.
+
+## Previous pass — product refresh (2026-10-20)
 
 **Completed locally:** 1.5.0-beta.2; 30 regression suites, 389 workflow/layout
 checks, 77 real-output checks and 30-minute / 21,023-cycle sustained acceptance

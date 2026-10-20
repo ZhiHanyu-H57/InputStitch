@@ -1,5 +1,37 @@
 ﻿# HANDOFF.md
 
+## Latest completed pass — 2026-10-20 visual design and interaction
+
+The user's latest direction is further art and friendly interaction work.
+Implemented purpose-card creation, prominent New macro, one import/backup menu,
+stitched vector branding and rounded hierarchy, guided empty steps, real-time
+step explanations and quick-create readiness guidance. Native button keyboard
+and accessibility behavior are retained; underlying execution policies are intact.
+The final empty-step view and table are mutually exclusive, including renders.
+
+- Verified production-code commit: `d14c84f` on `ui/product-refresh`.
+- Local version `1.5.0-beta.3`, FileVersion `1.5.0.2`; x64/x86 builds and
+  Release Verification PASS. No remote release or Stable 1.4.3 replacement.
+- Complete regression: **30 suites PASS**, including **501 workflow/interaction/
+  layout checks**, 303,716 ownership checks and bilingual Settings/old XML smoke.
+- Real-output Input Lab: **77/77 PASS, failures=0**; actual SendInput and
+  ViGEm/XInput observations on the final production sources.
+- Final-package x64/x86 normal startup, live message loop and orderly shutdown
+  PASS in isolated directories, with macros disabled.
+- Current-build sustained observer: **300.1 seconds / 3,509 cycles PASS**;
+  keyboard down/up 13,250/13,250; final sources and pressed outputs zero.
+  Max UI dispatch 53 ms, continuous-output gap 56 ms;
+  private bytes 35758080 to 37814272, handles
+  474 to 465, threads 13 to 6.
+- Beta.2's 1800.1-second / 21,023-cycle run remains a historical runtime baseline.
+  It is not relabeled as a new beta.3 run. The executor/ownership/XML schema did
+  not change in this visual pass. Report actual duration and backend.
+- Normal config.xml/devices.xml hashes unchanged. No manual user trial is
+  required for completion. Feature expansion remains paused.
+
+The new pass is complete and committed locally. The previous beta.2 sections
+below are historical evidence; current runnable local target is beta.3.
+
 ## Completed locally — 2026-10-20 product refresh
 
 - Verified production-code commit: `f6dfab9` on `ui/product-refresh`.

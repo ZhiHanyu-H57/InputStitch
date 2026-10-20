@@ -43,6 +43,7 @@ blocked, never relabeled as a pass.
 | Layer | Exercises | Evidence |
 | --- | --- | --- |
 | Product workflow | Create, name/note edits, all trigger selections, actual step/timing dialog controls, XML save, reopened editor, macro/profile package round trips, run/stop/restart, global stop, copy | `ProductAcceptanceTests`, final assertion count |
+| Friendly interaction | Real new-macro button and modal cancel/blank-create; shortcut pause/restore; accessible purpose cards; empty steps; live press/hold/random timing explanation; quick-create next-step and readiness controls | `ProductAcceptanceTests.FriendlyInteractions`, Chinese/English and synthetic 100/125/150/200% dialog renders |
 | Layout | Chinese/English, 1000×700 and 1280×900 layouts, 100/125/150/200% synthetic scaling, collapsed/expanded options, readable selection values and available controls | PNGs under `artifacts/.../product-acceptance/` |
 | Sustained execution | Continuous timed macro + repeated finite runs + persistent gamepad Held Mapping; repeated stop/restart and configuration save/read cycles; UI dispatcher activity | Per-run `progress.json`, `samples.csv`, `report.json` |
 | Runtime regression | Activation timing/conditions, output ownership, overlap, layers, fail-safe cleanup, UI editing safety, config/update recovery and input-provider tests | Full regression output |
