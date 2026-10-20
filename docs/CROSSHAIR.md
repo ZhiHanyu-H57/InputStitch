@@ -1,4 +1,4 @@
-# Screen crosshair — 2026-10-21
+﻿# Screen crosshair — 2026-10-21
 
 Local target: 1.5.0-beta.6, FileVersion 1.5.0.5. The user's explicit request
 authorizes this feature; unrelated feature expansion remains paused.
@@ -84,4 +84,38 @@ the initialization phase; resource comparisons use a 30-second warmup baseline,
 as with the macro sustained test. No forced garbage collection is used. It
 reports measured duration and iterations, and retains failed-run metrics.
 
-Final verification in progress. Routine completion has no user trial-run gate.
+## Completed verification
+
+- Verified production-code commit: `ceb1320` on `ui/product-refresh`.
+- Local `1.5.0-beta.6` / FileVersion `1.5.0.5`; no remote publication and no
+  change to the published Stable 1.4.3 release.
+- Full regression **31 suites PASS**: 903 existing macro workflow/layout checks,
+  **162 crosshair checks**, 303,716 output-ownership assertions, bilingual
+  Settings smoke, legacy config defaults and saved controller vectors.
+- Native PerMonitorV2 target tests PASS: actual fill/50% alpha desktop sampling,
+  hit-test click-through, no foreground activation, full-display centering and
+  +13/-11 physical-pixel offsets. Native display presentation is awaited before
+  capture. Negative monitor origins and edge clamps have deterministic checks.
+- Actual main-entry Save/Cancel, screen preview rollback, saved visibility,
+  cleared shortcuts, conflict feedback, editing protection, Emergency Stop
+  priority and preserved global settings on macro-profile loading PASS.
+- Real-output Input Lab **77/77 PASS, failures=0**, actual SendInput and
+  ViGEm/XInput. No new physical-controller or game compatibility claim.
+- Macro sustained observer **300.1 seconds / 3,400 cycles PASS**;
+  keyboard down/up 13,092/13,092; final sources/pressed outputs zero;
+  maximum UI dispatch 120 ms, continuous-output gap 99 ms.
+- Actual native crosshair sustained run **300.1 seconds / 9,114 iterations PASS**;
+  all styles, visibility and opacity changes at the screen edge. GDI objects
+  15 to 15; handles 347 to 345;
+  private bytes 29708288 to 30834688; max dispatch 12 ms.
+  These resource comparisons use a 30-second warmup; ten-second samples include
+  initialization. USER objects 34 to 32; native window
+  destroyed at completion, with no forced garbage collection.
+- x64/x86 build and Release Verification PASS; normal constructor/startup with
+  saved crosshair enabled and X/Y offsets restores the window; orderly shutdown
+  destroys it. Tests use isolated app directories and disabled macros.
+- All 54 production sources unchanged during final acceptance; normal user
+  config.xml/devices.xml hashes unchanged. No manual trial-run gate.
+- Exclusive fullscreen remains outside the universal compatibility claim.
+  Real additional-monitor hardware was not required to establish the ordinary
+  feature behavior; simulated monitor geometry is reported as simulation.

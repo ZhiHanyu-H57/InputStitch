@@ -10,8 +10,10 @@ live preview, center reset, saved settings/visibility and a configurable
 show/hide shortcut. Reuse physical keyboard-edge dispatch, retain Emergency Stop
 priority and protect macro editing. Preserve all Stable macro behavior.
 
-Implementation complete. Final regression, native-overlay sustained acceptance
-and packaging are in progress. See `docs/CROSSHAIR.md`.
+Completed locally: 31 regression suites, 903 macro and 162 crosshair checks,
+77 real-output assertions, separate measured five-minute macro/overlay sustained
+runs, and both architecture startup/recovery/shutdown checks PASS.
+See `docs/CROSSHAIR.md`. User trial remains optional feedback.
 
 ## Previous pass — larger text and readability (2026-10-20)
 
