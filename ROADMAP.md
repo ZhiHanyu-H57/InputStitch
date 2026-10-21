@@ -11,9 +11,10 @@ setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 
-2026-10-21: complete the beta.9 density/footprint correction first. Readability,
-usability and clean overview precede decoration. Keep normal editing visible,
-fix action-list crowding and reduce embedded runtime size with no feature loss.
+2026-10-21: beta.10 follows the beta.9 density/footprint correction with compact
+trigger selection and an adjacent repeat/infinite group. Measure bilingual text,
+wrap whole groups on resize and verify native DPI without adding functions or
+dependencies. Readability, usability and clean overview precede decoration.
 
 Pause feature expansion. Complete product usability and repeatable automated
 acceptance first: one trigger editor, ordinary-language labels, consistent

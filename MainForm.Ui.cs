@@ -179,44 +179,35 @@ namespace InputStitch
             GroupBox triggerGroup = MakeMainGroup("如何触发");
             ((EditorSection)triggerGroup).Badge = "1";
             TableLayoutPanel triggerLayout = MakeFormGrid();
+            triggerLayout.ColumnCount = 1;
+            triggerLayout.ColumnStyles.Clear();
+            triggerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            triggerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
             triggerGroup.Controls.Add(triggerLayout);
 
-            TableLayoutPanel triggerTop = new TableLayoutPanel();
-            triggerTop.Dock = DockStyle.Top;
-            triggerTop.AutoSize = true;
-            triggerTop.ColumnCount = 3;
-            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            Panel triggerTop = new EditorFieldFlow();
+            triggerTop.Dock = DockStyle.Fill;
             triggerTop.Margin = new Padding(0, 0, 0, 4);
-            triggerBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, Margin = new Padding(0, 5, 10, 5) };
             captureTriggerButton = MakeButton(EditorDialogs.T("选择触发键…", "Choose shortcut…"), 0, 0, 0);
-            captureTriggerButton.AutoSize = true;
             captureTriggerButton.MinimumSize = new Size(128, 32);
+            captureTriggerButton.UseMnemonic = false;
             captureTriggerButton.Click += SelectVirtualKeyboardTrigger;
-            triggerTop.Controls.Add(MakeFieldLabel("触发键："), 0, 0);
-            triggerTop.Controls.Add(triggerBox, 1, 0);
-            triggerTop.Controls.Add(VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
-                CaptureTriggerButton_Click, SelectVirtualKeyboardTrigger), 2, 0);
-            triggerModeBox = new EditorChoice { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList,
-                Margin = new Padding(0, 5, 10, 5), DropDownWidth = 330 };
+            triggerSelector = VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
+                CaptureTriggerButton_Click, SelectVirtualKeyboardTrigger);
+            triggerTop.Controls.Add(CompactFieldGroup(MakeFieldLabel("触发键："), triggerSelector));
+            triggerModeBox = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList,
+                Margin = new Padding(0, 3, 0, 3) };
             triggerModeBox.Items.AddRange(TriggerEditor.Names);
             triggerModeBox.SelectedIndexChanged += TriggerModeBox_SelectedIndexChanged;
-            triggerTop.Controls.Add(MakeFieldLabel("触发方式："), 0, 1);
-            triggerTop.Controls.Add(triggerModeBox, 1, 1);
+            triggerTop.Controls.Add(CompactFieldGroup(MakeFieldLabel("触发方式："), triggerModeBox));
             activatorConditionButton = MakeButton(Localizer.IsEnglish ? "Timing & conditions…" : "时间与条件…", 0, 0, 0);
             activatorConditionButton.AutoSize = true;
             activatorConditionButton.UseMnemonic = false;
             activatorConditionButton.MinimumSize = new Size(128, 32);
             activatorConditionButton.Click += ActivatorConditionButton_Click;
-            triggerTop.Controls.Add(activatorConditionButton, 2, 1);
-            triggerBehaviorLabel = new Label { AutoSize = true, Dock = DockStyle.Fill,
-                ForeColor = EditorTheme.Muted, Margin = new Padding(0, 3, 0, 6), MaximumSize = new Size(560, 0) };
-            triggerTop.Controls.Add(triggerBehaviorLabel, 1, 2);
-            triggerTop.SetColumnSpan(triggerBehaviorLabel, 2);
-            EditorDialogs.RowVisible(triggerTop, 2, false);
+            activatorConditionButton.Margin = new Padding(0, 0, 0, 4);
+            triggerTop.Controls.Add(activatorConditionButton);
             triggerLayout.Controls.Add(triggerTop, 0, 0);
-            triggerLayout.SetColumnSpan(triggerTop, 3);
 
             Label repeatLabel = MakeFieldLabel("执行次数：");
             repeatBox = new NumericUpDown();
@@ -227,14 +218,21 @@ namespace InputStitch
             repeatBox.Anchor = AnchorStyles.Left;
             repeatBox.ValueChanged += Settings_Changed;
             infiniteBox = new CheckBox();
-            infiniteBox.Text = "无限循环（再次触发或点击停止）";
+            infiniteBox.Text = EditorDialogs.T("无限循环", "Repeat until stopped");
             infiniteBox.AutoSize = true;
             infiniteBox.Anchor = AnchorStyles.Left;
             infiniteBox.Margin = new Padding(12, 4, 0, 4);
             infiniteBox.CheckedChanged += InfiniteBox_CheckedChanged;
-            triggerLayout.Controls.Add(repeatLabel, 0, 1);
-            triggerLayout.Controls.Add(repeatBox, 1, 1);
-            triggerLayout.Controls.Add(infiniteBox, 2, 1);
+            repeatUnitLabel = MakeFieldLabel("次");
+            repeatUnitLabel.Margin = new Padding(5, 2, 0, 2);
+            FlowLayoutPanel repeatGroup = CompactFieldGroup(repeatLabel, repeatBox, repeatUnitLabel, infiniteBox);
+            repeatGroup.Margin = new Padding(0);
+            TableLayoutPanel repeatLayout = MakeFormGrid();
+            repeatLayout.Margin = new Padding(0);
+            repeatLayout.Controls.Add(repeatGroup, 0, 0);
+            repeatLayout.SetColumnSpan(repeatGroup, 2);
+            triggerLayout.Controls.Add(repeatLayout, 0, 1);
+            triggerModeBox.FontChanged += delegate { RefreshTriggerSelector(); };
             suppressBox = new CheckBox();
             suppressBox.Text = "触发时屏蔽最后一个触发键/鼠标事件";
             suppressBox.AutoSize = true;
@@ -248,8 +246,7 @@ namespace InputStitch
             optionalSettingsPanel.Visible = false;
             optionalSettingsPanel.Controls.Add(suppressBox, 1, 0);
             optionalSettingsPanel.SetColumnSpan(suppressBox, 2);
-            triggerLayout.Controls.Add(optionalSettingsPanel, 0, 3);
-            triggerLayout.SetColumnSpan(optionalSettingsPanel, 3);
+            triggerLayout.Controls.Add(optionalSettingsPanel, 0, 2);
 
             Label activeLayerLabel = MakeFieldLabel("当前映射层：");
             activeLayerBox = new EditorChoice();
@@ -280,9 +277,7 @@ namespace InputStitch
             runtimeCapabilityLabel.Margin = new Padding(0, 5, 0, 3);
             runtimeCapabilityLabel.Padding = new Padding(0, 2, 0, 2);
             runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
-            triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 2);
-            triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 2);
-            triggerLayout.Controls.Add(optionalSettingsButton, 2, 2);
+            repeatLayout.Controls.Add(optionalSettingsButton, 2, 0);
             // Keep normal fields together; a second decorative header took space from the steps.
             TableLayoutPanel macroSettings = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 2, Margin = new Padding(0) };
@@ -336,7 +331,7 @@ namespace InputStitch
             stepsLayout.ColumnCount = 1;
             stepsLayout.RowCount = 3;
             stepsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F * Font.GetHeight() / Font.GetHeight(96F)));
+            stepsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             // Leave room for the horizontal scrollbar as well as a full-height button.
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F * Font.GetHeight() / Font.GetHeight(96F)));
@@ -344,6 +339,7 @@ namespace InputStitch
             TableLayoutPanel stepsHeader = new TableLayoutPanel();
             stepsHeader.Dock = DockStyle.Fill;
             stepsHeader.AutoSize = true;
+            stepsHeader.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             stepsHeader.Margin = new Padding(0);
             stepsHeader.ColumnCount = 3;
             stepsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -351,6 +347,7 @@ namespace InputStitch
             stepsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             FlowLayoutPanel primaryActions = new FlowLayoutPanel();
             primaryActions.AutoSize = true;
+            primaryActions.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             primaryActions.WrapContents = false;
             primaryActions.FlowDirection = FlowDirection.RightToLeft;
             primaryActions.Margin = new Padding(0);
@@ -408,9 +405,18 @@ namespace InputStitch
             stepsHeader.Controls.Add(primaryActions, 2, 0);
             stepsHintLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = EditorTheme.Muted, Margin = new Padding(0, 0, 8, 0) };
             stepsHeader.Controls.Add(stepsHintLabel, 0, 0);
+            TableLayoutPanel readiness = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, Margin = new Padding(0) };
+            readiness.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            readiness.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            readiness.Controls.Add(runtimeCapabilityTitleLabel, 0, 0);
+            readiness.Controls.Add(runtimeCapabilityLabel, 1, 0);
+            stepsHeader.Controls.Add(readiness, 0, 1);
+            stepsHeader.SetColumnSpan(readiness, 3);
             stepsLayout.Controls.Add(stepsHeader, 0, 0);
             FlowLayoutPanel historyButtons = new FlowLayoutPanel();
             historyButtons.AutoSize = true;
+            historyButtons.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             historyButtons.WrapContents = false;
             undoStepsButton = MakeButton("撤销", 0, 0, 68);
             redoStepsButton = MakeButton("重做", 0, 0, 68);
@@ -529,7 +535,7 @@ namespace InputStitch
             SetTip(repeatBox, "宏完整执行的次数。勾选无限循环后忽略此数值。" );
             SetTip(triggerModeBox, "选择按一次切换启动/停止，或按住触发键运行、松开立即停止。" );
             SetTip(activatorConditionButton, Localizer.IsEnglish ? "Adjust press timing or limit when this macro can run." : "调整短按、长按、双击的时间，或限制这个宏在哪些情况下生效。" );
-            SetTip(captureTriggerButton, "点击后按下希望使用的键盘键、鼠标按钮或滚轮方向来设置触发方式。" );
+            SetTip(captureTriggerButton, EditorDialogs.T("点击选择触发键；右侧箭头可捕获实体键盘或鼠标。", "Click to choose a shortcut; use the arrow to capture a physical key or mouse input."));
             SetTip(suppressBox, "触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。" );
             SetTip(targetWindowBox, "当前锁定的目标窗口。用于 UI 自动切换和保存方案时的进程绑定。" );
             SetTip(lockTargetButton, "先切到目标程序，再切回 InputStitch 后点击这里；程序会锁定最近有效的外部前台窗口。" );
@@ -550,8 +556,8 @@ namespace InputStitch
             RegisterUiSafetyControl(nameBox, "编辑名称");
             RegisterUiSafetyControl(descriptionBox, "编辑备注");
             RegisterUiSafetyControl(enabledBox, "修改全局触发设置");
-            RegisterUiSafetyControl(triggerBox, "触发键设置");
             RegisterUiSafetyControl(captureTriggerButton, "录制触发键");
+            RegisterUiSafetyControl(triggerSelector, "触发键设置");
             RegisterUiSafetyControl(triggerModeBox, "修改触发方式");
             RegisterUiSafetyControl(activatorConditionButton, "修改时间与条件");
             RegisterUiSafetyControl(suppressBox, "修改触发屏蔽设置");
@@ -724,8 +730,7 @@ namespace InputStitch
             RefreshTargetWindowUi();
             UpdateTriggerModeUiText();
             RefreshActivatorConditionUi();
-            if (captureTriggerButton != null)
-                captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") : EditorDialogs.T("选择触发键…", "Choose shortcut…");
+            RefreshTriggerSelector();
             RefreshSteps();
             RefreshPanicUi();
             UpdateRunButton();

@@ -3074,7 +3074,6 @@ namespace InputStitch
         private TextBox nameBox;
         private TextBox descriptionBox;
         private CheckBox enabledBox;
-        private TextBox triggerBox;
         private Button captureTriggerButton;
         private ComboBox triggerModeBox;
         private Button activatorConditionButton;
@@ -3649,7 +3648,7 @@ namespace InputStitch
             box.Dock = DockStyle.Top;
             box.AutoSize = true;
             box.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            box.Padding = new Padding(12, 30, 12, 8);
+            box.Padding = new Padding(12, 18, 12, 8);
             box.Margin = new Padding(0, 0, 0, 8);
             box.BackColor = Color.White;
             return box;
@@ -4571,8 +4570,6 @@ namespace InputStitch
                 nameBox.Text = m.Name;
                 descriptionBox.Text = m.Description ?? "";
                 enabledBox.Checked = m.Enabled;
-                triggerBox.Text = InputNames.FormatTrigger(m.Trigger);
-                try { triggerBox.SelectionStart = 0; triggerBox.SelectionLength = 0; } catch { }
                 triggerModeBox.SelectedIndex = TriggerEditor.Index(m);
                 int layerIndex = 0;
                 for (int i = 0; i < mappingLayerBox.Items.Count; i++)
@@ -4592,13 +4589,13 @@ namespace InputStitch
             {
                 nameBox.Text = "";
                 descriptionBox.Text = "";
-                triggerBox.Text = "";
                 triggerModeBox.SelectedIndex = 0;
                 enabledBox.Checked = false;
                 suppressBox.Checked = false;
                 infiniteBox.Checked = false;
             }
             loadingUi = false;
+            RefreshTriggerSelector();
             UpdateTriggerModeUiText();
             RefreshActivatorConditionUi();
             RefreshSteps();
@@ -4819,7 +4816,6 @@ namespace InputStitch
             if (macro == null)
             {
                 activatorConditionButton.Text = Localizer.IsEnglish ? "Timing & conditions…" : "时间与条件…";
-                if (triggerBehaviorLabel != null) triggerBehaviorLabel.Text = "";
                 if (triggerModeBox != null) triggerModeBox.Enabled = false;
                 return;
             }
@@ -4837,7 +4833,6 @@ namespace InputStitch
                 ? "Timing & conditions…" + (conditionCount == 0 ? "" : " (" + conditionCount + ")")
                 : "时间与条件…" + (conditionCount == 0 ? "" : "（" + conditionCount + "）");
             triggerModeBox.Enabled = true;
-            triggerBehaviorLabel.Text = TriggerEditor.Hint(macro);
             RefreshOptionalSettingsText(optionalSettingsExpanded);
         }
 
@@ -5646,7 +5641,7 @@ namespace InputStitch
             }
             captureMode = CaptureMode.Trigger;
             pendingModifierCapture = null;
-            captureTriggerButton.Text = Localizer.Dynamic("请按触发键…");
+            RefreshTriggerSelector();
             statusLabel.Text = "状态：正在录制触发键（按 Esc 取消）";
             UpdateUiSafetyPauseState();
         }
@@ -5668,7 +5663,7 @@ namespace InputStitch
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
                     StopMacroForDefinitionChange(macro, "trigger-change");
                     macro.Trigger = dialog.SelectedTrigger;
-                    triggerBox.Text = InputNames.FormatTrigger(macro.Trigger);
+                    RefreshTriggerSelector();
                     SaveConfig();
                     RefreshConflictIndicators(true);
                     RefreshRuntimeCapabilityUi();
@@ -5702,7 +5697,7 @@ namespace InputStitch
             stepCaptureCallback = null;
             if (captureTriggerButton != null)
             {
-                captureTriggerButton.Text = EditorDialogs.T("选择触发键…", "Choose shortcut…");
+                RefreshTriggerSelector();
                 captureTriggerButton.Enabled = SelectedMacro != null;
             }
             RefreshPanicUi();
@@ -6010,7 +6005,7 @@ namespace InputStitch
                         {
                             BeginInvoke((MethodInvoker)delegate
                             {
-                                triggerBox.Text = InputNames.FormatTrigger(t);
+                                RefreshTriggerSelector();
                                 SaveConfig();
                                 CancelCapture();
                                 RefreshConflictIndicators(true);

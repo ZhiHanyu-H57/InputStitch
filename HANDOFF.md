@@ -1,6 +1,46 @@
 ﻿# HANDOFF.md
 
-## Latest completed pass — density and lightweight packaging (2026-10-21)
+## Latest completed pass — compact responsive macro settings (2026-10-21)
+
+Local beta.10 / FileVersion 1.5.0.9 on `ui/product-refresh`. One selectable
+shortcut control displays the current key and retains the existing capture
+menu. Trigger modes use measured translated widths. Field labels and controls
+wrap as complete groups at narrow widths. Count, unit and infinite repeat stay
+adjacent; infinite repeat disables the count while preserving its finite value.
+Readiness/errors appear directly in the execution area. Reduce title spacing
+while retaining 10.5pt text, compressed runtimes and all current behavior.
+No new features or dependencies; exclusive-fullscreen work stays deferred.
+
+- Full 31 suites PASS: 5,377 workflow/interaction/layout assertions,
+  172 crosshair checks and 303,716 output ownership assertions. Settings/XML
+  smoke PASS. Initial full-suite attempt exposed a test helper calling a public
+  method through a private-only reflection helper; fix the driver and rerun the
+  entire suite, with production sources unchanged. Failed-attempt logs retained.
+- Focused synthetic 100/125% density/live-transition checks: 3,316 PASS.
+  Native 144 DPI: 1,660 PASS, including actual first-show working-area
+  fit. The full bilingual layout matrix also covers synthetic 150/200%.
+  Live resize/language transitions include a full Ctrl+Shift+Alt+Win+F8 chord,
+  unset shortcut prompt, complete mode text, intact repeat grouping and parent
+  clipping. Test renders create native handles and settle layout before capture.
+- At 100%: 1000x700 exposes Chinese/English 6/5 complete step rows;
+  1160x780 both 9, 1280x900 both 13. No normal outer/horizontal scrolling.
+  Native 150% at physical 1500x1050 gives 11/9, 1740x1170 both 14 and
+  1920x1350 both 16. Oversized synthetic windows may hit host track limits;
+  actual tested dimensions are recorded, not universal monitor guarantees.
+- Real SendInput and ViGEm/XInput: 77/77 PASS, zero failures.
+- Final-source macro sustained observer: 300.1 seconds / 3,565 cycles;
+  keyboard down/up 13,689/13,689, zero final output sources/held
+  outputs. Max UI dispatch 147 ms; continuous gap 220 ms.
+  Private bytes 35,901,440 to 36,679,680; handles
+  434 to 430, threads 13 to 6.
+- All 54 production files frozen for acceptance; normal config/devices hashes
+  unchanged. Renderer files still match beta.8 exactly; its sustained overlay
+  report is historical evidence, while current-version pixel tests are rerun.
+- Final x64/x86 startup/extraction receipts, exact EXE sizes, source commit and
+  hashes are in the delivery receipt. No remote release or Stable replacement.
+  No per-round manual trial requirement.
+
+## Previous completed pass — density and lightweight packaging (2026-10-21)
 
 Local beta.9 / FileVersion 1.5.0.8 on `ui/product-refresh`. User priority is
 readable, usable and clean before decoration. Restore balanced 10.5pt body text,

@@ -362,12 +362,105 @@ namespace InputStitch
         }
     }
 
+    // Lay out whole field groups against the actual width; auto-size flow tables cache stale heights after wrapping.
+    internal sealed class EditorFieldFlow : Panel
+    {
+        private bool layoutQueued;
+        protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); QueueParentLayout(); }
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            PerformLayout();
+        }
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            base.OnLayout(e);
+            TableLayoutPanel table = Parent as TableLayoutPanel;
+            if (table == null || table.ClientSize.Width <= 0) return;
+            int row = table.GetRow(this);
+            if (row < 0 || row >= table.RowStyles.Count) return;
+            int x = Padding.Left, y = Padding.Top, rowHeight = 0;
+            foreach (Control control in Controls)
+            {
+                Size size = control.AutoSize ? control.GetPreferredSize(Size.Empty) : control.Size;
+                if (x > Padding.Left && x + size.Width + control.Margin.Horizontal > ClientSize.Width - Padding.Right)
+                { x = Padding.Left; y += rowHeight; rowHeight = 0; }
+                control.Bounds = new Rectangle(x + control.Margin.Left, y + control.Margin.Top, size.Width, size.Height);
+                x += size.Width + control.Margin.Horizontal;
+                rowHeight = Math.Max(rowHeight, size.Height + control.Margin.Vertical);
+            }
+            int height = y + rowHeight + Padding.Bottom + Margin.Vertical;
+            if (table.RowStyles[row].Height != height)
+            {
+                table.RowStyles[row].Height = height;
+                // Flush the containing auto-size tables after their current layout transaction finishes.
+                QueueParentLayout();
+            }
+        }
+        private void QueueParentLayout()
+        {
+            if (!IsHandleCreated || layoutQueued) return;
+            layoutQueued = true;
+            BeginInvoke((MethodInvoker)delegate
+            {
+                layoutQueued = false;
+                for (Control container = Parent; container != null; container = container.Parent) container.PerformLayout();
+            });
+        }
+    }
+
     public partial class MainForm
     {
+        private FlowLayoutPanel triggerSelector;
+        private Label repeatUnitLabel;
+
+        // Only the outer flow wraps; a label and its field (or the whole repeat group) stay together.
+        private static FlowLayoutPanel CompactFieldGroup(params Control[] controls)
+        {
+            FlowLayoutPanel group = new FlowLayoutPanel { AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false,
+                Margin = new Padding(0, 0, 14, 4) };
+            foreach (Control control in controls)
+            {
+                control.Anchor = control is ComboBox ? AnchorStyles.Left | AnchorStyles.Top : AnchorStyles.Left;
+                if (control is ComboBox) control.Margin = new Padding(0);
+                group.Controls.Add(control);
+            }
+            return group;
+        }
+
+        private void RefreshTriggerSelector()
+        {
+            if (captureTriggerButton == null || triggerModeBox == null) return;
+            MacroDefinition macro = SelectedMacro;
+            string shortcut = macro == null || macro.Trigger == null ? "" : InputNames.FormatTrigger(macro.Trigger);
+            captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") :
+                string.IsNullOrEmpty(shortcut) ? EditorDialogs.T("选择触发键…", "Choose shortcut…") : shortcut;
+            captureTriggerButton.AccessibleName = EditorDialogs.T("触发键：", "Shortcut: ") + captureTriggerButton.Text;
+            float scale = Font.GetHeight() / Font.GetHeight(96F);
+            int selectorWidth = Math.Max((int)(128 * scale), TextRenderer.MeasureText(captureTriggerButton.Text, captureTriggerButton.Font).Width + (int)(18 * scale));
+            captureTriggerButton.Width = Math.Min((int)(260 * scale), selectorWidth);
+            if (triggerSelector != null)
+                foreach (Control control in triggerSelector.Controls)
+                    if (control != captureTriggerButton) control.AccessibleName = EditorDialogs.T("更多输入方式", "More input methods");
+            int modeWidth = 0;
+            foreach (string name in TriggerEditor.Names)
+                modeWidth = Math.Max(modeWidth, TextRenderer.MeasureText(name, triggerModeBox.Font).Width);
+            triggerModeBox.Width = modeWidth + (int)(30 * scale);
+            // Native combo height can grow when its handle is created; reserve the same field height as buttons.
+            if (triggerModeBox.Parent != null) triggerModeBox.Parent.MinimumSize = new Size(0, (int)Math.Ceiling(32 * scale));
+            triggerModeBox.DropDownWidth = triggerModeBox.Width;
+            if (repeatBox != null)
+                repeatBox.Width = TextRenderer.MeasureText(repeatBox.Maximum.ToString(), repeatBox.Font).Width + (int)(24 * scale);
+            if (repeatUnitLabel != null) repeatUnitLabel.Text = EditorDialogs.T("次", "times");
+            if (uiToolTip != null)
+                uiToolTip.SetToolTip(captureTriggerButton, captureTriggerButton.Text + Environment.NewLine +
+                    EditorDialogs.T("点击选择；右侧箭头可捕获实体键盘或鼠标。", "Click to choose; use the arrow to capture a physical key or mouse input."));
+        }
+
         private TableLayoutPanel optionalSettingsPanel;
         private bool optionalSettingsExpanded;
         private Button optionalSettingsButton;
-        private Label triggerBehaviorLabel;
         private Label macroCountLabel;
         private Label stepsHintLabel;
         private Panel emptyStepsPanel;

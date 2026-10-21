@@ -81,9 +81,16 @@ internal static class ProductAcceptanceTests
     {
         typeof(Control).GetMethod("SetState", Private).Invoke(form, new object[] { 2, true });
         form.CreateControl();
+        foreach (Control child in All(form)) child.CreateControl();
         form.PerformLayout();
+        Pump(20);
         using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
-        { form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size)); bitmap.Save(Path.Combine(root, name + ".png")); }
+        {
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+            form.PerformLayout(); Pump(20);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+            bitmap.Save(Path.Combine(root, name + ".png"));
+        }
     }
     private static IEnumerable<Control> All(Control parent)
     {
@@ -131,6 +138,25 @@ internal static class ProductAcceptanceTests
             Call(form, "AddMacro_Click", null, EventArgs.Empty);
             Check(config.Macros.Count == 1, "create a macro through the editor handler");
             MacroDefinition macro = config.Macros[0];
+            Check(Field<Button>(form, "captureTriggerButton").Text == (macro.Trigger == null
+                ? "选择触发键…" : InputNames.FormatTrigger(macro.Trigger)), "single shortcut selector shows the saved key or choose prompt");
+            NumericUpDown repeats = Field<NumericUpDown>(form, "repeatBox");
+            CheckBox infinite = Field<CheckBox>(form, "infiniteBox");
+            repeats.Value = 17;
+            infinite.Checked = true;
+            Check(!repeats.Enabled && repeats.Value == 17 && macro.RepeatCount == 17 && macro.Infinite,
+                "infinite repeat disables the adjacent count without discarding it");
+            infinite.Checked = false;
+            Check(repeats.Enabled && repeats.Value == 17 && macro.RepeatCount == 17 && !macro.Infinite,
+                "finite repeat restores the saved count");
+            repeats.Value = 1;
+            macro.Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F8, Ctrl = true, Alt = true, Shift = true, Win = true };
+            Call(form, "LoadSelectedMacroToUi");
+            Check(Field<Button>(form, "captureTriggerButton").Text == InputNames.FormatTrigger(macro.Trigger), "selector displays a complete modifier chord");
+            Call(form, "CaptureTriggerButton_Click", null, EventArgs.Empty);
+            Check(Field<Button>(form, "captureTriggerButton").Text == "请按触发键…", "physical capture replaces selector text with its prompt");
+            form.CancelCapture();
+            Check(Field<Button>(form, "captureTriggerButton").Text == InputNames.FormatTrigger(macro.Trigger), "cancel restores the actual saved shortcut");
             Field<TextBox>(form, "nameBox").Text = "完整流程";
             Call(form, "CommitNameEdit");
             Field<TextBox>(form, "descriptionBox").Text = "编辑、保存、恢复与运行";
@@ -275,7 +301,7 @@ internal static class ProductAcceptanceTests
                 Render(form, "main-" + language + "-" + size.Width + "-" + (int)(scale * 100));
                 Check(All(form).OfType<ComboBox>().Count(x => x == modes) == 1 && modes.Items.Count == 7,
                     "editor presents one seven-mode trigger choice");
-                Check(modes.Width > 180 && Field<Button>(form, "activatorConditionButton").Width >= 128, "trigger controls retain usable width");
+                CompactTriggerLayout(form);
                 Call(form, "ToggleOptionalSettings", null, EventArgs.Empty);
                 Render(form, "main-expanded-" + language + "-" + size.Width + "-" + (int)(scale * 100));
                 Check(Field<TableLayoutPanel>(form, "optionalSettingsPanel").Visible, "optional grouping and target settings expand");
@@ -289,6 +315,7 @@ internal static class ProductAcceptanceTests
     private static void Density() { foreach (float scale in new[] { 1F, 1.25F }) Density(scale); }
     private static void Density(float scale)
     {
+        ResponsiveTransitions(scale);
         foreach (string language in new[] { "zh-CN", "en-US" })
         foreach (Size size in new[] { new Size(1000, 700), new Size(1160, 780), new Size(1280, 900) })
         {
@@ -303,6 +330,7 @@ internal static class ProductAcceptanceTests
                 form.MaximumSize = new Size((int)(size.Width * scale), (int)(size.Height * scale));
                 form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
                 Render(form, "density-" + language + "-" + size.Width + "-" + (int)(scale * 100));
+                CompactTriggerLayout(form);
                 DataGridView grid = Field<DataGridView>(form, "grid");
                 Rectangle bounds = form.RectangleToClient(grid.RectangleToScreen(grid.ClientRectangle));
                 Check(bounds.Top >= 0 && bounds.Bottom <= form.ClientSize.Height && bounds.Right <= form.ClientSize.Width,
@@ -354,6 +382,77 @@ internal static class ProductAcceptanceTests
                 Check(!All(quick).OfType<Panel>().Any(x => x.AutoScroll && x.VerticalScroll.Visible), "quick creation needs no outer scrolling at default size");
             }
         }
+    }
+
+    private static void ResponsiveTransitions(float scale)
+    {
+        MacroConfig config = new MacroConfig { Language = "zh-CN", GamepadDeviceType = VirtualGamepadTypes.None };
+        MacroDefinition macro = Timed("调整窗口 · Resize", Keys.F8, false);
+        config.Macros.Add(macro);
+        using (MainForm form = new MainForm(config, Path.Combine(root, "resize-" + Guid.NewGuid().ToString("N")), new Observer()))
+        {
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new Point(-20000, -20000);
+            if (!densityUsesNativeDpi) form.Scale(new SizeF(scale, scale));
+            form.Show(); Pump(25);
+            foreach (string language in new[] { "zh-CN", "en-US", "zh-CN" })
+            foreach (Size size in new[] { new Size(1000, 700), new Size(1280, 900), new Size(1000, 700) })
+            {
+                Localizer.SetLanguage(language);
+                Call(form, "ApplyLanguageToMainUi", false);
+                macro.Trigger = size.Width == 1280 ? null : new TriggerSpec { Kind = InputKind.Keyboard,
+                    VirtualKey = (int)Keys.F8, Ctrl = true, Alt = true, Shift = true, Win = true };
+                Call(form, "LoadSelectedMacroToUi");
+                form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                Pump(25);
+                CompactTriggerLayout(form);
+                Check(Field<Button>(form, "captureTriggerButton").Text == (macro.Trigger == null
+                    ? (language == "en-US" ? "Choose shortcut…" : "选择触发键…") : InputNames.FormatTrigger(macro.Trigger)),
+                    "live resize and language switch retain the current key or empty prompt");
+            }
+            form.Close();
+        }
+    }
+
+    private static void CompactTriggerLayout(MainForm form)
+    {
+        ComboBox modes = Field<ComboBox>(form, "triggerModeBox");
+        Button shortcut = Field<Button>(form, "captureTriggerButton");
+        NumericUpDown repeats = Field<NumericUpDown>(form, "repeatBox");
+        CheckBox infinite = Field<CheckBox>(form, "infiniteBox");
+        float scale = form.Font.GetHeight() / form.Font.GetHeight(96F);
+        int longest = TriggerEditor.Names.Max(x => TextRenderer.MeasureText(x, modes.Font).Width);
+        Check(modes.Width >= longest + 20, "all translated trigger choices fit the closed selector");
+        Check(modes.Width <= longest + 85 * scale, "trigger mode uses a measured compact width instead of stretching");
+        Check(shortcut.Width >= TextRenderer.MeasureText(shortcut.Text, shortcut.Font).Width + 8,
+            "the selected keyboard shortcut is readable in its single control");
+        Check(shortcut.Width <= 330 * scale, "shortcut selection does not stretch across the settings card");
+        Check(repeats.Parent == infinite.Parent && !((FlowLayoutPanel)repeats.Parent).WrapContents,
+            "count, unit and infinite option form one indivisible row");
+        Check(infinite.Left > repeats.Right && infinite.Left - repeats.Right < 85 * scale,
+            "infinite option is immediately beside the count and unit");
+        Check(Math.Abs(repeats.Top + repeats.Height / 2 - infinite.Top - infinite.Height / 2) <= 2,
+            "count and infinite option share a visual center");
+        Check(repeats.Width >= TextRenderer.MeasureText(repeats.Maximum.ToString(), repeats.Font).Width + 16,
+            "count field fits its supported maximum and spinner");
+        foreach (Control control in new Control[] { shortcut, modes, repeats, infinite,
+            Field<Button>(form, "activatorConditionButton"), Field<Button>(form, "optionalSettingsButton"),
+            Field<Label>(form, "runtimeCapabilityLabel") })
+        {
+            for (Control parent = control.Parent; parent != form; parent = parent.Parent)
+                Check(parent.ClientRectangle.Contains(parent.RectangleToClient(control.RectangleToScreen(control.ClientRectangle))),
+                    "compact group remains visible inside " + parent.GetType().Name + ": " + control.Text +
+                    "; control=" + control.Bounds + "; parent=" + parent.ClientRectangle + "; visible=" + parent.RectangleToClient(control.RectangleToScreen(control.ClientRectangle)));
+        }
+        Control triggerFlow = modes.Parent.Parent;
+        Control[] groups = triggerFlow.Controls.Cast<Control>().Where(x => x.Visible).ToArray();
+        for (int i = 0; i < groups.Length; i++)
+            for (int j = i + 1; j < groups.Length; j++)
+                Check(!groups[i].Bounds.IntersectsWith(groups[j].Bounds), "wrapped trigger groups never overlap");
+        Label readiness = Field<Label>(form, "runtimeCapabilityLabel");
+        Check(readiness.Height >= TextRenderer.MeasureText(readiness.Text, readiness.Font,
+            new Size(readiness.Width - readiness.Padding.Horizontal, 1000), TextFormatFlags.WordBreak).Height,
+            "readiness and error explanations remain directly visible");
     }
 
     private static void DefaultViewport()

@@ -1,6 +1,36 @@
 ﻿# Product refresh — 2026-10-20
 
-## Current pass — balanced density and footprint (beta.9, 2026-10-21)
+## Current pass — compact responsive settings (beta.10, 2026-10-21)
+
+Merge shortcut display and selection into one control, keeping the physical
+capture dropdown. Fit trigger-mode fields to the longest translated choice;
+keep count, unit and infinite repeat adjacent. Narrow windows wrap whole
+label/field groups. The finite count is preserved while disabled. Readiness and
+explanations are directly visible in the execution area. Keep 10.5pt text and
+the compressed runtime packaging; no new features or dependencies.
+
+Actual native control creation can change combo-box height, and nested auto-size
+tables retain stale preferred heights after wrapping. Use font-aware field
+heights and a small width-driven group row with deferred containing-table
+layout. Acceptance checks actual visible bounds after layout settles, repeated
+resize/language transitions, complete modifier chords and empty prompts.
+
+Acceptance: all 31 suites PASS, 5,377 product assertions, 172 crosshair
+checks, 77/77 real output. Focused density/live transitions: 3,316 synthetic
+100/125% checks and 1,660 native 144 DPI checks. Full bilingual layout
+also covers synthetic 150/200%; oversized synthetic windows can be clamped by
+the host, so receipts record actual dimensions. At 1160x780/100%, both languages
+show 9 complete step rows, with ordinary editing free of outer/horizontal
+scrolling. At 1000x700, Chinese shows 6 and English 5; at 1280x900 both show 13.
+
+Current-source macro observer: 300.1 seconds / 3,565 cycles,
+keyboard down/up 13,689/13,689, zero residual sources/held outputs.
+Production-source and user-config hashes remain unchanged throughout acceptance.
+The unchanged renderer retains its explicitly historical beta.8 sustained
+baseline, with current-version pixel checks. Final package sizes/startup and
+source hashes are in verification.json. User trials remain optional feedback.
+
+## Historical pass — balanced density and footprint (beta.9, 2026-10-21)
 
 The user found the 12pt pass too large and cramped, particularly the Actions
 list, and explicitly prioritizes readable, usable, clean overview before art.

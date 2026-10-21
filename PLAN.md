@@ -1,6 +1,20 @@
 ﻿# PLAN.md
 
-## Active pass — readable density and lighter packaging (2026-10-21)
+## Completed pass — compact responsive macro settings (2026-10-21)
+
+Local target beta.10 / FileVersion 1.5.0.9. Keep a single shortcut-selection
+control that displays the current key and retains the physical-capture menu.
+Measure translated trigger-mode widths. Wrap complete label/field groups at
+narrow widths; keep repeat count, unit and infinite repeat adjacent, with the
+finite value preserved while disabled. Show readiness in the execution area.
+Retain 10.5pt text, compressed runtimes, existing configuration/runtime behavior
+and windowed/borderless crosshair scope. Add live resize/language transitions,
+complete-chord and empty-prompt checks, visible control/row assertions and native
+144 DPI coverage. Freeze sources for full regression, current-build sustained
+macro acceptance, real output and both packaged architectures. Manual trials
+remain optional. Completed acceptance is recorded in HANDOFF and the delivery receipt.
+
+## Previous pass — readable density and lighter packaging (2026-10-21)
 
 User priority: readable, usable, clean overview before decoration. Local target:
 beta.9 / FileVersion 1.5.0.8. Use 10.5pt body text, compact shared headers and

@@ -18,6 +18,11 @@ the whole editor. Measure package composition and keep it lightweight without
 removing supported functions. Beta.9 uses balanced 10.5pt text and compressed
 embedded runtimes; native extraction still verifies the pinned binary.
 
+Beta.10 consolidates the visible trigger selector, sizes fields to translated
+text, keeps repeat count and infinite repeat together, and wraps whole groups
+on narrower windows. Check actual control visibility after native handle
+creation and during repeated resize/language changes, not only preferred sizes.
+
 Keep the supported architecture, but present the product as a simple workflow:
 set up a macro, then use it. New features are paused. Compatibility and runtime
 implementation details belong inside the program and diagnostics, not in the
