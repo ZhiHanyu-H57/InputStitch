@@ -1,6 +1,16 @@
 ﻿# PLAN.md
 
-## Authorized Stable promotion — 1.5.0 (2026-10-22)
+## Completed Stable release — 1.5.0 (2026-10-22)
+
+Published `v1.5.0` from `166faab96f337b8164c729c1f233e6b2de294ff1` as GitHub latest Stable.
+All hosted verification/publishing/mirror jobs succeeded; downloaded assets and
+both official packages are verified. Local real-output 77 and 600.1-second /
+6,927-cycle unforced observer PASS. 1.4.3 configuration persistence and fixed
+InputStitch.exe update/restart are verified. Current source, final hashes, test
+scope and excluded runs: `docs/RELEASE_1_5_0_VERIFICATION.md`.
+The dated preparation notes below are historical. No manual trial gate remains.
+
+## Stable promotion history — 1.5.0 (2026-10-22)
 
 The user explicitly requested publishing the accepted beta.15 as a formal GitHub
 release. Promote it to 1.5.0 / FileVersion 1.5.0.15, enable the existing Stable
