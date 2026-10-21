@@ -36,6 +36,12 @@ first-show/work-area checks separate. The enhanced local matrix passes 96,103
 checks across the same 188 windows, with zero issues and additional compact
 coverage. This last change is test-only; production, soak and real-output source
 hashes remain frozen. Hosted full regression must pass before publishing.
+The third hosted matrix had no clipping reports but four full-keyboard viewport
+assertions: its 1,240-pixel constructor size had already been clamped before the
+fixture captured it. The full-keyboard test now explicitly owns a 1240x600 logical
+viewport, independent of desktop size. Native first-show/work-area tests are
+unchanged. Focused keyboard validation PASS: 32,039 checks / 20 windows, zero
+issues. This is still test-only; no further production rebuild or behavior change.
 Release result and exact asset hashes will be recorded afterward.
 
 ## Completed pass — maturity and measured runtime performance (beta.15, 2026-10-22)

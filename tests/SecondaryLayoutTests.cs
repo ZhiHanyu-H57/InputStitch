@@ -248,6 +248,11 @@ internal static class SecondaryLayoutTests
                         context = name;
                         form.StartPosition=FormStartPosition.Manual; form.Location=new Point(-20000,-20000); form.ShowInTaskbar=false;
                         Size requested = form.ClientSize;
+                        // A full keyboard has a 1,200-pixel canvas plus its frame.
+                        // Its constructor can already be clamped on a small test
+                        // desktop, so this full-view fixture owns its logical size.
+                        // Native first-show/work-area checks above remain unchanged.
+                        if(form is VirtualKeyboardDialog && !native) requested=new Size(1240,600);
                         Size chrome = new Size(form.Width-form.ClientSize.Width,form.Height-form.ClientSize.Height);
                         Size originalMinimum = form.MinimumSize;
                         Size scaledMinimum = originalMinimum.IsEmpty ? Size.Empty : new Size(
