@@ -23,15 +23,15 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            ClientSize = new Size(560, 580);
-            MinimumSize = new Size(500, 480);
+            ClientSize = new Size(560, Math.Min(580, Math.Max(300, 180 + (macros == null ? 0 : macros.Count) * 28)));
+            MinimumSize = new Size(500, 300);
             Font = EditorTheme.BodyFont();
             MaximizeBox = MinimizeBox = false;
             TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            list = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false, BorderStyle = BorderStyle.None };
+            list = new EditorCheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false, BorderStyle = BorderStyle.None, HorizontalScrollbar = true };
             if (macros != null) for (int i = 0; i < macros.Count; i++) list.Items.Add(macros[i] == null ? Localizer.T("（空宏）") : macros[i].Name, i == currentIndex);
             Button all = EditorDialogs.Button(EditorDialogs.T("全选", "Select all"), DialogResult.None);
             Button none = EditorDialogs.Button(EditorDialogs.T("全不选", "Clear selection"), DialogResult.None);
@@ -80,12 +80,12 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            ClientSize = new Size(600, 390);
-            MinimumSize = new Size(580, 410);
+            ClientSize = new Size(600, 310);
+            MinimumSize = new Size(580, 340);
             MaximizeBox = MinimizeBox = false;
             Font = EditorTheme.BodyFont();
             TableLayoutPanel body = new TableLayoutPanel { AutoScroll = true, Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = Color.White };
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             fixedMode = new RadioButton { Text = Localizer.T("固定间隔"), AutoSize = true, Checked = true };
             randomMode = new RadioButton { Text = Localizer.T("随机间隔"), AutoSize = true };
@@ -222,7 +222,8 @@ namespace InputStitch
 
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            ClientSize = new Size(620, 380);
+            ClientSize = new Size(620, 250);
+            MinimumSize = new Size(520, 280);
             Label body = new Label { AutoSize = true, Dock = DockStyle.Fill, Padding = new Padding(16), BackColor = Color.White, Text = EditorDialogs.T("设置宏，让键盘、鼠标或虚拟手柄自动完成重复操作。\r\n\r\n配置目录：\r\n", "Set up macros to automate repeated keyboard, mouse or virtual controller actions.\r\n\r\nConfiguration folder:\r\n") + AppPaths.Root };
             Button open = EditorDialogs.Button(EditorDialogs.T("打开配置目录", "Open config folder"), DialogResult.None);
             open.Click += delegate { try { Process.Start("explorer.exe", AppPaths.Root); } catch { } };

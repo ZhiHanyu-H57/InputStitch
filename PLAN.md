@@ -1,6 +1,14 @@
 ﻿# PLAN.md
 
-## Completed pass — compact responsive macro settings (2026-10-21)
+## Completed pass — remaining dialogs (2026-10-21)
+
+Beta.11 / FileVersion 1.5.0.10 completes the requested density/list/DPI pass.
+Keep existing functionality, 10.5pt text and compressed dependencies. Check
+actual native handles, all tabs, default and compact windows, keyboard/list
+interaction, footer visibility and ancestor clipping. Final acceptance and
+package evidence are recorded in HANDOFF and the delivery receipt.
+
+## Previous completed pass — compact responsive macro settings (2026-10-21)
 
 Local target beta.10 / FileVersion 1.5.0.9. Keep a single shortcut-selection
 control that displays the current key and retains the physical-capture menu.

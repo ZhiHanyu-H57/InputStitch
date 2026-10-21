@@ -57,8 +57,8 @@ namespace InputStitch
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(820, 540);
-            ClientSize = new Size(940, 600);
+            MinimumSize = new Size(820, 500);
+            ClientSize = new Size(940, 540);
             Font = EditorTheme.BodyFont();
             BackColor = Color.FromArgb(247, 249, 252);
 
@@ -66,7 +66,7 @@ namespace InputStitch
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+            shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(shell);
             shell.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = source == null ? Localizer.T("添加宏步骤") : Localizer.T("编辑宏步骤"),
                 Description = Localizer.IsEnglish ? "Choose what to press, how long to hold it, and when to move on." : "选择要按的键、按住多久，以及多久后执行下一步。" }, 0, 0);
@@ -78,12 +78,12 @@ namespace InputStitch
             root.AutoScroll = true;
             root.ColumnCount = 4;
             root.RowCount = 8;
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 166F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 284F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240F));
             for (int i = 0; i < 7; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             shell.Controls.Add(root, 0, 1);
 
             Label aLabel = new Label();
@@ -321,7 +321,7 @@ namespace InputStitch
             CancelButton = cancel;
             AcceptButton = ok;
             stepPreviewText = new Label { AutoSize = true, Dock = DockStyle.Top, ForeColor = EditorTheme.Accent,
-                BackColor = EditorTheme.Selection, Padding = new Padding(12), Margin = new Padding(0, 14, 0, 0), MaximumSize = new Size(840, 0), MinimumSize = new Size(0, 70) };
+                BackColor = EditorTheme.Selection, Padding = new Padding(12), Margin = new Padding(0, 14, 0, 0) };
             root.Controls.Add(stepPreviewText, 0, 7);
             root.SetColumnSpan(stepPreviewText, 4);
             foreach (NumericUpDown number in new[] { holdBox, delayBox, randomMinBox, randomMaxBox })
@@ -366,9 +366,19 @@ namespace InputStitch
             UpdateHoldEnabled();
             UpdateDelayControls();
             Localizer.ApplyStaticControls(this);
+            foreach (Label label in new[] { aLabel, typeLabel, physicalInputLabel, gamepadLabel, holdLabel, fixedDelayLabel, randomDelayLabel })
+                label.AutoSize = true;
             EditorTheme.Apply(this);
             EditorTheme.Primary(ok, false);
             UpdateStepPreview();
+            root.Layout += delegate
+            {
+                int height = root.Padding.Vertical;
+                foreach (Control child in root.Controls)
+                    if (child.Visible) height = Math.Max(height,child.Bottom-root.AutoScrollPosition.Y+child.Margin.Bottom+root.Padding.Bottom);
+                Size extent = new Size(0,height);
+                if (root.AutoScrollMinSize != extent) root.AutoScrollMinSize = extent;
+            };
         }
 
         private static decimal ClampDecimal(int x, decimal min, decimal max)

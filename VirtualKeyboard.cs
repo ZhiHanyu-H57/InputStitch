@@ -62,8 +62,8 @@ namespace InputStitch
             BackColor = Color.FromArgb(245, 247, 251);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
-            MinimumSize = new Size(800, 600);
-            ClientSize = new Size(1200, 700);
+            MinimumSize = new Size(800, 540);
+            ClientSize = new Size(1240, 600);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
@@ -115,12 +115,15 @@ namespace InputStitch
             keyboard.BackColor = Color.White;
             keyboard.Dock = DockStyle.None;
             keyboard.Height = 332;
-            keyboard.MinimumSize = new Size(1104, 315);
+            keyboard.MinimumSize = new Size(1200, 315);
             viewport.Controls.Add(keyboard);
             viewport.SizeChanged += delegate
             {
-                keyboard.Size = new Size(Math.Max(keyboard.MinimumSize.Width, viewport.ClientSize.Width),
-                    keyboard.MinimumSize.Height * 332 / 315);
+                float scale = Font.GetHeight() / Font.GetHeight(96F);
+                keyboard.MinimumSize = new Size((int)Math.Ceiling(1200 * scale), (int)Math.Ceiling(315 * scale));
+                int height = (int)Math.Ceiling(332 * scale);
+                foreach (Button key in keyButtons) height = Math.Max(height,(int)Math.Ceiling((key.MinimumSize.Height+4)*6.3F));
+                keyboard.Size = new Size(Math.Max(keyboard.MinimumSize.Width, viewport.ClientSize.Width), height);
                 viewport.AutoScrollMinSize = keyboard.Size;
             };
             root.Controls.Add(viewport, 0, 2);

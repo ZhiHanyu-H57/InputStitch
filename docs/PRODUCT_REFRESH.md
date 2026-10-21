@@ -1,6 +1,32 @@
 ﻿# Product refresh — 2026-10-20
 
-## Current pass — compact responsive settings (beta.10, 2026-10-21)
+## Current pass — secondary dialogs (beta.11, 2026-10-21)
+
+Prioritize readable, usable, clean layout in the remaining windows. Use measured
+intro/tab text, compact section padding, full-width explanatory copy, spaced
+native checked-list rows, fitted numeric fields and a device grid that fills
+its viewport. Smaller simple dialogs use less empty space. Default keyboard
+selection exposes all rows without scrolling; compact layouts retain a proper
+scroll viewport and visible save/cancel actions. Initial dialog dimensions
+follow actual font DPI and the working area. No new features or dependencies.
+
+Native handle creation can change control height after a form's first layout.
+Explicit section sizing and deferred idle-panel height propagation keep parent
+cards synchronized after first show, tab changes and resizing. Secondary numeric
+sizing excludes the already accepted MainForm repeat group.
+
+Acceptance: 32 suites PASS; 5,377 original product assertions, 172 crosshair,
+303,716 ownership, and 77 real-output checks. Final secondary matrix: 69,523
+checks / 188 windows, plus native 144 DPI 24,174 / 50; zero issues.
+Includes native checkbox keyboard/mouse interaction and the group-name modal.
+Synthetic 100/125/150/200% cases record actual dimensions; desktop-clamped
+compact cases are explicitly omitted rather than claimed as passed.
+Final-source macro observer: 300.0 seconds / 3,472 cycles,
+keyboard down/up 13,198/13,198; final output sources/held
+outputs zero. Exact source/package/user-config hashes and both architectures'
+startup/extraction results are in verification.json. User trials are optional.
+
+## Historical pass — compact responsive settings (beta.10, 2026-10-21)
 
 Merge shortcut display and selection into one control, keeping the physical
 capture dropdown. Fit trigger-mode fields to the longest translated choice;

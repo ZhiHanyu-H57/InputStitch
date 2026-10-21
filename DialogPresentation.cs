@@ -19,6 +19,33 @@ namespace InputStitch
 
         internal static string T(string zh, string en) { return Localizer.IsEnglish ? en : zh; }
 
+        internal static void PrepareWindow(Form form)
+        {
+            Size client = form.ClientSize, minimum = form.MinimumSize;
+            form.Shown += delegate
+            {
+                float scale = form.Font.GetHeight() / form.Font.GetHeight(96F);
+                Size scaled = new Size((int)Math.Ceiling(client.Width * scale), (int)Math.Ceiling(client.Height * scale));
+                // Constructors can assign logical sizes after WinForms' first DPI scaling pass.
+                // Normalize once, while preserving an explicitly requested size supplied before Show.
+                if (form.ClientSize == client || form.ClientSize == scaled)
+                {
+                    Rectangle area = Screen.FromControl(form).WorkingArea;
+                    form.MinimumSize = new Size(Math.Min((int)Math.Ceiling(minimum.Width * scale),area.Width - 24),
+                        Math.Min((int)Math.Ceiling(minimum.Height * scale),area.Height - 24));
+                    form.ClientSize = scaled;
+                    if (form.StartPosition != FormStartPosition.Manual)
+                    {
+                        form.Size = new Size(Math.Min(form.Width,area.Width - 24),Math.Min(form.Height,area.Height - 24));
+                        Rectangle anchor = form.Owner == null ? area : form.Owner.Bounds;
+                        form.Location = new Point(Math.Max(area.Left+12,Math.Min(area.Right-form.Width-12,anchor.Left+(anchor.Width-form.Width)/2)),
+                            Math.Max(area.Top+12,Math.Min(area.Bottom-form.Height-12,anchor.Top+(anchor.Height-form.Height)/2)));
+                    }
+                }
+            };
+        }
+
+
         internal static void Frame(Form form, Control body, Control actions, string description, Control oldIntro)
         {
             if (oldIntro != null) { oldIntro.Parent.Controls.Remove(oldIntro); oldIntro.Dispose(); }
@@ -32,12 +59,10 @@ namespace InputStitch
             if (body.Parent != null) body.Parent.Controls.Remove(body);
             TableLayoutPanel shell = new TableLayoutPanel { Name = "dialogShell", Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(14, 10, 14, 10) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            int descriptionHeight = TextRenderer.MeasureText(description, form.Font,
-                new Size(Math.Max(200, form.ClientSize.Width - 28), int.MaxValue), TextFormatFlags.WordBreak).Height;
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, Math.Max(62, form.Font.Height + 18 + descriptionHeight)));
+            shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            shell.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = form.Text, Description = description, Margin = new Padding(0) }, 0, 0);
+            shell.Controls.Add(new EditorIntro { AutoSize = true, Dock = DockStyle.Top, Text = form.Text, Description = description, Margin = new Padding(0) }, 0, 0);
             body.Dock = DockStyle.Fill;
             body.Margin = new Padding(0);
             shell.Controls.Add(body, 0, 1);
@@ -55,13 +80,29 @@ namespace InputStitch
 
         internal static EditorSection Section(string title)
         {
-            return new EditorSection { Text = title, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Dock = DockStyle.Top, Padding = new Padding(12, 34, 12, 10), Margin = new Padding(0, 0, 0, 8) };
+            EditorSection section = new EditorSection { Text = title,
+                Dock = DockStyle.Top, Padding = new Padding(12, 18, 12, 10), Margin = new Padding(0, 0, 0, 8) };
+            FitSection(section);
+            return section;
+        }
+
+        internal static void FitSection(GroupBox section)
+        {
+            section.AutoSize = false;
+            section.Layout += delegate
+            {
+                if (section.Controls.Count == 0) return;
+                Control content = section.Controls[0];
+                int height = (content.AutoSize ? content.GetPreferredSize(new Size(Math.Max(1,section.ClientSize.Width-section.Padding.Horizontal),0)).Height : content.Height) +
+                    section.Padding.Vertical + section.Font.Height;
+                if (section.MinimumSize.Height != height) section.MinimumSize = new Size(0,height);
+                if (section.Height != height) section.Height = height;
+            };
         }
 
         internal static FlowLayoutPanel Actions(params Control[] controls)
         {
-            FlowLayoutPanel row = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, FlowDirection = FlowDirection.RightToLeft };
+            FlowLayoutPanel row = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, FlowDirection = FlowDirection.RightToLeft };
             row.Controls.AddRange(controls);
             return row;
         }
@@ -88,6 +129,15 @@ namespace InputStitch
             SizeMode = TabSizeMode.Fixed;
             ItemSize = new Size(150, 34);
             Padding = new Point(12, 5);
+            Multiline = true;
+        }
+        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); FitLabels(); }
+        protected override void OnControlAdded(ControlEventArgs e) { base.OnControlAdded(e); FitLabels(); }
+        private void FitLabels()
+        {
+            int width = 90;
+            foreach (TabPage page in TabPages) width = Math.Max(width, TextRenderer.MeasureText(page.Text, Font).Width + 24);
+            ItemSize = new Size(width, Math.Max(30, Font.Height + 12));
         }
         protected override void OnDrawItem(DrawItemEventArgs e)
         {
@@ -97,5 +147,16 @@ namespace InputStitch
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
             if (selected) using (Pen line = new Pen(EditorTheme.Accent, 3)) e.Graphics.DrawLine(line, e.Bounds.Left + 12, e.Bounds.Bottom - 2, e.Bounds.Right - 12, e.Bounds.Bottom - 2);
         }
+    }
+
+    // Keep native checkbox, keyboard and accessibility behavior, with room around every list row.
+    internal sealed class EditorCheckedListBox : CheckedListBox
+    {
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr parameter, IntPtr value);
+        public override int ItemHeight { get { return Math.Max(base.ItemHeight, Font.Height + 8); } set { base.ItemHeight = value; } }
+        protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); FitRows(); }
+        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); FitRows(); }
+        private void FitRows() { if (IsHandleCreated) SendMessage(Handle, 0x01A0, IntPtr.Zero, new IntPtr(ItemHeight)); }
     }
 }

@@ -1,6 +1,51 @@
 ﻿# HANDOFF.md
 
-## Latest completed pass — compact responsive macro settings (2026-10-21)
+## Latest completed pass — secondary-window density and DPI (2026-10-21)
+
+Local beta.11 / FileVersion 1.5.0.10 on `ui/product-refresh`. Inspect Settings,
+timing/conditions, step editing, key selection, export, Router/analog controls,
+device inventory/takeover, crosshair settings, diagnostics/about, quick/new
+macro creation and the inline group-name editor. No new functions/dependencies
+or raster assets; retain 10.5pt text and compressed runtimes.
+
+- Measure intro height and tab titles; reduce section padding and excess space
+  in simple dialogs. Paragraphs use available width. Device columns fill the
+  viewport with wrapped headers. Native checked lists gain font-aware padding
+  while retaining keyboard and mouse checking. Numeric fields fit supported
+  values and spinners. Scope their sizing to secondary windows to preserve the
+  accepted main-editor repeat group.
+- Normalize initial logical window sizes after native DPI initialization and
+  fit/center dialogs in the working area. Size section content explicitly and
+  coalesce the idle-panel height update after native layout; switching tabs or
+  resizing must not leave a stale card height. Small step-editor viewports have
+  a complete internal scroll extent and a fixed reachable footer.
+- Keyboard geometry follows font scale and actual key minimum heights. Default
+  1240x600 client size shows the complete keyboard without scrolling, including
+  the bottom modifiers; compact windows retain the keyboard's scroll viewport.
+- Full 32 suites PASS: 5,377 original product workflow/layout checks, 172 native
+  crosshair checks, 303,716 ownership assertions and the secondary-layout suite.
+  Supplemental final harness adds the inline group-name cancel/visibility path.
+- Final bilingual secondary matrix: 69,523 assertions across 188 windows;
+  native 144 DPI: 24,174 assertions across 50 windows; zero issues. Check
+  first show, every tab, compact/restored bounds, ancestor clipping, text height,
+  closed dropdowns, number/spinner fit, list row capacity and actual native
+  checkbox keyboard/mouse behavior. Synthetic scales: 100/125/150/200%.
+  Oversized synthetic windows hit host track limits; unavailable compact cases
+  are logged CLAMPED and are not counted as validated compact sizes.
+- Real SendInput and ViGEm/XInput 77/77 PASS. Final-source macro observer:
+  300.0 seconds / 3,472 cycles; keyboard down/up
+  13,198/13,198, final output sources/held outputs zero.
+  Max UI dispatch 100 ms, continuous gap 63 ms;
+  private bytes 36,409,344 to 37,666,816, handles
+  435 to 429, threads 13 to 6.
+- All 54 production files frozen for final acceptance; normal user config and
+  devices hashes unchanged. Renderer core is byte-identical to beta.8: retain
+  its historical sustained overlay report and rerun current pixel checks.
+- Final x64/x86 package startup, extraction, sizes, hashes and source commit are
+  recorded in the delivered receipt. No remote release, Stable replacement or
+  per-round manual trial gate. Windowed/borderless crosshair scope is retained.
+
+## Previous completed pass — compact responsive macro settings (2026-10-21)
 
 Local beta.10 / FileVersion 1.5.0.9 on `ui/product-refresh`. One selectable
 shortcut control displays the current key and retains the existing capture

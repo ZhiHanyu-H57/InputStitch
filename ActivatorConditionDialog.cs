@@ -75,7 +75,7 @@ namespace InputStitch
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
             MinimumSize = new Size(700, 590);
-            ClientSize = new Size(820, 720);
+            ClientSize = new Size(820, 600);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Top;
@@ -140,15 +140,20 @@ namespace InputStitch
             device.DropDownStyle = ComboBoxStyle.DropDown;
             device.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             device.AutoCompleteSource = AutoCompleteSource.ListItems;
-            FlowLayoutPanel deviceLine = new FlowLayoutPanel();
+            TableLayoutPanel deviceLine = new TableLayoutPanel();
             deviceLine.AutoSize = true;
+            deviceLine.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             deviceLine.Dock = DockStyle.Top;
-            device.Width = 325;
+            deviceLine.ColumnCount = 2;
+            deviceLine.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            deviceLine.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            device.Dock = DockStyle.Fill;
+            device.Margin = new Padding(0, 2, 6, 0);
             refreshDevices.Text = Localizer.IsEnglish ? "Refresh" : "刷新设备";
             refreshDevices.AutoSize = true;
             refreshDevices.Click += delegate { RefreshDeviceChoices(true); };
-            deviceLine.Controls.Add(device);
-            deviceLine.Controls.Add(refreshDevices);
+            deviceLine.Controls.Add(device, 0, 0);
+            deviceLine.Controls.Add(refreshDevices, 1, 0);
             AddRow(condition, 3, Localizer.IsEnglish ? "Source controller" : "来源手柄", deviceLine);
 
             analogEnabled.AutoSize = true;

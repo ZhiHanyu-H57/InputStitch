@@ -341,14 +341,14 @@ namespace InputStitch
             targetProcessName = current.TargetProcessName;
             targetWindowTitle = current.TargetWindowTitle;
             targetWindowClass = current.TargetWindowClass;
-            AutoSize = true;
-            AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            AutoSize = false;
             Dock = DockStyle.Top;
             Margin = new Padding(0);
             Padding = new Padding(4);
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Top;
             root.AutoSize = true;
+            root.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             root.ColumnCount = 1;
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             enabledBox = new CheckBox();
@@ -441,16 +441,26 @@ namespace InputStitch
             Label background = Label(T(
                 "可在后台发送，不切换窗口。是否接收由游戏决定；其他接收同一手柄的程序也可能响应。开始游戏前连接手柄可提高兼容性。",
                 "Sends in the background without switching windows. The game decides whether it accepts background input; other apps using the same controller may also respond. Connect the controller before starting the game."));
-            background.Dock = DockStyle.Top;
+            background.Dock = DockStyle.Fill;
             background.Margin = new Padding(0, 4, 0, 6);
             background.ForeColor = Color.FromArgb(85, 96, 112);
             root.Controls.Add(background, 0, 3);
-            root.SizeChanged += delegate
+            explanation.Dock = DockStyle.Fill;
+            bool heightQueued = false;
+            EventHandler fitHeight = delegate
             {
-                int width = Math.Max(220, root.ClientSize.Width - 8);
-                explanation.MaximumSize = new Size(width, 0);
-                background.MaximumSize = new Size(width, 0);
+                Height = root.Height + Padding.Vertical;
+                if (!IsHandleCreated || heightQueued) return;
+                heightQueued = true;
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    heightQueued = false;
+                    Height = root.Height + Padding.Vertical;
+                    if (Parent != null) Parent.PerformLayout(this,"Size");
+                });
             };
+            root.SizeChanged += fitHeight;
+            HandleCreated += fitHeight;
             Controls.Add(root);
             enabledBox.CheckedChanged += delegate { UpdateFields(); };
             controlBox.SelectedIndexChanged += delegate { UpdateFields(); };

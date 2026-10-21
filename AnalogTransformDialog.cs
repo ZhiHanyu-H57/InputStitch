@@ -19,13 +19,14 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
-            MinimumSize = new Size(650, 560);
-            ClientSize = new Size(720, 620);
+            MinimumSize = new Size(650, 480);
+            ClientSize = new Size(760, 500);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(14);
             root.ColumnCount = 1;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.RowCount = 4;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -56,7 +57,7 @@ namespace InputStitch
 
             Label merge = new Label();
             merge.AutoSize = true;
-            merge.MaximumSize = new Size(670, 0);
+            merge.Dock = DockStyle.Fill;
             merge.Margin = new Padding(0, 8, 0, 8);
             merge.Text = EditorDialogs.T("曲线 100% 为线性；数值更高时，摇杆中心附近的控制更细腻。", "A 100% curve is linear. Higher values provide finer control near the stick center.");
             root.Controls.Add(merge, 0, 2);
@@ -155,13 +156,14 @@ namespace InputStitch
                 invertRow.Controls.Add(invertX);
                 invertRow.Controls.Add(invertY);
                 table.Controls.Add(invertRow, 1, 5);
+                table.SetColumnSpan(invertRow, 2);
                 table.Controls.Add(LabelText(Localizer.IsEnglish ? "Axis inversion" : "轴反转"), 0, 5);
 
                 preview.AutoSize = true;
-                preview.MaximumSize = new Size(560, 0);
+                preview.Dock = DockStyle.Fill;
                 preview.Margin = new Padding(0, 10, 0, 0);
                 table.Controls.Add(preview, 0, 6);
-                table.SetColumnSpan(preview, 2);
+                table.SetColumnSpan(preview, 3);
 
                 EventHandler changed = delegate { OnChanged(); };
                 inner.ValueChanged += changed;
@@ -248,10 +250,10 @@ namespace InputStitch
                 AddNumberRow(table, 4, Localizer.IsEnglish ? "Max output" : "最大输出", max, "%",
                     Localizer.IsEnglish ? "Final trigger-output clamp." : "最终扳机输出上限。");
                 preview.AutoSize = true;
-                preview.MaximumSize = new Size(560, 0);
+                preview.Dock = DockStyle.Fill;
                 preview.Margin = new Padding(0, 10, 0, 0);
                 table.Controls.Add(preview, 0, 5);
-                table.SetColumnSpan(preview, 2);
+                table.SetColumnSpan(preview, 3);
 
                 EventHandler changed = delegate { OnChanged(); };
                 inner.ValueChanged += changed;
@@ -306,8 +308,9 @@ namespace InputStitch
             table.AutoSize = true;
             table.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             table.Dock = DockStyle.Top;
-            table.ColumnCount = 2;
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            table.ColumnCount = 3;
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             return table;
         }
@@ -318,6 +321,8 @@ namespace InputStitch
             table.Controls.Add(LabelText(title), 0, row);
             FlowLayoutPanel valueRow = new FlowLayoutPanel();
             valueRow.AutoSize = true;
+            valueRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            valueRow.WrapContents = false;
             valueRow.Dock = DockStyle.Top;
             number.Width = 90;
             valueRow.Controls.Add(number);
@@ -325,10 +330,10 @@ namespace InputStitch
             unit.Margin = new Padding(2, 6, 0, 0);
             valueRow.Controls.Add(unit);
             Label help = LabelText(hint);
-            help.MaximumSize = new Size(330, 0);
+            help.Dock = DockStyle.Fill;
             help.Margin = new Padding(12, 5, 0, 0);
-            valueRow.Controls.Add(help);
             table.Controls.Add(valueRow, 1, row);
+            table.Controls.Add(help, 2, row);
         }
 
         private static NumericUpDown Number(int min, int max, int value)

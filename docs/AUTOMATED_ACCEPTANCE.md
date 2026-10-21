@@ -23,6 +23,8 @@ Run from the repository in Windows PowerShell:
 ./tests/Run-Tests.ps1
 ./tests/Run-ProductAcceptance.ps1
 ./tests/Run-ProductAcceptance.ps1 -DialogsOnly
+./tests/Run-SecondaryLayout.ps1
+./tests/Run-SecondaryLayout.ps1 -Native
 ./tests/Run-ProductAcceptance.ps1 -SoakMinutes 480
 ./tools/InputLab/run-acceptance.ps1 -AllowRealOutput
 ```
@@ -33,6 +35,15 @@ the standalone command is useful when editing the UI. The sustained run accepts
 1–1440 minutes. Use the actual reported duration when describing evidence.
 The manual GitHub Actions `Product sustained acceptance` workflow runs the same
 host and uploads its reports; it does not publish a release.
+
+The secondary-layout suite is part of the full regression. Its standalone runner
+also supports native DPI and a focused `-SettingsOnly` iteration. It checks live
+default/tab/compact/restored windows, native checked-list input, actual visible
+text and ancestor clipping. PNGs and issues/summary files are under
+`artifacts/secondary-tests/secondary-layout*`; full-suite outputs use
+`artifacts/tests/secondary-layout`. Native DPI is reported explicitly. Synthetic
+windows that exceed the test desktop's track-size limit record CLAMPED; an
+unavailable compact geometry is not counted as a successful compact test.
 
 Input Lab emits real keyboard/mouse and virtual-controller output. Its existing
 idle-desktop and single-instance preflight applies. It keeps user configuration

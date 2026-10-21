@@ -118,7 +118,7 @@ namespace InputStitch
             MinimizeBox = false;
             MaximizeBox = false;
             MinimumSize = new Size(620, 480);
-            ClientSize = new Size(780, 740);
+            ClientSize = new Size(780, 620);
             BackColor = Color.FromArgb(247, 249, 252);
             AutoScroll = true;
 
@@ -165,7 +165,9 @@ namespace InputStitch
             languageLabel.Anchor = AnchorStyles.Left;
             languageLabel.Margin = new Padding(0, 5, 12, 5);
             languageBox.Width = 190;
-            languageBox.Anchor = AnchorStyles.Left;
+            languageBox.MinimumSize = new Size(160, 0);
+            languageBox.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            languageBox.Margin = new Padding(0, 4, 0, 0);
             languageRow.Controls.Add(languageLabel, 0, 0);
             languageRow.Controls.Add(languageBox, 1, 0);
             generalLayout.Controls.Add(languageRow);
@@ -199,9 +201,9 @@ namespace InputStitch
             gamepadTypeBox = new EditorChoice();
             gamepadTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
             gamepadTypeBox.Dock = DockStyle.Fill;
-            gamepadTypeBox.Items.Add(Localizer.T("Xbox 360（推荐，Windows 游戏兼容性最好）"));
+            gamepadTypeBox.Items.Add(EditorDialogs.T("Xbox 360（推荐）", "Xbox 360 (recommended)"));
             gamepadTypeBox.Items.Add(Localizer.T("PS4 / DualShock 4"));
-            gamepadTypeBox.Items.Add(Localizer.IsEnglish ? "Do not create a virtual controller (keyboard/mouse only)" : "不创建虚拟手柄（仅使用键盘/鼠标功能）");
+            gamepadTypeBox.Items.Add(EditorDialogs.T("仅键盘 / 鼠标（不创建虚拟手柄）", "Keyboard / mouse only"));
             gamepadTypeBox.SelectedIndex = VirtualGamepadTypes.IsDisabled(config.GamepadDeviceType) ? 2 :
                 (string.Equals(config.GamepadDeviceType, VirtualGamepadTypes.DualShock4, StringComparison.OrdinalIgnoreCase) ? 1 : 0);
             gamepadTypeRow.Controls.Add(gamepadTypeLabel, 0, 0);
@@ -209,8 +211,7 @@ namespace InputStitch
             gamepadLayout.Controls.Add(gamepadTypeRow);
 
             gamepadRouterBox = MakeCheck(
-                Localizer.IsEnglish ? "Merge every other XInput controller into the InputStitch virtual controller (Beta)" :
-                    "把其他 XInput 手柄的操作汇总到 InputStitch 虚拟手柄（测试）",
+                EditorDialogs.T("转发其他手柄的输入（测试）", "Forward input from other controllers (Beta)"),
                 config.GamepadRouterEnabled);
             int gamepadTypeBeforeRouter = gamepadTypeBox.SelectedIndex;
             gamepadRouterBox.CheckedChanged += delegate
@@ -235,7 +236,7 @@ namespace InputStitch
             gamepadLayout.Controls.Add(gamepadRouterBox);
             Label routerHint = new Label();
             routerHint.AutoSize = true;
-            routerHint.MaximumSize = new Size(610, 0);
+            routerHint.Dock = DockStyle.Fill;
             routerHint.ForeColor = Color.FromArgb(86, 96, 112);
             routerHint.Margin = new Padding(24, 0, 0, 6);
             routerHint.Text = Localizer.IsEnglish
@@ -250,7 +251,7 @@ namespace InputStitch
             gamepadLayout.Controls.Add(sdl3InputBox);
             Label sdl3Hint = new Label();
             sdl3Hint.AutoSize = true;
-            sdl3Hint.MaximumSize = new Size(610, 0);
+            sdl3Hint.Dock = DockStyle.Fill;
             sdl3Hint.ForeColor = Color.FromArgb(86, 96, 112);
             sdl3Hint.Margin = new Padding(24, 0, 0, 6);
             sdl3Hint.Text = Localizer.IsEnglish
@@ -274,7 +275,7 @@ namespace InputStitch
 
             gamepadRouterSourcesSummary = new Label();
             gamepadRouterSourcesSummary.AutoSize = true;
-            gamepadRouterSourcesSummary.MaximumSize = new Size(610, 0);
+            gamepadRouterSourcesSummary.Dock = DockStyle.Fill;
             gamepadRouterSourcesSummary.ForeColor = Color.FromArgb(86, 96, 112);
             gamepadRouterSourcesSummary.Margin = new Padding(24, 0, 0, 6);
             gamepadLayout.Controls.Add(gamepadRouterSourcesSummary);
@@ -282,7 +283,7 @@ namespace InputStitch
 
             gamepadStatusLabel = new Label();
             gamepadStatusLabel.AutoSize = true;
-            gamepadStatusLabel.MaximumSize = new Size(610, 0);
+            gamepadStatusLabel.Dock = DockStyle.Fill;
             gamepadStatusLabel.Margin = new Padding(0, 5, 0, 8);
             gamepadLayout.Controls.Add(gamepadStatusLabel);
             Button connectGamepad = MakeDialogButton(Localizer.T("检测驱动并连接"));
@@ -322,7 +323,7 @@ namespace InputStitch
             Label gamepadHint = new Label();
             gamepadHint.Text = Localizer.T("虚拟手柄需要 ViGEmBus 驱动。该上游项目已停止维护；InputStitch 不会静默安装驱动，只会打开原作者的官方 GitHub 下载页。");
             gamepadHint.AutoSize = true;
-            gamepadHint.MaximumSize = new Size(610, 0);
+            gamepadHint.Dock = DockStyle.Fill;
             gamepadHint.ForeColor = Color.FromArgb(120, 92, 44);
             gamepadHint.Margin = new Padding(0, 3, 0, 3);
             gamepadLayout.Controls.Add(gamepadHint);
@@ -397,7 +398,7 @@ namespace InputStitch
                     ? "Beta build: automatic update checks are disabled. Check manually to open GitHub Releases and download a test build. Your stable update preference is preserved."
                     : "测试版不自动检查更新。点击手动检查可打开 GitHub Releases 下载测试版；正式版的更新偏好保持不变。";
             updateHint.AutoSize = true;
-            updateHint.MaximumSize = new Size(570, 0);
+            updateHint.Dock = DockStyle.Fill;
             updateHint.ForeColor = Color.FromArgb(86, 96, 112);
             updateHint.Margin = new Padding(0, 5, 0, 8);
             updatesLayout.Controls.Add(updateHint);
@@ -554,11 +555,11 @@ namespace InputStitch
             GroupBox box = new EditorSection();
             box.Text = text;
             box.Dock = DockStyle.Top;
-            box.AutoSize = true;
-            box.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            box.Padding = new Padding(16, 46, 16, 14);
+            box.AutoSize = false;
+            box.Padding = new Padding(12, 18, 12, 10);
             box.Margin = new Padding(0, 0, 0, 12);
             box.BackColor = Color.White;
+            EditorDialogs.FitSection(box);
             return box;
         }
 

@@ -18,7 +18,7 @@ namespace InputStitch
         private readonly RouterSourcePolicyConfig working;
         private readonly RadioButton allVisible = new RadioButton();
         private readonly RadioButton selectedOnly = new RadioButton();
-        private readonly CheckedListBox devices = new CheckedListBox();
+        private readonly CheckedListBox devices = new EditorCheckedListBox();
         private readonly Label status = new Label();
         private readonly Button analogTransform = new EditorButton();
         private readonly Label analogSummary = new Label();
@@ -35,13 +35,14 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
-            MinimumSize = new Size(680, 500);
+            MinimumSize = new Size(680, 540);
             ClientSize = new Size(760, 560);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(16);
             root.ColumnCount = 1;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.RowCount = 9;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -84,7 +85,7 @@ namespace InputStitch
             root.Controls.Add(devices, 0, 3);
 
             status.AutoSize = true;
-            status.MaximumSize = new Size(710, 0);
+            status.Dock = DockStyle.Fill;
             status.ForeColor = Color.FromArgb(86, 96, 112);
             status.Margin = new Padding(0, 8, 0, 8);
             root.Controls.Add(status, 0, 4);
@@ -104,7 +105,7 @@ namespace InputStitch
             root.Controls.Add(analogTransform, 0, 5);
 
             analogSummary.AutoSize = true;
-            analogSummary.MaximumSize = new Size(710, 0);
+            analogSummary.Dock = DockStyle.Fill;
             analogSummary.ForeColor = Color.FromArgb(86, 96, 112);
             analogSummary.Margin = new Padding(0, 0, 0, 8);
             root.Controls.Add(analogSummary, 0, 6);
@@ -112,11 +113,11 @@ namespace InputStitch
 
             Label takeoverNote = new Label();
             takeoverNote.AutoSize = true;
-            takeoverNote.MaximumSize = new Size(710, 0);
+            takeoverNote.Dock = DockStyle.Fill;
             takeoverNote.ForeColor = Color.DarkOrange;
             takeoverNote.Text = Localizer.IsEnglish
-                ? "Experimental Controller Takeover currently requires the default 'all visible sources' policy. This prevents a hidden original controller from being omitted from Router output."
-                : "实验性的“手柄接管”目前仍要求使用“转发所有可见来源”。这样可以避免原手柄被隐藏后，却因为来源策略没有被转发到虚拟手柄。";
+                ? "Controller takeover (Experimental) needs all visible sources so hidden controllers still forward input."
+                : "手柄接管（实验）需要转发所有可见来源，确保隐藏原手柄后仍能收到输入。";
             root.Controls.Add(takeoverNote, 0, 7);
 
             FlowLayoutPanel actions = new FlowLayoutPanel();

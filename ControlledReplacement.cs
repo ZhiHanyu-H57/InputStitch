@@ -384,7 +384,7 @@ namespace InputStitch
         private readonly Func<bool> isActive;
         private readonly Func<IEnumerable<GamingDeviceDescriptor>, ControlledReplacementResult> begin;
         private readonly Func<ControlledReplacementResult> stop;
-        private readonly CheckedListBox devices = new CheckedListBox();
+        private readonly CheckedListBox devices = new EditorCheckedListBox();
         private readonly Label virtualOutputLabel = new Label();
         private readonly Label stateLabel = new Label();
         private readonly Label deviceListLabel = new Label();
@@ -420,6 +420,7 @@ namespace InputStitch
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(14);
             root.ColumnCount = 1;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.RowCount = 7;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -432,24 +433,24 @@ namespace InputStitch
 
             Label intro = new Label();
             intro.AutoSize = true;
-            intro.MaximumSize = new Size(760, 0);
+            intro.Dock = DockStyle.Fill;
             intro.Text = Localizer.IsEnglish
                 ? "Experimental: take over the selected XInput controller(s) through one InputStitch virtual Xbox controller in slot 0. Nothing is hidden automatically. If InputStitch is not already slot 0, takeover first performs a recoverable controller re-enumeration; physical hiding starts only after slot 0 and source recovery are verified. Slot reordering requires administrator permission."
                 : "实验功能：把所选 XInput 手柄汇总并接管到一个位于 0 号槽位的 InputStitch 虚拟 Xbox 手柄。程序不会自动隐藏任何设备。如果 InputStitch 当前不在 0 号，开始接管时会先执行可恢复的手柄重新枚举；只有确认虚拟手柄已经成为 0 号、原手柄也全部恢复可读后，才进入隐藏阶段。重新排列槽位需要管理员权限。";
             root.Controls.Add(intro, 0, 0);
 
             virtualOutputLabel.AutoSize = true;
-            virtualOutputLabel.MaximumSize = new Size(760, 0);
+            virtualOutputLabel.Dock = DockStyle.Fill;
             virtualOutputLabel.Margin = new Padding(0, 10, 0, 0);
             root.Controls.Add(virtualOutputLabel, 0, 1);
 
             stateLabel.AutoSize = true;
-            stateLabel.MaximumSize = new Size(760, 0);
+            stateLabel.Dock = DockStyle.Fill;
             stateLabel.Margin = new Padding(0, 6, 0, 8);
             root.Controls.Add(stateLabel, 0, 2);
 
             deviceListLabel.AutoSize = true;
-            deviceListLabel.MaximumSize = new Size(760, 0);
+            deviceListLabel.Dock = DockStyle.Fill;
             deviceListLabel.Text = Localizer.IsEnglish
                 ? "External controllers available for takeover (InputStitch's own virtual controller is intentionally not listed here):"
                 : "可接管的外部手柄（这里不会列出 InputStitch 自己的虚拟手柄）：";

@@ -11,6 +11,11 @@ setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 
+2026-10-21: beta.11 extends the same readability/usability/clean-overview standard
+to secondary dialogs: remove excess spacing, give lists readable rows, and
+validate bilingual/native-DPI text and clipping. Keep runtime feature expansion
+paused and retain the compressed single-file distribution.
+
 2026-10-21: beta.10 follows the beta.9 density/footprint correction with compact
 trigger selection and an adjacent repeat/infinite group. Measure bilingual text,
 wrap whole groups on resize and verify native DPI without adding functions or

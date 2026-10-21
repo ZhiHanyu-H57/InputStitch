@@ -73,9 +73,24 @@ namespace InputStitch
 
         internal static void Apply(Control root)
         {
-            if (root is Form) { root.BackColor = Canvas; root.ForeColor = Ink; }
+            if (root is Form)
+            {
+                root.BackColor = Canvas; root.ForeColor = Ink;
+                if (!(root is MainForm)) EditorDialogs.PrepareWindow((Form)root);
+            }
             foreach (Control child in root.Controls)
             {
+                FlowLayoutPanel flow = child as FlowLayoutPanel;
+                if (flow != null && flow.AutoSize) flow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                EditorIntro intro = child as EditorIntro;
+                if (intro != null)
+                {
+                    intro.AutoSize = true;
+                    intro.Dock = DockStyle.Top;
+                    TableLayoutPanel table = intro.Parent as TableLayoutPanel;
+                    if (table != null && table.GetRow(intro) < table.RowStyles.Count)
+                        table.RowStyles[table.GetRow(intro)] = new RowStyle(SizeType.AutoSize);
+                }
                 Button button = child as Button;
                 if (button != null)
                 {
@@ -113,6 +128,13 @@ namespace InputStitch
                     grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(249, 251, 254);
                 }
                 ComboBox choice = child as ComboBox;
+                NumericUpDown number = child as NumericUpDown;
+                if (number != null && !(number.FindForm() is MainForm))
+                {
+                    int width = Math.Max(TextRenderer.MeasureText(number.Minimum.ToString(), number.Font).Width,
+                        TextRenderer.MeasureText(number.Maximum.ToString(), number.Font).Width) + SystemInformation.VerticalScrollBarWidth + 10;
+                    number.MinimumSize = new Size(Math.Max(number.MinimumSize.Width, width), number.MinimumSize.Height);
+                }
                 if (choice != null && choice.DropDownStyle == ComboBoxStyle.DropDownList && choice.DrawMode == DrawMode.Normal)
                 {
                     choice.DrawMode = DrawMode.OwnerDrawFixed;
@@ -183,7 +205,7 @@ namespace InputStitch
         internal bool CompactText;
         private bool hovered;
         private bool pressed;
-        internal EditorButton() { DoubleBuffered = true; FlatStyle = FlatStyle.Flat; }
+        internal EditorButton() { DoubleBuffered = true; FlatStyle = FlatStyle.Flat; UseMnemonic = false; }
         protected override void OnMouseEnter(EventArgs e) { hovered = true; Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(EventArgs e) { hovered = pressed = false; Invalidate(); base.OnMouseLeave(e); }
         protected override void OnMouseDown(MouseEventArgs e) { pressed = true; Invalidate(); base.OnMouseDown(e); }
@@ -208,13 +230,24 @@ namespace InputStitch
     {
         internal string Description = "";
         internal EditorIntro() { DoubleBuffered = true; }
+        public override Size GetPreferredSize(Size proposedSize)
+        {
+            int width = proposedSize.Width > 0 ? proposedSize.Width : Parent == null ? Width : Parent.ClientSize.Width - Parent.Padding.Horizontal;
+            width = Math.Max(100, width);
+            using (Font heading = new Font(Font.FontFamily, Font.Size + 3, FontStyle.Bold))
+                return new Size(width, heading.Height + 8 + TextRenderer.MeasureText(Description, Font,
+                    new Size(width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height + 6);
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
             using (Font heading = new Font(Font.FontFamily, Font.Size + 3, FontStyle.Bold))
+            {
                 TextRenderer.DrawText(e.Graphics, Text, heading, new Rectangle(0, 2, Width, heading.Height + 8), EditorTheme.Ink, TextFormatFlags.NoPrefix);
-            TextRenderer.DrawText(e.Graphics, Description, Font, new Rectangle(0, Font.Height + 12, Width, Height - Font.Height - 12), EditorTheme.Muted,
+            int top = heading.Height + 8;
+            TextRenderer.DrawText(e.Graphics, Description, Font, new Rectangle(0, top, Width, Math.Max(0, Height - top)), EditorTheme.Muted,
                 TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+            }
         }
     }
 

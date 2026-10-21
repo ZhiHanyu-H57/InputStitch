@@ -23,6 +23,11 @@ text, keeps repeat count and infinite repeat together, and wraps whole groups
 on narrower windows. Check actual control visibility after native handle
 creation and during repeated resize/language changes, not only preferred sizes.
 
+Beta.11 applies that standard to remaining dialogs. Validate first show, every
+tab, compact/restored sizes, actual list/checking behavior and complete default
+keyboard visibility. Native DPI can enlarge text before window geometry or
+auto-size parent cards catch up; acceptance must inspect actual visible bounds.
+
 Keep the supported architecture, but present the product as a simple workflow:
 set up a macro, then use it. New features are paused. Compatibility and runtime
 implementation details belong inside the program and diagnostics, not in the

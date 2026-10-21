@@ -31,6 +31,7 @@ namespace InputStitch
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(14);
             root.ColumnCount = 1;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.RowCount = 4;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -47,7 +48,7 @@ namespace InputStitch
             root.Controls.Add(intro, 0, 0);
 
             summaryLabel.AutoSize = true;
-            summaryLabel.MaximumSize = new Size(1050, 0);
+            summaryLabel.Dock = DockStyle.Fill;
             summaryLabel.Margin = new Padding(0, 10, 0, 10);
             root.Controls.Add(summaryLabel, 0, 1);
 
@@ -86,6 +87,9 @@ namespace InputStitch
             grid.AutoGenerateColumns = false;
             grid.RowHeadersVisible = false;
             grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
             grid.ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableAlwaysIncludeHeaderText;
 
             AddColumn("status", Localizer.IsEnglish ? "Status" : "状态", 80);
@@ -105,6 +109,8 @@ namespace InputStitch
             column.Name = name;
             column.HeaderText = header;
             column.Width = width;
+            column.FillWeight = width;
+            column.MinimumWidth = name == "device" ? 95 : name == "key" ? 85 : name == "last" ? 82 : 50;
             column.SortMode = DataGridViewColumnSortMode.NotSortable;
             grid.Columns.Add(column);
         }
