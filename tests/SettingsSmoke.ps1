@@ -1,4 +1,4 @@
-param()
+﻿param()
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
 $info = & (Join-Path $project 'scripts/Get-ReleaseInfo.ps1')
@@ -38,9 +38,9 @@ foreach($language in @('zh-CN','en-US')) {
       if($idle.Enabled) { throw 'Settings unexpectedly enable idle output' }
       if(-not $idle.TargetScopeInitialized -or $idle.TargetProcessName -or $idle.TargetWindowTitle -or $idle.TargetWindowClass) { throw 'Idle target defaults must be independently initialized and empty' }
       $private=[Reflection.BindingFlags]'Instance,NonPublic'
-      $routerBox=$form.GetType().GetField('gamepadRouterBox',$private).GetValue($form)
-      $routerSourcesButton=$form.GetType().GetField('gamepadRouterSourcesButton',$private).GetValue($form)
-      $routerSourcesSummary=$form.GetType().GetField('gamepadRouterSourcesSummary',$private).GetValue($form)
+      $routerBox=$form.GetType().GetField('routerBox',$private).GetValue($form)
+      $routerSourcesButton=$form.GetType().GetField('sourcesButton',$private).GetValue($form)
+      $routerSourcesSummary=$form.GetType().GetField('sourceSummary',$private).GetValue($form)
       if($null -eq $routerSourcesButton -or $null -eq $routerSourcesSummary) { throw 'Missing Router source-selection controls' }
       if($routerSourcesButton.Enabled) { throw 'Router source-selection button should be disabled while Router is off' }
       if($form.SelectedGamepadRouterSourcePolicy.Mode -ne 'AllVisible') { throw 'Settings must preserve backward-compatible AllVisible Router source policy by default' }

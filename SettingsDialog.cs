@@ -15,8 +15,6 @@ namespace InputStitch
     // finding F4); members moved verbatim, behaviour is unchanged.
     public class GearButton : Button
     {
-        private readonly Font gearFont = new Font("Segoe UI Symbol", 13F, FontStyle.Regular, GraphicsUnit.Point);
-
         public GearButton()
         {
             Text = "";
@@ -25,21 +23,32 @@ namespace InputStitch
             FlatAppearance.BorderColor = Color.FromArgb(190, 199, 211);
             FlatAppearance.MouseOverBackColor = Color.FromArgb(236, 242, 250);
             FlatAppearance.MouseDownBackColor = Color.FromArgb(220, 231, 245);
-            TabStop = false;
+            TabStop = true;
         }
 
         protected override void OnPaint(PaintEventArgs pevent)
         {
             base.OnPaint(pevent);
-            TextRenderer.DrawText(pevent.Graphics, "⚙", gearFont, ClientRectangle, ForeColor,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+            Graphics graphics = pevent.Graphics;
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            float unit = Math.Min(Width, Height) / 42F;
+            PointF[] points = new PointF[32];
+            for (int i = 0; i < points.Length; i++)
+            {
+                double angle = (i * 360.0 / points.Length - 90) * Math.PI / 180;
+                float radius = (i % 4 < 2 ? 12 : 9) * unit;
+                points[i] = new PointF(Width / 2F + (float)Math.Cos(angle) * radius,
+                    Height / 2F + (float)Math.Sin(angle) * radius);
+            }
+            using (GraphicsPath shape = new GraphicsPath(FillMode.Alternate))
+            using (Brush fill = new SolidBrush(Enabled ? EditorTheme.Accent : EditorTheme.Muted))
+            {
+                shape.AddPolygon(points);
+                shape.AddEllipse(Width / 2F - 4 * unit, Height / 2F - 4 * unit, 8 * unit, 8 * unit);
+                graphics.FillPath(fill, shape);
+            }
         }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing) gearFont.Dispose();
-            base.Dispose(disposing);
-        }
     }
 
     public class SettingsDialog : Form
@@ -54,13 +63,13 @@ namespace InputStitch
         private readonly ComboBox languageBox;
         private readonly ComboBox updateModeBox;
         private readonly ComboBox gamepadTypeBox;
-        private readonly CheckBox gamepadRouterBox;
+        private readonly CheckBox routerBox;
         private readonly CheckBox sdl3InputBox;
-        private readonly Button gamepadRouterSourcesButton;
-        private readonly Label gamepadRouterSourcesSummary;
+        private readonly Button sourcesButton;
+        private readonly Label sourceSummary;
         private readonly Label gamepadStatusLabel;
         private readonly IdleGamepadSettingsPanel idleSettings;
-        private readonly Func<DeviceInventorySnapshot> routerInventoryProvider;
+        private readonly Func<DeviceInventorySnapshot> inventoryProvider;
         private RouterSourcePolicyConfig routerSourcePolicy;
 
         public event EventHandler CheckForUpdatesRequested;
@@ -82,7 +91,7 @@ namespace InputStitch
                 return gamepadTypeBox.SelectedIndex == 1 ? VirtualGamepadTypes.DualShock4 : VirtualGamepadTypes.Xbox360;
             }
         }
-        public bool SelectedGamepadRouterEnabled { get { return gamepadRouterBox.Checked; } }
+        public bool SelectedGamepadRouterEnabled { get { return routerBox.Checked; } }
         public bool Sdl3InputEnabled { get { return sdl3InputBox.Checked; } }
         public RouterSourcePolicyConfig SelectedGamepadRouterSourcePolicy
         {
@@ -104,9 +113,9 @@ namespace InputStitch
         }
 
         internal SettingsDialog(MacroConfig config, Func<TargetWindowIdentity> recentIdleTargetProvider,
-            Func<DeviceInventorySnapshot> currentRouterInventoryProvider)
+            Func<DeviceInventorySnapshot> currentInventoryProvider)
         {
-            routerInventoryProvider = currentRouterInventoryProvider;
+            inventoryProvider = currentInventoryProvider;
             routerSourcePolicy = config.GamepadRouterSourcePolicy == null
                 ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -165,7 +174,7 @@ namespace InputStitch
             languageLabel.Anchor = AnchorStyles.Left;
             languageLabel.Margin = new Padding(0, 5, 12, 5);
             languageBox.Width = 190;
-            languageBox.MinimumSize = new Size(160, 0);
+            languageBox.MinimumSize = new Size(0, 0);
             languageBox.Anchor = AnchorStyles.Left | AnchorStyles.Top;
             languageBox.Margin = new Padding(0, 4, 0, 0);
             languageRow.Controls.Add(languageLabel, 0, 0);
@@ -210,30 +219,30 @@ namespace InputStitch
             gamepadTypeRow.Controls.Add(gamepadTypeBox, 1, 0);
             gamepadLayout.Controls.Add(gamepadTypeRow);
 
-            gamepadRouterBox = MakeCheck(
+            routerBox = MakeCheck(
                 EditorDialogs.T("转发其他手柄的输入（测试）", "Forward input from other controllers (Beta)"),
                 config.GamepadRouterEnabled);
-            int gamepadTypeBeforeRouter = gamepadTypeBox.SelectedIndex;
-            gamepadRouterBox.CheckedChanged += delegate
+            int previousType = gamepadTypeBox.SelectedIndex;
+            routerBox.CheckedChanged += delegate
             {
-                if (gamepadRouterBox.Checked)
+                if (routerBox.Checked)
                 {
-                    gamepadTypeBeforeRouter = gamepadTypeBox.SelectedIndex;
+                    previousType = gamepadTypeBox.SelectedIndex;
                     gamepadTypeBox.SelectedIndex = 0;
                     gamepadTypeBox.Enabled = false;
                 }
                 else
                 {
                     gamepadTypeBox.Enabled = true;
-                    if (gamepadTypeBeforeRouter >= 0 && gamepadTypeBeforeRouter < gamepadTypeBox.Items.Count)
-                        gamepadTypeBox.SelectedIndex = gamepadTypeBeforeRouter;
+                    if (previousType >= 0 && previousType < gamepadTypeBox.Items.Count)
+                        gamepadTypeBox.SelectedIndex = previousType;
                 }
-                gamepadRouterSourcesButton.Enabled = gamepadRouterBox.Checked;
-                RefreshRouterSourceSummary();
+                sourcesButton.Enabled = routerBox.Checked;
+                RefreshSourceSummary();
                 RefreshGamepadStatus();
             };
-            if (gamepadRouterBox.Checked) { gamepadTypeBox.SelectedIndex = 0; gamepadTypeBox.Enabled = false; }
-            gamepadLayout.Controls.Add(gamepadRouterBox);
+            if (routerBox.Checked) { gamepadTypeBox.SelectedIndex = 0; gamepadTypeBox.Enabled = false; }
+            gamepadLayout.Controls.Add(routerBox);
             Label routerHint = new Label();
             routerHint.AutoSize = true;
             routerHint.Dock = DockStyle.Fill;
@@ -259,27 +268,27 @@ namespace InputStitch
                 : "接入 PlayStation、Switch 等手柄。Xbox 手柄继续使用 XInput；更改后需重启 InputStitch。";
             gamepadLayout.Controls.Add(sdl3Hint);
 
-            gamepadRouterSourcesButton = MakeDialogButton(Localizer.IsEnglish ? "Choose routed controllers..." : "选择汇总来源...");
-            gamepadRouterSourcesButton.Margin = new Padding(24, 2, 0, 2);
-            gamepadRouterSourcesButton.Click += delegate
+            sourcesButton = MakeDialogButton(Localizer.IsEnglish ? "Choose routed controllers..." : "选择汇总来源...");
+            sourcesButton.Margin = new Padding(24, 2, 0, 2);
+            sourcesButton.Click += delegate
             {
-                using (RouterSourceDialog sourceDialog = new RouterSourceDialog(routerSourcePolicy, routerInventoryProvider))
+                using (RouterSourceDialog sourceDialog = new RouterSourceDialog(routerSourcePolicy, inventoryProvider))
                 {
                     if (sourceDialog.ShowDialog(this) != DialogResult.OK) return;
                     routerSourcePolicy = sourceDialog.SelectedPolicy;
-                    RefreshRouterSourceSummary();
+                    RefreshSourceSummary();
                 }
             };
-            gamepadRouterSourcesButton.Enabled = gamepadRouterBox.Checked;
-            gamepadLayout.Controls.Add(gamepadRouterSourcesButton);
+            sourcesButton.Enabled = routerBox.Checked;
+            gamepadLayout.Controls.Add(sourcesButton);
 
-            gamepadRouterSourcesSummary = new Label();
-            gamepadRouterSourcesSummary.AutoSize = true;
-            gamepadRouterSourcesSummary.Dock = DockStyle.Fill;
-            gamepadRouterSourcesSummary.ForeColor = Color.FromArgb(86, 96, 112);
-            gamepadRouterSourcesSummary.Margin = new Padding(24, 0, 0, 6);
-            gamepadLayout.Controls.Add(gamepadRouterSourcesSummary);
-            RefreshRouterSourceSummary();
+            sourceSummary = new Label();
+            sourceSummary.AutoSize = true;
+            sourceSummary.Dock = DockStyle.Fill;
+            sourceSummary.ForeColor = Color.FromArgb(86, 96, 112);
+            sourceSummary.Margin = new Padding(24, 0, 0, 6);
+            gamepadLayout.Controls.Add(sourceSummary);
+            RefreshSourceSummary();
 
             gamepadStatusLabel = new Label();
             gamepadStatusLabel.AutoSize = true;
@@ -446,9 +455,9 @@ namespace InputStitch
                 delayBox.Value = 300;
                 autoProfileBox.Checked = false;
                 updateModeBox.SelectedIndex = 0;
-                gamepadRouterBox.Checked = false;
+                routerBox.Checked = false;
                 routerSourcePolicy = new RouterSourcePolicyConfig();
-                RefreshRouterSourceSummary();
+                RefreshSourceSummary();
                 gamepadTypeBox.SelectedIndex = 0;
                 sdl3InputBox.Checked = new MacroConfig().Sdl3InputEnabled;
                 idleSettings.LoadOptions(new IdleGamepadOptions());
@@ -485,31 +494,31 @@ namespace InputStitch
             tabs.TabPages.Add(page);
         }
 
-        private void RefreshRouterSourceSummary()
+        private void RefreshSourceSummary()
         {
-            if (gamepadRouterSourcesSummary == null) return;
+            if (sourceSummary == null) return;
             RouterSourcePolicyConfig policy = routerSourcePolicy == null ? new RouterSourcePolicyConfig() : routerSourcePolicy;
             RouterSourcePolicyConfig.Normalize(policy);
             if (string.Equals(policy.Mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase))
             {
-                gamepadRouterSourcesSummary.Text = Localizer.IsEnglish
+                sourceSummary.Text = Localizer.IsEnglish
                     ? "Route all connected, identifiable external controllers."
                     : "汇总所有已连接且可识别的外部手柄。";
-                gamepadRouterSourcesSummary.ForeColor = Color.FromArgb(86, 96, 112);
+                sourceSummary.ForeColor = Color.FromArgb(86, 96, 112);
                 return;
             }
 
             int count = policy.SelectedDeviceKeys == null ? 0 : policy.SelectedDeviceKeys.Count;
-            gamepadRouterSourcesSummary.Text = Localizer.IsEnglish
+            sourceSummary.Text = Localizer.IsEnglish
                 ? "Source policy: selected stable devices only (" + count.ToString() + "). Unresolved XInput sources are blocked."
                 : "来源策略：仅已选择的稳定设备（" + count.ToString() + " 个）；未解析的 XInput 来源不会被转发。";
-            gamepadRouterSourcesSummary.ForeColor = count == 0 ? Color.DarkOrange : Color.FromArgb(86, 96, 112);
+            sourceSummary.ForeColor = count == 0 ? Color.DarkOrange : Color.FromArgb(86, 96, 112);
         }
 
         private void RefreshGamepadStatus()
         {
             if (gamepadTypeBox != null && VirtualGamepadTypes.IsDisabled(SelectedGamepadType) &&
-                (gamepadRouterBox == null || !gamepadRouterBox.Checked))
+                (routerBox == null || !routerBox.Checked))
             {
                 if (GamepadOutput.IsConnected)
                 {
@@ -534,7 +543,7 @@ namespace InputStitch
                 int slot = GamepadOutput.OwnXboxUserIndex;
                 string slotText = slot >= 0 ? " · XInput " + slot.ToString() : "";
                 gamepadStatusLabel.Text = Localizer.T("已连接：") + type + slotText;
-                if (gamepadRouterBox != null && gamepadRouterBox.Checked && slot > 0)
+                if (routerBox != null && routerBox.Checked && slot > 0)
                 {
                     gamepadStatusLabel.Text += Localizer.IsEnglish
                         ? " · Warning: games limited to XInput 0 may ignore routed output."

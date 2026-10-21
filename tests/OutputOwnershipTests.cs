@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -692,7 +692,7 @@ internal static class OutputOwnershipTests
                 Check(wheelCapability.TriggerEligibilityText(false).Contains("不可用"),
                     "wheel Hold trigger eligibility text reports unavailable");
 
-                Label capabilityLabel = (Label)Field(form, "runtimeCapabilityLabel");
+                Label capabilityLabel = (Label)Field(form, "runtimeLabel");
                 Check(capabilityLabel != null && capabilityLabel.Text.Contains(Localizer.IsEnglish ? "Ready" : "可以运行"),
                     "editor runtime eligibility text is driven by the authoritative classifier");
                 ListBox macroList = (ListBox)Field(form, "macroList");

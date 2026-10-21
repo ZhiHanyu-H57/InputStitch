@@ -37,14 +37,16 @@ foreach($suite in @('SourceManifestTests','ForegroundIdentityCacheTests','TickCa
   $exe=Join-Path $output ($suite+'.exe')
   $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$suite","/out:$exe")
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
-  $arguments += '/reference:'+$client
+  $arguments += '/win32icon:' + (Join-Path $project 'InputStitch.ico')
+$arguments += '/reference:'+$client
   $arguments += '/resource:'+$client+',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
   foreach($file in $productionSources) { $arguments += $file }
   $arguments += Join-Path $PSScriptRoot ($suite+'.cs')
   $compile = Invoke-NativeCaptured $compiler $arguments
   $compileReport = $compile.Output
   if($compile.ExitCode -ne 0) { $compileReport | Write-Output; Write-CiError "$suite compilation failed" $compileReport; throw "$suite compilation failed" }
-  $execution = Invoke-NativeCaptured $exe @()
+  $testArguments = if ($suite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } else { @() }
+  $execution = Invoke-NativeCaptured $exe $testArguments
   $report = $execution.Output
   $report | Set-Content -LiteralPath (Join-Path $output ($suite+'.log')) -Encoding UTF8
   if($execution.ExitCode -ne 0) { $report | Write-Output; Write-CiError "$suite failed" $report; throw "$suite failed" }

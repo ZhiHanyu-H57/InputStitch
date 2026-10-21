@@ -29,6 +29,8 @@ Run from the repository in Windows PowerShell:
 ./tests/Run-ProductAcceptance.ps1 -NativeFields
 ./tests/Run-SecondaryLayout.ps1
 ./tests/Run-SecondaryLayout.ps1 -Native
+./tests/Run-SecondaryLayout.ps1 -ScaledFonts
+./tests/Run-SecondaryLayout.ps1 -ScaledFonts -Focus CrosshairSettingsDialog,QuickCreateDialog
 ./tests/Run-ProductAcceptance.ps1 -SoakMinutes 480
 ./tools/InputLab/run-acceptance.ps1 -AllowRealOutput
 ```
@@ -41,7 +43,9 @@ The manual GitHub Actions `Product sustained acceptance` workflow runs the same
 host and uploads its reports; it does not publish a release.
 
 The secondary-layout suite is part of the full regression. Its standalone runner
-also supports native DPI and a focused `-SettingsOnly` iteration. It checks live
+also supports native DPI, `-ScaledFonts`, `-SettingsOnly`, and a comma-separated
+`-Focus` dialog filter for iteration. Full regression uses enlarged fonts as well
+as scaled geometry. It checks live
 default/tab/compact/restored windows, native checked-list input, actual visible
 text and ancestor clipping. PNGs and issues/summary files are under
 `artifacts/secondary-tests/secondary-layout*`; full-suite outputs use
@@ -61,6 +65,7 @@ blocked, never relabeled as a pass.
 | Product workflow | Create, name/note edits, all trigger selections, actual step/timing dialog controls, XML save, reopened editor, macro/profile package round trips, run/stop/restart, global stop, copy | `ProductAcceptanceTests`, final assertion count |
 | Friendly interaction | Real new-macro button and modal cancel/blank-create; shortcut pause/restore; accessible purpose cards; empty steps; live press/hold/random timing explanation; quick-create next-step and readiness controls | `ProductAcceptanceTests.FriendlyInteractions`, Chinese/English and synthetic 100/125/150/200% dialog renders |
 | Compact fields and disclosure | Blocking checkbox visible with either disclosure state; layer selectors inside the outlined frame; bilingual resize, no common-row overlap, bounded readable step choices, enlarged vector diagram and reachable footer | `BoundedFields`, `-FieldsOnly`, `-NativeFields`; PNGs under `artifacts/product-fields*/product-acceptance`; full regression also runs the matrix |
+| Step input methods | Two immediately visible methods, physical keyboard/mouse, diagram single/chord, square A preview, Escape/Emergency Stop and switching restoration, no emitted output | `StepInputMethods`, normal regression and native `-NativeJourney` |
 | Beginner workflow | Real blank-creation and nested key/step controls, edited/cancelled steps, invalid ranges/wheel actions, automatic XML persistence, reopen/Run/shortcut dispatch, shortcut-off manual Run; quick chord/modifier/mouse/numpad capture, Esc/Emergency Stop and existing-macro isolation | `BeginnerWorkflow`, `QuickShortcutCapture`; `-JourneyOnly` and native-DPI `-NativeJourney`; bilingual checks and PNGs under `artifacts/product-journey*/product-acceptance` |
 | Remaining dialogs and first run | Persistent footer at small sizes and synthetic scales; only relevant timing fields; inline invalid-chord/batch-range feedback; Settings staging/defaults; actual nested create/choose/edit/save/Run buttons; group-name modal protection | `RemainingDialogs` and `NewUserJourney`; `-DialogsOnly` runs this subset during iteration; default regression includes it |
 | Layout | Chinese/English, 1000×700 and 1280×900 layouts, 100/125/150/200% synthetic scaling, collapsed/expanded options, readable selection values and available controls | PNGs under `artifacts/.../product-acceptance/` |

@@ -11,6 +11,10 @@ setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 
+2026-10-21: beta.14 completes the menu/choice/font audit and exposes both step-input
+methods. Use the supplied DCET diamond direction with a continuous vivid gradient
+and no lettering; preserve features, lightweight packaging and automated acceptance.
+
 2026-10-21: beta.13 keeps trigger blocking visible, bounds excessive choice widths,
 groups advanced controls in a clear disclosure and enlarges the step controller
 diagram. Preserve readable density and keep packaging lightweight.

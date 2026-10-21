@@ -23,6 +23,11 @@ text, keeps repeat count and infinite repeat together, and wraps whole groups
 on narrower windows. Check actual control visibility after native handle
 creation and during repeated resize/language changes, not only preferred sizes.
 
+Beta.14 audits open menus/dropdowns as well as dialog geometry, with enlarged
+fonts at synthetic scales and native DPI. Show both physical and diagram step
+input methods directly. Use a bright DCET-inspired diamond without tiny letters
+or a dark center; keep the same features and measure final package weight.
+
 Beta.13 uses content-sized choice fields and a clearly framed More options area.
 Trigger blocking is common, directly visible UI. Enlarge the vector preview
 without adding art assets, dependencies or runtime capabilities.

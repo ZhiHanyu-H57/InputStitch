@@ -3074,7 +3074,7 @@ namespace InputStitch
         private TextBox nameBox;
         private TextBox descriptionBox;
         private CheckBox enabledBox;
-        private Button captureTriggerButton;
+        private Button triggerButton;
         private ComboBox triggerModeBox;
         private Button activatorConditionButton;
         private ComboBox mappingLayerBox;
@@ -3094,18 +3094,18 @@ namespace InputStitch
         private Button toolsButton;
         private InputSinkControl inputSink;
         private Label statusLabel;
-        private Label runtimeCapabilityTitleLabel;
-        private Label runtimeCapabilityLabel;
+        private Label runtimeTitleLabel;
+        private Label runtimeLabel;
         private Label panicHintLabel;
         private ToolTip uiToolTip;
         private ContextMenuStrip toolsMenu;
         private ToolStripMenuItem settingsMenuItem;
         private ToolStripMenuItem panicMenuItem;
         private ToolStripMenuItem suspendTriggersMenuItem;
-        private ToolStripMenuItem minimizeToTrayMenuItem;
-        private ToolStripMenuItem runtimeObservationMenuItem;
+        private ToolStripMenuItem trayMenuItem;
+        private ToolStripMenuItem runtimeMenuItem;
         private ToolStripMenuItem deviceManagerMenuItem;
-        private ToolStripMenuItem controllerTakeoverMenuItem;
+        private ToolStripMenuItem takeoverMenuItem;
         private ToolStripMenuItem diagnosticsMenuItem;
         private DiagnosticsForm runtimeObservationForm;
         private ToolStripMenuItem openConfigFolderMenuItem;
@@ -4553,7 +4553,7 @@ namespace InputStitch
             nameBox.Enabled = has;
             descriptionBox.Enabled = has;
             enabledBox.Enabled = has;
-            captureTriggerButton.Enabled = has;
+            triggerButton.Enabled = has;
             triggerModeBox.Enabled = has;
             if (activatorConditionButton != null) activatorConditionButton.Enabled = has;
             mappingLayerBox.Enabled = has;
@@ -4564,7 +4564,7 @@ namespace InputStitch
             recordButton.Enabled = has;
 
             TopMost = config.KeepWindowTopMost;
-            if (minimizeToTrayMenuItem != null) minimizeToTrayMenuItem.Checked = config.MinimizeToTray;
+            if (trayMenuItem != null) trayMenuItem.Checked = config.MinimizeToTray;
 
             if (m != null)
             {
@@ -4835,7 +4835,7 @@ namespace InputStitch
                 ? "Timing & conditions…" + (conditionCount == 0 ? "" : " (" + conditionCount + ")")
                 : "时间与条件…" + (conditionCount == 0 ? "" : "（" + conditionCount + "）");
             triggerModeBox.Enabled = true;
-            RefreshOptionalSettingsText(optionalSettingsExpanded);
+            RefreshOptionalSettingsText(moreExpanded);
         }
 
         private static string DescribeActivationRule(MacroDefinition macro)
@@ -4869,9 +4869,9 @@ namespace InputStitch
 
         private void RefreshRuntimeCapabilityUi()
         {
-            if (runtimeCapabilityLabel == null || runtimeCapabilityLabel.IsDisposed) return;
-            if (runtimeCapabilityTitleLabel != null && !runtimeCapabilityTitleLabel.IsDisposed)
-                runtimeCapabilityTitleLabel.Text = Localizer.IsEnglish ? "Status:" : "运行状态：";
+            if (runtimeLabel == null || runtimeLabel.IsDisposed) return;
+            if (runtimeTitleLabel != null && !runtimeTitleLabel.IsDisposed)
+                runtimeTitleLabel.Text = Localizer.IsEnglish ? "Status:" : "运行状态：";
 
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(SelectedMacro);
             string triggerEligibility = capability.TriggerEligibilityText(Localizer.IsEnglish);
@@ -4880,12 +4880,12 @@ namespace InputStitch
                 : (SelectedMacro.Enabled
                     ? (Localizer.IsEnglish ? "Ready · auto-save on. Use Run or your shortcut." : "可以运行 · 设置自动保存；点击“执行所选宏”或使用触发键。")
                     : (Localizer.IsEnglish ? "Ready · auto-save on. Shortcut off; use Run." : "可以运行 · 设置自动保存；触发键已关闭，请点击“执行所选宏”。"));
-            runtimeCapabilityLabel.Text = capabilityText;
-            runtimeCapabilityLabel.ForeColor = !capability.CanStart ||
+            runtimeLabel.Text = capabilityText;
+            runtimeLabel.ForeColor = !capability.CanStart ||
                 (!string.IsNullOrWhiteSpace(triggerEligibility) && !capability.CanStartFromConfiguredTrigger)
                 ? Color.DarkOrange : Color.ForestGreen;
             if (uiToolTip != null)
-                uiToolTip.SetToolTip(runtimeCapabilityLabel, TriggerEditor.Hint(SelectedMacro) + Environment.NewLine + capability.ReasonText(Localizer.IsEnglish) +
+                uiToolTip.SetToolTip(runtimeLabel, TriggerEditor.Hint(SelectedMacro) + Environment.NewLine + capability.ReasonText(Localizer.IsEnglish) +
                     (string.IsNullOrWhiteSpace(triggerEligibility) ? "" : Environment.NewLine + triggerEligibility));
         }
 
@@ -5705,20 +5705,22 @@ namespace InputStitch
         public void CancelCapture()
         {
             Action<TriggerSpec> cancelledQuickCapture = quickTriggerCaptureCallback;
+            Action<InputSpec> cancelledStepCapture = stepCaptureCallback;
             captureMode = CaptureMode.None;
             pendingModifierCapture = null;
             layerSwitchCaptureTarget = null;
             stepCaptureCallback = null;
             quickTriggerCaptureCallback = null;
-            if (captureTriggerButton != null)
+            if (triggerButton != null)
             {
                 RefreshTriggerSelector();
-                captureTriggerButton.Enabled = SelectedMacro != null;
+                triggerButton.Enabled = SelectedMacro != null;
             }
             RefreshPanicUi();
             if (!recordingActive && statusLabel != null) RefreshStatusForLanguage();
             UpdateUiSafetyPauseState();
             if (cancelledQuickCapture != null) cancelledQuickCapture(null);
+            if (cancelledStepCapture != null) cancelledStepCapture(null);
         }
 
         private static TriggerSpec TriggerFromInputEvent(InputEventInfo e)
@@ -5980,9 +5982,7 @@ namespace InputStitch
                 pendingModifierCapture = null;
                 if (e.Input.Kind == InputKind.Keyboard && e.Input.VirtualKey == (int)Keys.Escape && !e.Ctrl && !e.Shift && !e.Alt && !e.Win)
                 {
-                    Action<InputSpec> cancelledStepCapture = captureMode == CaptureMode.StepInput ? stepCaptureCallback : null;
                     CancelCapture();
-                    if (cancelledStepCapture != null) cancelledStepCapture(null);
                     return true;
                 }
 

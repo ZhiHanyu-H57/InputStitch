@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -202,7 +202,7 @@ internal static class VirtualGamepadPreferenceTests
                 Check(connect != null && !connect.Enabled,
                     "driver/connect button is disabled while no virtual controller is selected");
 
-                CheckBox router = (CheckBox)Field(dialog, "gamepadRouterBox");
+                CheckBox router = (CheckBox)Field(dialog, "routerBox");
                 router.Checked = true;
                 Check(dialog.SelectedGamepadType == VirtualGamepadTypes.Xbox360 && !typeBox.Enabled,
                     "enabling controller merging temporarily forces Xbox output");

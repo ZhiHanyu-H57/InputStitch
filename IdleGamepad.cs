@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -369,13 +369,11 @@ namespace InputStitch
             controlBox = new EditorChoice();
             controlBox.DropDownStyle = ComboBoxStyle.DropDownList;
             controlBox.Dock = DockStyle.Fill;
-            controlBox.MinimumSize = new Size(210, 0);
+            controlBox.MinimumSize = new Size(0, 0);
             foreach (GamepadControl item in Enum.GetValues(typeof(GamepadControl)))
             {
                 controls.Add(item);
-                InputSpec display = IdleGamepadOptions.DefaultPulse();
-                display.GamepadControl = item;
-                controlBox.Items.Add(InputNames.FormatInput(display));
+                controlBox.Items.Add(InputNames.FormatGamepadControl(item));
             }
             controlBox.SelectedIndex = controls.IndexOf(current.Pulse.GamepadControl);
             AddRow(fields, T("手柄操作：", "Gamepad input:"), controlBox, 1);

@@ -1,6 +1,57 @@
 ﻿# Product refresh — 2026-10-20
 
-## Current pass — compact fields and clear disclosure (beta.13, 2026-10-21)
+## Current pass — complete visual audit and DCET diamond (beta.14, 2026-10-21)
+
+Local beta.14 / FileVersion 1.5.0.13 on `ui/product-refresh`. Preserve stable
+macro/controller/crosshair behavior, XML compatibility and 10.5pt body text.
+
+- Larger vector gear with an accent background and keyboard focus. Tools,
+  language, library and input-method menus share readable body text and padding.
+  Owner-drawn dropdowns retain readable selection contrast and scaled row height;
+  measure all options, and expand editable device lists without restricting text.
+- Expose diagram selection and physical key/mouse capture as two adjacent step
+  buttons beside the current selected input. Restore listening on Escape,
+  Emergency Stop and switching to the diagram; input selection emits no output.
+  Preserve key chords and all existing execution semantics. Ordinary key previews
+  are square; longer names/chords get bounded extra width. Owned dialogs reuse
+  the application icon.
+- Shorten Settings' language and idle-controller fields; controller choices no
+  longer repeat direction/strength text. Keep English macro sort buttons on one
+  row, scale their targets with DPI, and let Stop all fit its actual text.
+  Retain the outlined, tinted advanced settings frame and visible blocking.
+- Audit geometry and enlarged fonts at synthetic 100/125/150/200%. Size keyboard
+  geometry from actual fonts; keep device grid rows fitted, useful router-list
+  capacity and complete scroll extents for Quick Create and Crosshair settings.
+  Fix Crosshair's implicit auto-size body row, which could extend its tabs beyond
+  the viewport at large fonts. Default windows retain useful list space; compact
+  constrained windows scroll internally with a reachable footer.
+- Replace the cat with a DCET-inspired diamond using the supplied silhouette
+  and pink-violet-cyan direction. Omit lettering. The final fill is one continuous
+  bright gradient with light facet lines and no dark center. Seven native sizes
+  (16 through 256 px), transparent exterior; 49,136 bytes versus beta.13's 51,620.
+  Native Windows LoadImage/DrawIcon comparisons and PNG reconstruction prove the
+  optional lossless optimization preserves pixels. Reproduction uses framework
+  drawing APIs; the optional optimizer uses Python's standard library. Normal
+  builds consume the committed ICO with no new dependency.
+- Reuse/shorten private presentation names to avoid wider CLR metadata indexes;
+  keep public and serialized names intact. Exact final package sizes are in the
+  delivery receipt. No new product functions or runtime dependencies.
+
+Final acceptance: 32 suites PASS, 6,623 product assertions, 172 actual
+crosshair checks and 303,716 output-ownership assertions. Synthetic geometry plus
+fonts: 70,499 checks / 188 windows;
+native 144 DPI: 24,434 / 50.
+Native field/menu checks 1,086; full beginner and both input
+methods 142. Real SendInput and ViGEm/XInput 77/77 PASS.
+Current-source sustained observer: 300.1 seconds /
+3,441 cycles; keyboard down/up
+13,435/13,435; zero final sources/held output.
+Full regression includes `--scaled-fonts`; inaccessible oversized compact
+geometries remain explicit CLAMPED records. Final startup/extraction/cleanup,
+source/asset/config hashes, icon checks, sizes and commit are in verification.json.
+No remote release or Stable replacement. User trials remain optional feedback.
+
+## Historical pass — compact fields and clear disclosure (beta.13, 2026-10-21)
 
 Local beta.13 / FileVersion 1.5.0.12 on `ui/product-refresh`. Preserve all
 macro/controller/crosshair functions, configuration semantics and 10.5pt text.

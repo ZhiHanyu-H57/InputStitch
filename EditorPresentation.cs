@@ -100,7 +100,8 @@ namespace InputStitch
                     button.FlatAppearance.BorderColor = Line;
                     button.FlatAppearance.MouseOverBackColor = Selection;
                     button.FlatAppearance.MouseDownBackColor = Color.FromArgb(209, 225, 248);
-                    button.BackColor = Color.White;
+                    button.BackColor = button is GearButton ? Selection : Color.White;
+                    if (button is GearButton) button.FlatAppearance.BorderColor = Accent;
                     button.ForeColor = Ink;
                     button.UseVisualStyleBackColor = false;
                     button.Padding = new Padding(6, 1, 6, 1);
@@ -137,7 +138,7 @@ namespace InputStitch
                         TextRenderer.MeasureText(number.Maximum.ToString(), number.Font).Width) + SystemInformation.VerticalScrollBarWidth + 10;
                     number.MinimumSize = new Size(Math.Max(number.MinimumSize.Width, width), number.MinimumSize.Height);
                 }
-                if (choice != null && choice.DropDownStyle == ComboBoxStyle.DropDownList && choice.DrawMode == DrawMode.Normal)
+                if (choice != null && choice.DrawMode == DrawMode.Normal)
                 {
                     choice.DrawMode = DrawMode.OwnerDrawFixed;
                     choice.ItemHeight = Math.Max(22, choice.Font.Height + 6);
@@ -147,13 +148,24 @@ namespace InputStitch
             }
         }
 
+        internal static void Menu(ToolStrip menu, Font font)
+        {
+            menu.Font = font;
+            foreach (ToolStripItem item in menu.Items)
+            {
+                if (!(item is ToolStripSeparator)) item.Padding = new Padding(2, 4, 2, 4);
+                ToolStripMenuItem choice = item as ToolStripMenuItem;
+                if (choice != null && choice.HasDropDownItems) Menu(choice.DropDown, font);
+            }
+        }
+
         private static void DrawChoice(object sender, DrawItemEventArgs e)
         {
             ComboBox choice = (ComboBox)sender;
             e.DrawBackground();
             string text = e.Index >= 0 && e.Index < choice.Items.Count ? choice.Items[e.Index].ToString() : choice.Text;
             TextRenderer.DrawText(e.Graphics, text, e.Font, Rectangle.Inflate(e.Bounds, -3, 0),
-                choice.Enabled ? Ink : SystemColors.GrayText, TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+                choice.Enabled ? ((e.State & DrawItemState.Selected) != 0 ? SystemColors.HighlightText : Ink) : SystemColors.GrayText, TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
                 TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             e.DrawFocusRectangle();
         }
@@ -198,7 +210,7 @@ namespace InputStitch
             }
             using (Font title = new Font(Font, FontStyle.Bold))
                 TextRenderer.DrawText(e.Graphics, Text, title, new Rectangle(titleLeft, 6, Math.Max(0, Width - titleLeft - 12), unit + 4),
-                    EditorTheme.Ink, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                    EditorTheme.Ink, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         }
     }
 
@@ -261,14 +273,12 @@ namespace InputStitch
         {
             base.OnPaint(e);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            int mark = Math.Min(26, Font.Height + 8);
-            using (Pen front = new Pen(EditorTheme.Accent, 3))
-            using (Pen back = new Pen(EditorTheme.Ink, 3))
-            using (GraphicsPath first = EditorTheme.Rounded(new Rectangle(2, 5, mark - 9, mark - 9), 5))
-            using (GraphicsPath second = EditorTheme.Rounded(new Rectangle(10, 13, mark - 9, mark - 9), 5))
-            { e.Graphics.DrawPath(back, first); e.Graphics.DrawPath(front, second); }
+            int mark = Math.Min(32, Height - 4);
+            Form form = FindForm();
+            if (form != null && form.Icon != null)
+                e.Graphics.DrawIcon(form.Icon, new Rectangle(0, (Height - mark) / 2, mark, mark));
             using (Font brand = new Font(Font.FontFamily, Font.Size + 1.5F, FontStyle.Bold))
-                TextRenderer.DrawText(e.Graphics, "InputStitch", brand, new Rectangle(mark + 6, 3, Width - mark - 6, 30), EditorTheme.Ink,
+                TextRenderer.DrawText(e.Graphics, "InputStitch", brand, new Rectangle(mark + 5, 0, Math.Max(0, Width - mark - 5), Height), EditorTheme.Ink,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
         }
     }
@@ -351,12 +361,24 @@ namespace InputStitch
     internal sealed class EditorKeyPreview : Control
     {
         internal EditorKeyPreview() { DoubleBuffered = true; BackColor = Color.White; }
+        internal Rectangle KeyBounds
+        {
+            get
+            {
+                float scale=Font.GetHeight()/Font.GetHeight(96F);
+                int height=Math.Max(20,Math.Min((int)(80*scale),Height-Font.Height*3));
+                using(Font keyFont=new Font(Font.FontFamily,Font.Size+8,FontStyle.Bold))
+                {
+                    int width=Math.Min(Math.Max(height,TextRenderer.MeasureText(Text,keyFont).Width+(int)(28*scale)),Math.Max(20,Width-(int)(32*scale)));
+                    return new Rectangle((Width-width)/2,Math.Max(0,(Height-height-Font.Height*2-(int)(16*scale))/2),width,height);
+                }
+            }
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            int unit = Font.Height;
-            Rectangle key = new Rectangle(22, Math.Max(42, (Height - 90) / 2), Math.Max(80, Width - 44), 80);
+            Rectangle key=KeyBounds;
             using (GraphicsPath shape = EditorTheme.Rounded(key, 12))
             using (Brush fill = new SolidBrush(EditorTheme.Selection))
             using (Pen outline = new Pen(EditorTheme.Accent, 2))
@@ -364,9 +386,9 @@ namespace InputStitch
             using (Font keyFont = new Font(Font.FontFamily, Font.Size + 8, FontStyle.Bold))
                 TextRenderer.DrawText(e.Graphics, Text, keyFont, Rectangle.Inflate(key, -8, -4), EditorTheme.Accent,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
-            TextRenderer.DrawText(e.Graphics, Localizer.IsEnglish ? "Your selected input" : "这个步骤操作的按键", Font,
-                new Rectangle(4, key.Bottom + 16, Width - 8, unit * 2), EditorTheme.Muted,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.WordBreak);
+            TextRenderer.DrawText(e.Graphics, Localizer.IsEnglish ? "Selected input" : "当前执行按键", Font,
+                new Rectangle(4, key.Bottom + Font.Height, Width - 8, Font.Height * 2), EditorTheme.Muted,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
         }
     }
 
@@ -385,7 +407,7 @@ namespace InputStitch
             busy = true;
             try
             {
-                float scale = Font.GetHeight() / Font.GetHeight(96F);
+                float scale = Math.Max(Font.GetHeight() / Font.GetHeight(96F),Font.Size / EditorTheme.BodyFontSize);
                 int measured = TextRenderer.MeasureText(Text,Font).Width;
                 foreach (object item in Items) measured = Math.Max(measured,TextRenderer.MeasureText(GetItemText(item),Font).Width);
                 int width = Math.Max((int)(112*scale),Math.Min((int)(320*scale),measured+SystemInformation.VerticalScrollBarWidth+(int)(14*scale)));
@@ -413,9 +435,28 @@ namespace InputStitch
         {
             Size size=base.GetPreferredSize(proposedSize);
             size.Height=Math.Max(size.Height,Height);
+            if(CompactWidth && DropDownStyle==ComboBoxStyle.DropDownList)
+            {
+                float scale=Math.Max(Font.GetHeight()/Font.GetHeight(96F),Font.Size/EditorTheme.BodyFontSize);
+                int width=TextRenderer.MeasureText(Text,Font).Width;
+                foreach(object item in Items) width=Math.Max(width,TextRenderer.MeasureText(GetItemText(item),Font).Width);
+                size.Width=Math.Max(MinimumSize.Width,Math.Max((int)(112*scale),Math.Min((int)(320*scale),width+SystemInformation.VerticalScrollBarWidth+(int)(14*scale))));
+            }
             return size;
         }
-        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); FitWidth(); }
+        protected override void OnFontChanged(EventArgs e)
+        {
+            base.OnFontChanged(e);
+            if (DrawMode == DrawMode.OwnerDrawFixed) ItemHeight = Math.Max(22, Font.Height + 6);
+            FitWidth();
+        }
+        protected override void OnDropDown(EventArgs e)
+        {
+            int width=Width;
+            foreach(object item in Items) width=Math.Max(width,TextRenderer.MeasureText(GetItemText(item),Font).Width+SystemInformation.VerticalScrollBarWidth+24);
+            DropDownWidth=Math.Min(Screen.FromControl(this).WorkingArea.Width-32,width);
+            base.OnDropDown(e);
+        }
         protected override void OnSelectedIndexChanged(EventArgs e) { base.OnSelectedIndexChanged(e); FitWidth(); }
         protected override void OnSizeChanged(EventArgs e) { base.OnSizeChanged(e); FitWidth(); }
         private void OnLayout(object sender,LayoutEventArgs e) { FitWidth(); }
@@ -528,18 +569,18 @@ namespace InputStitch
 
         private void RefreshTriggerSelector()
         {
-            if (captureTriggerButton == null || triggerModeBox == null) return;
+            if (triggerButton == null || triggerModeBox == null) return;
             MacroDefinition macro = SelectedMacro;
             string shortcut = macro == null || macro.Trigger == null ? "" : InputNames.FormatTrigger(macro.Trigger);
-            captureTriggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") :
+            triggerButton.Text = captureMode == CaptureMode.Trigger ? Localizer.T("请按触发键…") :
                 string.IsNullOrEmpty(shortcut) ? EditorDialogs.T("选择触发键…", "Choose shortcut…") : shortcut;
-            captureTriggerButton.AccessibleName = EditorDialogs.T("触发键：", "Shortcut: ") + captureTriggerButton.Text;
+            triggerButton.AccessibleName = EditorDialogs.T("触发键：", "Shortcut: ") + triggerButton.Text;
             float scale = Font.GetHeight() / Font.GetHeight(96F);
-            int selectorWidth = Math.Max((int)(128 * scale), TextRenderer.MeasureText(captureTriggerButton.Text, captureTriggerButton.Font).Width + (int)(18 * scale));
-            captureTriggerButton.Width = Math.Min((int)(260 * scale), selectorWidth);
+            int selectorWidth = Math.Max((int)(128 * scale), TextRenderer.MeasureText(triggerButton.Text, triggerButton.Font).Width + (int)(18 * scale));
+            triggerButton.Width = Math.Min((int)(260 * scale), selectorWidth);
             if (triggerSelector != null)
                 foreach (Control control in triggerSelector.Controls)
-                    if (control != captureTriggerButton) control.AccessibleName = EditorDialogs.T("更多输入方式", "More input methods");
+                    if (control != triggerButton) control.AccessibleName = EditorDialogs.T("更多输入方式", "More input methods");
             int modeWidth = 0;
             foreach (string name in TriggerEditor.Names)
                 modeWidth = Math.Max(modeWidth, TextRenderer.MeasureText(name, triggerModeBox.Font).Width);
@@ -551,14 +592,14 @@ namespace InputStitch
                 repeatBox.Width = TextRenderer.MeasureText(repeatBox.Maximum.ToString(), repeatBox.Font).Width + (int)(24 * scale);
             if (repeatUnitLabel != null) repeatUnitLabel.Text = EditorDialogs.T("次", "times");
             if (uiToolTip != null)
-                uiToolTip.SetToolTip(captureTriggerButton, captureTriggerButton.Text + Environment.NewLine +
+                uiToolTip.SetToolTip(triggerButton, triggerButton.Text + Environment.NewLine +
                     EditorDialogs.T("点击选择；右侧箭头可捕获实体键盘或鼠标。", "Click to choose; use the arrow to capture a physical key or mouse input."));
         }
 
-        private TableLayoutPanel optionalSettingsPanel;
+        private TableLayoutPanel morePanel;
         private EditorSection optionsFrame;
-        private bool optionalSettingsExpanded;
-        private Button optionalSettingsButton;
+        private bool moreExpanded;
+        private Button moreButton;
         private Label macroCountLabel;
         private Label stepsHintLabel;
         private Panel emptyStepsPanel;
@@ -594,6 +635,7 @@ namespace InputStitch
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(Localizer.T("载入方案"), null, LoadProfileButton_Click).ToolTipText = Localizer.IsEnglish ? "Replace the full setup; a backup is saved first." : "切换整套宏与设置，载入前自动备份。";
             menu.Items.Add(Localizer.T("保存方案"), null, SaveProfileButton_Click).ToolTipText = Localizer.IsEnglish ? "Back up all macros and settings." : "备份全部宏和程序设置。";
+            EditorTheme.Menu(menu, Font);
             menu.ShowItemToolTips = true;
             RegisterUiSafetyControl(menu, "导入与备份");
             menu.Disposed += delegate { uiSafetyControls.Remove(menu); };
@@ -646,9 +688,9 @@ namespace InputStitch
 
         private void ToggleOptionalSettings(object sender, EventArgs e)
         {
-            bool show = !optionalSettingsExpanded;
-            optionalSettingsExpanded = show;
-            optionalSettingsPanel.Visible = show;
+            bool show = !moreExpanded;
+            moreExpanded = show;
+            morePanel.Visible = show;
             optionsFrame.Visible = show;
             UpdateTargetSectionVisibility();
             RefreshOptionalSettingsText(show);
@@ -656,14 +698,14 @@ namespace InputStitch
 
         private void RefreshOptionalSettingsText(bool expanded)
         {
-            if (optionalSettingsButton != null) optionalSettingsButton.Text = Localizer.IsEnglish
+            if (moreButton != null) moreButton.Text = Localizer.IsEnglish
                 ? (expanded ? "▾ Fewer options" : "▸ More options")
                 : (expanded ? "▾ 收起更多设置" : "▸ 更多设置");
-            if(optionalSettingsButton!=null)
+            if(moreButton!=null)
             {
-                optionalSettingsButton.BackColor=expanded?EditorTheme.Selection:Color.White;
-                optionalSettingsButton.FlatAppearance.BorderColor=expanded?EditorTheme.Accent:EditorTheme.Line;
-                optionalSettingsButton.AccessibleDescription=EditorDialogs.T("映射层与运行目标", "Layers and run target")+(expanded?EditorDialogs.T("，已展开", ", expanded"):EditorDialogs.T("，已收起", ", collapsed"));
+                moreButton.BackColor=expanded?EditorTheme.Selection:Color.White;
+                moreButton.FlatAppearance.BorderColor=expanded?EditorTheme.Accent:EditorTheme.Line;
+                moreButton.AccessibleDescription=EditorDialogs.T("映射层与运行目标", "Layers and run target")+(expanded?EditorDialogs.T("，已展开", ", expanded"):EditorDialogs.T("，已收起", ", collapsed"));
             }
             if(optionsFrame!=null) optionsFrame.Text=EditorDialogs.T("更多设置 · 映射层与运行目标", "More options · Layers and run target");
         }

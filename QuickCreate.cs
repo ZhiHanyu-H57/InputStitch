@@ -93,6 +93,17 @@ namespace InputStitch
             TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 0, 12, 0) };
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            fields.Layout += delegate
+            {
+                int height=fields.Padding.Vertical;
+                int[] rows=fields.GetRowHeights();
+                for(int row=0;row<rows.Length;row++)
+                    height+=row<fields.RowStyles.Count && fields.RowStyles[row].SizeType==SizeType.Percent ? stepList.Font.Height*3+24 : rows[row];
+                if(kind==QuickTemplate.HeldMapping)
+                    foreach(Control child in fields.Controls) if(child.Visible) height=Math.Max(height,child.Bottom+child.Margin.Bottom+fields.Padding.Bottom);
+                if(fields.MinimumSize.Height!=height) fields.MinimumSize=new Size(0,height);
+                body.AutoScrollMinSize=new Size(0,height+body.Padding.Vertical);
+            };
             body.Controls.Add(fields, 0, 0);
             nameBox.Text = Title(kind);
             AddRow(fields, T("名称", "Name"), nameBox);

@@ -59,7 +59,8 @@ namespace InputStitch
             leftTitle.Dock = DockStyle.Fill;
             leftTitle.Anchor = AnchorStyles.Left;
             toolsButton = new GearButton();
-            toolsButton.Size = new Size(36, 36);
+            int gearSize=(int)Math.Ceiling(42F*Font.GetHeight()/Font.GetHeight(96F));
+            toolsButton.Size = new Size(gearSize, gearSize);
             toolsButton.Margin = new Padding(6, 0, 0, 0);
             toolsButton.AccessibleName = Localizer.T("设置");
             BuildToolsMenu();
@@ -104,8 +105,12 @@ namespace InputStitch
             Button delMacro = MakeButton("删除", 0, 0, 0);
             Button upMacro = MakeButton("↑", 0, 0, 0);
             Button downMacro = MakeButton("↓", 0, 0, 0);
+            ((EditorButton)upMacro).CompactText=((EditorButton)downMacro).CompactText=true;
             foreach (Button b in new Button[] { copyMacro, delMacro }) { b.AutoSize = true; b.AutoSizeMode = AutoSizeMode.GrowAndShrink; b.MinimumSize = new Size(62, 32); }
-            upMacro.Size = downMacro.Size = new Size(34, 32);
+            upMacro.Size = downMacro.Size = new Size((int)Math.Ceiling(30F*Font.GetHeight()/Font.GetHeight(96F)),
+                (int)Math.Ceiling(32F*Font.GetHeight()/Font.GetHeight(96F)));
+            foreach (Button button in new[] { copyMacro, delMacro, upMacro, downMacro })
+                button.Margin = new Padding(0, 0, 3, 0);
             copyMacro.Click += CopyMacro_Click;
             delMacro.Click += DeleteMacro_Click;
             upMacro.Click += delegate { MoveSelectedMacro(-1); };
@@ -190,11 +195,11 @@ namespace InputStitch
             Panel triggerTop = new EditorFieldFlow();
             triggerTop.Dock = DockStyle.Fill;
             triggerTop.Margin = new Padding(0, 0, 0, 4);
-            captureTriggerButton = MakeButton(EditorDialogs.T("选择触发键…", "Choose shortcut…"), 0, 0, 0);
-            captureTriggerButton.MinimumSize = new Size(128, 32);
-            captureTriggerButton.UseMnemonic = false;
-            captureTriggerButton.Click += SelectVirtualKeyboardTrigger;
-            triggerSelector = VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
+            triggerButton = MakeButton(EditorDialogs.T("选择触发键…", "Choose shortcut…"), 0, 0, 0);
+            triggerButton.MinimumSize = new Size(128, 32);
+            triggerButton.UseMnemonic = false;
+            triggerButton.Click += SelectVirtualKeyboardTrigger;
+            triggerSelector = VirtualKeyboardDialog.WithDropDown(triggerButton,
                 CaptureTriggerButton_Click, SelectVirtualKeyboardTrigger);
             triggerTop.Controls.Add(CompactFieldGroup(MakeFieldLabel("触发键："), triggerSelector));
             triggerModeBox = new EditorChoice { CompactWidth = false, DropDownStyle = ComboBoxStyle.DropDownList,
@@ -240,21 +245,21 @@ namespace InputStitch
             suppressBox.CheckedChanged += Settings_Changed;
             suppressBox.Margin = new Padding(0,4,14,4);
             repeatLayout.Controls.Add(suppressBox);
-            optionalSettingsButton = MakeButton("", 0, 0, 0);
-            optionalSettingsButton.AutoSize = true;
-            optionalSettingsButton.UseMnemonic = false;
-            optionalSettingsButton.Click += ToggleOptionalSettings;
-            optionalSettingsPanel = MakeFormGrid();
-            optionalSettingsPanel.RowCount=3;
-            for(int optionRow=0;optionRow<3;optionRow++) optionalSettingsPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            optionalSettingsPanel.Visible = false;
-            optionalSettingsPanel.Margin=new Padding(0);
+            moreButton = MakeButton("", 0, 0, 0);
+            moreButton.AutoSize = true;
+            moreButton.UseMnemonic = false;
+            moreButton.Click += ToggleOptionalSettings;
+            morePanel = MakeFormGrid();
+            morePanel.RowCount=3;
+            for(int optionRow=0;optionRow<3;optionRow++) morePanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            morePanel.Visible = false;
+            morePanel.Margin=new Padding(0);
             optionsFrame=(EditorSection)EditorDialogs.Section(EditorDialogs.T("更多设置 · 映射层与运行目标", "More options · Layers and run target"));
             optionsFrame.Name="optionsFrame";
             optionsFrame.Emphasized=true;
             optionsFrame.BackColor=EditorTheme.Canvas;
             optionsFrame.Visible=false;
-            optionsFrame.Controls.Add(optionalSettingsPanel);
+            optionsFrame.Controls.Add(morePanel);
             triggerLayout.Controls.Add(optionsFrame, 0, 2);
 
             Label activeLayerLabel = MakeFieldLabel("当前映射层：");
@@ -266,28 +271,28 @@ namespace InputStitch
             layerManageButton.AutoSize = true;
             layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
             layerManageButton.Click += delegate { ShowLayerManagementMenu(); };
-            optionalSettingsPanel.Controls.Add(activeLayerLabel, 0, 0);
+            morePanel.Controls.Add(activeLayerLabel, 0, 0);
             FlowLayoutPanel activeLayerControls=CompactFieldGroup(activeLayerBox,layerManageButton);
-            optionalSettingsPanel.Controls.Add(activeLayerControls, 1, 0);
-            optionalSettingsPanel.SetColumnSpan(activeLayerControls,2);
+            morePanel.Controls.Add(activeLayerControls, 1, 0);
+            morePanel.SetColumnSpan(activeLayerControls,2);
 
             Label mappingLayerLabel = MakeFieldLabel("此宏属于：");
             mappingLayerBox = new EditorChoice();
             mappingLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
             mappingLayerBox.Dock = DockStyle.Fill;
             mappingLayerBox.SelectedIndexChanged += MappingLayerBox_SelectedIndexChanged;
-            optionalSettingsPanel.Controls.Add(mappingLayerLabel, 0, 1);
-            optionalSettingsPanel.Controls.Add(mappingLayerBox, 1, 1);
-            optionalSettingsPanel.SetColumnSpan(mappingLayerBox, 2);
+            morePanel.Controls.Add(mappingLayerLabel, 0, 1);
+            morePanel.Controls.Add(mappingLayerBox, 1, 1);
+            morePanel.SetColumnSpan(mappingLayerBox, 2);
 
-            runtimeCapabilityTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Status:" : "运行状态：");
-            runtimeCapabilityLabel = new Label();
-            runtimeCapabilityLabel.AutoSize = true;
-            runtimeCapabilityLabel.Dock = DockStyle.Fill;
-            runtimeCapabilityLabel.Margin = new Padding(0, 5, 0, 3);
-            runtimeCapabilityLabel.Padding = new Padding(0, 2, 0, 2);
-            runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
-            repeatLayout.Controls.Add(optionalSettingsButton);
+            runtimeTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Status:" : "运行状态：");
+            runtimeLabel = new Label();
+            runtimeLabel.AutoSize = true;
+            runtimeLabel.Dock = DockStyle.Fill;
+            runtimeLabel.Margin = new Padding(0, 5, 0, 3);
+            runtimeLabel.Padding = new Padding(0, 2, 0, 2);
+            runtimeLabel.TextAlign = ContentAlignment.MiddleLeft;
+            repeatLayout.Controls.Add(moreButton);
             bool arrangingMore=false;
             Action arrangeMore=delegate
             {
@@ -297,12 +302,12 @@ namespace InputStitch
                 {
                     int needed=repeatGroup.GetPreferredSize(Size.Empty).Width+repeatGroup.Margin.Horizontal+
                         suppressBox.GetPreferredSize(Size.Empty).Width+suppressBox.Margin.Horizontal+
-                        optionalSettingsButton.GetPreferredSize(Size.Empty).Width+optionalSettingsButton.Margin.Horizontal;
+                        moreButton.GetPreferredSize(Size.Empty).Width+moreButton.Margin.Horizontal;
                     Control destination=needed<=repeatLayout.ClientSize.Width?repeatLayout:triggerTop;
-                    if(optionalSettingsButton.Parent!=destination)
+                    if(moreButton.Parent!=destination)
                     {
-                        Control previous=optionalSettingsButton.Parent;
-                        destination.Controls.Add(optionalSettingsButton);
+                        Control previous=moreButton.Parent;
+                        destination.Controls.Add(moreButton);
                         if(previous!=null) previous.PerformLayout();
                         destination.PerformLayout();
                     }
@@ -310,7 +315,7 @@ namespace InputStitch
                 finally { arrangingMore=false; }
             };
             repeatLayout.SizeChanged+=delegate { arrangeMore(); };
-            optionalSettingsButton.SizeChanged+=delegate { arrangeMore(); };
+            moreButton.SizeChanged+=delegate { arrangeMore(); };
             suppressBox.TextChanged+=delegate { arrangeMore(); };
             // Keep normal fields together; a second decorative header took space from the steps.
             TableLayoutPanel macroSettings = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
@@ -353,8 +358,8 @@ namespace InputStitch
             targetLayout.Controls.Add(targetWindowBox, 1, 0);
             targetLayout.Controls.Add(targetButtons, 2, 0);
             targetGroup.Visible = false;
-            optionalSettingsPanel.Controls.Add(targetGroup,0,2);
-            optionalSettingsPanel.SetColumnSpan(targetGroup,3);
+            morePanel.Controls.Add(targetGroup,0,2);
+            morePanel.SetColumnSpan(targetGroup,3);
 
             GroupBox stepsGroup = MakeMainGroup("执行步骤");
             ((EditorSection)stepsGroup).Badge = "2";
@@ -444,8 +449,8 @@ namespace InputStitch
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, Margin = new Padding(0) };
             readiness.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             readiness.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            readiness.Controls.Add(runtimeCapabilityTitleLabel, 0, 0);
-            readiness.Controls.Add(runtimeCapabilityLabel, 1, 0);
+            readiness.Controls.Add(runtimeTitleLabel, 0, 0);
+            readiness.Controls.Add(runtimeLabel, 1, 0);
             stepsHeader.Controls.Add(readiness, 0, 1);
             stepsHeader.SetColumnSpan(readiness, 3);
             stepsLayout.Controls.Add(stepsHeader, 0, 0);
@@ -570,7 +575,7 @@ namespace InputStitch
             SetTip(repeatBox, "宏完整执行的次数。勾选无限循环后忽略此数值。" );
             SetTip(triggerModeBox, EditorDialogs.T("选择按下、松开、按住或连按触发键时如何运行宏。", "Choose when the shortcut starts and stops this macro."));
             SetTip(activatorConditionButton, Localizer.IsEnglish ? "Adjust press timing or limit when this macro can run." : "调整短按、长按、双击的时间，或限制这个宏在哪些情况下生效。" );
-            SetTip(captureTriggerButton, EditorDialogs.T("点击在键盘图中选择；右侧箭头可改用实际按键或鼠标来设置。", "Choose on the keyboard diagram, or use the arrow to set a shortcut by pressing it."));
+            SetTip(triggerButton, EditorDialogs.T("点击在键盘图中选择；右侧箭头可改用实际按键或鼠标来设置。", "Choose on the keyboard diagram, or use the arrow to set a shortcut by pressing it."));
             SetTip(suppressBox, "触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。" );
             SetTip(targetWindowBox, "当前锁定的目标窗口。用于 UI 自动切换和保存方案时的进程绑定。" );
             SetTip(lockTargetButton, "先切到目标程序，再切回 InputStitch 后点击这里；程序会锁定最近有效的外部前台窗口。" );
@@ -591,7 +596,7 @@ namespace InputStitch
             RegisterUiSafetyControl(nameBox, "编辑名称");
             RegisterUiSafetyControl(descriptionBox, "编辑备注");
             RegisterUiSafetyControl(enabledBox, "修改全局触发设置");
-            RegisterUiSafetyControl(captureTriggerButton, "录制触发键");
+            RegisterUiSafetyControl(triggerButton, "录制触发键");
             RegisterUiSafetyControl(triggerSelector, "触发键设置");
             RegisterUiSafetyControl(triggerModeBox, "修改触发方式");
             RegisterUiSafetyControl(activatorConditionButton, "修改时间与条件");
@@ -660,6 +665,8 @@ namespace InputStitch
             statusLayout.Controls.Add(runButton, 1, 0);
             statusLayout.SetRowSpan(runButton, 2);
             Button emergencyStopButton = MakeButton("全部停止", 0, 0, 112);
+            emergencyStopButton.AutoSize = true;
+            emergencyStopButton.MinimumSize = new Size(112,32);
             emergencyStopButton.Anchor = AnchorStyles.Right;
             emergencyStopButton.Margin = new Padding(12, 0, 0, 0);
             emergencyStopButton.Click += delegate { EmergencyStop("ui-stop-all"); };
@@ -721,7 +728,7 @@ namespace InputStitch
             foreach (Control child in root.Controls)
             {
                 bool isStaticTextControl = child is Label || child is Button || child is CheckBox || child is RadioButton || child is GroupBox;
-                bool isDynamic = child == workflowGuide || child == macroCountLabel || child == stepsHintLabel || child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == captureTriggerButton || child == activatorConditionButton;
+                bool isDynamic = child == workflowGuide || child == macroCountLabel || child == stepsHintLabel || child == statusLabel || child == panicHintLabel || child == runButton || child == recordButton || child == infiniteBox || child == triggerButton || child == activatorConditionButton;
                 if (isStaticTextControl && !isDynamic && !localizableControlTexts.ContainsKey(child))
                     localizableControlTexts.Add(child, child.Text ?? "");
                 CaptureLocalizableControlTexts(child);
@@ -825,7 +832,7 @@ namespace InputStitch
             if (settingsMenuItem != null) settingsMenuItem.Text = Localizer.T("设置...");
             if (crosshairButton != null) crosshairButton.Text = EditorDialogs.T("屏幕准星…", "Screen crosshair…");
             if (suspendTriggersMenuItem != null) suspendTriggersMenuItem.Text = Localizer.T("暂停全局宏触发");
-            if (minimizeToTrayMenuItem != null) minimizeToTrayMenuItem.Text = Localizer.T("最小化到系统托盘");
+            if (trayMenuItem != null) trayMenuItem.Text = Localizer.T("最小化到系统托盘");
             if (languageMenuItem != null) languageMenuItem.Text = Localizer.T("语言 / Language");
             if (chineseLanguageMenuItem != null)
             {
@@ -837,9 +844,9 @@ namespace InputStitch
                 englishLanguageMenuItem.Text = "English";
                 englishLanguageMenuItem.Checked = Localizer.IsEnglish;
             }
-            if (runtimeObservationMenuItem != null) runtimeObservationMenuItem.Text = Localizer.IsEnglish ? "Runtime observation..." : "运行观察...";
+            if (runtimeMenuItem != null) runtimeMenuItem.Text = Localizer.IsEnglish ? "Runtime observation..." : "运行观察...";
             if (deviceManagerMenuItem != null) deviceManagerMenuItem.Text = Localizer.IsEnglish ? "Device Manager..." : "设备管理器...";
-            if (controllerTakeoverMenuItem != null) controllerTakeoverMenuItem.Text = Localizer.IsEnglish ? "Controller takeover (Experimental)..." : "手柄接管（实验）...";
+            if (takeoverMenuItem != null) takeoverMenuItem.Text = Localizer.IsEnglish ? "Controller takeover (Experimental)..." : "手柄接管（实验）...";
             if (layerManageButton != null) layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
             if (diagnosticsMenuItem != null) diagnosticsMenuItem.Text = Localizer.T("诊断信息...");
             if (openConfigFolderMenuItem != null) openConfigFolderMenuItem.Text = Localizer.T("打开配置文件夹");
@@ -911,16 +918,16 @@ namespace InputStitch
             };
             toolsMenu.Items.Add(suspendTriggersMenuItem);
 
-            minimizeToTrayMenuItem = new ToolStripMenuItem();
-            minimizeToTrayMenuItem.CheckOnClick = true;
-            minimizeToTrayMenuItem.Checked = config.MinimizeToTray;
-            minimizeToTrayMenuItem.CheckedChanged += delegate
+            trayMenuItem = new ToolStripMenuItem();
+            trayMenuItem.CheckOnClick = true;
+            trayMenuItem.Checked = config.MinimizeToTray;
+            trayMenuItem.CheckedChanged += delegate
             {
                 if (loadingUi) return;
-                config.MinimizeToTray = minimizeToTrayMenuItem.Checked;
+                config.MinimizeToTray = trayMenuItem.Checked;
                 SaveConfig();
             };
-            toolsMenu.Items.Add(minimizeToTrayMenuItem);
+            toolsMenu.Items.Add(trayMenuItem);
 
             languageMenuItem = new ToolStripMenuItem();
             chineseLanguageMenuItem = new ToolStripMenuItem("简体中文");
@@ -933,8 +940,8 @@ namespace InputStitch
 
             toolsMenu.Items.Add(new ToolStripSeparator());
 
-            runtimeObservationMenuItem = new ToolStripMenuItem();
-            runtimeObservationMenuItem.Click += delegate
+            runtimeMenuItem = new ToolStripMenuItem();
+            runtimeMenuItem.Click += delegate
             {
                 if (runtimeObservationForm != null && !runtimeObservationForm.IsDisposed)
                 {
@@ -947,15 +954,15 @@ namespace InputStitch
                 runtimeObservationForm.FormClosed += delegate { runtimeObservationForm = null; };
                 runtimeObservationForm.Show(this);
             };
-            toolsMenu.Items.Add(runtimeObservationMenuItem);
+            toolsMenu.Items.Add(runtimeMenuItem);
 
             deviceManagerMenuItem = new ToolStripMenuItem();
             deviceManagerMenuItem.Click += delegate { ShowDeviceManagerDialog(); };
             toolsMenu.Items.Add(deviceManagerMenuItem);
 
-            controllerTakeoverMenuItem = new ToolStripMenuItem();
-            controllerTakeoverMenuItem.Click += delegate { ShowControllerTakeoverDialog(); };
-            toolsMenu.Items.Add(controllerTakeoverMenuItem);
+            takeoverMenuItem = new ToolStripMenuItem();
+            takeoverMenuItem.Click += delegate { ShowControllerTakeoverDialog(); };
+            toolsMenu.Items.Add(takeoverMenuItem);
 
             diagnosticsMenuItem = new ToolStripMenuItem();
             diagnosticsMenuItem.Click += delegate
@@ -1018,6 +1025,7 @@ namespace InputStitch
             toolsMenu.Items.Add(aboutMenuItem);
             toolsMenu.Opening += delegate { RefreshPanicUi(); RefreshMenuLanguage(); };
             RefreshMenuLanguage();
+            EditorTheme.Menu(toolsMenu, Font);
         }
 
         internal static void DeferContextMenuDispose(Control dispatcher, ContextMenuStrip menu)
@@ -1168,10 +1176,10 @@ namespace InputStitch
                     TopMost = config.KeepWindowTopMost;
                     if (autoProfilesWasEnabled && !config.AutoSwitchProfiles) lastAutoProfileProcess = "";
                     UpdateTargetSectionVisibility();
-                    if (minimizeToTrayMenuItem != null)
+                    if (trayMenuItem != null)
                     {
                         loadingUi = true;
-                        minimizeToTrayMenuItem.Checked = config.MinimizeToTray;
+                        trayMenuItem.Checked = config.MinimizeToTray;
                         loadingUi = false;
                     }
                     if (!string.Equals(config.Language, dialog.SelectedLanguage, StringComparison.OrdinalIgnoreCase))
@@ -1221,7 +1229,7 @@ namespace InputStitch
         private void UpdateTargetSectionVisibility()
         {
             if (targetGroup == null || config == null) return;
-            bool shouldShow = optionalSettingsExpanded && (config.ActivateTargetWindowOnUiRun || config.AutoSwitchProfiles);
+            bool shouldShow = moreExpanded && (config.ActivateTargetWindowOnUiRun || config.AutoSwitchProfiles);
             // Assign unconditionally: before the form is shown, Control.Visible reports false
             // when an ancestor is hidden even if the control's own visibility flag is still true.
             targetGroup.Visible = shouldShow;

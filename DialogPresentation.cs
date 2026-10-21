@@ -24,6 +24,7 @@ namespace InputStitch
             Size client = form.ClientSize, minimum = form.MinimumSize;
             form.Shown += delegate
             {
+                if(form.Owner!=null) form.Icon=form.Owner.Icon;
                 float scale = form.Font.GetHeight() / form.Font.GetHeight(96F);
                 Size scaled = new Size((int)Math.Ceiling(client.Width * scale), (int)Math.Ceiling(client.Height * scale));
                 // Constructors can assign logical sizes after WinForms' first DPI scaling pass.

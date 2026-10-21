@@ -1,5 +1,18 @@
 ﻿# PLAN.md
 
+## Completed pass — complete visual audit and DCET diamond (2026-10-21)
+
+Local target beta.14 / FileVersion 1.5.0.13. Audit main editor and every custom
+dialog in both languages, resized and at synthetic/native DPI. Include open
+menus and dropdown lists, compact choice widths, list spacing and disclosure
+state. Make the settings entry clearer. Replace the cat icon with a vivid
+pink-violet-cyan diamond derived from the supplied DCET emblem silhouette; omit
+small lettering and verify native icon sizes. Preserve features/configuration,
+10.5pt text and compressed packaging; measure net footprint. Finish with full
+regression, native UI/workflow checks, sustained acceptance and both packaged
+architectures, without a manual trial gate.
+
+
 ## Completed pass — compact fields and clear disclosure (2026-10-21)
 
 Local target beta.13 / FileVersion 1.5.0.12. Bound short-choice fields by their

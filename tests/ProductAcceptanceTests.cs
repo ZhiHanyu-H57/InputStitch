@@ -128,10 +128,10 @@ internal static class ProductAcceptanceTests
             else if (args.Length > 0 && (args[0] == "--journey" || nativeJourney))
             {
                 using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero)) Console.WriteLine("JOURNEY DPI=" + screen.DpiX);
-                BeginnerWorkflow(); QuickShortcutCapture();
+                BeginnerWorkflow(); QuickShortcutCapture(); StepInputMethods();
             }
             else if (args.Length > 0 && args[0] == "--dialogs") { RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); }
-            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); BoundedFields(); }
+            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); StepInputMethods(); BoundedFields(); }
             Console.WriteLine("PASS product acceptance: " + checks + " checks; isolated editor, saved files and runtime observer; no user configuration or real input.");
             return 0;
         }
@@ -150,7 +150,7 @@ internal static class ProductAcceptanceTests
             Call(form, "AddMacro_Click", null, EventArgs.Empty);
             Check(config.Macros.Count == 1, "create a macro through the editor handler");
             MacroDefinition macro = config.Macros[0];
-            Check(Field<Button>(form, "captureTriggerButton").Text == (macro.Trigger == null
+            Check(Field<Button>(form, "triggerButton").Text == (macro.Trigger == null
                 ? "选择触发键…" : InputNames.FormatTrigger(macro.Trigger)), "single shortcut selector shows the saved key or choose prompt");
             NumericUpDown repeats = Field<NumericUpDown>(form, "repeatBox");
             CheckBox infinite = Field<CheckBox>(form, "infiniteBox");
@@ -164,11 +164,11 @@ internal static class ProductAcceptanceTests
             repeats.Value = 1;
             macro.Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F8, Ctrl = true, Alt = true, Shift = true, Win = true };
             Call(form, "LoadSelectedMacroToUi");
-            Check(Field<Button>(form, "captureTriggerButton").Text == InputNames.FormatTrigger(macro.Trigger), "selector displays a complete modifier chord");
+            Check(Field<Button>(form, "triggerButton").Text == InputNames.FormatTrigger(macro.Trigger), "selector displays a complete modifier chord");
             Call(form, "CaptureTriggerButton_Click", null, EventArgs.Empty);
-            Check(Field<Button>(form, "captureTriggerButton").Text == "请按触发键…", "physical capture replaces selector text with its prompt");
+            Check(Field<Button>(form, "triggerButton").Text == "请按触发键…", "physical capture replaces selector text with its prompt");
             form.CancelCapture();
-            Check(Field<Button>(form, "captureTriggerButton").Text == InputNames.FormatTrigger(macro.Trigger), "cancel restores the actual saved shortcut");
+            Check(Field<Button>(form, "triggerButton").Text == InputNames.FormatTrigger(macro.Trigger), "cancel restores the actual saved shortcut");
             Field<TextBox>(form, "nameBox").Text = "完整流程";
             Call(form, "CommitNameEdit");
             Field<TextBox>(form, "descriptionBox").Text = "编辑、保存、恢复与运行";
@@ -316,9 +316,9 @@ internal static class ProductAcceptanceTests
                 CompactTriggerLayout(form);
                 Call(form, "ToggleOptionalSettings", null, EventArgs.Empty);
                 Render(form, "main-expanded-" + language + "-" + size.Width + "-" + (int)(scale * 100));
-                Check(Field<TableLayoutPanel>(form, "optionalSettingsPanel").Visible, "optional grouping and target settings expand");
+                Check(Field<TableLayoutPanel>(form, "morePanel").Visible, "optional grouping and target settings expand");
                 Call(form, "ToggleOptionalSettings", null, EventArgs.Empty);
-                Check(!Field<TableLayoutPanel>(form, "optionalSettingsPanel").Visible, "optional settings collapse");
+                Check(!Field<TableLayoutPanel>(form, "morePanel").Visible, "optional settings collapse");
             }
         }
     }
@@ -418,7 +418,7 @@ internal static class ProductAcceptanceTests
                 form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
                 Pump(25);
                 CompactTriggerLayout(form);
-                Check(Field<Button>(form, "captureTriggerButton").Text == (macro.Trigger == null
+                Check(Field<Button>(form, "triggerButton").Text == (macro.Trigger == null
                     ? (language == "en-US" ? "Choose shortcut…" : "选择触发键…") : InputNames.FormatTrigger(macro.Trigger)),
                     "live resize and language switch retain the current key or empty prompt");
             }
@@ -429,7 +429,7 @@ internal static class ProductAcceptanceTests
     private static void CompactTriggerLayout(MainForm form)
     {
         ComboBox modes = Field<ComboBox>(form, "triggerModeBox");
-        Button shortcut = Field<Button>(form, "captureTriggerButton");
+        Button shortcut = Field<Button>(form, "triggerButton");
         NumericUpDown repeats = Field<NumericUpDown>(form, "repeatBox");
         CheckBox infinite = Field<CheckBox>(form, "infiniteBox");
         float scale = form.Font.GetHeight() / form.Font.GetHeight(96F);
@@ -448,8 +448,8 @@ internal static class ProductAcceptanceTests
         Check(repeats.Width >= TextRenderer.MeasureText(repeats.Maximum.ToString(), repeats.Font).Width + 16,
             "count field fits its supported maximum and spinner");
         foreach (Control control in new Control[] { shortcut, modes, repeats, infinite,
-            Field<Button>(form, "activatorConditionButton"), Field<Button>(form, "optionalSettingsButton"),
-            Field<Label>(form, "runtimeCapabilityLabel") })
+            Field<Button>(form, "activatorConditionButton"), Field<Button>(form, "moreButton"),
+            Field<Label>(form, "runtimeLabel") })
         {
             for (Control parent = control.Parent; parent != form; parent = parent.Parent)
                 Check(parent.ClientRectangle.Contains(parent.RectangleToClient(control.RectangleToScreen(control.ClientRectangle))),
@@ -461,7 +461,7 @@ internal static class ProductAcceptanceTests
         for (int i = 0; i < groups.Length; i++)
             for (int j = i + 1; j < groups.Length; j++)
                 Check(!groups[i].Bounds.IntersectsWith(groups[j].Bounds), "wrapped trigger groups never overlap");
-        Label readiness = Field<Label>(form, "runtimeCapabilityLabel");
+        Label readiness = Field<Label>(form, "runtimeLabel");
         Check(readiness.Height >= TextRenderer.MeasureText(readiness.Text, readiness.Font,
             new Size(readiness.Width - readiness.Padding.Horizontal, 1000), TextFormatFlags.WordBreak).Height,
             "readiness and error explanations remain directly visible");
@@ -802,12 +802,41 @@ internal static class ProductAcceptanceTests
                 form.Show(); Pump(30);
                 float scale=form.Font.GetHeight()/form.Font.GetHeight(96F);
                 CheckBox suppress=Field<CheckBox>(form,"suppressBox");
+                TableLayoutPanel library=(TableLayoutPanel)Field<ListBox>(form,"macroList").Parent;
+                Button stop=All(form).OfType<Button>().Single(x=>x.Text==Localizer.T("全部停止"));
+                foreach(Button action in library.GetControlFromPosition(0,5).Controls.OfType<Button>().Concat(new[]{stop}))
+                {
+                    bool compact=action is EditorButton && ((EditorButton)action).CompactText;
+                    Size text=TextRenderer.MeasureText(action.Text,action.Font,Size.Empty,TextFormatFlags.NoPrefix|(compact?TextFormatFlags.NoPadding:0));
+                    Check(action.Height>=text.Height+4 && action.Width>=text.Width+(compact?2:10),"main library/footer action text fits at actual DPI: "+action.Text);
+                }
+
+                Button settings=Field<Button>(form,"toolsButton");
+                Check(settings.Width>=42*scale-1 && settings.Height>=42*scale-1 && settings.TabStop,"settings button has a larger keyboard-reachable target");
+                Check(settings.BackColor==EditorTheme.Selection && settings.FlatAppearance.BorderColor==EditorTheme.Accent,"settings entry has a visible accent");
+                settings.PerformClick(); Pump(25);
+                ContextMenuStrip menu=Field<ContextMenuStrip>(form,"toolsMenu");
+                Check(menu.Visible && menu.Font.SizeInPoints>=form.Font.SizeInPoints-.1,"settings button opens a readable menu");
+                foreach(ToolStripItem item in menu.Items.Cast<ToolStripItem>().Where(x=>!(x is ToolStripSeparator)))
+                {
+                    Check(item.Height>=item.Font.Height+6,"settings menu rows have breathing room: "+item.Text);
+                    Check(TextRenderer.MeasureText(item.Text,item.Font).Width+32<=menu.Width,"settings menu text and arrows fit: "+item.Text);
+                }
+                using(Bitmap bitmap=new Bitmap(menu.Width,menu.Height))
+                { menu.DrawToBitmap(bitmap,menu.ClientRectangle); bitmap.Save(Path.Combine(root,"settings-menu-"+language+".png")); }
+                ToolStripMenuItem languages=Field<ToolStripMenuItem>(form,"languageMenuItem");
+                languages.ShowDropDown(); Pump(20);
+                Check(languages.DropDown.Visible && languages.DropDown.Font.SizeInPoints>=form.Font.SizeInPoints-.1,"nested language choices retain readable menu text");
+                foreach(ToolStripItem item in languages.DropDownItems)
+                    Check(item.Height>=item.Font.Height+6,"nested menu row spacing");
+                languages.HideDropDown(); menu.Close();
+
                 foreach(int width in new[]{1000,1160,1280})
                 {
                     form.Size=new Size((int)(width*scale),(int)(780*scale)); Pump(30);
                     foreach(bool expanded in new[]{false,true})
                     {
-                        if(Field<bool>(form,"optionalSettingsExpanded")!=expanded) Field<Button>(form,"optionalSettingsButton").PerformClick();
+                        if(Field<bool>(form,"moreExpanded")!=expanded) Field<Button>(form,"moreButton").PerformClick();
                         Pump(30);
                         CompactTriggerLayout(form);
                         Control[] common=suppress.Parent.Controls.Cast<Control>().Where(x=>x.Visible).ToArray();
@@ -845,6 +874,23 @@ internal static class ProductAcceptanceTests
                     Check(TextRenderer.MeasureText(choice.Text,choice.Font).Width+SystemInformation.VerticalScrollBarWidth+6<=choice.Width,"step choice remains readable: "+choice.Text);
                 }
                 if(gamepad) Check(Field<Control>(editor,"gamepadPreview").Width>=300*scale,"controller diagram is substantially wider than the previous 224px content");
+                else
+                {
+                    Button key=Field<Button>(editor,"captureButton");
+                    Label label=Field<Label>(editor,"inputLabel");
+                    Label selected=Field<Label>(editor,"inputText");
+                    Button physical=Field<Button>(editor,"recordButton");
+                    Check(selected.Text=="F6" && key.Visible && physical.Visible,"current step key and both input methods are immediately visible");
+                    Check(key.Parent==selected.Parent && physical.Parent==key.Parent,"diagram and physical capture share one clearly grouped row");
+                    Check(editor.RectangleToClient(selected.RectangleToScreen(selected.ClientRectangle)).Left-editor.RectangleToClient(label.RectangleToScreen(label.ClientRectangle)).Right<=12*scale,"step input group is beside its label");
+                    EditorKeyPreview preview=Field<EditorKeyPreview>(editor,"keyPreview");
+                    preview.Text="A";
+                    Check(preview.KeyBounds.Width==preview.KeyBounds.Height,"single letter has a square preview");
+                    int single=preview.KeyBounds.Width;
+                    preview.Text="Ctrl + Shift + F8";
+                    Check(preview.KeyBounds.Width>single && preview.ClientRectangle.Contains(preview.KeyBounds),"long key chord gets bounded extra width");
+                    preview.Text=selected.Text;
+                }
                 Render(editor,"compact-step-"+language+"-"+(gamepad?"gamepad":"keyboard"));
                 foreach(Button footer in new[]{(Button)editor.AcceptButton,(Button)editor.CancelButton})
                     Check(editor.ClientRectangle.Contains(editor.RectangleToClient(footer.RectangleToScreen(footer.ClientRectangle))),"step footer remains visible");
@@ -900,11 +946,11 @@ internal static class ProductAcceptanceTests
                 Check(config.Macros.Count == 1, "blank creation adds only one macro");
                 MacroDefinition macro = config.Macros[0];
                 Check(!Field<Button>(form, "runButton").Enabled, "empty macro cannot run and explains the next step");
-                Check(Field<Label>(form, "runtimeCapabilityLabel").Text.Contains(Localizer.IsEnglish ? "step" : "步骤"), "empty state directs the user to steps");
+                Check(Field<Label>(form, "runtimeLabel").Text.Contains(Localizer.IsEnglish ? "step" : "步骤"), "empty state directs the user to steps");
                 TextBox name = Field<TextBox>(form, "nameBox"), note = Field<TextBox>(form, "descriptionBox");
                 name.Focus(); name.Text = "  " + (Localizer.IsEnglish ? "My first macro" : "我的第一个宏") + "  ";
                 note.Focus(); note.Text = "Bilingual workflow";
-                InDialog<VirtualKeyboardDialog>(() => Field<Button>(form, "captureTriggerButton").PerformClick(), keys => ChooseKeys(keys, Keys.LControlKey, Keys.F9));
+                InDialog<VirtualKeyboardDialog>(() => Field<Button>(form, "triggerButton").PerformClick(), keys => ChooseKeys(keys, Keys.LControlKey, Keys.F9));
                 Field<ComboBox>(form, "triggerModeBox").SelectedIndex = 2;
                 Field<NumericUpDown>(form, "repeatBox").Value = 2;
                 InDialog<StepEditDialog>(() => Field<Button>(form, "addStepButton").PerformClick(), editor =>
@@ -940,7 +986,7 @@ internal static class ProductAcceptanceTests
                 Check(saved.Macros[0].Name == macro.Name && saved.Macros[0].Description == note.Text &&
                     saved.Macros[0].Trigger.Ctrl && saved.Macros[0].Activator.Mode == ActivatorModes.Press &&
                     saved.Macros[0].RepeatCount == 2 && saved.Macros[0].Steps[0].DelayMs == 19, "name, note, trigger, repeat and edited step persist without a Save action");
-                Label readiness = Field<Label>(form, "runtimeCapabilityLabel");
+                Label readiness = Field<Label>(form, "runtimeLabel");
                 Check(readiness.Visible && readiness.Text.Contains(Localizer.IsEnglish ? "auto-save" : "自动保存"), "save and run guidance remains visible after adding steps");
                 grid.ClearSelection(); grid.Rows[0].Selected=true;
                 All(grid.Parent.Parent).OfType<Button>().Single(b => b.Text==Localizer.T("删除")).PerformClick();
@@ -1048,6 +1094,46 @@ internal static class ProductAcceptanceTests
                 Check(!((Button)wheel.AcceptButton).Enabled, "unsupported wheel hold is blocked inline");
                 Field<ComboBox>(wheel,"actionBox").SelectedIndex=0;
                 Check(((Button)wheel.AcceptButton).Enabled, "tap immediately restores valid wheel action");
+            }
+        }
+    }
+
+    private static void StepInputMethods()
+    {
+        foreach(string language in new[]{"zh-CN","en-US"})
+        {
+            MacroConfig config=new MacroConfig { Language=language,GamepadDeviceType=VirtualGamepadTypes.None,
+                PanicTrigger=new TriggerSpec { Kind=InputKind.Keyboard,VirtualKey=(int)Keys.Pause,Ctrl=true } };
+            Observer observer=new Observer();
+            using(MainForm owner=new MainForm(config,Path.Combine(root,"step-input-"+Guid.NewGuid().ToString("N")),observer))
+            using(StepEditDialog editor=new StepEditDialog(owner,new MacroStep { Kind=InputKind.Keyboard,VirtualKey=(int)Keys.A }))
+            {
+                owner.Show(); editor.Show(owner); Pump(25);
+                Button physical=Field<Button>(editor,"recordButton"),diagram=Field<Button>(editor,"captureButton");
+                Label selected=Field<Label>(editor,"inputText");
+                Check(physical.Visible && physical.Enabled && diagram.Visible && diagram.Enabled,"both step input methods are visible and enabled");
+                physical.PerformClick();
+                Check(!physical.Enabled && physical.Text.Contains("Esc"),"physical capture explains listening and cancellation inline");
+                Call(owner,"HandleTerminalInput",CaptureEvent(Keys.F7)); Pump(25);
+                Check(selected.Text=="F7" && physical.Enabled,"physical keyboard input updates the selected step key");
+                physical.PerformClick();
+                Call(owner,"HandleTerminalInput",new InputEventInfo { Input=new InputSpec { Kind=InputKind.MouseX1 } }); Pump(25);
+                string mouse=selected.Text;
+                Check(Field<InputSpec>(editor,"selectedInput").Kind==InputKind.MouseX1 && physical.Enabled,"physical mouse capture uses the same visible method");
+                physical.PerformClick(); Call(owner,"HandleTerminalInput",CaptureEvent(Keys.Escape)); Pump(20);
+                Check(selected.Text==mouse && physical.Enabled,"Escape restores physical capture and preserves the previous input");
+                physical.PerformClick(); Call(owner,"HandleTerminalInput",CaptureEvent(Keys.Pause,true)); Pump(30);
+                Check(selected.Text==mouse && physical.Enabled,"Emergency Stop restores physical capture without changing the step");
+                physical.PerformClick();
+                InDialog<VirtualKeyboardDialog>(()=>diagram.PerformClick(),keys=>ChooseKeys(keys,Keys.A));
+                Check(selected.Text=="A" && physical.Enabled,"diagram selection cancels physical capture and visibly updates the same value");
+                Check(Field<EditorKeyPreview>(editor,"keyPreview").KeyBounds.Width==Field<EditorKeyPreview>(editor,"keyPreview").KeyBounds.Height,"actual A selection uses a square preview");
+                Render(editor,"step-input-single-"+language);
+                InDialog<VirtualKeyboardDialog>(()=>diagram.PerformClick(),keys=>ChooseKeys(keys,Keys.LControlKey,Keys.F8));
+                Check(Field<List<InputSpec>>(editor,"selectedInputs").Count==2 && selected.Text.Contains("F8"),"diagram keeps multi-key selection semantics");
+                Render(editor,"step-input-methods-"+language);
+                Check(observer.Downs==0,"choosing step inputs emits no output");
+                editor.Close(); owner.Close();
             }
         }
     }

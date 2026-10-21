@@ -44,6 +44,7 @@ namespace InputStitch
                 menu.Items.Clear();
                 menu.Items.Add(TextFor("按下键盘键 / 鼠标按钮来设置", "Set by pressing a key / mouse button"), null, physicalCapture);
                 menu.Items.Add(TextFor("在键盘图中选择…", "Choose on the keyboard diagram…"), null, virtualCapture);
+                EditorTheme.Menu(menu, primary.Font);
             };
             arrow.Click += delegate { menu.Show(arrow, new Point(0, arrow.Height)); };
             primary.EnabledChanged += delegate { arrow.Enabled = primary.Enabled; };
@@ -119,7 +120,7 @@ namespace InputStitch
             viewport.Controls.Add(keyboard);
             viewport.SizeChanged += delegate
             {
-                float scale = Font.GetHeight() / Font.GetHeight(96F);
+                float scale = Math.Max(Font.GetHeight() / Font.GetHeight(96F),Font.Size / EditorTheme.BodyFontSize);
                 keyboard.MinimumSize = new Size((int)Math.Ceiling(1200 * scale), (int)Math.Ceiling(315 * scale));
                 int height = (int)Math.Ceiling(332 * scale);
                 foreach (Button key in keyButtons) height = Math.Max(height,(int)Math.Ceiling((key.MinimumSize.Height+4)*6.3F));

@@ -15,11 +15,12 @@ namespace InputStitch
     {
         private ComboBox actionBox;
         private ComboBox inputTypeBox;
-        private TextBox inputText;
         private Button captureButton;
-        private FlowLayoutPanel captureInputControls;
-        private List<InputSpec> selectedKeyboardChord;
-        private Label physicalInputLabel;
+        private Button recordButton;
+        private Label inputText;
+        private FlowLayoutPanel inputPanel;
+        private List<InputSpec> selectedInputs;
+        private Label inputLabel;
         private Label gamepadLabel;
         private FlowLayoutPanel gamepadPanel;
         private ComboBox gamepadControlBox;
@@ -121,33 +122,28 @@ namespace InputStitch
             root.Controls.Add(inputTypeBox, 1, 1);
             root.SetColumnSpan(inputTypeBox, 2);
 
-            physicalInputLabel = new Label();
-            physicalInputLabel.Text = "按键/鼠标：";
-            physicalInputLabel.Dock = DockStyle.Fill;
-            physicalInputLabel.MinimumSize = new Size(0, 34);
-            physicalInputLabel.TextAlign = ContentAlignment.MiddleLeft;
-            root.Controls.Add(physicalInputLabel, 0, 2);
+            inputLabel = new Label();
+            inputLabel.Text = "按键/鼠标：";
+            inputLabel.Dock = DockStyle.Fill;
+            inputLabel.MinimumSize = new Size(0, 34);
+            inputLabel.TextAlign = ContentAlignment.MiddleLeft;
+            root.Controls.Add(inputLabel, 0, 2);
 
-            inputText = new TextBox();
-            inputText.Dock = DockStyle.Fill;
-            inputText.Margin = new Padding(3, 4, 8, 6);
-            inputText.ReadOnly = true;
-            inputText.Dock=DockStyle.None;
-            inputText.Anchor=AnchorStyles.Left;
-            inputText.TextChanged+=delegate
-            {
-                float scale=inputText.Font.GetHeight()/inputText.Font.GetHeight(96F);
-                inputText.Width=Math.Max((int)(105*scale),Math.Min((int)(280*scale),TextRenderer.MeasureText(inputText.Text,inputText.Font).Width+(int)(18*scale)));
-            };
-            root.Controls.Add(inputText, 1, 2);
-
-            captureButton = new EditorButton();
-            captureButton.Text = EditorDialogs.T("选择按键…", "Choose key…");
-            captureButton.AutoSize = true;
-            captureButton.MinimumSize = new Size(122, 32);
+            inputPanel = new FlowLayoutPanel { AutoSize=true, AutoSizeMode=AutoSizeMode.GrowAndShrink,
+                Dock=DockStyle.Fill, WrapContents=true, Margin=new Padding(3,3,3,6) };
+            inputText = new Label { AutoSize=true, Font=new Font(Font,FontStyle.Bold), Anchor=AnchorStyles.Left,
+                Margin=new Padding(0,6,10,4) };
+            captureButton = new EditorButton { Text=EditorDialogs.T("键盘图选择…", "Keyboard diagram…"), AutoSize=true,
+                MinimumSize=new Size(118,32), Margin=new Padding(0,0,6,4) };
+            captureButton.AccessibleDescription=EditorDialogs.T("在键盘图中选择键盘键、组合按键或鼠标按钮。", "Choose keys, a key combination or a mouse button on the diagram.");
             captureButton.Click += SelectVirtualKeyboardInput;
-            captureInputControls = VirtualKeyboardDialog.WithDropDown(captureButton, CaptureButton_Click, SelectVirtualKeyboardInput);
-            root.Controls.Add(captureInputControls, 2, 2);
+            recordButton = new EditorButton { Text=EditorDialogs.T("实际按键录入…", "Press a key…"), AutoSize=true,
+                MinimumSize=new Size(118,32), Margin=new Padding(0,0,0,4), Enabled=ownerMain!=null };
+            recordButton.AccessibleDescription=EditorDialogs.T("点击后，按下要使用的键盘键、鼠标按钮或滚轮；Esc 取消。", "Click, then press a keyboard key, mouse button or wheel. Escape cancels.");
+            recordButton.Click += CaptureButton_Click;
+            inputPanel.Controls.AddRange(new Control[]{inputText,captureButton,recordButton});
+            root.Controls.Add(inputPanel,1,2);
+            root.SetColumnSpan(inputPanel,2);
 
             gamepadLabel = new Label();
             gamepadLabel.Text = "手柄控制：";
@@ -377,7 +373,7 @@ namespace InputStitch
             UpdateHoldEnabled();
             UpdateDelayControls();
             Localizer.ApplyStaticControls(this);
-            foreach (Label label in new[] { aLabel, typeLabel, physicalInputLabel, gamepadLabel, holdLabel, fixedDelayLabel, randomDelayLabel })
+            foreach (Label label in new[] { aLabel, typeLabel, inputLabel, gamepadLabel, holdLabel, fixedDelayLabel, randomDelayLabel })
                 label.AutoSize = true;
             EditorTheme.Apply(this);
             EditorTheme.Primary(ok, false);
@@ -387,10 +383,7 @@ namespace InputStitch
                 float scale=Font.GetHeight()/Font.GetHeight(96F);
                 float previewWidth=Math.Min(380*scale,Math.Max(260*scale,root.ClientSize.Width*.4F));
                 if(root.ColumnStyles[3].Width!=previewWidth) root.ColumnStyles[3].Width=previewWidth;
-                int inputWidth=Math.Max((int)(105*scale),Math.Min((int)(280*scale),TextRenderer.MeasureText(inputText.Text,inputText.Font).Width+(int)(18*scale)));
-                int available=root.GetColumnWidths()[1]-inputText.Margin.Horizontal;
-                if(available>0) inputWidth=Math.Min(inputWidth,available);
-                if(inputText.Width!=inputWidth) inputText.Width=inputWidth;
+                inputText.MaximumSize=new Size((int)(260*scale),0);
                 int height = root.Padding.Vertical;
                 foreach (Control child in root.Controls)
                     if (child.Visible) height = Math.Max(height,child.Bottom-root.AutoScrollPosition.Y+child.Margin.Bottom+root.Padding.Bottom);
@@ -441,7 +434,7 @@ namespace InputStitch
             bool gamepad = inputTypeBox.SelectedIndex == 1;
             if (gamepad && selectedInput.Kind != InputKind.Gamepad)
             {
-                selectedKeyboardChord = null;
+                selectedInputs = null;
                 selectedInput = new InputSpec();
                 selectedInput.Kind = InputKind.Gamepad;
                 selectedInput.GamepadControl = GamepadControl.South;
@@ -458,9 +451,8 @@ namespace InputStitch
                 selectedInput.Kind = InputKind.Keyboard;
                 selectedInput.VirtualKey = (int)Keys.A;
             }
-            physicalInputLabel.Visible = !gamepad;
-            inputText.Visible = !gamepad;
-            captureInputControls.Visible = !gamepad;
+            inputLabel.Visible = !gamepad;
+            inputPanel.Visible = !gamepad;
             gamepadLabel.Visible = gamepad;
             gamepadPanel.Visible = gamepad;
             if (gamepad)
@@ -513,19 +505,19 @@ namespace InputStitch
 
         private void CaptureButton_Click(object sender, EventArgs e)
         {
-            captureButton.Text = Localizer.T("请按键…");
-            captureButton.Enabled = false;
+            recordButton.Text = EditorDialogs.T("录入中 · Esc 取消", "Listening · Esc cancels");
+            recordButton.Enabled = false;
             ownerMain.BeginStepInputCapture(delegate(InputSpec input)
             {
                 if (IsDisposed) return;
                 if (input != null)
                 {
-                    selectedKeyboardChord = null;
+                    selectedInputs = null;
                     selectedInput = input.Clone();
                     RefreshInputText();
                 }
-                captureButton.Text = EditorDialogs.T("选择按键…", "Choose key…");
-                captureButton.Enabled = true;
+                recordButton.Text = EditorDialogs.T("实际按键录入…", "Press a key…");
+                recordButton.Enabled = true;
                 UpdateHoldEnabled();
             });
         }
@@ -533,10 +525,10 @@ namespace InputStitch
         private void RefreshInputText()
         {
             if (selectedInput == null) return;
-            if (selectedKeyboardChord != null && selectedKeyboardChord.Count > 1)
+            if (selectedInputs != null && selectedInputs.Count > 1)
             {
                 List<string> names = new List<string>();
-                foreach (InputSpec input in selectedKeyboardChord) names.Add(VirtualKeyboardDialog.FormatKeyboardInput(input));
+                foreach (InputSpec input in selectedInputs) names.Add(VirtualKeyboardDialog.FormatKeyboardInput(input));
                 inputText.Text = string.Join(" + ", names.ToArray());
             }
             else inputText.Text = VirtualKeyboardDialog.FormatKeyboardInput(selectedInput);
@@ -569,14 +561,14 @@ namespace InputStitch
         private void SelectVirtualKeyboardInput(object sender, EventArgs e)
         {
             if (ownerMain != null) ownerMain.CancelCapture();
-            IList<InputSpec> initial = selectedKeyboardChord;
+            IList<InputSpec> initial = selectedInputs;
             if (initial == null && selectedInput != null && selectedInput.Kind == InputKind.Keyboard)
                 initial = new List<InputSpec>(new InputSpec[] { selectedInput });
             using (VirtualKeyboardDialog dialog = new VirtualKeyboardDialog(false, initial))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                selectedKeyboardChord = dialog.SelectedInputs;
-                selectedInput = selectedKeyboardChord[0].Clone();
+                selectedInputs = dialog.SelectedInputs;
+                selectedInput = selectedInputs[0].Clone();
                 RefreshInputText();
                 UpdateHoldEnabled();
             }
@@ -655,8 +647,8 @@ namespace InputStitch
             s.RandomDelayMinMs = (int)randomMinBox.Value;
             s.RandomDelayMaxMs = (int)randomMaxBox.Value;
             ResultStep = s;
-            ResultSteps = selectedKeyboardChord != null && selectedKeyboardChord.Count > 1
-                ? VirtualKeyboardDialog.BuildChordSteps(selectedKeyboardChord, s)
+            ResultSteps = selectedInputs != null && selectedInputs.Count > 1
+                ? VirtualKeyboardDialog.BuildChordSteps(selectedInputs, s)
                 : new List<MacroStep>(new MacroStep[] { s });
             DialogResult = DialogResult.OK;
             Close();

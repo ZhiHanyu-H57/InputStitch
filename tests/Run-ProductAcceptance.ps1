@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([ValidateRange(0, 1440)][int]$SoakMinutes = 0, [switch]$DialogsOnly, [switch]$DensityOnly, [switch]$JourneyOnly, [switch]$NativeJourney, [switch]$FieldsOnly, [switch]$NativeFields)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -15,6 +15,7 @@ $exe = Join-Path $output 'ProductAcceptanceTests.exe'
 $client = Join-Path $project 'third-party/Nefarius.ViGEm.Client/Nefarius.ViGEm.Client.dll'
 $arguments = @('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+','/main:ProductAcceptanceTests',"/out:$exe")
 foreach ($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:' + (Join-Path $references $name) }
+$arguments += '/win32icon:' + (Join-Path $project 'InputStitch.ico')
 $arguments += '/reference:' + $client
 $arguments += '/resource:' + $client + ',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
 $arguments += $productionSources

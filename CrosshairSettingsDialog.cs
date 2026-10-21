@@ -61,6 +61,7 @@ namespace InputStitch
             ClientSize = new Size(920, 700); MinimumSize = new Size(780, 590);
 
             TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+            body.RowStyles.Add(new RowStyle(SizeType.Percent,100));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64)); body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
             EditorTabs tabs = new EditorTabs { Dock = DockStyle.Fill };
             TabPage appearance = new TabPage(T("外观", "Appearance"));
@@ -128,6 +129,13 @@ namespace InputStitch
             livePreview = Check(T("在屏幕上实时预览", "Preview on screen")); side.Controls.Add(livePreview, 0, 3);
             feedback = Help(""); feedback.Name = "crosshairFeedback"; side.Controls.Add(feedback, 0, 4);
             side.Controls.Add(Help(T("准星穿透鼠标点击，不抢焦点。请将游戏设为窗口化或无边框窗口；本版不支持独占全屏。", "The overlay passes mouse clicks through and does not take focus. Set the game to windowed or borderless mode; exclusive fullscreen is not supported in this build.")), 0, 5);
+            side.Layout += delegate
+            {
+                int height=side.GetPreferredSize(new Size(side.Width,0)).Height;
+                foreach(Control child in side.Controls) if(child.Visible) height=Math.Max(height,child.Bottom+child.Margin.Bottom+side.Padding.Bottom);
+                if(side.MinimumSize.Height!=height) side.MinimumSize=new Size(0,height);
+                sideViewport.AutoScrollMinSize=new Size(0,height);
+            };
             sideViewport.Controls.Add(side); body.Controls.Add(sideViewport, 1, 0);
             save = EditorDialogs.Button(T("保存准星设置", "Save crosshair"), DialogResult.None); save.Name = "crosshairSave";
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };
@@ -146,6 +154,13 @@ namespace InputStitch
             page.Padding = new Padding(10); page.AutoScroll = true; page.BackColor = Color.White;
             TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 6, 12, 12) };
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            fields.Layout += delegate
+            {
+                int height=fields.GetPreferredSize(new Size(fields.Width,0)).Height;
+                foreach(Control child in fields.Controls) if(child.Visible) height=Math.Max(height,child.Bottom+child.Margin.Bottom+fields.Padding.Bottom);
+                if(fields.MinimumSize.Height!=height) fields.MinimumSize=new Size(0,height);
+                page.AutoScrollMinSize=new Size(0,height+page.Padding.Vertical);
+            };
             page.Controls.Add(fields); return fields;
         }
         private static Label Help(string text) { return new Label { Text = text, AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 4, 3, 4) }; }

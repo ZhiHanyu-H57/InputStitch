@@ -40,6 +40,8 @@ namespace InputStitch
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
+            root.AutoScroll = true;
+            devices.FontChanged += delegate { devices.MinimumSize=new Size(0,devices.ItemHeight*5+4); };
             root.Padding = new Padding(16);
             root.ColumnCount = 1;
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -82,6 +84,7 @@ namespace InputStitch
             devices.Dock = DockStyle.Fill;
             devices.CheckOnClick = true;
             devices.IntegralHeight = false;
+            devices.MinimumSize=new Size(0,devices.ItemHeight*5+4);
             root.Controls.Add(devices, 0, 3);
 
             status.AutoSize = true;

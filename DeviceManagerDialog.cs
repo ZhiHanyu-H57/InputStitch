@@ -53,6 +53,7 @@ namespace InputStitch
             root.Controls.Add(summaryLabel, 0, 1);
 
             ConfigureGrid();
+            grid.AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.AllCells;
             root.Controls.Add(grid, 0, 2);
 
             FlowLayoutPanel actions = new FlowLayoutPanel();

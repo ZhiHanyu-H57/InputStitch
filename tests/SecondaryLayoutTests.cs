@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -141,6 +141,24 @@ internal static class SecondaryLayoutTests
         using (Bitmap bitmap = new Bitmap(form.Width,form.Height))
         { form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size)); bitmap.Save(Path.Combine(root,name+".png")); }
     }
+    private static void ExerciseChoice(ComboBox choice)
+    {
+        if (!choice.Enabled || choice.Items.Count==0) return;
+        Check(choice.ItemHeight>=choice.Font.Height+6,"opened choice rows fit the scaled font: "+choice.Text);
+        int widest=choice.Items.Cast<object>().Max(x=>TextRenderer.MeasureText(choice.GetItemText(x),choice.Font).Width);
+
+        if(choice is EditorChoice && ((EditorChoice)choice).CompactWidth && choice.DropDownStyle==ComboBoxStyle.DropDownList)
+        {
+            float scale=Math.Max(choice.Font.GetHeight()/choice.Font.GetHeight(96F),choice.Font.Size/EditorTheme.BodyFontSize);
+            Check(choice.Width<=Math.Max(112*scale,widest+SystemInformation.VerticalScrollBarWidth+14*scale)+2,"short choice has no excessive blank width");
+        }
+        choice.DroppedDown=true; Pump(8);
+        Check(choice.DroppedDown,"native choice actually opens");
+        Check(choice.DropDownWidth>=widest+SystemInformation.VerticalScrollBarWidth+6,"expanded choice width fits every option");
+        Check(SendMessage(choice.Handle,0x0154,IntPtr.Zero,IntPtr.Zero).ToInt32()>=choice.Font.Height+6,"native dropdown row spacing matches the scaled font");
+        choice.DroppedDown=false;
+    }
+
     private static void ExerciseList(CheckedListBox list)
     {
         if (list.Items.Count < 3) return;
@@ -187,7 +205,7 @@ internal static class SecondaryLayoutTests
         native = args.Contains("--native");
         if (native) SetProcessDpiAwarenessContext(new IntPtr(-4));
         Application.EnableVisualStyles(); EmbeddedDependencyLoader.Register();
-        root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"secondary-layout"+(native?"-native":"")); Directory.CreateDirectory(root);
+        root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"secondary-layout"+(native?"-native":args.Contains("--scaled-fonts")?"-scaled-fonts":"")); Directory.CreateDirectory(root);
         using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero)) Console.WriteLine("SECONDARY DPI="+screen.DpiX+" native="+native);
         try
         {
@@ -212,18 +230,41 @@ internal static class SecondaryLayoutTests
                     using (Form form = factory())
                     {
                         if (args.Contains("--settings-only") && !(form is SettingsDialog)) continue;
+                        string focus=args.FirstOrDefault(x=>x.StartsWith("--focus=",StringComparison.Ordinal));
+                        if(focus!=null && !focus.Substring(8).Split(',').Contains(form.GetType().Name)) continue;
                         string name = (++index).ToString("D2")+"-"+form.GetType().Name+"-"+language+"-"+(int)(scale*100);
                         context = name;
                         form.StartPosition=FormStartPosition.Manual; form.Location=new Point(-20000,-20000); form.ShowInTaskbar=false;
                         Size requested = form.ClientSize;
-                        if (scale != 1F) { form.Scale(new SizeF(scale,scale)); requested=new Size((int)(requested.Width*scale),(int)(requested.Height*scale)); form.ClientSize=requested; }
+                        if (scale != 1F)
+                        {
+                            form.Scale(new SizeF(scale,scale));
+                            if(args.Contains("--scaled-fonts"))
+                            {
+                                Control[] controls=new[]{(Control)form}.Concat(All(form)).ToArray();
+                                Font[] fonts=controls.Select(x=>new Font(x.Font.FontFamily,x.Font.Size*scale,x.Font.Style)).ToArray();
+                                for(int n=0;n<controls.Length;n++) controls[n].Font=fonts[n];
+                                form.Disposed+=delegate { foreach(Font font in fonts) font.Dispose(); };
+                            }
+                            requested=new Size((int)(requested.Width*scale),(int)(requested.Height*scale)); form.ClientSize=requested;
+                        }
                         form.Show(); Pump(20); windows++;
                         Audit(form);
+                        foreach(ComboBox choice in All(form).OfType<ComboBox>().Where(x=>x.Visible).ToArray()) ExerciseChoice(choice);
                         if (native || scale==1F) Capture(form,name+"-default");
                         foreach (CheckedListBox list in All(form).OfType<CheckedListBox>().Where(x => x.Visible && x.Enabled)) ExerciseList(list);
                         foreach (TabControl tabs in All(form).OfType<TabControl>().ToArray())
                             for (int tab=0;tab<tabs.TabPages.Count;tab++)
-                            { tabs.SelectedIndex=tab; Pump(5); context=name+" tab="+tab; Audit(form); if (native || scale==1F) Capture(form,name+"-tab"+tab); }
+                            {
+                                tabs.SelectedIndex=tab; Pump(5); context=name+" tab="+tab; Audit(form);
+                                foreach(ComboBox choice in All(tabs.SelectedTab).OfType<ComboBox>().Where(x=>x.Visible).ToArray()) ExerciseChoice(choice);
+                                if (form is SettingsDialog && (native || scale==1F))
+                                {
+                                    ComboBox choice=All(tabs.SelectedTab).OfType<ComboBox>().FirstOrDefault(x=>x.Visible && x.Enabled);
+                                    if(choice!=null) { choice.DroppedDown=true; Pump(8); Capture(form,name+"-choices-tab"+tab); choice.DroppedDown=false; }
+                                }
+                                if (native || scale==1F) Capture(form,name+"-tab"+tab);
+                            }
                         if (form is ActivatorConditionDialog)
                         { Field<CheckBox>(form,"analogEnabled").Checked=true; Pump(5); context=name+" analog limits"; Audit(form); }
                         // Resize the same live window down and back; controls must not retain an earlier layout's clipped size.
