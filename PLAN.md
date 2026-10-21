@@ -1,5 +1,15 @@
 ﻿# PLAN.md
 
+## Authorized Stable promotion — 1.5.0 (2026-10-22)
+
+The user explicitly requested publishing the accepted beta.15 as a formal GitHub
+release. Promote it to 1.5.0 / FileVersion 1.5.0.15, enable the existing Stable
+update policy, and preserve all other production files. Build/verify both
+architectures, check packaged startup and real output locally, then use the
+existing GitHub workflow for full regression, Stable publication/latest and
+the configured R2 mirror. Keep beta.15's completed bounded-soak evidence; do not
+describe it as a new stable-binary soak. Record published assets and hashes.
+
 ## Completed pass — maturity, architecture and measured performance (2026-10-22)
 
 Local beta.15 / FileVersion 1.5.0.14. Research official mature macro/remapping

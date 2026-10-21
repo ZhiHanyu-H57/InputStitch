@@ -1,12 +1,12 @@
 ﻿# InputStitch
 
-## Local 1.5.0-beta.2 editor refresh
+## Create and run a macro
 
 Create or import a macro, choose a shortcut and its behavior in one trigger
 selector, then edit the steps. Timing and optional conditions have their own
 editor. Existing macros display their actual behavior directly. Run and Stop all
-stay at the bottom while the editor scrolls. Grouping and input forwarding are
-under More options. This local build does not replace published Stable 1.4.3.
+stay at the bottom while the editor scrolls. Trigger blocking is directly visible;
+grouping and mapping layers are under More options. Changes are saved automatically.
 See [`docs/AUTOMATED_ACCEPTANCE.md`](docs/AUTOMATED_ACCEPTANCE.md).
 
 
@@ -24,17 +24,17 @@ See [Product positioning and competitive strategy](docs/PRODUCT_STRATEGY.md) for
 
 ## Download
 
-**Stable: v1.4.3.** This release fixes a reliability issue where global keyboard hotkeys could stop responding after long-running sessions by adding an independent physical-keyboard fallback and automatic keyboard-hook recovery. The website-first update path introduced in 1.4.2 remains unchanged, with GitHub retained as an automatic fallback.
+**Stable: v1.5.0.** Clearer bilingual editing, compact controls and readable scaled layouts, a configurable windowed/borderless crosshair, and lower background input overhead. Existing settings remain compatible. The website-first update path retains GitHub as a fallback. See [release notes](RELEASE_NOTES.md) and the [maturity and performance review](docs/MATURITY_AND_PERFORMANCE_REVIEW.md).
 
-**Controller takeover remains Experimental in Stable 1.4.3.** Its transaction, rollback, recovery, slot-acquisition and runtime-health logic are implemented and heavily tested, but final physical-controller + HidHide + target-game acceptance remains pending because the development machine has no physical XInput test controller. The rest of the 1.4.x feature set is not blocked by that hardware-only validation gap.
+**Controller takeover remains Experimental.** Physical-controller + HidHide + target-game compatibility has its own hardware acceptance scope. Ordinary keyboard/mouse macros and windowed/borderless crosshairs do not require takeover or Game Bar setup. Exclusive fullscreen crosshairs are not included.
 
 The project website is the preferred Stable download path; GitHub Releases remain available as a fallback and release-history source:
 
 | Windows architecture | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.4.3-Windows-x64.exe](../../releases/latest/download/InputStitch-1.4.3-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.4.3-Windows-x86.exe](../../releases/latest/download/InputStitch-1.4.3-Windows-x86.exe) |
-| Complete source code | [InputStitch-1.4.3-Source.zip](../../releases/latest/download/InputStitch-1.4.3-Source.zip) |
+| 64-bit Windows (x64) | [InputStitch-1.5.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.5.0-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.5.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.5.0-Windows-x86.exe) |
+| Complete source code | [InputStitch-1.5.0-Source.zip](../../releases/latest/download/InputStitch-1.5.0-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 Previous `v1.3.1-beta.2` prerelease artifacts remain available for historical comparison/testing:

@@ -1,5 +1,20 @@
 ﻿# HANDOFF.md
 
+## Authorized Stable promotion — 1.5.0 (2026-10-22)
+
+The user authorized a formal GitHub release of accepted beta.15. Target 1.5.0 /
+FileVersion 1.5.0.15 on main. Only ReleaseInfo changes in production (version,
+channel/update policy); all other production sources and
+the icon must match beta.15. Reuse the explicitly versioned beta.15 regression
+and unforced soak evidence below; validate the official packages and use the
+existing full-regression GitHub publishing workflow. The new request supersedes
+earlier statements that beta.15 must remain local or leave Stable untouched.
+Local version/channel, update network (29) and installer (43) checks PASS. Local
+build/Release Verification and R2 manifest derivation PASS. Rebuild and repeat
+packaged smoke after the metadata freeze; real output 77 checks PASS with normal
+config and device-inventory hashes unchanged. Full hosted regression gates
+publication. Release result and exact asset hashes will be recorded afterward.
+
 ## Completed pass — maturity and measured runtime performance (beta.15, 2026-10-22)
 
 Local beta.15 / FileVersion 1.5.0.14 on `ui/product-refresh`. Keep Stable 1.4.3,
