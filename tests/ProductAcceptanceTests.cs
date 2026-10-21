@@ -26,6 +26,16 @@ internal static class ProductAcceptanceTests
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wparam, IntPtr lparam);
     [DllImport("user32.dll")] private static extern int GetGuiResources(IntPtr process, int flags);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+    private static void SyntheticViewport(Form form, Size requested)
+    {
+        // Form.Size itself clamps to MaxWindowTrackSize even for hidden forms.
+        // Native sizing lets bitmap tests cover the stated DPI viewport without
+        // changing desktop resolution or weakening any ancestor-clipping check.
+        form.MaximumSize = requested;
+        if (!SetWindowPos(form.Handle, IntPtr.Zero, -20000, -20000, requested.Width, requested.Height, 0x14))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
     private static void Check(bool value, string label) { if (!value) throw new Exception(label); checks++; }
     private static T Field<T>(object owner, string name) { return (T)owner.GetType().GetField(name, Private).GetValue(owner); }
     private static object Call(object owner, string name, params object[] args)
@@ -280,8 +290,13 @@ internal static class ProductAcceptanceTests
             config.Macros.Add(macro);
             using (MainForm form = new MainForm(config, Path.Combine(root, "layout-" + Guid.NewGuid().ToString("N")), new Observer()))
             {
+                // Synthetic viewports are rendered offscreen. Keep the real
+                // first-show work-area fitting in DefaultViewport's native test.
+                form.StartPosition = FormStartPosition.Manual;
+                form.Location = new Point(-20000, -20000);
                 form.Scale(new SizeF(scale, scale));
-                form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                Size requested = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                SyntheticViewport(form, requested);
                 ComboBox modes = Field<ComboBox>(form, "triggerModeBox");
                 foreach (int index in new[] { 0, 1, 2, 3, 4, 5, 6 })
                 {
@@ -312,6 +327,7 @@ internal static class ProductAcceptanceTests
                 modes.SelectedIndex = 0;
                 Check(modes.Text == TriggerEditor.Names[0], "selected trigger choice has readable text");
                 Render(form, "main-" + language + "-" + size.Width + "-" + (int)(scale * 100));
+                Check(form.Size == requested, "synthetic DPI viewport uses its requested size: " + requested + "; actual=" + form.Size);
                 Check(All(form).OfType<ComboBox>().Count(x => x == modes) == 1 && modes.Items.Count == 7,
                     "editor presents one seven-mode trigger choice");
                 CompactTriggerLayout(form);
@@ -340,8 +356,8 @@ internal static class ProductAcceptanceTests
             {
                 form.StartPosition = FormStartPosition.Manual;
                 if (!densityUsesNativeDpi) form.Scale(new SizeF(scale, scale));
-                form.MaximumSize = new Size((int)(size.Width * scale), (int)(size.Height * scale));
-                form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                Size requested = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                if (densityUsesNativeDpi) form.Size = requested; else SyntheticViewport(form, requested);
                 Render(form, "density-" + language + "-" + size.Width + "-" + (int)(scale * 100));
                 CompactTriggerLayout(form);
                 DataGridView grid = Field<DataGridView>(form, "grid");
@@ -416,7 +432,8 @@ internal static class ProductAcceptanceTests
                 macro.Trigger = size.Width == 1280 ? null : new TriggerSpec { Kind = InputKind.Keyboard,
                     VirtualKey = (int)Keys.F8, Ctrl = true, Alt = true, Shift = true, Win = true };
                 Call(form, "LoadSelectedMacroToUi");
-                form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                Size requested = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                if (densityUsesNativeDpi) form.Size = requested; else SyntheticViewport(form, requested);
                 Pump(25);
                 CompactTriggerLayout(form);
                 Check(Field<Button>(form, "triggerButton").Text == (macro.Trigger == null

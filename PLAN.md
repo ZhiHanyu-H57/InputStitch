@@ -4,11 +4,18 @@
 
 The user explicitly requested publishing the accepted beta.15 as a formal GitHub
 release. Promote it to 1.5.0 / FileVersion 1.5.0.15, enable the existing Stable
-update policy, and preserve all other production files. Build/verify both
+update policy, and preserve existing macro behavior. The user subsequently chose
+fixed InputStitch.exe update naming and requested 1.4.3 configuration migration
+proof. Implement transactional rename/rollback and shortcut retargeting; compare
+the original 1.4.3 XML through an editor save/reopen with exact original backup.
+Correct the hosted synthetic-viewport fixture without weakening clipping checks.
+Build/verify both
 architectures, check packaged startup and real output locally, then use the
 existing GitHub workflow for full regression, Stable publication/latest and
-the configured R2 mirror. Keep beta.15's completed bounded-soak evidence; do not
-describe it as a new stable-binary soak. Record published assets and hashes.
+the configured R2 mirror. Local full 34-suite regression and final Stable-source
+observer PASS (600.1 seconds / 6,927 cycles / three workers / no forced GC).
+Keep the observer/real-output/package evidence distinct. Record published assets
+and hashes after the hosted regression gate and publication.
 
 ## Completed pass — maturity, architecture and measured performance (2026-10-22)
 

@@ -152,7 +152,10 @@ internal static class SecondaryLayoutTests
             float scale=Math.Max(choice.Font.GetHeight()/choice.Font.GetHeight(96F),choice.Font.Size/EditorTheme.BodyFontSize);
             Check(choice.Width<=Math.Max(112*scale,widest+SystemInformation.VerticalScrollBarWidth+14*scale)+2,"short choice has no excessive blank width");
         }
-        choice.DroppedDown=true; Pump(8);
+        // Settle pending activation before opening. CB_SHOWDROPDOWN is synchronous;
+        // pumping afterward can deliver an unrelated focus-loss that correctly
+        // closes the popup before the test observes its successful opening.
+        Pump(8); choice.DroppedDown=true;
         Check(choice.DroppedDown,"native choice actually opens");
         Check(choice.DropDownWidth>=widest+SystemInformation.VerticalScrollBarWidth+6,"expanded choice width fits every option");
         Check(SendMessage(choice.Handle,0x0154,IntPtr.Zero,IntPtr.Zero).ToInt32()>=choice.Font.Height+6,"native dropdown row spacing matches the scaled font");

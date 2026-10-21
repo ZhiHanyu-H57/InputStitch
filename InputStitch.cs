@@ -859,12 +859,15 @@ namespace InputStitch
                 // Older stable installers do not include OriginalSha256. Capture
                 // their existing target after exit for backwards-compatible backup.
                 string originalHash = string.IsNullOrEmpty(pending.OriginalSha256) ? ComputeSha256(target) : pending.OriginalSha256;
+                string installedPath = Path.Combine(Path.GetDirectoryName(target), "InputStitch.exe");
                 UpdateInstallReceipt receipt = UpdateInstaller.Install(source, target, originalHash, pending.Sha256,
                     AppPaths.Config, Path.Combine(AppPaths.Root, "backups"), delegate(string installed)
                 {
                     using (Process launched = Process.Start(new ProcessStartInfo(installed) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(installed) }))
                         if (launched == null) throw new IOException("The updated application could not be started.");
-                }, new UpdateFiles());
+                }, new UpdateFiles(), installedPath);
+                if (!string.Equals(target, installedPath, StringComparison.OrdinalIgnoreCase))
+                    UpdateShortcuts.RetargetKnownFolders(target, installedPath);
                 try { AppLog.Write("Update installed; executable backup: " + receipt.ExecutableBackup + "; configuration backup: " + receipt.ConfigurationBackup); } catch { }
                 try { File.Delete(PendingPath); } catch { }
             }

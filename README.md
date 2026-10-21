@@ -51,6 +51,8 @@ InputStitch supports Windows only. There is no macOS or Linux executable. If you
 
 The executable is portable: download it, place it in a folder where you have write access, and run it. .NET Framework 4.7.2 or a compatible later release must be installed. Keyboard and mouse output needs no extra driver. Virtual gamepad output additionally requires the separately installed ViGEmBus driver described below.
 
+In-app updates use the fixed program name **InputStitch.exe** and preserve the existing configuration. Existing matching desktop/Start-menu shortcuts are retargeted; custom shortcut names and arguments stay intact. Shortcuts stored elsewhere can be pointed to the new file manually. The updater retains executable/configuration backups and refuses to overwrite another existing InputStitch.exe.
+
 ## Highlights
 
 - Visual editing for keyboard, mouse-button, side-button, wheel, Xbox 360, and PS4 / DualShock 4 steps
