@@ -529,13 +529,13 @@ namespace InputStitch
             SetTip(upMacro, "将当前宏在列表中上移一位；多个已启用宏共用触发键时，列表靠上的宏优先触发。" );
             SetTip(downMacro, "将当前宏在列表中下移一位；多个已启用宏共用触发键时，列表靠上的宏优先触发。" );
 
-            SetTip(enabledBox, "控制这个宏是否响应全局触发键。关闭后仍可用 UI 按钮执行。" );
+            SetTip(enabledBox, EditorDialogs.T("关闭后，触发键不会启动这个宏；仍可点击“执行所选宏”。", "When off, the shortcut will not start this macro. You can still use Run."));
             SetTip(descriptionBox, "给宏添加简短用途说明。备注会随宏包一起导出。" );
             SetTip(infiniteBox, "持续重复整个宏，直到再次触发、松开按住型触发键、点击停止或使用紧急停止键。" );
             SetTip(repeatBox, "宏完整执行的次数。勾选无限循环后忽略此数值。" );
-            SetTip(triggerModeBox, "选择按一次切换启动/停止，或按住触发键运行、松开立即停止。" );
+            SetTip(triggerModeBox, EditorDialogs.T("选择按下、松开、按住或连按触发键时如何运行宏。", "Choose when the shortcut starts and stops this macro."));
             SetTip(activatorConditionButton, Localizer.IsEnglish ? "Adjust press timing or limit when this macro can run." : "调整短按、长按、双击的时间，或限制这个宏在哪些情况下生效。" );
-            SetTip(captureTriggerButton, EditorDialogs.T("点击选择触发键；右侧箭头可捕获实体键盘或鼠标。", "Click to choose a shortcut; use the arrow to capture a physical key or mouse input."));
+            SetTip(captureTriggerButton, EditorDialogs.T("点击在键盘图中选择；右侧箭头可改用实际按键或鼠标来设置。", "Choose on the keyboard diagram, or use the arrow to set a shortcut by pressing it."));
             SetTip(suppressBox, "触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。" );
             SetTip(targetWindowBox, "当前锁定的目标窗口。用于 UI 自动切换和保存方案时的进程绑定。" );
             SetTip(lockTargetButton, "先切到目标程序，再切回 InputStitch 后点击这里；程序会锁定最近有效的外部前台窗口。" );

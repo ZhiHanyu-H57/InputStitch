@@ -42,8 +42,8 @@ namespace InputStitch
             menu.Opening += delegate
             {
                 menu.Items.Clear();
-                menu.Items.Add(TextFor("捕获实体键盘 / 鼠标", "Capture physical keyboard / mouse"), null, physicalCapture);
-                menu.Items.Add(TextFor("通过虚拟键盘选择…", "Choose from virtual keyboard…"), null, virtualCapture);
+                menu.Items.Add(TextFor("按下键盘键 / 鼠标按钮来设置", "Set by pressing a key / mouse button"), null, physicalCapture);
+                menu.Items.Add(TextFor("在键盘图中选择…", "Choose on the keyboard diagram…"), null, virtualCapture);
             };
             arrow.Click += delegate { menu.Show(arrow, new Point(0, arrow.Height)); };
             primary.EnabledChanged += delegate { arrow.Enabled = primary.Enabled; };
@@ -321,7 +321,7 @@ namespace InputStitch
             bool valid = selected.Count > 0 && (!triggerMode || TryCreateTrigger(selected, out ignored, out error));
             if (confirmButton != null) confirmButton.Enabled = valid;
             selectionLabel.ForeColor = error == null ? EditorTheme.Accent : Color.FromArgb(148, 87, 15);
-            selectionLabel.Text = TextFor("已选：", "Selected: ") + (names.Count == 0 ? TextFor("请点选下方按键", "Choose keys below") : string.Join(" + ", names.ToArray())) + Environment.NewLine + (error ?? hint);
+            selectionLabel.Text = TextFor("已选：", "Selected: ") + (names.Count == 0 ? TextFor("请在上方键盘图中选择", "Choose keys in the diagram above") : string.Join(" + ", names.ToArray())) + Environment.NewLine + (error ?? hint);
         }
 
         public static string FormatKeyboardInput(InputSpec input)

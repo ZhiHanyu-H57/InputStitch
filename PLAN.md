@@ -1,5 +1,15 @@
 ﻿# PLAN.md
 
+## Completed pass — beginner workflow (2026-10-21)
+
+Local target beta.12 / FileVersion 1.5.0.11. Walk through quick and blank creation,
+shortcut selection/capture, step add/edit/cancel, automatic save, reopen and
+run/stop. Fix unclear copy and redundant actions; preserve runtime, config and
+the compressed distribution. Verify bilingual journeys, modifier capture,
+layout/native DPI, full regression, real output, current-source sustained
+acceptance and both packaged architectures. No manual acceptance gate.
+Completed evidence is recorded in HANDOFF and the delivered receipt.
+
 ## Completed pass — remaining dialogs (2026-10-21)
 
 Beta.11 / FileVersion 1.5.0.10 completes the requested density/list/DPI pass.

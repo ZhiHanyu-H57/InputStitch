@@ -324,7 +324,7 @@ namespace InputStitch
             TableLayoutPanel cards = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Margin = new Padding(0) };
             for (int i = 0; i < 2; i++) { cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); cards.RowStyles.Add(new RowStyle(SizeType.Percent, 50)); }
             string[] names = Localizer.IsEnglish ? new[] { "Repeat an action", "Run a sequence", "Hold a controller input", "Start from scratch" }
-                : new[] { "重复按键", "按顺序执行", "按住控制手柄", "从空白开始" };
+                : new[] { "重复操作", "按顺序执行", "按住控制手柄", "从空白开始" };
             string[] descriptions = Localizer.IsEnglish ? new[] { "Press a key a set number of times, for example click 10 times.", "Combine keys and waits, for example press A, wait, then press B.", "Hold a key to move a virtual stick or hold a controller button.", "Add each step yourself. Suitable for custom keyboard, mouse or controller actions." }
                 : new[] { "把同一操作重复指定次数，例如连续点击 10 次。", "组合多个按键和等待，例如按 A，稍等，再按 B。", "按住一个键来推动虚拟摇杆，或按住手柄按钮。", "自己添加每个步骤，适合自定义键盘、鼠标或手柄操作。" };
             QuickTemplate?[] templates = { QuickTemplate.Repeat, QuickTemplate.Sequence, QuickTemplate.HeldMapping, null };
@@ -550,7 +550,7 @@ namespace InputStitch
             if (workflowGuide != null) workflowGuide.Visible = count == 0;
             if (stepsHintLabel != null) stepsHintLabel.Text = count == 0
                 ? EditorDialogs.T("添加或录制操作", "Add or record actions")
-                : (Localizer.IsEnglish ? count + " steps" : count + " 个步骤");
+                : (Localizer.IsEnglish ? count + (count == 1 ? " step" : " steps") : count + " 个步骤");
             if (emptyStepsPanel != null) emptyStepsPanel.Visible = macro != null && count == 0;
             if (grid != null) grid.Visible = count > 0;
             if (addStepButton != null) addStepButton.Enabled = macro != null && !recordingActive;

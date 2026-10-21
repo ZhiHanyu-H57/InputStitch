@@ -43,6 +43,7 @@ namespace InputStitch
         private bool loadingControls = true;
         private Label stepPreviewText;
         private EditorKeyPreview keyPreview;
+        private Button confirmStepButton;
 
         public MacroStep ResultStep;
         public List<MacroStep> ResultSteps;
@@ -95,7 +96,7 @@ namespace InputStitch
 
             actionBox = new EditorChoice();
             actionBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            actionBox.Items.AddRange(new object[] { Localizer.T("按一下（按下→等待→松开）"), Localizer.T("持续按住（直到松开或宏停止）"), Localizer.T("松开按键") });
+            actionBox.Items.AddRange(new object[] { EditorDialogs.T("按一下（自动松开）", "Tap (release automatically)"), Localizer.T("持续按住（直到松开或宏停止）"), Localizer.T("松开按键") });
             actionBox.Dock = DockStyle.Fill;
             actionBox.Margin = new Padding(3, 4, 3, 6);
             actionBox.SelectedIndexChanged += delegate { UpdateHoldEnabled(); };
@@ -103,7 +104,7 @@ namespace InputStitch
             root.SetColumnSpan(actionBox, 2);
 
             Label typeLabel = new Label();
-            typeLabel.Text = "输入类型：";
+            typeLabel.Text = EditorDialogs.T("操作设备：", "Device:");
             typeLabel.Dock = DockStyle.Fill;
             typeLabel.MinimumSize = new Size(0, 34);
             typeLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -304,6 +305,7 @@ namespace InputStitch
             buttons.Margin = new Padding(0, 16, 0, 0);
 
             Button ok = new EditorButton();
+            confirmStepButton = ok;
             ok.Text = source == null ? (Localizer.IsEnglish ? "Add step" : "添加步骤") : (Localizer.IsEnglish ? "Save step" : "保存步骤");
             ok.AutoSize = true;
             ok.MinimumSize = new Size(96, 34);
@@ -568,6 +570,18 @@ namespace InputStitch
         private void UpdateStepPreview()
         {
             if (loadingControls || stepPreviewText == null || selectedInput == null) return;
+            bool validRange = !randomDelayBox.Checked || randomMinBox.Value <= randomMaxBox.Value;
+            bool validAction = (selectedInput.Kind != InputKind.WheelUp && selectedInput.Kind != InputKind.WheelDown) || actionBox.SelectedIndex == 0;
+            if (confirmStepButton != null) confirmStepButton.Enabled = validRange && validAction;
+            if (!validRange || !validAction)
+            {
+                stepPreviewText.ForeColor = Color.DarkOrange;
+                stepPreviewText.Text = !validRange
+                    ? EditorDialogs.T("请调整随机间隔：最小值不能大于最大值。", "Adjust the random wait: minimum must not exceed maximum.")
+                    : EditorDialogs.T("滚轮不能持续按住或松开，请把操作改为“按一下”。", "The wheel cannot be held or released. Choose Tap instead.");
+                return;
+            }
+            stepPreviewText.ForeColor = EditorTheme.Accent;
             string input = selectedInput.Kind == InputKind.Gamepad ? InputNames.FormatInput(selectedInput) : inputText.Text;
             bool english = Localizer.IsEnglish;
             string action = actionBox.SelectedIndex == 0
@@ -576,7 +590,7 @@ namespace InputStitch
                     ? (english ? "Hold " + input + " until a release step or the macro stops." : "持续按住 " + input + "，直到松开步骤或宏停止。")
                     : (english ? "Release " + input + "." : "松开 " + input + "。");
             string wait = randomDelayBox.Checked ? randomMinBox.Value + "–" + randomMaxBox.Value : delayBox.Value.ToString();
-            stepPreviewText.Text = (english ? "THIS STEP\r\n" : "这个步骤会\r\n") + action + (english ? " Then wait " + wait + " ms before the next step." : " 再等待 " + wait + " 毫秒，进入下一步。") +
+            stepPreviewText.Text = (english ? "This step\r\n" : "这个步骤会\r\n") + action + (english ? " Then wait " + wait + " ms before the next step." : " 再等待 " + wait + " 毫秒，进入下一步。") +
                 (english ? "\r\n1000 ms = 1 second" : "\r\n1000 毫秒 = 1 秒");
         }
 

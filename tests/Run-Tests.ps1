@@ -46,6 +46,7 @@ foreach($suite in @('SourceManifestTests','ForegroundIdentityCacheTests','TickCa
   if($compile.ExitCode -ne 0) { $compileReport | Write-Output; Write-CiError "$suite compilation failed" $compileReport; throw "$suite compilation failed" }
   $execution = Invoke-NativeCaptured $exe @()
   $report = $execution.Output
+  $report | Set-Content -LiteralPath (Join-Path $output ($suite+'.log')) -Encoding UTF8
   if($execution.ExitCode -ne 0) { $report | Write-Output; Write-CiError "$suite failed" $report; throw "$suite failed" }
   $report | Select-Object -Last 1 | Write-Output
 }

@@ -100,9 +100,10 @@ internal static class ProductAcceptanceTests
     [STAThread]
     private static int Main(string[] args)
     {
+        bool nativeJourney = args.Length > 0 && args[0] == "--journey-native";
         bool nativeDensity = args.Length > 0 && args[0] == "--density-native";
         densityUsesNativeDpi = nativeDensity;
-        if (nativeDensity) SetProcessDpiAwarenessContext(new IntPtr(-4));
+        if (nativeDensity || nativeJourney) SetProcessDpiAwarenessContext(new IntPtr(-4));
         Application.EnableVisualStyles();
         EmbeddedDependencyLoader.Register();
         root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "product-acceptance");
@@ -118,8 +119,13 @@ internal static class ProductAcceptanceTests
             }
             else if (args.Length > 0 && args[0] == "--density") Density();
             else if (args.Length > 0 && args[0] == "--layout") ModesAndLayout();
-            else if (args.Length > 0 && args[0] == "--dialogs") { RemainingDialogs(); NewUserJourney(); }
-            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); }
+            else if (args.Length > 0 && (args[0] == "--journey" || nativeJourney))
+            {
+                using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero)) Console.WriteLine("JOURNEY DPI=" + screen.DpiX);
+                BeginnerWorkflow(); QuickShortcutCapture();
+            }
+            else if (args.Length > 0 && args[0] == "--dialogs") { RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); }
+            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); }
             Console.WriteLine("PASS product acceptance: " + checks + " checks; isolated editor, saved files and runtime observer; no user configuration or real input.");
             return 0;
         }
@@ -775,6 +781,205 @@ internal static class ProductAcceptanceTests
                         "group name editing returns its value and restores modal protection");
                 }
                 Render(form, "new-user-complete-" + language);
+            }
+        }
+    }
+
+    private static void InDialog<T>(Action open, Action<T> interact) where T : Form
+    {
+        Exception failure = null;
+        bool handled = false;
+        Stopwatch clock = Stopwatch.StartNew();
+        using (System.Windows.Forms.Timer driver = new System.Windows.Forms.Timer())
+        {
+            driver.Interval = 30;
+            driver.Tick += delegate
+            {
+                T dialog = Application.OpenForms.OfType<T>().LastOrDefault();
+                if (dialog == null && clock.ElapsedMilliseconds < 8000) return;
+                driver.Stop();
+                try { Check(dialog != null, "expected " + typeof(T).Name + " opens"); handled = true; interact(dialog); }
+                catch (Exception ex) { failure = ex; if (dialog != null) { dialog.DialogResult = DialogResult.Cancel; dialog.Close(); } }
+            };
+            driver.Start(); open();
+        }
+        if (failure != null) throw failure;
+        Check(handled, "visible dialog completed: " + typeof(T).Name);
+    }
+
+    private static void ChooseKeys(VirtualKeyboardDialog dialog, params Keys[] keys)
+    {
+        All(dialog).OfType<Button>().Single(b => b.Text == (Localizer.IsEnglish ? "Clear selection" : "清空选择")).PerformClick();
+        Field<RadioButton>(dialog, "multipleButton").Checked = keys.Length > 1;
+        Field<RadioButton>(dialog, "singleButton").Checked = keys.Length <= 1;
+        foreach (Keys key in keys) PressKey(dialog, key, key == Keys.LWin);
+        Check(((Button)dialog.AcceptButton).Enabled, "chosen keys can be confirmed");
+        ((Button)dialog.AcceptButton).PerformClick();
+    }
+
+    private static void BeginnerWorkflow()
+    {
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        {
+            string directory = Path.Combine(root, "beginner-" + Guid.NewGuid().ToString("N"));
+            MacroConfig config = new MacroConfig { Language = language, GamepadDeviceType = VirtualGamepadTypes.None };
+            Observer observer = new Observer();
+            using (MainForm form = new MainForm(config, directory, observer))
+            {
+                form.Show(); Pump(25);
+                InDialog<NewMacroDialog>(() => Field<Button>(form, "newMacroButton").PerformClick(), chooser =>
+                    All(chooser).OfType<Button>().Single(b => b.Name == "template3").PerformClick());
+                Check(config.Macros.Count == 1, "blank creation adds only one macro");
+                MacroDefinition macro = config.Macros[0];
+                Check(!Field<Button>(form, "runButton").Enabled, "empty macro cannot run and explains the next step");
+                Check(Field<Label>(form, "runtimeCapabilityLabel").Text.Contains(Localizer.IsEnglish ? "step" : "步骤"), "empty state directs the user to steps");
+                TextBox name = Field<TextBox>(form, "nameBox"), note = Field<TextBox>(form, "descriptionBox");
+                name.Focus(); name.Text = "  " + (Localizer.IsEnglish ? "My first macro" : "我的第一个宏") + "  ";
+                note.Focus(); note.Text = "Bilingual workflow";
+                InDialog<VirtualKeyboardDialog>(() => Field<Button>(form, "captureTriggerButton").PerformClick(), keys => ChooseKeys(keys, Keys.LControlKey, Keys.F9));
+                Field<ComboBox>(form, "triggerModeBox").SelectedIndex = 2;
+                Field<NumericUpDown>(form, "repeatBox").Value = 2;
+                InDialog<StepEditDialog>(() => Field<Button>(form, "addStepButton").PerformClick(), editor =>
+                {
+                    InDialog<VirtualKeyboardDialog>(() => Field<Button>(editor, "captureButton").PerformClick(), keys => ChooseKeys(keys, Keys.F6));
+                    Field<NumericUpDown>(editor, "holdBox").Value = 11;
+                    Field<NumericUpDown>(editor, "delayBox").Value = 17;
+                    ((Button)editor.AcceptButton).PerformClick();
+                });
+                Check(macro.Trigger.Ctrl && macro.Trigger.VirtualKey == (int)Keys.F9 && macro.Steps.Count == 1, "blank setup preserves trigger chord and action");
+                Check(Field<Label>(form,"stepsHintLabel").Text==(Localizer.IsEnglish ? "1 step" : "1 个步骤"), "step count uses the correct singular wording");
+                Check(Field<Button>(form,"runButton").Enabled, "adding the first step immediately enables Run without an unrelated focus change");
+                DataGridView grid = Field<DataGridView>(form, "grid"); grid.Rows[0].Selected = true;
+                InDialog<StepEditDialog>(() => Field<Button>(form, "editStepButton").PerformClick(), editor =>
+                {
+                    Field<NumericUpDown>(editor, "delayBox").Value = 88;
+                    ((Button)editor.CancelButton).PerformClick();
+                });
+                Check(macro.Steps[0].DelayMs == 17, "cancelled step edit leaves the saved step intact");
+                InDialog<StepEditDialog>(() => Field<Button>(form, "editStepButton").PerformClick(), editor =>
+                {
+                    Field<CheckBox>(editor, "randomDelayBox").Checked = true;
+                    Field<NumericUpDown>(editor, "randomMinBox").Value = 300;
+                    Field<NumericUpDown>(editor, "randomMaxBox").Value = 100;
+                    Check(!((Button)editor.AcceptButton).Enabled && Field<Label>(editor, "stepPreviewText").Text.Contains(Localizer.IsEnglish ? "minimum" : "最小值"), "invalid range is explained inline without an extra error dialog");
+                    Field<NumericUpDown>(editor, "randomMaxBox").Value = 500;
+                    Check(((Button)editor.AcceptButton).Enabled, "correcting the range immediately enables saving");
+                    Field<CheckBox>(editor, "randomDelayBox").Checked = false;
+                    Field<NumericUpDown>(editor, "delayBox").Value = 19;
+                    ((Button)editor.AcceptButton).PerformClick();
+                });
+                MacroConfig saved = ConfigPackageSerializer.DeserializeConfigFromFile(Path.Combine(directory, "config.xml"));
+                Check(saved.Macros[0].Name == macro.Name && saved.Macros[0].Description == note.Text &&
+                    saved.Macros[0].Trigger.Ctrl && saved.Macros[0].Activator.Mode == ActivatorModes.Press &&
+                    saved.Macros[0].RepeatCount == 2 && saved.Macros[0].Steps[0].DelayMs == 19, "name, note, trigger, repeat and edited step persist without a Save action");
+                Label readiness = Field<Label>(form, "runtimeCapabilityLabel");
+                Check(readiness.Visible && readiness.Text.Contains(Localizer.IsEnglish ? "auto-save" : "自动保存"), "save and run guidance remains visible after adding steps");
+                grid.ClearSelection(); grid.Rows[0].Selected=true;
+                All(grid.Parent.Parent).OfType<Button>().Single(b => b.Text==Localizer.T("删除")).PerformClick();
+                Check(macro.Steps.Count==0 && !Field<Button>(form,"runButton").Enabled, "deleting the last step immediately disables Run");
+                Field<Button>(form,"undoStepsButton").PerformClick();
+                Check(macro.Steps.Count==1 && Field<Button>(form,"runButton").Enabled, "undo restores both the last step and Run readiness");
+                Render(form, "beginner-ready-" + language);
+                // PerformClick does not activate its window as a real mouse click would.
+                form.Activate(); Pump(25);
+                Field<Button>(form, "runButton").PerformClick();
+                try { Wait(() => observer.KeyboardDowns >= 2 && !(bool)Call(form, "HasWorkerBackedRuns"), "new macro runs the configured count", 3000); }
+                catch (Exception ex) { throw new Exception("Beginner Run: downs="+observer.Downs+"; ups="+observer.Ups+"; pause="+Field<bool>(form,"uiSafetyPauseRequested")+"/"+Field<string>(form,"uiSafetyPauseReason")+"; modal="+Field<int>(form,"uiSafetyModalDepth")+"; status="+Field<Label>(form,"statusLabel").Text+"; enabled="+Field<Button>(form,"runButton").Enabled,ex); }
+                Check(observer.KeyboardDowns == observer.KeyboardUps && observer.Pressed == 0, "new macro releases every output");
+                Field<CheckBox>(form, "enabledBox").Checked = false;
+                Check(readiness.Text.Contains(Localizer.IsEnglish ? "Shortcut off" : "触发键已关闭"), "disabled shortcut explicitly keeps manual execution available");
+                long before = observer.Downs;
+                Field<Button>(form, "runButton").PerformClick();
+                Wait(() => observer.Downs > before && !(bool)Call(form, "HasWorkerBackedRuns"), "manual Run still works with shortcut disabled", 3000);
+                form.Close();
+            }
+            MacroConfig reopened = ConfigPackageSerializer.DeserializeConfigFromFile(Path.Combine(directory, "config.xml"));
+            using (MainForm form = new MainForm(reopened, directory, observer))
+            {
+                form.Show(); Pump(25);
+                Check(!Field<CheckBox>(form, "enabledBox").Checked && Field<ComboBox>(form, "triggerModeBox").SelectedIndex == 2 &&
+                    reopened.Macros[0].Steps[0].DelayMs == 19, "reopening restores all settings and edited steps");
+                long before = observer.Downs; Field<Button>(form, "runButton").PerformClick();
+                Wait(() => observer.Downs > before && !(bool)Call(form, "HasWorkerBackedRuns"), "reopened macro runs", 3000);
+                Check(observer.Pressed == 0, "reopened run leaves no held output");
+                Field<CheckBox>(form,"enabledBox").Checked = true;
+                form.Hide(); Pump(20); Call(form,"UpdateUiSafetyPauseState",false);
+                before = observer.Downs;
+                Call(form,"HandleTerminalInput",CaptureEvent(Keys.F9,true));
+                Call(form,"HandleTerminalInputReleased",CaptureEvent(Keys.F9,true));
+                Wait(() => observer.Downs > before && !(bool)Call(form,"HasWorkerBackedRuns"), "saved shortcut dispatch runs the reopened macro", 3000);
+                Check(observer.Pressed == 0, "shortcut run releases every output");
+                form.Close();
+            }
+        }
+    }
+
+    private static InputEventInfo CaptureEvent(Keys key, bool ctrl = false, bool shift = false, bool alt = false, bool win = false)
+    { return new InputEventInfo { Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)key }, Ctrl = ctrl, Shift = shift, Alt = alt, Win = win }; }
+
+    private static void QuickShortcutCapture()
+    {
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        {
+            MacroConfig config = new MacroConfig { Language = language, GamepadDeviceType = VirtualGamepadTypes.None,
+                PanicTrigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.Pause, Ctrl = true } };
+            config.Macros.Add(Timed("Unchanged existing macro", Keys.F7, false));
+            Observer observer = new Observer();
+            using (MainForm form = new MainForm(config, Path.Combine(root,"capture-"+Guid.NewGuid().ToString("N")), observer))
+            using (QuickCreateDialog quick = new QuickCreateDialog(form, QuickTemplate.Sequence))
+            {
+                form.Show(); quick.Show(form); Pump(25);
+                Check(!Field<Button>(quick,"editActionButton").Enabled && !Field<Button>(quick,"removeActionButton").Enabled, "empty step list has no clickable no-op edit/delete actions");
+                Call(quick,"CaptureTrigger",null,EventArgs.Empty);
+                Call(form,"HandleTerminalInput",CaptureEvent(Keys.LControlKey,true));
+                Check(Field<TriggerSpec>(quick,"trigger") == null, "modifier waits for the main key");
+                Call(form,"HandleTerminalInput",CaptureEvent(Keys.F9,true,true,true,true)); Pump(25);
+                TriggerSpec captured = Field<TriggerSpec>(quick,"trigger");
+                Check(captured.VirtualKey == (int)Keys.F9 && captured.Ctrl && captured.Shift && captured.Alt && captured.Win, "physical quick capture keeps the full modifier chord");
+                foreach (Keys key in new[] { Keys.LControlKey, Keys.RShiftKey, Keys.RMenu, Keys.LWin })
+                {
+                    Call(quick,"CaptureTrigger",null,EventArgs.Empty);
+                    Call(form,"HandleTerminalInput",CaptureEvent(key));
+                    Call(form,"HandleTerminalInputReleased",CaptureEvent(key)); Pump(20);
+                    captured = Field<TriggerSpec>(quick,"trigger");
+                    Check(captured.VirtualKey == (int)key && !captured.Ctrl && !captured.Shift && !captured.Alt && !captured.Win, "standalone modifier captures on release: " + key);
+                }
+                Call(quick,"CaptureTrigger",null,EventArgs.Empty);
+                Call(form,"HandleTerminalInput",new InputEventInfo { Input = new InputSpec { Kind=InputKind.MouseX1, VirtualKey=0 }, Ctrl=true }); Pump(20);
+                captured=Field<TriggerSpec>(quick,"trigger");
+                Check(captured.Kind==InputKind.MouseX1 && captured.Ctrl, "mouse chord keeps modifiers");
+                Call(quick,"CaptureTrigger",null,EventArgs.Empty);
+                Call(form,"HandleTerminalInput",new InputEventInfo { Input = new InputSpec { Kind=InputKind.Keyboard, VirtualKey=(int)Keys.Enter, Extended=true } }); Pump(20);
+                captured=Field<TriggerSpec>(quick,"trigger");
+                Check(captured.Extended && captured.MatchExtended, "capture distinguishes numpad Enter");
+                Call(quick,"CaptureTrigger",null,EventArgs.Empty);
+                Call(form,"HandleTerminalInput",CaptureEvent(Keys.Escape));
+                Check(Field<TriggerSpec>(quick,"trigger")==captured && Field<Button>(quick,"triggerButton").Enabled, "Escape keeps the previous trigger and restores selection");
+                Call(quick,"CaptureTrigger",null,EventArgs.Empty);
+                Call(form,"HandleTerminalInput",CaptureEvent(Keys.Pause,true)); Pump(40);
+                Check(Field<TriggerSpec>(quick,"trigger")==captured && Field<Button>(quick,"triggerButton").Enabled, "Emergency Stop wins and restores quick capture controls");
+                Check(config.Macros[0].Trigger.VirtualKey==(int)Keys.F7 && observer.Downs==0, "quick capture never changes or runs the existing macro");
+                Field<List<MacroStep>>(quick,"steps").AddRange(new[] { new MacroStep(), new MacroStep(), new MacroStep() });
+                Call(quick,"RefreshActions"); Field<ListBox>(quick,"stepList").SelectedIndex=0;
+                Check(Field<Button>(quick,"editActionButton").Enabled && Field<Button>(quick,"removeActionButton").Enabled, "selected steps enable edit/delete");
+                InDialog<StepEditDialog>(() => Field<Button>(quick,"editActionButton").PerformClick(), editor =>
+                { Field<NumericUpDown>(editor,"delayBox").Value=37; ((Button)editor.AcceptButton).PerformClick(); });
+                Check(Field<ListBox>(quick,"stepList").SelectedIndex==0 && Field<List<MacroStep>>(quick,"steps")[0].DelayMs==37, "editing keeps the selected row instead of jumping to the last step");
+                Render(quick,"beginner-quick-"+language);
+                quick.Close(); form.Close();
+            }
+            using (QuickCreateDialog held = new QuickCreateDialog(null,QuickTemplate.HeldMapping))
+            {
+                held.GetType().GetField("trigger",Private).SetValue(held,new TriggerSpec { Kind=InputKind.WheelUp });
+                Call(held,"UpdateTrigger");
+                Check(!((Button)held.AcceptButton).Enabled && Field<Label>(held,"readyLabel").Text.Contains(Localizer.IsEnglish ? "wheel" : "滚轮"), "unsupported hold trigger is explained before Create");
+            }
+            using (StepEditDialog wheel = new StepEditDialog(null,new MacroStep { Kind=InputKind.WheelDown }))
+            {
+                Field<ComboBox>(wheel,"actionBox").SelectedIndex=1;
+                Check(!((Button)wheel.AcceptButton).Enabled, "unsupported wheel hold is blocked inline");
+                Field<ComboBox>(wheel,"actionBox").SelectedIndex=0;
+                Check(((Button)wheel.AcceptButton).Enabled, "tap immediately restores valid wheel action");
             }
         }
     }

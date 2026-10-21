@@ -60,6 +60,7 @@ namespace InputStitch
         private readonly ListBox stepList = new ListBox();
         private readonly List<MacroStep> steps = new List<MacroStep>();
         private Button createButton;
+        private Button editActionButton, removeActionButton;
         private Label readyLabel;
         internal MacroDefinition Result { get; private set; }
         private static string T(string zh, string en) { return VirtualKeyboardDialog.TextFor(zh, en); }
@@ -114,7 +115,7 @@ namespace InputStitch
                 mouseBox.SelectedIndex = 0;
             };
             mouse.Controls.Add(mouseBox);
-            AddRow(fields, "", mouse);
+            AddRow(fields, T("或用鼠标", "Or use mouse"), mouse);
             controlBox.DropDownStyle = ComboBoxStyle.DropDownList;
             foreach (GamepadControl value in Enum.GetValues(typeof(GamepadControl))) controlBox.Items.Add(InputNames.FormatGamepadControl(value));
             controlBox.SelectedIndex = (int)GamepadControl.LeftStick;
@@ -151,25 +152,30 @@ namespace InputStitch
                     e.DrawFocusRectangle();
                 };
                 stepList.BorderStyle = BorderStyle.FixedSingle;
-                AddRow(fields, T("执行操作", "Actions"), stepList);
+                AddRow(fields, T("执行步骤", "Steps"), stepList);
                 fields.RowStyles[fields.GetRow(stepList)] = new RowStyle(SizeType.Percent, 100);
                 FlowLayoutPanel actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
-                Button add = ButtonFor(T("添加操作…", "Add action…"), delegate { EditAction(false); });
+                Button add = ButtonFor(T("添加步骤…", "Add step…"), delegate { EditAction(false); });
                 add.Name = "addActionButton";
                 Button edit = ButtonFor(T("编辑", "Edit"), delegate { EditAction(true); });
+                editActionButton = edit;
                 Button remove = ButtonFor(T("删除", "Remove"), delegate
                 {
                     int index = stepList.SelectedIndex;
-                    if (index >= 0) { steps.RemoveAt(index); RefreshActions(); }
+                    if (index >= 0) { steps.RemoveAt(index); RefreshActions(index); }
                 });
+                removeActionButton = remove;
+                stepList.SelectedIndexChanged += delegate { UpdateActionButtons(); };
+                stepList.DoubleClick += delegate { EditAction(true); };
+                UpdateActionButtons();
                 actions.Controls.AddRange(new Control[] { add, edit, remove });
                 AddRow(fields, "", actions);
             }
             Label help = new Label { AutoSize = true, Dock = DockStyle.Fill, Padding = new Padding(0, 12, 0, 8), Text = kind == QuickTemplate.HeldMapping
                 ? T("按住输出，松开释放；原始按键仍传给程序。0° 向前，90° 向右，±180° 向后。",
                     "Hold to output, release to stop. Original key passes through. 0° forward, 90° right, ±180° back.")
-                : T("按一次触发开始；再次触发可停止。创建后可在主界面继续编辑步骤和高级参数。",
-                    "Press the trigger to start; press again to stop. After creation, edit steps and advanced options in the main window.") };
+                : T("按触发键开始；运行中再按一次可停止。完成后自动保存，仍可在主界面修改。",
+                    "Press your shortcut to start; press again to stop early. Creation saves your macro; you can edit it later.") };
             AddRow(fields, "", help);
             readyLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Accent, TextAlign = ContentAlignment.MiddleLeft, MaximumSize = new Size(520, 0), Padding = new Padding(0, 4, 12, 4) };
             TableLayoutPanel footer = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, Padding = new Padding(0, 12, 0, 0), MinimumSize = new Size(0, 58) };
@@ -178,7 +184,7 @@ namespace InputStitch
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             Button cancel = ButtonFor(T("取消", "Cancel"), delegate { DialogResult = DialogResult.Cancel; });
             cancel.DialogResult = DialogResult.Cancel;
-            Button create = ButtonFor(T("创建", "Create"), CreateMacro);
+            Button create = ButtonFor(T("创建并保存", "Create and save"), CreateMacro);
             createButton = create;
             footer.Controls.Add(readyLabel, 0, 0);
             footer.Controls.Add(create, 1, 0);
@@ -195,7 +201,7 @@ namespace InputStitch
         internal static string Title(QuickTemplate kind)
         {
             return kind == QuickTemplate.HeldMapping ? T("按住控制手柄", "Hold a controller input") :
-                kind == QuickTemplate.Repeat ? T("重复按键", "Repeat an action") : T("按顺序执行", "Run a sequence");
+                kind == QuickTemplate.Repeat ? T("重复操作", "Repeat an action") : T("按顺序执行", "Run a sequence");
         }
         private static NumericUpDown Number(int min, int max, int value)
         {
@@ -236,12 +242,10 @@ namespace InputStitch
             if (main == null) return;
             triggerButton.Text = T("请按键…（Esc 取消）", "Press a key… (Esc cancels)");
             triggerButton.Enabled = false;
-            main.BeginStepInputCapture(delegate(InputSpec input)
+            main.BeginQuickTriggerCapture(delegate(TriggerSpec captured)
             {
                 if (IsDisposed) return;
-                if (input != null) trigger = new TriggerSpec { Kind = input.Kind, VirtualKey = input.VirtualKey,
-                    Extended = input.Extended, MatchExtended = input.Kind == InputKind.Keyboard && input.VirtualKey == (int)Keys.Enter,
-                    GamepadControl = input.GamepadControl, GamepadUserIndex = XInputInputService.AnyController };
+                if (captured != null) trigger = captured;
                 UpdateTrigger();
             });
         }
@@ -265,9 +269,19 @@ namespace InputStitch
                 if (edit) { steps.RemoveAt(index); steps.InsertRange(index, dialog.ResultSteps); }
                 else steps.AddRange(dialog.ResultSteps);
             }
-            RefreshActions();
+            RefreshActions(edit ? index : steps.Count - 1);
         }
         private void RefreshActions()
+        {
+            RefreshActions(steps.Count - 1);
+        }
+        private void UpdateActionButtons()
+        {
+            bool selected = stepList.SelectedIndex >= 0;
+            if (editActionButton != null) editActionButton.Enabled = selected;
+            if (removeActionButton != null) removeActionButton.Enabled = selected;
+        }
+        private void RefreshActions(int selectedIndex)
         {
             stepList.Items.Clear();
             foreach (MacroStep step in steps)
@@ -278,17 +292,20 @@ namespace InputStitch
                     : step.DelayMs.ToString();
                 stepList.Items.Add(InputNames.FormatAction(step.Action) + " · " + InputNames.FormatInput(step) + hold + T(" · 等待 ", " · Wait ") + delay + " ms");
             }
-            if (stepList.Items.Count > 0) stepList.SelectedIndex = stepList.Items.Count - 1;
+            if (stepList.Items.Count > 0) stepList.SelectedIndex = Math.Min(Math.Max(0, selectedIndex), stepList.Items.Count - 1);
+            UpdateActionButtons();
             UpdateReadyState();
         }
         private void UpdateReadyState()
         {
             if (createButton == null) return;
             bool hasActions = template == QuickTemplate.HeldMapping || steps.Count > 0;
-            createButton.Enabled = trigger != null && hasActions;
+            bool validTrigger = trigger != null && (template != QuickTemplate.HeldMapping || MacroRuntimeClassifier.IsHoldTriggerSupported(trigger));
+            createButton.Enabled = validTrigger && hasActions;
             readyLabel.Text = trigger == null ? T("下一步：选择用来启动宏的触发键。", "Next: choose the shortcut that starts your macro.")
-                : !hasActions ? T("下一步：点击“添加操作”，选择宏要替你按的键。", "Next: add an action and choose the key your macro will press.")
-                : T("已准备好，点击“创建”保存到宏列表。", "Ready. Click Create to save it to your macro list.");
+                : !validTrigger ? T("滚轮不能持续按住，请改选键盘键或鼠标按钮。", "The wheel cannot be held. Choose a key or mouse button.")
+                : !hasActions ? T("下一步：点击“添加步骤”，选择宏要替你按的键。", "Next: add a step and choose the key your macro will press.")
+                : T("已准备好，点击“创建并保存”，返回主界面运行。", "Ready. Create and save, then run it from the main window.");
         }
         private void CreateMacro(object sender, EventArgs e)
         {

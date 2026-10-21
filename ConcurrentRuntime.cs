@@ -40,10 +40,10 @@ namespace InputStitch
             if (Category != MacroRuntimeCategory.ConcurrentHoldMacro && Category != MacroRuntimeCategory.ParallelHeldMapping)
                 return "";
             if (CanStartFromConfiguredTrigger)
-                return english ? "Physical Hold trigger: available" : "物理 Hold 触发：可用";
+                return english ? "Hold shortcut available" : "按住触发可用";
             return english
-                ? "Physical Hold trigger: unavailable (wheel input has no held state)"
-                : "物理 Hold 触发：不可用（滚轮没有持续按下状态）";
+                ? "Hold shortcut unavailable: choose a key or mouse button."
+                : "按住触发不可用：请选择键盘键或鼠标按钮。";
         }
 
         public string ReasonText(bool english)
@@ -53,35 +53,35 @@ namespace InputStitch
                 case "no-macro":
                     return english ? "No macro is selected." : "尚未选择宏。";
                 case "no-steps":
-                    return english ? "The macro has no execution steps." : "这个宏还没有执行步骤。";
+                    return english ? "Add or record a step to run this macro." : "请先添加或录制步骤，再运行这个宏。";
                 case "parallel-held":
                     return english
-                        ? "Immediate gamepad-only Hold state. It can coexist with other Parallel Held Mappings and concurrent timed macros."
-                        : "即时、仅手柄状态的 Hold 映射；可与其他并行按住映射和可并发时序宏共存。";
+                        ? "Holds the controller input while you hold the shortcut. Releasing it stops the macro."
+                        : "按住触发键时保持手柄操作，松开即停止。";
                 case "timed":
                     return english
-                        ? "Ordinary timed/toggle macro. It runs as an independent concurrent runtime source."
-                        : "普通时序 / Toggle 宏；会作为独立运行 Source 进入多宏并发运行时。";
+                        ? "Runs the steps in order. Other macros can run at the same time."
+                        : "按顺序执行步骤，也可同时运行其他宏。";
                 case "hold-finite":
                     return english
-                        ? "Finite Hold uses the concurrent Hold runtime instead of the state-only Parallel Held path."
-                        : "有限次数 Hold 使用可并发 Hold 运行时，而不是纯状态型并行按住路径。";
+                        ? "Runs the set number of times while the shortcut is held. Release it to stop early."
+                        : "按住触发键时执行指定次数，松开可提前停止。";
                 case "hold-trigger":
                     return english
-                        ? "Wheel input has no persistent held state, so this Hold can run manually from the UI but cannot start from its configured physical trigger."
-                        : "滚轮没有持续按下状态，因此这个 Hold 可以从界面手动运行，但不能通过其配置的物理触发器启动。";
+                        ? "The wheel cannot be held. Use Run, or change the shortcut."
+                        : "滚轮不能持续按住。可点击“执行所选宏”，或更换触发键。";
                 case "hold-non-gamepad":
                     return english
-                        ? "This Hold contains keyboard or mouse output, so it runs as an independent concurrent Hold timeline."
-                        : "这个 Hold 包含键盘或鼠标输出，因此作为独立的可并发 Hold 时间线运行。";
+                        ? "Runs these steps while you hold the shortcut. Release it to stop."
+                        : "按住触发键时按顺序执行这些步骤，松开停止。";
                 case "hold-action":
                     return english
-                        ? "This Hold contains Press/Up sequencing, so it runs as an independent concurrent Hold timeline."
-                        : "这个 Hold 包含 Press / Up 时序，因此作为独立的可并发 Hold 时间线运行。";
+                        ? "Runs these steps while you hold the shortcut. Release it to stop."
+                        : "按住触发键时按顺序执行这些步骤，松开停止。";
                 case "hold-delay":
                     return english
-                        ? "This Hold contains non-zero or random delay, so it runs as an independent concurrent Hold timeline."
-                        : "这个 Hold 包含非零或随机延迟，因此作为独立的可并发 Hold 时间线运行。";
+                        ? "Runs these steps while you hold the shortcut. Release it to stop."
+                        : "按住触发键时按顺序执行这些步骤，松开停止。";
                 default:
                     return english ? "Runtime capability is determined from the current macro definition." : "运行资格由宏当前的实际配置决定。";
             }

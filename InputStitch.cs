@@ -3132,11 +3132,12 @@ namespace InputStitch
         private bool loadingUi;
         private bool pauseHotkeys;
         private bool manualTriggerSuspend;
-        private enum CaptureMode { None, Trigger, StepInput, PanicTrigger, LayerSwitch }
+        private enum CaptureMode { None, Trigger, StepInput, PanicTrigger, LayerSwitch, QuickTrigger }
         private CaptureMode captureMode = CaptureMode.None;
         private InputEventInfo pendingModifierCapture;
         private MappingLayerDefinition layerSwitchCaptureTarget;
         private Action<InputSpec> stepCaptureCallback;
+        private Action<TriggerSpec> quickTriggerCaptureCallback;
         private MacroDefinition nameEditingMacro;
         private System.Windows.Forms.Timer foregroundTimer;
         private readonly List<IntPtr> recentExternalForegrounds = new List<IntPtr>();
@@ -4620,6 +4621,7 @@ namespace InputStitch
             }
             RefreshSaveWarning();
             RefreshEditorGuidance();
+            UpdateRunButton();
             if (m == null || m.Steps == null) return;
             int i = 1;
             foreach (MacroStep step in m.Steps)
@@ -4875,13 +4877,15 @@ namespace InputStitch
             string triggerEligibility = capability.TriggerEligibilityText(Localizer.IsEnglish);
             string capabilityText = !capability.CanStart || !capability.CanStartFromConfiguredTrigger
                 ? capability.ReasonText(Localizer.IsEnglish) + (string.IsNullOrWhiteSpace(triggerEligibility) ? "" : " · " + triggerEligibility)
-                : (Localizer.IsEnglish ? "Ready · can run alongside other macros" : "可以运行 · 支持与其他宏同时运行");
+                : (SelectedMacro.Enabled
+                    ? (Localizer.IsEnglish ? "Ready · auto-save on. Use Run or your shortcut." : "可以运行 · 设置自动保存；点击“执行所选宏”或使用触发键。")
+                    : (Localizer.IsEnglish ? "Ready · auto-save on. Shortcut off; use Run." : "可以运行 · 设置自动保存；触发键已关闭，请点击“执行所选宏”。"));
             runtimeCapabilityLabel.Text = capabilityText;
             runtimeCapabilityLabel.ForeColor = !capability.CanStart ||
                 (!string.IsNullOrWhiteSpace(triggerEligibility) && !capability.CanStartFromConfiguredTrigger)
                 ? Color.DarkOrange : Color.ForestGreen;
             if (uiToolTip != null)
-                uiToolTip.SetToolTip(runtimeCapabilityLabel, capability.ReasonText(Localizer.IsEnglish) +
+                uiToolTip.SetToolTip(runtimeCapabilityLabel, TriggerEditor.Hint(SelectedMacro) + Environment.NewLine + capability.ReasonText(Localizer.IsEnglish) +
                     (string.IsNullOrWhiteSpace(triggerEligibility) ? "" : Environment.NewLine + triggerEligibility));
         }
 
@@ -5680,6 +5684,15 @@ namespace InputStitch
             }
         }
 
+        internal void BeginQuickTriggerCapture(Action<TriggerSpec> callback)
+        {
+            CancelCapture();
+            captureMode = CaptureMode.QuickTrigger;
+            quickTriggerCaptureCallback = callback;
+            statusLabel.Text = Localizer.IsEnglish ? "Press your shortcut (Esc cancels)." : "请按用来启动宏的触发键（Esc 取消）。";
+            UpdateUiSafetyPauseState();
+        }
+
         public void BeginStepInputCapture(Action<InputSpec> callback)
         {
             captureMode = CaptureMode.StepInput;
@@ -5691,10 +5704,12 @@ namespace InputStitch
 
         public void CancelCapture()
         {
+            Action<TriggerSpec> cancelledQuickCapture = quickTriggerCaptureCallback;
             captureMode = CaptureMode.None;
             pendingModifierCapture = null;
             layerSwitchCaptureTarget = null;
             stepCaptureCallback = null;
+            quickTriggerCaptureCallback = null;
             if (captureTriggerButton != null)
             {
                 RefreshTriggerSelector();
@@ -5703,6 +5718,7 @@ namespace InputStitch
             RefreshPanicUi();
             if (!recordingActive && statusLabel != null) RefreshStatusForLanguage();
             UpdateUiSafetyPauseState();
+            if (cancelledQuickCapture != null) cancelledQuickCapture(null);
         }
 
         private static TriggerSpec TriggerFromInputEvent(InputEventInfo e)
@@ -5954,7 +5970,7 @@ namespace InputStitch
             {
                 // Defer a physical modifier until it is released: Ctrl then K must still
                 // capture Ctrl+K, while pressing and releasing Shift alone captures Shift.
-                if ((captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger || captureMode == CaptureMode.LayerSwitch) &&
+                if ((captureMode == CaptureMode.Trigger || captureMode == CaptureMode.QuickTrigger || captureMode == CaptureMode.PanicTrigger || captureMode == CaptureMode.LayerSwitch) &&
                     !completingModifierCapture && e.Input.Kind == InputKind.Keyboard &&
                     ModifierSafetyPolicy.IsModifierVirtualKey(e.Input.VirtualKey))
                 {
@@ -5967,6 +5983,25 @@ namespace InputStitch
                     Action<InputSpec> cancelledStepCapture = captureMode == CaptureMode.StepInput ? stepCaptureCallback : null;
                     CancelCapture();
                     if (cancelledStepCapture != null) cancelledStepCapture(null);
+                    return true;
+                }
+
+                if (captureMode == CaptureMode.QuickTrigger)
+                {
+                    Action<TriggerSpec> callback = quickTriggerCaptureCallback;
+                    TriggerSpec captured = TriggerFromInputEvent(e);
+                    captureMode = CaptureMode.None;
+                    quickTriggerCaptureCallback = null;
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            if (!recordingActive) RefreshStatusForLanguage();
+                            if (callback != null) callback(captured);
+                            UpdateUiSafetyPauseState();
+                        });
+                    }
+                    catch { }
                     return true;
                 }
 
@@ -6260,7 +6295,7 @@ namespace InputStitch
             InputEventInfo pending = pendingModifierCapture;
             if (pending != null && pending.Input != null && e.Input.Kind == InputKind.Keyboard &&
                 pending.Input.VirtualKey == e.Input.VirtualKey &&
-                (captureMode == CaptureMode.Trigger || captureMode == CaptureMode.PanicTrigger || captureMode == CaptureMode.LayerSwitch))
+                (captureMode == CaptureMode.Trigger || captureMode == CaptureMode.QuickTrigger || captureMode == CaptureMode.PanicTrigger || captureMode == CaptureMode.LayerSwitch))
             {
                 pendingModifierCapture = null;
                 HandleTerminalInputCore(pending, true);

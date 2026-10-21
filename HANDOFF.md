@@ -1,6 +1,44 @@
 ﻿# HANDOFF.md
 
-## Latest completed pass — secondary-window density and DPI (2026-10-21)
+## Latest completed pass — beginner workflow (beta.12, 2026-10-21)
+
+Local beta.12 / FileVersion 1.5.0.11 on `ui/product-refresh`. No new features,
+dependencies or assets; retain 10.5pt text and compressed single-file packaging.
+
+- Walk through both quick and blank creation, naming, shortcut selection and
+  capture, trigger mode/repeat, nested step selection, edit/cancel, automatic
+  persistence, reopening, Run and shortcut dispatch. Keep shortcut-off manual Run.
+- Keep saving/run guidance visible in the existing readiness row after steps
+  are added. Replace runtime implementation terms in ordinary explanations;
+  use consistent step wording and explicit Create and save. Correct the empty
+  keyboard hint to point above, and clarify the physical-input menu.
+- Adding the first step could leave Run disabled until an unrelated focus or
+  safety-state change. RefreshSteps now updates Run directly, also disabling it
+  after the last step is deleted and restoring it on Undo. The full journey
+  reproduced this defect; focused and full-suite evidence are retained.
+- Quick create previously used single-step capture for shortcuts, losing
+  modifier chords. Its capture now reuses the existing trigger conversion and
+  modifier-release semantics, with a dialog-owned callback; it cannot overwrite
+  the currently selected macro. Escape and Emergency Stop retain the previous
+  shortcut and restore the capture button. Emergency Stop retains priority.
+- Validate reversed random waits and unsupported wheel actions inline before
+  saving; keep existing validation guards. Disable empty-list edit/delete,
+  support the existing edit action on double click, and preserve the edited row.
+
+Final-source acceptance: full 32 suites PASS, 5,487 product assertions,
+172 actual crosshair pixel checks and 303,716 ownership assertions. Bilingual
+beginner/capture journeys also PASS at native 144 DPI (110 checks).
+The secondary layout matrix passes 69,571 checks / 188 windows,
+plus 24,192 / 50 windows at native 144 DPI. Other scales are
+synthetic 100/125/150/200%; unavailable compact sizes remain logged CLAMPED.
+Real SendInput and ViGEm/XInput: 77/77 PASS. Current-source sustained observer:
+300.1 seconds / 3,437 cycles, keyboard down/up
+13,036/13,036, zero final output sources and
+held outputs. Exact resource samples, package startup/extraction receipts,
+source/config hashes, sizes and source commit are in the delivery receipt.
+No remote publication or Stable replacement; user trial is optional feedback.
+
+## Previous completed pass — secondary-window density and DPI (2026-10-21)
 
 Local beta.11 / FileVersion 1.5.0.10 on `ui/product-refresh`. Inspect Settings,
 timing/conditions, step editing, key selection, export, Router/analog controls,

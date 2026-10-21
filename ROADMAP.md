@@ -11,6 +11,10 @@ setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 
+2026-10-21: beta.12 refines the beginner create-to-run flow, visible automatic-save
+guidance, consistent step wording, shortcut-chord capture and inline correction
+of invalid step settings. No new capabilities or dependencies.
+
 2026-10-21: beta.11 extends the same readability/usability/clean-overview standard
 to secondary dialogs: remove excess spacing, give lists readable rows, and
 validate bilingual/native-DPI text and clipping. Keep runtime feature expansion

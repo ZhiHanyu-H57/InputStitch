@@ -23,6 +23,10 @@ text, keeps repeat count and infinite repeat together, and wraps whole groups
 on narrower windows. Check actual control visibility after native handle
 creation and during repeated resize/language changes, not only preferred sizes.
 
+Beta.12 follows the beginner journey through creation, shortcut and step editing,
+saving, reopening and running. Put actionable copy in existing space; remove
+no-op edits and error-dialog detours without adding features.
+
 Beta.11 applies that standard to remaining dialogs. Validate first show, every
 tab, compact/restored sizes, actual list/checking behavior and complete default
 keyboard visibility. Native DPI can enlarge text before window geometry or
