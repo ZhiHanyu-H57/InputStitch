@@ -4902,10 +4902,10 @@ namespace InputStitch
                 suppressBox.Enabled = macro != null && !preserve && !controllerTrigger;
                 suppressBox.Checked = preserve || (!controllerTrigger && ModifierSafetyPolicy.ShouldSuppressTrigger(macro));
                 suppressBox.Text = preserve
-                    ? (Localizer.IsEnglish ? "Shift automatically passes through (always on for gamepad hold)" : "Shift 自动传给游戏（按住手柄映射时固定开启）")
+                    ? (Localizer.IsEnglish ? "Keep Shift input (required)" : "保留 Shift 输入（固定开启）")
                     : controllerTrigger
-                        ? (Localizer.IsEnglish ? "Controller input stays visible to the game until Router replacement" : "当前不会屏蔽原手柄输入（接管模式完成后才可屏蔽）")
-                        : Localizer.T("触发时屏蔽最后一个触发键/鼠标事件");
+                        ? (Localizer.IsEnglish ? "Controller input passes through" : "保留原手柄输入")
+                        : EditorDialogs.T("屏蔽触发键/鼠标事件", "Block trigger input");
                 SetTip(suppressBox, preserve
                     ? (Localizer.IsEnglish ? "Pass-through is automatically enabled here: Shift keeps its native game function while this held macro outputs gamepad input. The stored suppression preference is preserved for other modes." : "这里已自动开启透传：按住 Shift 输出手柄的同时，Shift 仍会传给游戏并保留原本功能。切换到其他模式后仍使用原先的屏蔽偏好。")
                     : controllerTrigger

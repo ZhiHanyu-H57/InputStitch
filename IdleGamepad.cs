@@ -366,7 +366,7 @@ namespace InputStitch
             secondsBox = Number(10, 86400, current.IdleSeconds);
             holdBox = Number(50, 2000, current.HoldMilliseconds);
             AddRow(fields, T("无操作时间（秒）：", "Idle time (seconds):"), secondsBox, 0);
-            controlBox = new ComboBox();
+            controlBox = new EditorChoice();
             controlBox.DropDownStyle = ComboBoxStyle.DropDownList;
             controlBox.Dock = DockStyle.Fill;
             controlBox.MinimumSize = new Size(210, 0);

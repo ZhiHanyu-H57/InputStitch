@@ -50,7 +50,7 @@ namespace InputStitch
         private TriggerSpec trigger;
         private readonly TextBox nameBox = new TextBox();
         private readonly Button triggerButton;
-        private readonly ComboBox controlBox = new ComboBox();
+        private readonly ComboBox controlBox = new EditorChoice();
         private readonly NumericUpDown angle = Number(-180, 180, 0);
         private readonly NumericUpDown strength = Number(1, 100, 80);
         private readonly NumericUpDown count = Number(1, 100000, 10);
@@ -100,7 +100,7 @@ namespace InputStitch
             triggerButton.Click += ChooseTrigger;
             AddRow(fields, T("触发键", "Trigger"), VirtualKeyboardDialog.WithDropDown(triggerButton, CaptureTrigger, ChooseTrigger));
             FlowLayoutPanel mouse = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
-            ComboBox mouseBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 195 };
+            ComboBox mouseBox = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 195 };
             mouseBox.Items.Add(T("选择鼠标按钮…", "Choose a mouse button…"));
             mouseBox.Width = Math.Max(195, TextRenderer.MeasureText(mouseBox.Items[0].ToString(), Font).Width + 32);
             InputKind[] mouseKinds = { InputKind.MouseLeft, InputKind.MouseRight, InputKind.MouseMiddle, InputKind.MouseX1, InputKind.MouseX2 };

@@ -101,9 +101,10 @@ internal static class ProductAcceptanceTests
     private static int Main(string[] args)
     {
         bool nativeJourney = args.Length > 0 && args[0] == "--journey-native";
+        bool nativeFields = args.Length > 0 && args[0] == "--fields-native";
         bool nativeDensity = args.Length > 0 && args[0] == "--density-native";
         densityUsesNativeDpi = nativeDensity;
-        if (nativeDensity || nativeJourney) SetProcessDpiAwarenessContext(new IntPtr(-4));
+        if (nativeDensity || nativeJourney || nativeFields) SetProcessDpiAwarenessContext(new IntPtr(-4));
         Application.EnableVisualStyles();
         EmbeddedDependencyLoader.Register();
         root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "product-acceptance");
@@ -119,13 +120,18 @@ internal static class ProductAcceptanceTests
             }
             else if (args.Length > 0 && args[0] == "--density") Density();
             else if (args.Length > 0 && args[0] == "--layout") ModesAndLayout();
+            else if (args.Length > 0 && (args[0] == "--fields" || nativeFields))
+            {
+                using(Graphics screen=Graphics.FromHwnd(IntPtr.Zero)) Console.WriteLine("FIELDS DPI="+screen.DpiX);
+                BoundedFields();
+            }
             else if (args.Length > 0 && (args[0] == "--journey" || nativeJourney))
             {
                 using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero)) Console.WriteLine("JOURNEY DPI=" + screen.DpiX);
                 BeginnerWorkflow(); QuickShortcutCapture();
             }
             else if (args.Length > 0 && args[0] == "--dialogs") { RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); }
-            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); }
+            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); BeginnerWorkflow(); QuickShortcutCapture(); BoundedFields(); }
             Console.WriteLine("PASS product acceptance: " + checks + " checks; isolated editor, saved files and runtime observer; no user configuration or real input.");
             return 0;
         }
@@ -781,6 +787,68 @@ internal static class ProductAcceptanceTests
                         "group name editing returns its value and restores modal protection");
                 }
                 Render(form, "new-user-complete-" + language);
+            }
+        }
+    }
+
+    private static void BoundedFields()
+    {
+        foreach(string language in new[]{"zh-CN","en-US"})
+        {
+            MacroConfig config=new MacroConfig { Language=language, GamepadDeviceType=VirtualGamepadTypes.None };
+            MacroDefinition macro=Timed("Compact fields",Keys.F8,false); config.Macros.Add(macro);
+            using(MainForm form=new MainForm(config,Path.Combine(root,"fields-"+Guid.NewGuid().ToString("N")),new Observer()))
+            {
+                form.Show(); Pump(30);
+                float scale=form.Font.GetHeight()/form.Font.GetHeight(96F);
+                CheckBox suppress=Field<CheckBox>(form,"suppressBox");
+                foreach(int width in new[]{1000,1160,1280})
+                {
+                    form.Size=new Size((int)(width*scale),(int)(780*scale)); Pump(30);
+                    foreach(bool expanded in new[]{false,true})
+                    {
+                        if(Field<bool>(form,"optionalSettingsExpanded")!=expanded) Field<Button>(form,"optionalSettingsButton").PerformClick();
+                        Pump(30);
+                        CompactTriggerLayout(form);
+                        Control[] common=suppress.Parent.Controls.Cast<Control>().Where(x=>x.Visible).ToArray();
+                        for(int a=0;a<common.Length;a++) for(int b=a+1;b<common.Length;b++)
+                            Check(!common[a].Bounds.IntersectsWith(common[b].Bounds),"common repeat/block/disclosure controls do not overlap");
+                        Check(suppress.Visible,"trigger blocking stays visible regardless of disclosure state");
+                        Control frame=Field<Control>(form,"optionsFrame");
+                        Check(!frame.Contains(suppress) && frame.Visible==expanded,"common blocking option is outside the advanced frame");
+                        if(expanded)
+                        {
+                            Check(frame.Contains(Field<ComboBox>(form,"activeLayerBox")) && frame.Contains(Field<ComboBox>(form,"mappingLayerBox")) && frame.BackColor!=Color.White,"both layer fields belong to the tinted advanced frame");
+                            foreach(string name in new[]{"activeLayerBox","mappingLayerBox"})
+                            {
+                                ComboBox choice=Field<ComboBox>(form,name);
+                                Check(choice.Width<=320*scale+1 && choice.Width<frame.Width*.8,"layer field has a bounded content width: "+name);
+                                Check(TextRenderer.MeasureText(choice.Text,choice.Font).Width+SystemInformation.VerticalScrollBarWidth+6<=choice.Width,"default layer name fits");
+                            }
+                            if(width==1160) Render(form,"compact-advanced-"+language);
+                        }
+                    }
+                }
+                bool before=macro.SuppressTrigger; suppress.Checked=!before;
+                Check(macro.SuppressTrigger==!before,"visible checkbox still saves the original suppression setting");
+                suppress.Checked=before;
+                form.Close();
+            }
+            foreach(bool gamepad in new[]{false,true})
+            using(StepEditDialog editor=new StepEditDialog(null,new MacroStep { Kind=gamepad?InputKind.Gamepad:InputKind.Keyboard, VirtualKey=(int)Keys.F6, GamepadControl=GamepadControl.LeftStick }))
+            {
+                editor.Show(); Pump(30);
+                float scale=editor.Font.GetHeight()/editor.Font.GetHeight(96F);
+                foreach(ComboBox choice in All(editor).OfType<ComboBox>().Where(x=>x.Visible))
+                {
+                    Check(choice.Width<=320*scale+1,"step choices do not stretch across the dialog");
+                    Check(TextRenderer.MeasureText(choice.Text,choice.Font).Width+SystemInformation.VerticalScrollBarWidth+6<=choice.Width,"step choice remains readable: "+choice.Text);
+                }
+                if(gamepad) Check(Field<Control>(editor,"gamepadPreview").Width>=300*scale,"controller diagram is substantially wider than the previous 224px content");
+                Render(editor,"compact-step-"+language+"-"+(gamepad?"gamepad":"keyboard"));
+                foreach(Button footer in new[]{(Button)editor.AcceptButton,(Button)editor.CancelButton})
+                    Check(editor.ClientRectangle.Contains(editor.RectangleToClient(footer.RectangleToScreen(footer.ClientRectangle))),"step footer remains visible");
+                editor.Close();
             }
         }
     }

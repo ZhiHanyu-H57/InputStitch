@@ -26,7 +26,7 @@ namespace InputStitch
         private readonly NumericUpDown shortPress = Number(50, 2000, 300);
         private readonly TextBox process = new TextBox();
         private readonly TextBox titleContains = new TextBox();
-        private readonly ComboBox device = new ComboBox();
+        private readonly ComboBox device = new EditorChoice();
         private readonly Button refreshDevices = new EditorButton();
         private readonly CheckBox analogEnabled = new CheckBox();
         private readonly ComboBox analogControl = new EditorChoice();

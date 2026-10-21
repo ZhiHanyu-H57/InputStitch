@@ -82,6 +82,8 @@ namespace InputStitch
             {
                 FlowLayoutPanel flow = child as FlowLayoutPanel;
                 if (flow != null && flow.AutoSize) flow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                EditorChoice compactChoice = child as EditorChoice;
+                if (compactChoice != null) compactChoice.FitWidth();
                 EditorIntro intro = child as EditorIntro;
                 if (intro != null)
                 {
@@ -169,6 +171,7 @@ namespace InputStitch
     internal sealed class EditorSection : GroupBox
     {
         internal string Badge;
+        internal bool Emphasized;
         internal EditorSection()
         {
             DoubleBuffered = true;
@@ -181,7 +184,7 @@ namespace InputStitch
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             using (GraphicsPath shape = EditorTheme.Rounded(new Rectangle(0, 0, Width - 1, Height - 1), 10))
             using (Brush fill = new SolidBrush(BackColor))
-            using (Pen border = new Pen(EditorTheme.Line))
+            using (Pen border = new Pen(Emphasized ? EditorTheme.Accent : EditorTheme.Line))
             { e.Graphics.FillPath(fill, shape); e.Graphics.DrawPath(border, shape); }
             int unit = Font.Height;
             int titleLeft = 18;
@@ -371,6 +374,67 @@ namespace InputStitch
     // themes. Print the real selected value so off-screen layout captures match it.
     internal sealed class EditorChoice : ComboBox
     {
+        internal bool CompactWidth = true;
+        private bool busy;
+        private ToolTip uiToolTip;
+        private Control parent;
+
+        internal void FitWidth()
+        {
+            if (!CompactWidth || busy || DropDownStyle != ComboBoxStyle.DropDownList) return;
+            busy = true;
+            try
+            {
+                float scale = Font.GetHeight() / Font.GetHeight(96F);
+                int measured = TextRenderer.MeasureText(Text,Font).Width;
+                foreach (object item in Items) measured = Math.Max(measured,TextRenderer.MeasureText(GetItemText(item),Font).Width);
+                int width = Math.Max((int)(112*scale),Math.Min((int)(320*scale),measured+SystemInformation.VerticalScrollBarWidth+(int)(14*scale)));
+                TableLayoutPanel table = Parent as TableLayoutPanel;
+                if (table != null)
+                {
+                    int column=table.GetColumn(this), span=table.GetColumnSpan(this), available=0;
+                    int[] columns=table.GetColumnWidths();
+                    for(int i=column;i>=0 && i<Math.Min(columns.Length,column+span);i++) available+=columns[i];
+                    if(available>Margin.Horizontal+40*scale) width=Math.Min(width,available-Margin.Horizontal);
+                }
+                Dock=DockStyle.None; Anchor=AnchorStyles.Left;
+                AutoSize=true;
+                if(Width!=width) Width=width;
+                DropDownWidth=Math.Max(width,Math.Min(Screen.FromControl(this).WorkingArea.Width-32,measured+SystemInformation.VerticalScrollBarWidth+24));
+                AccessibleDescription=Text;
+                bool clipped=TextRenderer.MeasureText(Text,Font).Width+SystemInformation.VerticalScrollBarWidth+6>width;
+                if(clipped && uiToolTip==null) uiToolTip=new ToolTip();
+                if(uiToolTip!=null) uiToolTip.SetToolTip(this,clipped?Text:"");
+            }
+            finally { busy=false; }
+        }
+        protected override void OnLayout(LayoutEventArgs e) { base.OnLayout(e); FitWidth(); }
+        public override Size GetPreferredSize(Size proposedSize)
+        {
+            Size size=base.GetPreferredSize(proposedSize);
+            size.Height=Math.Max(size.Height,Height);
+            return size;
+        }
+        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); FitWidth(); }
+        protected override void OnSelectedIndexChanged(EventArgs e) { base.OnSelectedIndexChanged(e); FitWidth(); }
+        protected override void OnSizeChanged(EventArgs e) { base.OnSizeChanged(e); FitWidth(); }
+        private void OnLayout(object sender,LayoutEventArgs e) { FitWidth(); }
+        protected override void OnParentChanged(EventArgs e)
+        {
+            if(parent!=null) parent.Layout-=OnLayout;
+            base.OnParentChanged(e); parent=Parent;
+            if(parent!=null) parent.Layout+=OnLayout;
+            FitWidth();
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if(disposing)
+            {
+                if(parent!=null) { parent.Layout-=OnLayout; parent=null; }
+                if(uiToolTip!=null) { uiToolTip.Dispose(); uiToolTip=null; }
+            }
+            base.Dispose(disposing);
+        }
         protected override void WndProc(ref Message message)
         {
             base.WndProc(ref message);
@@ -492,6 +556,7 @@ namespace InputStitch
         }
 
         private TableLayoutPanel optionalSettingsPanel;
+        private EditorSection optionsFrame;
         private bool optionalSettingsExpanded;
         private Button optionalSettingsButton;
         private Label macroCountLabel;
@@ -584,6 +649,7 @@ namespace InputStitch
             bool show = !optionalSettingsExpanded;
             optionalSettingsExpanded = show;
             optionalSettingsPanel.Visible = show;
+            optionsFrame.Visible = show;
             UpdateTargetSectionVisibility();
             RefreshOptionalSettingsText(show);
         }
@@ -593,6 +659,13 @@ namespace InputStitch
             if (optionalSettingsButton != null) optionalSettingsButton.Text = Localizer.IsEnglish
                 ? (expanded ? "▾ Fewer options" : "▸ More options")
                 : (expanded ? "▾ 收起更多设置" : "▸ 更多设置");
+            if(optionalSettingsButton!=null)
+            {
+                optionalSettingsButton.BackColor=expanded?EditorTheme.Selection:Color.White;
+                optionalSettingsButton.FlatAppearance.BorderColor=expanded?EditorTheme.Accent:EditorTheme.Line;
+                optionalSettingsButton.AccessibleDescription=EditorDialogs.T("映射层与运行目标", "Layers and run target")+(expanded?EditorDialogs.T("，已展开", ", expanded"):EditorDialogs.T("，已收起", ", collapsed"));
+            }
+            if(optionsFrame!=null) optionsFrame.Text=EditorDialogs.T("更多设置 · 映射层与运行目标", "More options · Layers and run target");
         }
     }
 }

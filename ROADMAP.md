@@ -11,6 +11,10 @@ setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 
+2026-10-21: beta.13 keeps trigger blocking visible, bounds excessive choice widths,
+groups advanced controls in a clear disclosure and enlarges the step controller
+diagram. Preserve readable density and keep packaging lightweight.
+
 2026-10-21: beta.12 refines the beginner create-to-run flow, visible automatic-save
 guidance, consistent step wording, shortcut-chord capture and inline correction
 of invalid step settings. No new capabilities or dependencies.

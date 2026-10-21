@@ -23,6 +23,10 @@ text, keeps repeat count and infinite repeat together, and wraps whole groups
 on narrower windows. Check actual control visibility after native handle
 creation and during repeated resize/language changes, not only preferred sizes.
 
+Beta.13 uses content-sized choice fields and a clearly framed More options area.
+Trigger blocking is common, directly visible UI. Enlarge the vector preview
+without adding art assets, dependencies or runtime capabilities.
+
 Beta.12 follows the beginner journey through creation, shortcut and step editing,
 saving, reopening and running. Put actionable copy in existing space; remove
 no-op edits and error-dialog detours without adding features.

@@ -183,6 +183,8 @@ namespace InputStitch
             triggerLayout.ColumnStyles.Clear();
             triggerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             triggerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
+            triggerLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
+            triggerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             triggerGroup.Controls.Add(triggerLayout);
 
             Panel triggerTop = new EditorFieldFlow();
@@ -195,7 +197,7 @@ namespace InputStitch
             triggerSelector = VirtualKeyboardDialog.WithDropDown(captureTriggerButton,
                 CaptureTriggerButton_Click, SelectVirtualKeyboardTrigger);
             triggerTop.Controls.Add(CompactFieldGroup(MakeFieldLabel("触发键："), triggerSelector));
-            triggerModeBox = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList,
+            triggerModeBox = new EditorChoice { CompactWidth = false, DropDownStyle = ComboBoxStyle.DropDownList,
                 Margin = new Padding(0, 3, 0, 3) };
             triggerModeBox.Items.AddRange(TriggerEditor.Names);
             triggerModeBox.SelectedIndexChanged += TriggerModeBox_SelectedIndexChanged;
@@ -227,26 +229,33 @@ namespace InputStitch
             repeatUnitLabel.Margin = new Padding(5, 2, 0, 2);
             FlowLayoutPanel repeatGroup = CompactFieldGroup(repeatLabel, repeatBox, repeatUnitLabel, infiniteBox);
             repeatGroup.Margin = new Padding(0);
-            TableLayoutPanel repeatLayout = MakeFormGrid();
-            repeatLayout.Margin = new Padding(0);
-            repeatLayout.Controls.Add(repeatGroup, 0, 0);
-            repeatLayout.SetColumnSpan(repeatGroup, 2);
+            Panel repeatLayout = new EditorFieldFlow { Dock=DockStyle.Fill, Margin=new Padding(0) };
+            repeatLayout.Controls.Add(repeatGroup);
             triggerLayout.Controls.Add(repeatLayout, 0, 1);
             triggerModeBox.FontChanged += delegate { RefreshTriggerSelector(); };
             suppressBox = new CheckBox();
-            suppressBox.Text = "触发时屏蔽最后一个触发键/鼠标事件";
+            suppressBox.Text = EditorDialogs.T("屏蔽触发键/鼠标事件", "Block trigger input");
             suppressBox.AutoSize = true;
             suppressBox.Anchor = AnchorStyles.Left;
             suppressBox.CheckedChanged += Settings_Changed;
+            suppressBox.Margin = new Padding(0,4,14,4);
+            repeatLayout.Controls.Add(suppressBox);
             optionalSettingsButton = MakeButton("", 0, 0, 0);
             optionalSettingsButton.AutoSize = true;
             optionalSettingsButton.UseMnemonic = false;
             optionalSettingsButton.Click += ToggleOptionalSettings;
             optionalSettingsPanel = MakeFormGrid();
+            optionalSettingsPanel.RowCount=3;
+            for(int optionRow=0;optionRow<3;optionRow++) optionalSettingsPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             optionalSettingsPanel.Visible = false;
-            optionalSettingsPanel.Controls.Add(suppressBox, 1, 0);
-            optionalSettingsPanel.SetColumnSpan(suppressBox, 2);
-            triggerLayout.Controls.Add(optionalSettingsPanel, 0, 2);
+            optionalSettingsPanel.Margin=new Padding(0);
+            optionsFrame=(EditorSection)EditorDialogs.Section(EditorDialogs.T("更多设置 · 映射层与运行目标", "More options · Layers and run target"));
+            optionsFrame.Name="optionsFrame";
+            optionsFrame.Emphasized=true;
+            optionsFrame.BackColor=EditorTheme.Canvas;
+            optionsFrame.Visible=false;
+            optionsFrame.Controls.Add(optionalSettingsPanel);
+            triggerLayout.Controls.Add(optionsFrame, 0, 2);
 
             Label activeLayerLabel = MakeFieldLabel("当前映射层：");
             activeLayerBox = new EditorChoice();
@@ -257,17 +266,18 @@ namespace InputStitch
             layerManageButton.AutoSize = true;
             layerManageButton.Text = Localizer.IsEnglish ? "Manage layers..." : "管理映射层…";
             layerManageButton.Click += delegate { ShowLayerManagementMenu(); };
-            optionalSettingsPanel.Controls.Add(activeLayerLabel, 0, 1);
-            optionalSettingsPanel.Controls.Add(activeLayerBox, 1, 1);
-            optionalSettingsPanel.Controls.Add(layerManageButton, 2, 1);
+            optionalSettingsPanel.Controls.Add(activeLayerLabel, 0, 0);
+            FlowLayoutPanel activeLayerControls=CompactFieldGroup(activeLayerBox,layerManageButton);
+            optionalSettingsPanel.Controls.Add(activeLayerControls, 1, 0);
+            optionalSettingsPanel.SetColumnSpan(activeLayerControls,2);
 
             Label mappingLayerLabel = MakeFieldLabel("此宏属于：");
             mappingLayerBox = new EditorChoice();
             mappingLayerBox.DropDownStyle = ComboBoxStyle.DropDownList;
             mappingLayerBox.Dock = DockStyle.Fill;
             mappingLayerBox.SelectedIndexChanged += MappingLayerBox_SelectedIndexChanged;
-            optionalSettingsPanel.Controls.Add(mappingLayerLabel, 0, 2);
-            optionalSettingsPanel.Controls.Add(mappingLayerBox, 1, 2);
+            optionalSettingsPanel.Controls.Add(mappingLayerLabel, 0, 1);
+            optionalSettingsPanel.Controls.Add(mappingLayerBox, 1, 1);
             optionalSettingsPanel.SetColumnSpan(mappingLayerBox, 2);
 
             runtimeCapabilityTitleLabel = MakeFieldLabel(Localizer.IsEnglish ? "Status:" : "运行状态：");
@@ -277,7 +287,31 @@ namespace InputStitch
             runtimeCapabilityLabel.Margin = new Padding(0, 5, 0, 3);
             runtimeCapabilityLabel.Padding = new Padding(0, 2, 0, 2);
             runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
-            repeatLayout.Controls.Add(optionalSettingsButton, 2, 0);
+            repeatLayout.Controls.Add(optionalSettingsButton);
+            bool arrangingMore=false;
+            Action arrangeMore=delegate
+            {
+                if(arrangingMore) return;
+                arrangingMore=true;
+                try
+                {
+                    int needed=repeatGroup.GetPreferredSize(Size.Empty).Width+repeatGroup.Margin.Horizontal+
+                        suppressBox.GetPreferredSize(Size.Empty).Width+suppressBox.Margin.Horizontal+
+                        optionalSettingsButton.GetPreferredSize(Size.Empty).Width+optionalSettingsButton.Margin.Horizontal;
+                    Control destination=needed<=repeatLayout.ClientSize.Width?repeatLayout:triggerTop;
+                    if(optionalSettingsButton.Parent!=destination)
+                    {
+                        Control previous=optionalSettingsButton.Parent;
+                        destination.Controls.Add(optionalSettingsButton);
+                        if(previous!=null) previous.PerformLayout();
+                        destination.PerformLayout();
+                    }
+                }
+                finally { arrangingMore=false; }
+            };
+            repeatLayout.SizeChanged+=delegate { arrangeMore(); };
+            optionalSettingsButton.SizeChanged+=delegate { arrangeMore(); };
+            suppressBox.TextChanged+=delegate { arrangeMore(); };
             // Keep normal fields together; a second decorative header took space from the steps.
             TableLayoutPanel macroSettings = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 2, Margin = new Padding(0) };
@@ -319,7 +353,8 @@ namespace InputStitch
             targetLayout.Controls.Add(targetWindowBox, 1, 0);
             targetLayout.Controls.Add(targetButtons, 2, 0);
             targetGroup.Visible = false;
-            rightRoot.Controls.Add(targetGroup, 0, 2);
+            optionalSettingsPanel.Controls.Add(targetGroup,0,2);
+            optionalSettingsPanel.SetColumnSpan(targetGroup,3);
 
             GroupBox stepsGroup = MakeMainGroup("执行步骤");
             ((EditorSection)stepsGroup).Badge = "2";

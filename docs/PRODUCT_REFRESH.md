@@ -1,6 +1,46 @@
 ﻿# Product refresh — 2026-10-20
 
-## Current pass — beginner workflow (beta.12, 2026-10-21)
+## Current pass — compact fields and clear disclosure (beta.13, 2026-10-21)
+
+Local beta.13 / FileVersion 1.5.0.12 on `ui/product-refresh`. Preserve all
+macro/controller/crosshair functions, configuration semantics and 10.5pt text.
+
+- Keep trigger blocking beside repeat controls, outside More options. The
+  tooltip retains the exact final-key/mouse-event semantics and existing Shift
+  and controller pass-through exceptions. Move the disclosure button to the
+  trigger row when necessary to preserve useful step rows in narrow English UI.
+- Put both layer selectors, management and conditional run-target controls in
+  one tinted, outlined More options frame. Its button has a matching expanded
+  state and accessible description. Layer selectors size to their contents.
+- Shared native choice controls measure their options, cap ordinary width,
+  keep expanded dropdowns wide and provide full-text tooltips for unusually
+  long selections. Native selection, keyboard navigation and accessibility
+  remain intact. Free-text notes/process/title fields retain useful full width.
+- Compact step/device/control choices and the read-only key field. Give the
+  existing vector controller preview about 40% of the step-editor body width;
+  keep direction/strength labels and values together when wrapping.
+- Losslessly re-encode the six existing PNG icon images: 54,083 to 51,620
+  bytes. All sizes and color profiles remain, decoded pixels match both the
+  PNG rows and Windows Icon/Bitmap output. No new build/runtime dependency.
+  Net EXE sizes and changes from beta.12 are measured in the delivery receipt.
+- Shorten private UI identifiers and reuse existing metadata names to keep the
+  CLR string heap below 64 KiB; this avoids 18,432 bytes of wider metadata-table
+  indexes with the same functionality. UI text and serialized names are intact.
+
+Final acceptance: all 32 suites PASS; 6,505 product checks, 172 actual
+crosshair pixel checks and 303,716 ownership assertions. Bilingual native
+144-DPI compact-field/disclosure/preview checks: 1000. Secondary layouts:
+69,651 checks / 188 windows; native 144 DPI:
+24,216 / 50. Synthetic scales 100/125/150/200% retain
+explicit CLAMPED records for inaccessible compact geometries.
+Real SendInput and ViGEm/XInput 77/77 PASS. Current-source sustained observer:
+300.1 seconds / 3,658 cycles, keyboard down/up
+14,113/14,113, zero final sources/held outputs.
+Exact startup/extraction checks, source/asset/config hashes, package sizes and
+source commit are in verification.json. No remote release or Stable replacement.
+User trials remain optional feedback, not an acceptance prerequisite.
+
+## Historical pass — beginner workflow (beta.12, 2026-10-21)
 
 Local beta.12 / FileVersion 1.5.0.11 on `ui/product-refresh`. No new features,
 dependencies or assets; retain 10.5pt text and compressed single-file packaging.

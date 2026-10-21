@@ -43,7 +43,8 @@ namespace InputStitch
         private bool loadingControls = true;
         private Label stepPreviewText;
         private EditorKeyPreview keyPreview;
-        private Button confirmStepButton;
+        private Button confirmButton;
+        private Control angleField, strengthField, triggerField;
 
         public MacroStep ResultStep;
         public List<MacroStep> ResultSteps;
@@ -82,7 +83,7 @@ namespace InputStitch
             root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360F));
             for (int i = 0; i < 7; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             shell.Controls.Add(root, 0, 1);
@@ -96,7 +97,7 @@ namespace InputStitch
 
             actionBox = new EditorChoice();
             actionBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            actionBox.Items.AddRange(new object[] { EditorDialogs.T("按一下（自动松开）", "Tap (release automatically)"), Localizer.T("持续按住（直到松开或宏停止）"), Localizer.T("松开按键") });
+            actionBox.Items.AddRange(new object[] { EditorDialogs.T("按一下（自动松开）", "Tap (release automatically)"), EditorDialogs.T("持续按住（稍后松开）", "Hold (release later)"), Localizer.T("松开按键") });
             actionBox.Dock = DockStyle.Fill;
             actionBox.Margin = new Padding(3, 4, 3, 6);
             actionBox.SelectedIndexChanged += delegate { UpdateHoldEnabled(); };
@@ -131,6 +132,13 @@ namespace InputStitch
             inputText.Dock = DockStyle.Fill;
             inputText.Margin = new Padding(3, 4, 8, 6);
             inputText.ReadOnly = true;
+            inputText.Dock=DockStyle.None;
+            inputText.Anchor=AnchorStyles.Left;
+            inputText.TextChanged+=delegate
+            {
+                float scale=inputText.Font.GetHeight()/inputText.Font.GetHeight(96F);
+                inputText.Width=Math.Max((int)(105*scale),Math.Min((int)(280*scale),TextRenderer.MeasureText(inputText.Text,inputText.Font).Width+(int)(18*scale)));
+            };
             root.Controls.Add(inputText, 1, 2);
 
             captureButton = new EditorButton();
@@ -161,22 +169,23 @@ namespace InputStitch
                 gamepadControlBox.Items.Add(InputNames.FormatGamepadControl(control));
             gamepadControlBox.SelectedIndexChanged += delegate { if (!loadingControls) UpdateGamepadControl(); };
             gamepadPanel.Controls.Add(gamepadControlBox);
+            gamepadPanel.SetFlowBreak(gamepadControlBox,true);
 
             stickAngleLabel = MakeInlineLabel(Localizer.T("摇杆方向："));
-            gamepadPanel.Controls.Add(stickAngleLabel);
             stickAngleBox = MakeNumberBox(-180, 180, 0, 5);
             stickAngleBox.ValueChanged += GamepadVectorChanged;
-            gamepadPanel.Controls.Add(stickAngleBox);
+            angleField=InlineField(stickAngleLabel,stickAngleBox);
+            gamepadPanel.Controls.Add(angleField);
             stickStrengthLabel = MakeInlineLabel(Localizer.T("摇杆力度："));
-            gamepadPanel.Controls.Add(stickStrengthLabel);
             stickStrengthBox = MakeNumberBox(0, 100, 100, 5);
             stickStrengthBox.ValueChanged += GamepadVectorChanged;
-            gamepadPanel.Controls.Add(stickStrengthBox);
+            strengthField=InlineField(stickStrengthLabel,stickStrengthBox);
+            gamepadPanel.Controls.Add(strengthField);
             triggerValueLabel = MakeInlineLabel(Localizer.T("扳机力度："));
-            gamepadPanel.Controls.Add(triggerValueLabel);
             triggerValueBox = MakeNumberBox(0, 100, 100, 5);
             triggerValueBox.ValueChanged += TriggerValueChanged;
-            gamepadPanel.Controls.Add(triggerValueBox);
+            triggerField=InlineField(triggerValueLabel,triggerValueBox);
+            gamepadPanel.Controls.Add(triggerField);
             root.Controls.Add(gamepadPanel, 1, 3);
             root.SetColumnSpan(gamepadPanel, 2);
 
@@ -305,7 +314,7 @@ namespace InputStitch
             buttons.Margin = new Padding(0, 16, 0, 0);
 
             Button ok = new EditorButton();
-            confirmStepButton = ok;
+            confirmButton = ok;
             ok.Text = source == null ? (Localizer.IsEnglish ? "Add step" : "添加步骤") : (Localizer.IsEnglish ? "Save step" : "保存步骤");
             ok.AutoSize = true;
             ok.MinimumSize = new Size(96, 34);
@@ -375,6 +384,13 @@ namespace InputStitch
             UpdateStepPreview();
             root.Layout += delegate
             {
+                float scale=Font.GetHeight()/Font.GetHeight(96F);
+                float previewWidth=Math.Min(380*scale,Math.Max(260*scale,root.ClientSize.Width*.4F));
+                if(root.ColumnStyles[3].Width!=previewWidth) root.ColumnStyles[3].Width=previewWidth;
+                int inputWidth=Math.Max((int)(105*scale),Math.Min((int)(280*scale),TextRenderer.MeasureText(inputText.Text,inputText.Font).Width+(int)(18*scale)));
+                int available=root.GetColumnWidths()[1]-inputText.Margin.Horizontal;
+                if(available>0) inputWidth=Math.Min(inputWidth,available);
+                if(inputText.Width!=inputWidth) inputText.Width=inputWidth;
                 int height = root.Padding.Vertical;
                 foreach (Control child in root.Controls)
                     if (child.Visible) height = Math.Max(height,child.Bottom-root.AutoScrollPosition.Y+child.Margin.Bottom+root.Padding.Bottom);
@@ -388,6 +404,14 @@ namespace InputStitch
             if (x < min) return min;
             if (x > max) return max;
             return x;
+        }
+
+        private static Control InlineField(Control label,Control value)
+        {
+            FlowLayoutPanel group=new FlowLayoutPanel { AutoSize=true, AutoSizeMode=AutoSizeMode.GrowAndShrink, WrapContents=false, Margin=new Padding(0,0,12,0) };
+            label.Anchor=value.Anchor=AnchorStyles.Left;
+            group.Controls.Add(label); group.Controls.Add(value);
+            return group;
         }
 
         private static Label MakeInlineLabel(string text)
@@ -467,6 +491,8 @@ namespace InputStitch
             stickStrengthBox.Visible = stick;
             triggerValueLabel.Visible = trigger;
             triggerValueBox.Visible = trigger;
+            angleField.Visible=strengthField.Visible=stick;
+            triggerField.Visible=trigger;
             RefreshInputText();
         }
 
@@ -572,7 +598,7 @@ namespace InputStitch
             if (loadingControls || stepPreviewText == null || selectedInput == null) return;
             bool validRange = !randomDelayBox.Checked || randomMinBox.Value <= randomMaxBox.Value;
             bool validAction = (selectedInput.Kind != InputKind.WheelUp && selectedInput.Kind != InputKind.WheelDown) || actionBox.SelectedIndex == 0;
-            if (confirmStepButton != null) confirmStepButton.Enabled = validRange && validAction;
+            if (confirmButton != null) confirmButton.Enabled = validRange && validAction;
             if (!validRange || !validAction)
             {
                 stepPreviewText.ForeColor = Color.DarkOrange;

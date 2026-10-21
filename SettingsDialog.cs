@@ -382,8 +382,8 @@ namespace InputStitch
             updateModeBox = new EditorChoice();
             updateModeBox.DropDownStyle = ComboBoxStyle.DropDownList;
             updateModeBox.Dock = DockStyle.Fill;
-            updateModeBox.Items.Add(Localizer.T("启动时自动检查并提示安装"));
-            updateModeBox.Items.Add(Localizer.T("仅手动检查（推荐）"));
+            updateModeBox.Items.Add(EditorDialogs.T("启动时检查并提示安装", "Check at startup"));
+            updateModeBox.Items.Add(EditorDialogs.T("仅手动检查（推荐）", "Manual (recommended)"));
             updateModeBox.Items.Add(Localizer.T("不检查更新"));
             updateModeBox.Enabled = ReleaseInfo.AutomaticChecksAllowed;
             updateModeBox.SelectedIndex = string.Equals(config.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase) ? 2 :

@@ -25,6 +25,8 @@ Run from the repository in Windows PowerShell:
 ./tests/Run-ProductAcceptance.ps1 -DialogsOnly
 ./tests/Run-ProductAcceptance.ps1 -JourneyOnly
 ./tests/Run-ProductAcceptance.ps1 -NativeJourney
+./tests/Run-ProductAcceptance.ps1 -FieldsOnly
+./tests/Run-ProductAcceptance.ps1 -NativeFields
 ./tests/Run-SecondaryLayout.ps1
 ./tests/Run-SecondaryLayout.ps1 -Native
 ./tests/Run-ProductAcceptance.ps1 -SoakMinutes 480
@@ -58,6 +60,7 @@ blocked, never relabeled as a pass.
 | --- | --- | --- |
 | Product workflow | Create, name/note edits, all trigger selections, actual step/timing dialog controls, XML save, reopened editor, macro/profile package round trips, run/stop/restart, global stop, copy | `ProductAcceptanceTests`, final assertion count |
 | Friendly interaction | Real new-macro button and modal cancel/blank-create; shortcut pause/restore; accessible purpose cards; empty steps; live press/hold/random timing explanation; quick-create next-step and readiness controls | `ProductAcceptanceTests.FriendlyInteractions`, Chinese/English and synthetic 100/125/150/200% dialog renders |
+| Compact fields and disclosure | Blocking checkbox visible with either disclosure state; layer selectors inside the outlined frame; bilingual resize, no common-row overlap, bounded readable step choices, enlarged vector diagram and reachable footer | `BoundedFields`, `-FieldsOnly`, `-NativeFields`; PNGs under `artifacts/product-fields*/product-acceptance`; full regression also runs the matrix |
 | Beginner workflow | Real blank-creation and nested key/step controls, edited/cancelled steps, invalid ranges/wheel actions, automatic XML persistence, reopen/Run/shortcut dispatch, shortcut-off manual Run; quick chord/modifier/mouse/numpad capture, Esc/Emergency Stop and existing-macro isolation | `BeginnerWorkflow`, `QuickShortcutCapture`; `-JourneyOnly` and native-DPI `-NativeJourney`; bilingual checks and PNGs under `artifacts/product-journey*/product-acceptance` |
 | Remaining dialogs and first run | Persistent footer at small sizes and synthetic scales; only relevant timing fields; inline invalid-chord/batch-range feedback; Settings staging/defaults; actual nested create/choose/edit/save/Run buttons; group-name modal protection | `RemainingDialogs` and `NewUserJourney`; `-DialogsOnly` runs this subset during iteration; default regression includes it |
 | Layout | Chinese/English, 1000×700 and 1280×900 layouts, 100/125/150/200% synthetic scaling, collapsed/expanded options, readable selection values and available controls | PNGs under `artifacts/.../product-acceptance/` |

@@ -1,5 +1,15 @@
 ﻿# PLAN.md
 
+## Completed pass — compact fields and clear disclosure (2026-10-21)
+
+Local target beta.13 / FileVersion 1.5.0.12. Bound short-choice fields by their
+content, keep trigger suppression visible, and group the advanced layer/target
+controls inside a clearly marked disclosure. Enlarge the step editor's vector
+controller preview. Preserve runtime/config semantics and fonts; inspect safe
+lossless footprint reductions without adding dependencies. Validate bilingual
+resizing/native DPI, complete workflows, full regression, sustained execution,
+real output and both final packages. No manual acceptance prerequisite.
+
 ## Completed pass — beginner workflow (2026-10-21)
 
 Local target beta.12 / FileVersion 1.5.0.11. Walk through quick and blank creation,
