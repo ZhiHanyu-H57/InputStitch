@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateRange(0, 1440)][int]$SoakMinutes = 0, [switch]$DialogsOnly)
+param([ValidateRange(0, 1440)][int]$SoakMinutes = 0, [switch]$DialogsOnly, [switch]$DensityOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
@@ -7,6 +7,7 @@ $references = & (Join-Path $project 'scripts/Restore-NetFramework472.ps1')
 $productionSources = & (Join-Path $project 'scripts/Get-ProductionSources.ps1')
 $compiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $output = Join-Path $project 'artifacts/product-tests'
+if ($DensityOnly) { $output = Join-Path $project 'artifacts/product-density' }
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $exe = Join-Path $output 'ProductAcceptanceTests.exe'
 $client = Join-Path $project 'third-party/Nefarius.ViGEm.Client/Nefarius.ViGEm.Client.dll'
@@ -18,5 +19,5 @@ $arguments += $productionSources
 $arguments += Join-Path $PSScriptRoot 'ProductAcceptanceTests.cs'
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Product acceptance compilation failed.' }
-if ($SoakMinutes -gt 0) { & $exe --soak-minutes $SoakMinutes } elseif ($DialogsOnly) { & $exe --dialogs } else { & $exe }
+if ($SoakMinutes -gt 0) { & $exe --soak-minutes $SoakMinutes } elseif ($DensityOnly) { & $exe --density } elseif ($DialogsOnly) { & $exe --dialogs } else { & $exe }
 if ($LASTEXITCODE -ne 0) { throw 'Product acceptance failed. See artifacts/product-tests/product-acceptance/failure.txt.' }

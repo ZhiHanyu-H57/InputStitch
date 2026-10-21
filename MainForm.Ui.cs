@@ -31,11 +31,11 @@ namespace InputStitch
             Controls.Add(split);
             split.Panel1MinSize = 220;
             split.Panel2MinSize = 600;
-            split.SplitterDistance = 312;
+            split.SplitterDistance = (int)(244F * Font.GetHeight() / Font.GetHeight(96F));
 
             TableLayoutPanel leftRoot = new TableLayoutPanel();
             leftRoot.Dock = DockStyle.Fill;
-            leftRoot.Padding = new Padding(12);
+            leftRoot.Padding = new Padding(10);
             leftRoot.ColumnCount = 1;
             leftRoot.RowCount = 6;
             leftRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -53,9 +53,9 @@ namespace InputStitch
             leftHeader.ColumnCount = 2;
             leftHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             leftHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            leftHeader.Margin = new Padding(0, 0, 0, 10);
+            leftHeader.Margin = new Padding(0, 0, 0, 6);
             Control leftTitle = new EditorWordmark();
-            leftTitle.Size = new Size(202, 48);
+            leftTitle.Size = new Size(172, 36);
             leftTitle.Dock = DockStyle.Fill;
             leftTitle.Anchor = AnchorStyles.Left;
             toolsButton = new GearButton();
@@ -71,13 +71,13 @@ namespace InputStitch
             Button addMacro = MakeButton("＋ 新建宏", 0, 0, 0);
             newMacroButton = addMacro;
             addMacro.Dock = DockStyle.Fill;
-            addMacro.MinimumSize = new Size(0, 44);
-            addMacro.Margin = new Padding(0, 4, 0, 18);
+            addMacro.MinimumSize = new Size(0, 34);
+            addMacro.Margin = new Padding(0, 2, 0, 8);
             addMacro.Font = new Font(Font, FontStyle.Bold);
             addMacro.Click += ShowNewMacroChooser;
             leftRoot.Controls.Add(addMacro, 0, 1);
             crosshairButton = new EditorButton { Text = EditorDialogs.T("屏幕准星…", "Screen crosshair…"), Name = "crosshairButton",
-                Dock = DockStyle.Fill, AutoSize = true, MinimumSize = new Size(0, 40), Margin = new Padding(0, 0, 0, 14) };
+                Dock = DockStyle.Fill, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(0, 0, 0, 8) };
             crosshairButton.Click += ShowCrosshairDialog;
             leftRoot.Controls.Add(crosshairButton, 0, 2);
             macroCountLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 0, 0, 10) };
@@ -89,7 +89,7 @@ namespace InputStitch
             macroList.BorderStyle = BorderStyle.None;
             macroList.BackColor = Color.White;
             macroList.DrawMode = DrawMode.OwnerDrawFixed;
-            macroList.ItemHeight = 88;
+            macroList.ItemHeight = Math.Max(66, Font.Height * 2 + 26);
             macroList.DrawItem += DrawMacroItem;
             macroList.Margin = new Padding(0, 0, 0, 10);
             macroList.SelectedIndexChanged += MacroList_SelectedIndexChanged;
@@ -112,7 +112,7 @@ namespace InputStitch
             downMacro.Click += delegate { MoveSelectedMacro(1); };
             Button libraryButton = MakeButton("导入与备份 ▾", 0, 0, 0);
             libraryButton.AutoSize = true;
-            libraryButton.MinimumSize = new Size(238, 36);
+            libraryButton.MinimumSize = new Size(204, 32);
             libraryButton.Margin = new Padding(0, 0, 0, 8);
             libraryButton.Click += ShowLibraryMenu;
             macroButtons.Controls.Add(libraryButton);
@@ -127,10 +127,9 @@ namespace InputStitch
             split.Panel2.Controls.Add(rightHost);
 
             TableLayoutPanel rightRoot = new TableLayoutPanel();
-            rightRoot.Dock = DockStyle.Top;
-            rightRoot.AutoSize = true;
-            rightRoot.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            rightRoot.Padding = new Padding(14, 12, 14, 12);
+            rightRoot.Dock = DockStyle.Fill;
+            rightRoot.MinimumSize = new Size(0, 580);
+            rightRoot.Padding = new Padding(10, 8, 10, 8);
             rightRoot.ColumnCount = 1;
             rightRoot.RowCount = 4;
             rightRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -139,17 +138,17 @@ namespace InputStitch
             rightRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             rightRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             rightHost.Controls.Add(rightRoot);
-            EventHandler resizeRightContent = delegate
-            {
-                int width = Math.Max(560, rightHost.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
-                int height = Math.Max(0, rightHost.ClientSize.Height);
-                rightRoot.MinimumSize = new Size(width, height);
-            };
-            rightHost.Resize += resizeRightContent;
-            Shown += delegate { resizeRightContent(rightHost, EventArgs.Empty); };
 
-            GroupBox detailsGroup = MakeMainGroup("宏信息");
+            GroupBox detailsGroup = MakeMainGroup("宏设置");
+            ((EditorSection)detailsGroup).Badge = "1";
             TableLayoutPanel details = MakeFormGrid();
+            details.ColumnCount = 5;
+            details.ColumnStyles.Clear();
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
             detailsGroup.Controls.Add(details);
             Label nameLabel = MakeFieldLabel("名称：");
             nameBox = new TextBox();
@@ -170,12 +169,11 @@ namespace InputStitch
             descriptionBox.Dock = DockStyle.Fill;
             descriptionBox.TextChanged += DescriptionBox_TextChanged;
             descriptionBox.Leave += delegate { if (!loadingUi) SaveConfig(); };
-            details.Controls.Add(descLabel, 0, 1);
-            details.Controls.Add(descriptionBox, 1, 1);
-            details.SetColumnSpan(descriptionBox, 2);
+            details.Controls.Add(descLabel, 3, 0);
+            details.Controls.Add(descriptionBox, 4, 0);
             workflowGuide = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, MaximumSize = new Size(800, 0), Margin = new Padding(0, 8, 0, 0) };
-            details.Controls.Add(workflowGuide, 0, 2);
-            details.SetColumnSpan(workflowGuide, 3);
+            details.Controls.Add(workflowGuide, 0, 1);
+            details.SetColumnSpan(workflowGuide, 5);
             rightRoot.Controls.Add(detailsGroup, 0, 0);
 
             GroupBox triggerGroup = MakeMainGroup("如何触发");
@@ -187,10 +185,10 @@ namespace InputStitch
             triggerTop.Dock = DockStyle.Top;
             triggerTop.AutoSize = true;
             triggerTop.ColumnCount = 3;
-            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+            triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             triggerTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            triggerTop.Margin = new Padding(0, 0, 0, 8);
+            triggerTop.Margin = new Padding(0, 0, 0, 4);
             triggerBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, Margin = new Padding(0, 5, 10, 5) };
             captureTriggerButton = MakeButton(EditorDialogs.T("选择触发键…", "Choose shortcut…"), 0, 0, 0);
             captureTriggerButton.AutoSize = true;
@@ -216,6 +214,7 @@ namespace InputStitch
                 ForeColor = EditorTheme.Muted, Margin = new Padding(0, 3, 0, 6), MaximumSize = new Size(560, 0) };
             triggerTop.Controls.Add(triggerBehaviorLabel, 1, 2);
             triggerTop.SetColumnSpan(triggerBehaviorLabel, 2);
+            EditorDialogs.RowVisible(triggerTop, 2, false);
             triggerLayout.Controls.Add(triggerTop, 0, 0);
             triggerLayout.SetColumnSpan(triggerTop, 3);
 
@@ -224,7 +223,7 @@ namespace InputStitch
             repeatBox.Minimum = 1;
             repeatBox.Maximum = 100000000;
             repeatBox.Value = 1;
-            repeatBox.Width = 110;
+            repeatBox.Width = 76;
             repeatBox.Anchor = AnchorStyles.Left;
             repeatBox.ValueChanged += Settings_Changed;
             infiniteBox = new CheckBox();
@@ -245,13 +244,11 @@ namespace InputStitch
             optionalSettingsButton.AutoSize = true;
             optionalSettingsButton.UseMnemonic = false;
             optionalSettingsButton.Click += ToggleOptionalSettings;
-            triggerLayout.Controls.Add(optionalSettingsButton, 0, 3);
-            triggerLayout.SetColumnSpan(optionalSettingsButton, 3);
             optionalSettingsPanel = MakeFormGrid();
             optionalSettingsPanel.Visible = false;
             optionalSettingsPanel.Controls.Add(suppressBox, 1, 0);
             optionalSettingsPanel.SetColumnSpan(suppressBox, 2);
-            triggerLayout.Controls.Add(optionalSettingsPanel, 0, 4);
+            triggerLayout.Controls.Add(optionalSettingsPanel, 0, 3);
             triggerLayout.SetColumnSpan(optionalSettingsPanel, 3);
 
             Label activeLayerLabel = MakeFieldLabel("当前映射层：");
@@ -285,8 +282,21 @@ namespace InputStitch
             runtimeCapabilityLabel.TextAlign = ContentAlignment.MiddleLeft;
             triggerLayout.Controls.Add(runtimeCapabilityTitleLabel, 0, 2);
             triggerLayout.Controls.Add(runtimeCapabilityLabel, 1, 2);
-            triggerLayout.SetColumnSpan(runtimeCapabilityLabel, 2);
-            rightRoot.Controls.Add(triggerGroup, 0, 1);
+            triggerLayout.Controls.Add(optionalSettingsButton, 2, 2);
+            // Keep normal fields together; a second decorative header took space from the steps.
+            TableLayoutPanel macroSettings = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 2, Margin = new Padding(0) };
+            macroSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            macroSettings.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            macroSettings.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            detailsGroup.Controls.Remove(details);
+            triggerGroup.Controls.Remove(triggerLayout);
+            triggerGroup.Dispose();
+            details.Margin = triggerLayout.Margin = new Padding(0);
+            macroSettings.Controls.Add(details, 0, 0);
+            macroSettings.Controls.Add(triggerLayout, 0, 1);
+            detailsGroup.Controls.Add(macroSettings);
+            rightRoot.RowStyles[1] = new RowStyle(SizeType.Absolute, 0);
 
             targetGroup = MakeMainGroup("目标窗口");
             TableLayoutPanel targetLayout = MakeFormGrid();
@@ -320,22 +330,23 @@ namespace InputStitch
             ((EditorSection)stepsGroup).Badge = "2";
             stepsGroup.Dock = DockStyle.Fill;
             stepsGroup.AutoSize = false;
-            stepsGroup.MinimumSize = new Size(0, 340);
+            stepsGroup.MinimumSize = new Size(0, 240);
             TableLayoutPanel stepsLayout = new TableLayoutPanel();
             stepsLayout.Dock = DockStyle.Fill;
             stepsLayout.ColumnCount = 1;
-            stepsLayout.RowCount = 4;
+            stepsLayout.RowCount = 3;
             stepsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            stepsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            stepsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F * Font.GetHeight() / Font.GetHeight(96F)));
             stepsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             // Leave room for the horizontal scrollbar as well as a full-height button.
-            stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
+            stepsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F * Font.GetHeight() / Font.GetHeight(96F)));
             stepsGroup.Controls.Add(stepsLayout);
             TableLayoutPanel stepsHeader = new TableLayoutPanel();
             stepsHeader.Dock = DockStyle.Fill;
             stepsHeader.AutoSize = true;
-            stepsHeader.ColumnCount = 2;
+            stepsHeader.Margin = new Padding(0);
+            stepsHeader.ColumnCount = 3;
+            stepsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             stepsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             stepsHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             FlowLayoutPanel primaryActions = new FlowLayoutPanel();
@@ -366,7 +377,7 @@ namespace InputStitch
 
             stepRunButton = MakeButton("▷ 单步执行", 0, 0, 0);
             stepRunButton.AutoSize = true;
-            stepRunButton.MinimumSize = new Size(112, 38);
+            stepRunButton.MinimumSize = new Size(112, 32);
             stepRunButton.Margin = new Padding(0, 0, 0, 2);
             stepRunButton.Font = new Font(Font, FontStyle.Bold);
             stepRunButton.FlatStyle = FlatStyle.Flat;
@@ -380,7 +391,7 @@ namespace InputStitch
 
             recordButton = MakeButton("● 录制宏", 0, 0, 0);
             recordButton.AutoSize = true;
-            recordButton.MinimumSize = new Size(142, 38);
+            recordButton.MinimumSize = new Size(142, 32);
             recordButton.Margin = new Padding(0, 0, 0, 2);
             recordButton.Font = new Font(Font, FontStyle.Bold);
             recordButton.FlatStyle = FlatStyle.Flat;
@@ -394,10 +405,10 @@ namespace InputStitch
             primaryActions.Controls.Add(runButton);
             primaryActions.Controls.Add(stepRunButton);
             primaryActions.Controls.Add(recordButton);
-            stepsHeader.Controls.Add(primaryActions, 1, 0);
-            stepsHintLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(0, 0, 0, 10) };
-            stepsLayout.Controls.Add(stepsHintLabel, 0, 0);
-            stepsLayout.Controls.Add(stepsHeader, 0, 1);
+            stepsHeader.Controls.Add(primaryActions, 2, 0);
+            stepsHintLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = EditorTheme.Muted, Margin = new Padding(0, 0, 8, 0) };
+            stepsHeader.Controls.Add(stepsHintLabel, 0, 0);
+            stepsLayout.Controls.Add(stepsHeader, 0, 0);
             FlowLayoutPanel historyButtons = new FlowLayoutPanel();
             historyButtons.AutoSize = true;
             historyButtons.WrapContents = false;
@@ -407,7 +418,7 @@ namespace InputStitch
             undoStepsButton.Click += delegate { RestoreSteps(false); };
             redoStepsButton.Click += delegate { RestoreSteps(true); };
             historyButtons.Controls.AddRange(new Control[] { undoStepsButton, redoStepsButton });
-            stepsHeader.Controls.Add(historyButtons, 0, 0);
+            stepsHeader.Controls.Add(historyButtons, 1, 0);
             RegisterUiSafetyControl(undoStepsButton, "编辑步骤");
             RegisterUiSafetyControl(redoStepsButton, "编辑步骤");
             grid = new DataGridView();
@@ -424,23 +435,24 @@ namespace InputStitch
             grid.BackgroundColor = Color.White;
             grid.BorderStyle = BorderStyle.FixedSingle;
             grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
+            grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             grid.Columns.Add("Index", "#");
             grid.Columns.Add("Action", "操作");
             grid.Columns.Add("Input", "按键 / 鼠标 / 手柄");
             grid.Columns.Add("Hold", "按住 (ms)");
             grid.Columns.Add("Delay", "等待 (ms)");
-            grid.Columns[0].Width = 45;
-            grid.Columns[0].MinimumWidth = 40;
-            grid.Columns[1].Width = 125;
-            grid.Columns[1].MinimumWidth = 105;
+            grid.Columns[0].Width = 38;
+            grid.Columns[0].MinimumWidth = 32;
+            grid.Columns[1].Width = 90;
+            grid.Columns[1].MinimumWidth = 80;
             grid.Columns[2].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             grid.Columns[2].MinimumWidth = 160;
-            grid.Columns[3].Width = 130;
-            grid.Columns[3].MinimumWidth = 115;
-            grid.Columns[4].Width = 150;
-            grid.Columns[4].MinimumWidth = 130;
+            grid.Columns[3].Width = 92;
+            grid.Columns[3].MinimumWidth = 82;
+            grid.Columns[4].Width = 108;
+            grid.Columns[4].MinimumWidth = 94;
+            grid.FontChanged += delegate { RefreshStepColumnWidths(); };
             grid.CellDoubleClick += delegate { EditSelectedStep(); };
             grid.KeyDown += delegate(object sender, KeyEventArgs e)
             {
@@ -469,7 +481,7 @@ namespace InputStitch
             stepsHost.Controls.Add(emptyStepsPanel);
             emptyStepsPanel.BringToFront();
             RegisterUiSafetyControl(firstStep, "添加宏步骤");
-            stepsLayout.Controls.Add(stepsHost, 0, 2);
+            stepsLayout.Controls.Add(stepsHost, 0, 1);
 
             FlowLayoutPanel stepFooter = new FlowLayoutPanel();
             stepFooter.Dock = DockStyle.Fill;
@@ -478,17 +490,21 @@ namespace InputStitch
             stepFooter.AutoScroll = true;
             Button addStep = MakeButton("＋ 添加步骤", 0, 0, 0);
             Button editStep = MakeButton("编辑", 0, 0, 0);
-            Button copyStep = MakeButton("复制步骤", 0, 0, 0);
+            Button copyStep = MakeButton("复制", 0, 0, 0);
             Button delStep = MakeButton("删除", 0, 0, 0);
-            Button upStep = MakeButton("上移", 0, 0, 0);
-            Button downStep = MakeButton("下移", 0, 0, 0);
+            Button upStep = MakeButton("↑", 0, 0, 32);
+            Button downStep = MakeButton("↓", 0, 0, 32);
             Button batchDelayStep = MakeButton("批量间隔", 0, 0, 0);
             foreach (Button b in new Button[] { addStep, editStep, copyStep, delStep, upStep, downStep, batchDelayStep })
             {
                 b.AutoSize = true;
-                b.MinimumSize = new Size(66, 32);
+                b.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                b.MinimumSize = new Size(54, 30);
                 b.Margin = new Padding(0, 0, 6, 4);
             }
+            upStep.MinimumSize = downStep.MinimumSize = new Size(32, 30);
+            upStep.AccessibleName = Localizer.T("上移"); downStep.AccessibleName = Localizer.T("下移");
+            SetTip(upStep, "上移"); SetTip(downStep, "下移");
             addStepButton = addStep;
             editStepButton = editStep;
             addStep.Click += delegate { AddStep(); };
@@ -499,7 +515,7 @@ namespace InputStitch
             downStep.Click += delegate { MoveSelectedStep(1); };
             batchDelayStep.Click += delegate { BatchEditSelectedStepDelay(); };
             stepFooter.Controls.AddRange(new Control[] { addStep, editStep, copyStep, delStep, upStep, downStep, batchDelayStep });
-            stepsLayout.Controls.Add(stepFooter, 0, 3);
+            stepsLayout.Controls.Add(stepFooter, 0, 2);
             rightRoot.Controls.Add(stepsGroup, 0, 3);
 
             SetTip(libraryButton, "导入宏、分享宏，或备份与载入整套方案。");
@@ -564,7 +580,7 @@ namespace InputStitch
 
             Panel bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
-            bottom.Height = 76;
+            bottom.Height = (int)(56F * Font.GetHeight() / Font.GetHeight(96F));
             bottom.BackColor = Color.White;
             Controls.Add(bottom);
             bottom.SendToBack();
@@ -629,10 +645,33 @@ namespace InputStitch
             CaptureLocalizableControlTexts(this);
             ApplyLanguageToMainUi(false);
             EditorTheme.Apply(this);
+            RefreshStepColumnWidths();
             EditorTheme.Primary(newMacroButton, false);
             RefreshEditorGuidance();
             UpdateRunButton();
             ApplyStatusVisuals();
+            Shown += delegate
+            {
+                if (StartPosition != FormStartPosition.CenterScreen || WindowState != FormWindowState.Normal) return;
+                Rectangle area = Screen.FromControl(this).WorkingArea;
+                int width = Math.Min(Width, area.Width - 24), height = Math.Min(Height, area.Height - 24);
+                MinimumSize = new Size(Math.Min(MinimumSize.Width, width), Math.Min(MinimumSize.Height, height));
+                Size = new Size(width, height);
+                Location = new Point(area.Left + (area.Width - Width) / 2, area.Top + (area.Height - Height) / 2);
+            };
+        }
+
+        private void RefreshStepColumnWidths()
+        {
+            if (grid == null || grid.Columns.Count != 5) return;
+            int[] widths = { 38, 90, 160, 92, 108 };
+            for (int i = 0; i < widths.Length; i++)
+            {
+                int width = Math.Max((int)(widths[i] * Font.GetHeight() / Font.GetHeight(96F)),
+                    TextRenderer.MeasureText(grid.Columns[i].HeaderText, grid.Font).Width + 16);
+                grid.Columns[i].MinimumWidth = width;
+                if (i != 2) grid.Columns[i].Width = width;
+            }
         }
 
         private void CaptureLocalizableControlTexts(Control root)

@@ -1,6 +1,49 @@
 ﻿# Product refresh — 2026-10-20
 
-## Fourth pass — larger text and readability
+## Current pass — balanced density and footprint (beta.9, 2026-10-21)
+
+The user found the 12pt pass too large and cramped, particularly the Actions
+list, and explicitly prioritizes readable, usable, clean overview before art.
+Beta.9 uses 10.5pt body text, compact shared sections/dialog headers and a
+combined ordinary settings block. The step list uses the remaining viewport.
+Grid rows fit their font/padding, headers fit measured text, and all toolbar
+actions are checked against every ancestor's client area. Native 144 DPI also
+sizes the sidebar, toolbars, status area and macro rows to their text.
+
+Quick-create Actions uses separated font-aware rows and the available vertical
+space, with hold/wait timing visible inline. Initial main-window bounds fit the
+current working area. Default settings remain directly editable. New runtime
+features remain paused; windowed/borderless crosshair scope is retained.
+
+The main binary had included an uncompressed 2,844,160-byte x64 SDL3 runtime.
+Gzip embedding reduces it to 1,162,052 bytes; the 290,304-byte managed ViGEm
+client becomes 143,531 bytes. Both use .NET Framework compression, with no new
+library dependency or functionality removal. Native extraction retains the
+pinned SHA-256. Packaged tests cover compressed managed loading, isolated native
+cold extraction, verified target reuse, corrupt-target repair and actual SDL3
+initialization. Extracted runtime size is unchanged; report EXE/download savings
+separately from runtime-cache disk usage.
+
+Current acceptance: 31 suites PASS, 1,315 workflow/layout checks, 172 crosshair
+checks and 77 real-output assertions. Additional focused density checks cover
+all toolbar actions (1,108 checks at 100/125% synthetic scale, 556 at native
+144 DPI including actual initial-window fit). At 100%, 1000x700 / 1160x780 /
+1280x900 expose 5 / 7 / 11 full step rows without outer/horizontal scrolling.
+Native 150% viewports of 1500x1050 / 1740x1170 / 1920x1350 expose 9 / 12 / 16.
+The existing broader dialog/layout matrix still includes synthetic 150/200%;
+focused row-capacity claims apply only to the measured viewports above.
+
+Final-build macro sustained observer: 300.1 seconds / 3,421 cycles, keyboard
+down/up 12,948/12,948, zero final sources/held outputs, max UI dispatch 115 ms,
+max continuous-output gap 59 ms. Private bytes 35,667,968 to 36,499,456; handles
+436 to 430, threads 13 to 6. All 54 production sources remained frozen during
+final acceptance and the normal user configuration hashes were unchanged.
+The renderer sources match beta.8 byte for byte, so its five-minute native
+overlay run remains an explicitly historical baseline; beta.9 reruns the actual
+windowed/borderless pixel checks. Final EXE sizes, source hashes and both
+architecture startup/extraction receipts are in the delivered verification.json.
+
+## Historical fourth pass — larger text and readability
 
 Local target: `1.5.0-beta.5`, FileVersion `1.5.0.4`.
 

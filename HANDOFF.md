@@ -1,6 +1,43 @@
 ﻿# HANDOFF.md
 
-## Latest completed pass — windowed/borderless crosshair closure (2026-10-21)
+## Latest completed pass — density and lightweight packaging (2026-10-21)
+
+Local beta.9 / FileVersion 1.5.0.8 on `ui/product-refresh`. User priority is
+readable, usable and clean before decoration. Restore balanced 10.5pt body text,
+compact shared dialog headers/spacing and one ordinary settings block. Let the
+step table use remaining space. Fix per-row text fit, measured header widths,
+font-aware sidebar/list/status/toolbar sizing and clipping by parent containers.
+Quick-create Actions uses available height and shows hold/wait timings inline.
+Default main-window geometry fits the actual working area.
+
+- Runtime feature expansion stays paused. Macro execution/ownership semantics,
+  configuration formats, Emergency Stop and editing protection are retained.
+  Crosshairs remain windowed/borderless only; exclusive fullscreen is deferred.
+- SDL3 and managed ViGEm dependencies use gzip-compressed embedded resources
+  with .NET Framework classes, raw-resource compatibility and native pinned-hash
+  extraction. No dependency/function was removed. Extracted cache size stays
+  unchanged; binary/download savings must not be described as cache savings.
+- Full 31 suites PASS: 1,315 product checks, 172 crosshair checks, 303,716 output
+  ownership assertions; bilingual Settings/XML/vector smoke PASS. Subsequent
+  focused all-command density checks: 1,108 at synthetic 100/125%, and 556 at
+  native 144 DPI, including actual first-show working-area fit.
+- Full visible step rows at 100%: 5 / 7 / 11 for 1000x700 / 1160x780 / 1280x900;
+  native 150%: 9 / 12 / 16 for physical 1500x1050 / 1740x1170 / 1920x1350.
+  Tests check no ordinary outer/horizontal scroll, text height, clipping by
+  every ancestor and direct access to all editing/record/run actions.
+- Real SendInput and ViGEm/XInput: 77/77 PASS, zero failures.
+- Final source sustained macro observer: 300.1 seconds / 3,421 cycles;
+  keyboard down/up 12,948/12,948, final sources/held outputs zero;
+  max UI dispatch 115 ms and continuous-output gap 59 ms.
+- 54 production sources unchanged during final acceptance; normal user config
+  hashes unchanged. Renderer code matches beta.8 exactly; reuse its sustained
+  native-overlay report as historical evidence and rerun beta.9 pixel checks.
+- Final x64/x86 packaged startup, saved crosshair restoration, shutdown,
+  compressed dependency/native extraction checks, exact sizes and commit are
+  recorded in the delivered verification receipt. No remote release or Stable
+  1.4.3 replacement, no manual user-trial gate.
+
+## Previous completed pass — windowed/borderless crosshair closure (2026-10-21)
 
 User requested a usable beta limited to windowed and borderless modes after the
 exclusive-fullscreen experiment failed physical visibility. Local beta.8 /

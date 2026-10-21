@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Reflection;
@@ -83,6 +84,7 @@ namespace InputStitch
             { "每个步骤就是一次按键或鼠标操作。\r\n试着添加第一个步骤，设置要按的键和等待时间。", "A step is one keyboard or mouse action.\r\nAdd your first step, then choose a key and a wait time." },
             { "导入宏、分享宏，或备份与载入整套方案。", "Import or share macros, or back up and restore your full setup." },
             { "如何触发", "When to run" },
+            { "宏设置", "Macro settings" },
             { "启用触发键", "Shortcut enabled" },
             { "全部停止", "Stop all" },
             { "键鼠与手柄宏工具", "Keyboard, Mouse & Gamepad Macro Tool" },
@@ -2358,19 +2360,18 @@ namespace InputStitch
             if (!string.Equals(requested.Name, ViGEmAssemblyName, StringComparison.OrdinalIgnoreCase)) return null;
 
             Assembly host = Assembly.GetExecutingAssembly();
-            using (Stream stream = host.GetManifestResourceStream(ViGEmResourceName))
+            Stream resource = host.GetManifestResourceStream(ViGEmResourceName + ".gz");
+            bool compressed = resource != null;
+            using (Stream stream = resource ?? host.GetManifestResourceStream(ViGEmResourceName))
             {
                 if (stream == null) return null;
-                byte[] bytes = new byte[stream.Length];
-                int offset = 0;
-                while (offset < bytes.Length)
+                using (MemoryStream bytes = new MemoryStream())
                 {
-                    int read = stream.Read(bytes, offset, bytes.Length - offset);
-                    if (read <= 0) break;
-                    offset += read;
+                    if (compressed)
+                        using (GZipStream decoded = new GZipStream(stream, CompressionMode.Decompress)) decoded.CopyTo(bytes);
+                    else stream.CopyTo(bytes);
+                    return Assembly.Load(bytes.ToArray());
                 }
-                if (offset != bytes.Length) return null;
-                return Assembly.Load(bytes);
             }
         }
     }
@@ -3230,9 +3231,10 @@ namespace InputStitch
             AutoScaleDimensions = new SizeF(96F, 96F);
             Text = AppInfo.ProductName + " " + AppInfo.Version;
             StartPosition = FormStartPosition.CenterScreen;
-            MinimumSize = new Size(900, 600);
-            Size = new Size(1240, 860);
             Font = EditorTheme.BodyFont();
+            MinimumSize = new Size(900, 600);
+            float initialScale = Font.GetHeight() / Font.GetHeight(96F);
+            Size = new Size((int)(1160 * initialScale), (int)(780 * initialScale));
             BackColor = Color.FromArgb(244, 247, 251);
             try
             {
@@ -3647,8 +3649,8 @@ namespace InputStitch
             box.Dock = DockStyle.Top;
             box.AutoSize = true;
             box.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            box.Padding = new Padding(18, 48, 18, 16);
-            box.Margin = new Padding(0, 0, 0, 12);
+            box.Padding = new Padding(12, 30, 12, 8);
+            box.Margin = new Padding(0, 0, 0, 8);
             box.BackColor = Color.White;
             return box;
         }
@@ -3660,7 +3662,7 @@ namespace InputStitch
             panel.AutoSize = true;
             panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             panel.ColumnCount = 3;
-            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             return panel;
@@ -3670,9 +3672,9 @@ namespace InputStitch
         {
             Label label = new Label();
             label.Text = text;
-            label.Dock = DockStyle.Fill;
-            label.AutoSize = false;
-            label.MinimumSize = new Size(0, 36);
+            label.Anchor = AnchorStyles.Left;
+            label.AutoSize = true;
+            label.MinimumSize = new Size(0, 28);
             label.TextAlign = ContentAlignment.MiddleLeft;
             label.Margin = new Padding(0, 2, 8, 2);
             return label;
@@ -4630,7 +4632,8 @@ namespace InputStitch
                 string delay = step.RandomDelay
                     ? Math.Min(step.RandomDelayMinMs, step.RandomDelayMaxMs).ToString() + "～" + Math.Max(step.RandomDelayMinMs, step.RandomDelayMaxMs).ToString()
                     : step.DelayMs.ToString();
-                grid.Rows.Add(i.ToString(), InputNames.FormatAction(step.Action), InputNames.FormatInput(step), hold, delay);
+                int row = grid.Rows.Add(i.ToString(), InputNames.FormatAction(step.Action), InputNames.FormatInput(step), hold, delay);
+                grid.Rows[row].Height = Math.Max(30, grid.Font.Height + grid.DefaultCellStyle.Padding.Vertical + 4);
                 i++;
             }
         }
@@ -4862,14 +4865,7 @@ namespace InputStitch
 
         private void UpdateTriggerModeUiText()
         {
-            MacroDefinition m = SelectedMacro;
-            bool hold = m != null && ActivatorModes.IsHoldLifecycle(m);
-            bool advancedOneShot = m != null && ActivatorModes.UsesAdvancedPolicy(m) && !hold;
-            infiniteBox.Text = hold
-                ? Localizer.T("无限循环（松开触发键或点击停止）")
-                : (advancedOneShot
-                    ? (Localizer.IsEnglish ? "Infinite loop (Stop button or Emergency Stop)" : "无限循环（点击停止或紧急停止）")
-                    : Localizer.T("无限循环（再次触发或点击停止）"));
+            infiniteBox.Text = Localizer.IsEnglish ? "Repeat until stopped" : "无限循环";
             UpdateTriggerSuppressionUi();
             RefreshRuntimeCapabilityUi();
         }

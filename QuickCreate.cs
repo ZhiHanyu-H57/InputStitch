@@ -72,19 +72,20 @@ namespace InputStitch
             Font = EditorTheme.BodyFont();
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            MinimumSize = new Size(820, 620);
-            ClientSize = new Size(940, 740);
+            MinimumSize = new Size(780, 580);
+            ClientSize = new Size(900, 650);
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = MaximizeBox = false;
             BackColor = Color.FromArgb(247, 249, 252);
-            TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(24, 16, 24, 12) };
+            TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(14, 10, 14, 10) };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, Math.Max(64, Font.Height * 2 + 16)));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(root);
             root.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = Title(kind), Description = T("设置触发键和执行操作，完成后即可在主界面使用。", "Choose a shortcut and an action. Your macro will be ready in the main window.") }, 0, 0);
-            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 2, RowCount = 1, BackColor = Color.White, Padding = new Padding(16) };
+            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 2, RowCount = 1, BackColor = Color.White, Padding = new Padding(12) };
+            body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
             root.Controls.Add(body, 0, 1);
@@ -99,7 +100,8 @@ namespace InputStitch
             AddRow(fields, T("触发键", "Trigger"), VirtualKeyboardDialog.WithDropDown(triggerButton, CaptureTrigger, ChooseTrigger));
             FlowLayoutPanel mouse = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
             ComboBox mouseBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 195 };
-            mouseBox.Items.Add(T("或选择鼠标按钮…", "Or choose a mouse button…"));
+            mouseBox.Items.Add(T("选择鼠标按钮…", "Choose a mouse button…"));
+            mouseBox.Width = Math.Max(195, TextRenderer.MeasureText(mouseBox.Items[0].ToString(), Font).Width + 32);
             InputKind[] mouseKinds = { InputKind.MouseLeft, InputKind.MouseRight, InputKind.MouseMiddle, InputKind.MouseX1, InputKind.MouseX2 };
             foreach (InputKind value in mouseKinds) mouseBox.Items.Add(InputNames.FormatInput(new InputSpec { Kind = value }));
             mouseBox.SelectedIndex = 0;
@@ -132,10 +134,25 @@ namespace InputStitch
             {
                 body.SetColumnSpan(fields, 2);
                 if (kind == QuickTemplate.Repeat) AddRow(fields, T("执行次数", "Repeat count"), count);
-                stepList.Height = 125;
+                fields.Dock = DockStyle.Fill;
+                fields.AutoSize = false;
+                stepList.IntegralHeight = false;
+                stepList.DrawMode = DrawMode.OwnerDrawFixed;
+                stepList.Font = Font;
+                stepList.ItemHeight = Math.Max(28, stepList.Font.Height + 8);
+                stepList.FontChanged += delegate { stepList.ItemHeight = Math.Max(28, stepList.Font.Height + 8); };
+                stepList.DrawItem += delegate(object sender, DrawItemEventArgs e)
+                {
+                    if (e.Index < 0) return;
+                    e.DrawBackground();
+                    TextRenderer.DrawText(e.Graphics, stepList.Items[e.Index].ToString(), e.Font,
+                        Rectangle.Inflate(e.Bounds, -5, -2), e.ForeColor,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                    e.DrawFocusRectangle();
+                };
                 stepList.BorderStyle = BorderStyle.FixedSingle;
-                stepList.ItemHeight = 28;
                 AddRow(fields, T("执行操作", "Actions"), stepList);
+                fields.RowStyles[fields.GetRow(stepList)] = new RowStyle(SizeType.Percent, 100);
                 FlowLayoutPanel actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
                 Button add = ButtonFor(T("添加操作…", "Add action…"), delegate { EditAction(false); });
                 add.Name = "addActionButton";
@@ -170,6 +187,7 @@ namespace InputStitch
             CancelButton = cancel;
             AcceptButton = create;
             EditorTheme.Apply(this);
+            mouse.MinimumSize = new Size(0, mouseBox.Height + mouseBox.Margin.Vertical);
             EditorTheme.Primary(create, false);
             UpdateReadyState();
         }
@@ -252,7 +270,14 @@ namespace InputStitch
         private void RefreshActions()
         {
             stepList.Items.Clear();
-            foreach (MacroStep step in steps) stepList.Items.Add(InputNames.FormatAction(step.Action) + " · " + InputNames.FormatInput(step));
+            foreach (MacroStep step in steps)
+            {
+                string hold = step.Action == MacroAction.Press && step.Kind != InputKind.WheelUp && step.Kind != InputKind.WheelDown
+                    ? T(" · 按住 ", " · Hold ") + step.HoldMs + " ms" : "";
+                string delay = step.RandomDelay ? Math.Min(step.RandomDelayMinMs, step.RandomDelayMaxMs) + "–" + Math.Max(step.RandomDelayMinMs, step.RandomDelayMaxMs)
+                    : step.DelayMs.ToString();
+                stepList.Items.Add(InputNames.FormatAction(step.Action) + " · " + InputNames.FormatInput(step) + hold + T(" · 等待 ", " · Wait ") + delay + " ms");
+            }
             if (stepList.Items.Count > 0) stepList.SelectedIndex = stepList.Items.Count - 1;
             UpdateReadyState();
         }

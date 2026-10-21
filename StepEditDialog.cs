@@ -57,14 +57,14 @@ namespace InputStitch
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(900, 600);
-            ClientSize = new Size(1040, 680);
+            MinimumSize = new Size(820, 540);
+            ClientSize = new Size(940, 600);
             Font = EditorTheme.BodyFont();
             BackColor = Color.FromArgb(247, 249, 252);
 
-            TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(24, 16, 24, 12) };
+            TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(14, 10, 14, 10) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
             Controls.Add(shell);

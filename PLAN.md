@@ -1,6 +1,19 @@
 ﻿# PLAN.md
 
-## Active pass — desktop crosshair closure (2026-10-21)
+## Active pass — readable density and lighter packaging (2026-10-21)
+
+User priority: readable, usable, clean overview before decoration. Local target:
+beta.9 / FileVersion 1.5.0.8. Use 10.5pt body text, compact shared headers and
+spacing, one ordinary macro settings block and a step list that uses remaining
+space. Fix both grid row sizing and the quick-create Actions list; show timing
+inline. Fit initial main-window bounds to the working area. Cover visible rows,
+column fit, ancestor clipping, default quick-create capacity and native 144 DPI.
+Gzip-compress the pinned SDL3 and managed ViGEm resources with framework classes;
+retain every current macro/controller/crosshair function, SHA-256 verification,
+raw-resource compatibility and cache reuse/repair. No new runtime features.
+Final acceptance and package metrics are in the delivery receipt.
+
+## Previous pass — desktop crosshair closure (2026-10-21)
 
 The user narrowed delivery to windowed and borderless modes after the exclusive
 fullscreen experiment failed physical visibility. Local target: beta.8 /

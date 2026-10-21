@@ -30,9 +30,11 @@ namespace InputStitch
             }
             if (actions.Parent != null) actions.Parent.Controls.Remove(actions);
             if (body.Parent != null) body.Parent.Controls.Remove(body);
-            TableLayoutPanel shell = new TableLayoutPanel { Name = "dialogShell", Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(20, 16, 20, 12) };
+            TableLayoutPanel shell = new TableLayoutPanel { Name = "dialogShell", Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(14, 10, 14, 10) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
+            int descriptionHeight = TextRenderer.MeasureText(description, form.Font,
+                new Size(Math.Max(200, form.ClientSize.Width - 28), int.MaxValue), TextFormatFlags.WordBreak).Height;
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, Math.Max(62, form.Font.Height + 18 + descriptionHeight)));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             shell.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = form.Text, Description = description, Margin = new Padding(0) }, 0, 0);
@@ -41,8 +43,8 @@ namespace InputStitch
             shell.Controls.Add(body, 0, 1);
             actions.Dock = DockStyle.Fill;
             actions.Margin = new Padding(0);
-            actions.Padding = new Padding(0, 12, 0, 0);
-            actions.MinimumSize = new Size(0, 52);
+            actions.Padding = new Padding(0, 8, 0, 0);
+            actions.MinimumSize = new Size(0, 40);
             shell.Controls.Add(actions, 0, 2);
             form.AutoScroll = false;
             form.Controls.Add(shell);
@@ -54,7 +56,7 @@ namespace InputStitch
         internal static EditorSection Section(string title)
         {
             return new EditorSection { Text = title, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Dock = DockStyle.Top, Padding = new Padding(16, 46, 16, 14), Margin = new Padding(0, 0, 0, 12) };
+                Dock = DockStyle.Top, Padding = new Padding(12, 34, 12, 10), Margin = new Padding(0, 0, 0, 8) };
         }
 
         internal static FlowLayoutPanel Actions(params Control[] controls)
@@ -66,7 +68,7 @@ namespace InputStitch
 
         internal static Button Button(string text, DialogResult result)
         {
-            return new EditorButton { Text = text, AutoSize = true, MinimumSize = new Size(112, 40), DialogResult = result };
+            return new EditorButton { Text = text, AutoSize = true, MinimumSize = new Size(100, 32), DialogResult = result };
         }
 
         internal static void RowVisible(TableLayoutPanel table, int row, bool visible)
@@ -84,8 +86,8 @@ namespace InputStitch
         {
             DrawMode = TabDrawMode.OwnerDrawFixed;
             SizeMode = TabSizeMode.Fixed;
-            ItemSize = new Size(160, 42);
-            Padding = new Point(16, 8);
+            ItemSize = new Size(150, 34);
+            Padding = new Point(12, 5);
         }
         protected override void OnDrawItem(DrawItemEventArgs e)
         {

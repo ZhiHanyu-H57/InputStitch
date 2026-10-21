@@ -17,8 +17,10 @@ internal static class ProductAcceptanceTests
     private static int checks;
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static string root;
+    private static bool densityUsesNativeDpi;
     private delegate bool WindowCallback(IntPtr window, IntPtr state);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] private static extern bool EnumThreadWindows(uint threadId, WindowCallback callback, IntPtr state);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
@@ -91,6 +93,9 @@ internal static class ProductAcceptanceTests
     [STAThread]
     private static int Main(string[] args)
     {
+        bool nativeDensity = args.Length > 0 && args[0] == "--density-native";
+        densityUsesNativeDpi = nativeDensity;
+        if (nativeDensity) SetProcessDpiAwarenessContext(new IntPtr(-4));
         Application.EnableVisualStyles();
         EmbeddedDependencyLoader.Register();
         root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "product-acceptance");
@@ -98,9 +103,16 @@ internal static class ProductAcceptanceTests
         try
         {
             if (args.Length >= 2 && args[0] == "--soak-minutes") Soak(int.Parse(args[1], CultureInfo.InvariantCulture));
+            else if (nativeDensity)
+            {
+                using (Graphics screen = Graphics.FromHwnd(IntPtr.Zero))
+                { Console.WriteLine("NATIVE-DPI " + screen.DpiX); Density(screen.DpiX / 96F); }
+                DefaultViewport();
+            }
+            else if (args.Length > 0 && args[0] == "--density") Density();
             else if (args.Length > 0 && args[0] == "--layout") ModesAndLayout();
             else if (args.Length > 0 && args[0] == "--dialogs") { RemainingDialogs(); NewUserJourney(); }
-            else { Workflow(); ModesAndLayout(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); }
+            else { Workflow(); ModesAndLayout(); Density(); FriendlyInteractions(); RemainingDialogs(); NewUserJourney(); }
             Console.WriteLine("PASS product acceptance: " + checks + " checks; isolated editor, saved files and runtime observer; no user configuration or real input.");
             return 0;
         }
@@ -270,6 +282,93 @@ internal static class ProductAcceptanceTests
                 Call(form, "ToggleOptionalSettings", null, EventArgs.Empty);
                 Check(!Field<TableLayoutPanel>(form, "optionalSettingsPanel").Visible, "optional settings collapse");
             }
+        }
+    }
+
+    // Larger synthetic windows exceed the test desktop's track limit; native 144 DPI is checked in its own process.
+    private static void Density() { foreach (float scale in new[] { 1F, 1.25F }) Density(scale); }
+    private static void Density(float scale)
+    {
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        foreach (Size size in new[] { new Size(1000, 700), new Size(1160, 780), new Size(1280, 900) })
+        {
+            MacroConfig config = new MacroConfig { Language = language, GamepadDeviceType = VirtualGamepadTypes.None };
+            MacroDefinition macro = Timed("常用操作 · Example", Keys.F8, false);
+            for (int i = 1; i < 16; i++) macro.Steps.Add(new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, HoldMs = 45, DelayMs = 120 });
+            config.Macros.Add(macro);
+            using (MainForm form = new MainForm(config, Path.Combine(root, "density-" + Guid.NewGuid().ToString("N")), new Observer()))
+            {
+                form.StartPosition = FormStartPosition.Manual;
+                if (!densityUsesNativeDpi) form.Scale(new SizeF(scale, scale));
+                form.MaximumSize = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                form.Size = new Size((int)(size.Width * scale), (int)(size.Height * scale));
+                Render(form, "density-" + language + "-" + size.Width + "-" + (int)(scale * 100));
+                DataGridView grid = Field<DataGridView>(form, "grid");
+                Rectangle bounds = form.RectangleToClient(grid.RectangleToScreen(grid.ClientRectangle));
+                Check(bounds.Top >= 0 && bounds.Bottom <= form.ClientSize.Height && bounds.Right <= form.ClientSize.Width,
+                    "steps remain inside the initial viewport without dragging or scrolling: " + size + "; grid=" + bounds);
+                Check(All(form).OfType<Panel>().Where(x => x.AutoScroll && x.Contains(grid)).All(x => !x.VerticalScroll.Visible && !x.HorizontalScroll.Visible),
+                    "ordinary editor has no outer scrolling at " + size);
+                Check(!All(grid).OfType<HScrollBar>().Any(x => x.Visible), "all step columns fit without horizontal scrolling at " + size);
+                int rows = grid.DisplayedRowCount(false);
+                Console.WriteLine("DENSITY " + language + " " + size.Width + "x" + size.Height + " scale=" + scale + " window=" + form.Size + " rows=" + rows + " grid=" + grid.ClientSize);
+                for (Control parent = grid.Parent; parent != form; parent = parent.Parent)
+                    Check(parent.RectangleToClient(grid.RectangleToScreen(grid.ClientRectangle)).Bottom <= parent.ClientSize.Height,
+                        "steps are not clipped by " + parent.GetType().Name + " at " + size);
+                Check(rows >= (size.Height >= 780 ? 7 : 5), "useful step rows are visible initially: " + rows + " at " + size);
+                Check(grid.Rows.Cast<DataGridViewRow>().All(x => x.Height >= grid.Font.Height + grid.DefaultCellStyle.Padding.Vertical),
+                    "every step row fits its text and padding without crowding");
+                IEnumerable<Button> actions = Field<Button>(form, "addStepButton").Parent.Controls.OfType<Button>()
+                    .Concat(new[] { Field<Button>(form, "runButton"), Field<Button>(form, "stepRunButton"), Field<Button>(form, "recordButton") });
+                foreach (Button button in actions)
+                {
+                    Rectangle action = form.RectangleToClient(button.RectangleToScreen(button.ClientRectangle));
+                    Check(action.Bottom <= form.ClientSize.Height && action.Right <= form.ClientSize.Width,
+                        "normal actions remain visible without expanding or scrolling: " + button.Text);
+                    for (Control parent = button.Parent; parent != form; parent = parent.Parent)
+                        Check(parent.ClientRectangle.Contains(parent.RectangleToClient(button.RectangleToScreen(button.ClientRectangle))),
+                            "action is not clipped by its container: " + button.Text);
+                }
+            }
+        }
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        foreach (QuickTemplate template in new[] { QuickTemplate.Repeat, QuickTemplate.Sequence })
+        {
+            Localizer.SetLanguage(language);
+            using (QuickCreateDialog quick = new QuickCreateDialog(null, template))
+            {
+                List<MacroStep> steps = Field<List<MacroStep>>(quick, "steps");
+                for (int i = 0; i < 16; i++) steps.Add(new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.A, HoldMs = 45, DelayMs = 120 });
+                Call(quick, "RefreshActions");
+                if (!densityUsesNativeDpi) quick.Scale(new SizeF(scale, scale));
+                else quick.ClientSize = new Size((int)(900 * scale), (int)(650 * scale));
+                Render(quick, "density-actions-" + language + "-" + template + "-" + (int)(scale * 100));
+                ListBox actions = Field<ListBox>(quick, "stepList");
+                int rows = actions.ClientSize.Height / actions.ItemHeight;
+                Console.WriteLine("ACTIONS " + language + " " + template + " rows=" + rows + " itemHeight=" + actions.ItemHeight + " fontHeight=" + actions.Font.Height);
+                Check(rows >= 6 && actions.ItemHeight >= actions.Font.Height + 6, "quick action list has readable separated rows and useful initial capacity");
+                Check(actions.GetItemRectangle(0).Height >= actions.Font.Height + 6, "native list row height matches the font instead of squeezing text");
+                Check(actions.Items[0].ToString().Contains("45 ms") && actions.Items[0].ToString().Contains("120 ms"), "timing is visible directly in the action list");
+                Rectangle visible = quick.RectangleToClient(actions.RectangleToScreen(actions.ClientRectangle));
+                Check(visible.Bottom <= quick.ClientSize.Height, "quick actions stay within the initial viewport");
+                Check(!All(quick).OfType<Panel>().Any(x => x.AutoScroll && x.VerticalScroll.Visible), "quick creation needs no outer scrolling at default size");
+            }
+        }
+    }
+
+    private static void DefaultViewport()
+    {
+        MacroConfig config = new MacroConfig { Language = "zh-CN", GamepadDeviceType = VirtualGamepadTypes.None };
+        config.Macros.Add(Timed("启动布局", Keys.F8, false));
+        using (MainForm form = new MainForm(config, Path.Combine(root, "initial-viewport-" + Guid.NewGuid().ToString("N")), new Observer()))
+        {
+            form.Show(); Pump(50);
+            Check(Screen.FromControl(form).WorkingArea.Contains(form.Bounds), "default window fits the actual work area without manual resizing");
+            DataGridView grid = Field<DataGridView>(form, "grid");
+            Check(form.ClientRectangle.Contains(form.RectangleToClient(grid.RectangleToScreen(grid.ClientRectangle))), "default visible step area is inside the window");
+            Render(form, "density-native-default-startup");
+            Console.WriteLine("INITIAL-VIEWPORT window=" + form.Size + " rows=" + grid.DisplayedRowCount(false));
+            form.Close();
         }
     }
 

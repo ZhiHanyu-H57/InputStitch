@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -275,18 +276,31 @@ namespace InputStitch
         // reused on later launches. Returns the usable path, or null when this host has no embedded runtime.
         internal static string TryExtractEmbeddedRuntime()
         {
+            return TryExtractEmbeddedRuntimeTo(RuntimeCacheDirectory(Environment.Is64BitProcess ? "x64" : "x86"));
+        }
+
+        // Isolated destination also lets packaged acceptance verify cold extraction and cache repair.
+        internal static string TryExtractEmbeddedRuntimeTo(string directory)
+        {
             string architecture = Environment.Is64BitProcess ? "x64" : "x86";
             string resourceName = EmbeddedResourcePrefix + architecture + ".dll";
             string expectedHash = Environment.Is64BitProcess ? X64DllSha256 : X86DllSha256;
-            string targetPath = Path.Combine(RuntimeCacheDirectory(architecture), "SDL3.dll");
+            string targetPath = Path.Combine(directory, "SDL3.dll");
             try
             {
                 if (File.Exists(targetPath) && MatchesHash(targetPath, expectedHash)) return targetPath;
                 Assembly assembly = Assembly.GetExecutingAssembly();
-                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+                Stream resource = assembly.GetManifestResourceStream(resourceName + ".gz");
+                bool compressed = resource != null;
+                using (Stream stream = resource ?? assembly.GetManifestResourceStream(resourceName))
                 {
                     if (stream == null) return null;
-                    if (!TryWriteVerified(stream, targetPath, expectedHash)) return null;
+                    if (compressed)
+                    {
+                        using (GZipStream decoded = new GZipStream(stream, CompressionMode.Decompress))
+                            if (!TryWriteVerified(decoded, targetPath, expectedHash)) return null;
+                    }
+                    else if (!TryWriteVerified(stream, targetPath, expectedHash)) return null;
                 }
                 return targetPath;
             }

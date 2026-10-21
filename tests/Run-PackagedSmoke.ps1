@@ -17,8 +17,25 @@ $output = Join-Path $project ("artifacts/packaged-smoke/{0}" -f $Architecture)
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
-$null = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $project 'third-party/Nefarius.ViGEm.Client/Nefarius.ViGEm.Client.dll')))
 $assembly = [Reflection.Assembly]::LoadFrom($exe)
+$assembly.GetType('InputStitch.EmbeddedDependencyLoader').GetMethod('Register').Invoke($null,@()) | Out-Null
+$client = [Reflection.Assembly]::Load('Nefarius.ViGEm.Client')
+if ($client.Location) { throw 'The packaged managed dependency was not loaded from its embedded resource.' }
+$native = $assembly.GetType('InputStitch.Sdl3NativeApi')
+$hidden = [Reflection.BindingFlags]'Static,NonPublic'
+$extract = $native.GetMethod('TryExtractEmbeddedRuntimeTo',$hidden)
+[string]$runtimeDirectory = Join-Path $output ('runtime-'+[Guid]::NewGuid().ToString('N'))
+[string]$runtime = $extract.Invoke($null,[object[]]@([string]$runtimeDirectory))
+if (!$runtime -or !(Test-Path -LiteralPath $runtime)) { throw 'Compressed SDL3 cold-cache extraction failed.' }
+$expectedHash = $native.GetField($(if($Architecture -eq 'x64'){'X64DllSha256'}else{'X86DllSha256'}),$hidden).GetRawConstantValue()
+if ((Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) { throw 'Extracted runtime hash mismatch.' }
+$written = (Get-Item -LiteralPath $runtime).LastWriteTimeUtc
+if ($extract.Invoke($null,[object[]]@([string]$runtimeDirectory)) -ne $runtime -or (Get-Item -LiteralPath $runtime).LastWriteTimeUtc -ne $written) { throw 'Verified runtime was not reused.' }
+[IO.File]::WriteAllBytes($runtime,[byte[]]@(9,9,9))
+if ($extract.Invoke($null,[object[]]@([string]$runtimeDirectory)) -ne $runtime -or (Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) { throw 'Corrupt runtime cache was not repaired.' }
+$api = [Activator]::CreateInstance($native,[object[]]@([string]$runtime))
+try { if (!$native.GetMethod('Initialize').Invoke($api,@())) { throw 'Extracted SDL3 runtime did not initialize.' } }
+finally { $native.GetMethod('Dispose').Invoke($api,@()) | Out-Null }
 # Redirect the packaged assembly's paths in this isolated test process only.
 # No environment-variable override of Windows known folders is assumed.
 $paths = $assembly.GetType('InputStitch.AppPaths')
@@ -69,7 +86,7 @@ $timer.add_Tick({
         $script:crosshairWindow = $window
         $bitmap = New-Object Drawing.Bitmap($form.Width,$form.Height)
         try { $form.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$bitmap.Width,$bitmap.Height))); $bitmap.Save((Join-Path $output 'startup.png')) } finally { $bitmap.Dispose() }
-        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9 } |
+        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9; compressedManagedDependencyLoaded=$true; compressedSdlColdExtraction=$true; verifiedCacheReused=$true; corruptedCacheRepaired=$true; actualSdlInitialized=$true } |
             ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding UTF8
     } catch { $script:smokeFailure = $_ }
     finally { $form.Close() }

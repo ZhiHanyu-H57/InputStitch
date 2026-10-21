@@ -16,7 +16,7 @@ $fileVersion = $releaseInfo.FileVersion
 # explicit for Visual Studio users and is cross-checked by tests/SourceManifestTests.cs.
 $productionSources = & (Join-Path $projectRoot 'scripts/Get-ProductionSources.ps1')
 # Optional SDL3 runtime. Decision (b): the binary is never committed; it is fetched on demand by
-# scripts/Restore-Sdl3.ps1 and embedded into each executable as a resource so the downloadable artifact stays
+# scripts/Restore-Sdl3.ps1 and gzip-compressed into each executable so the downloadable artifact stays
 # a single self-contained EXE. Pass -SkipSdl3 to build without the lane (it then stays inert at runtime).
 $sdl3Hashes = @{
     'x64' = '1f98969319302a100931f4385e5918a0bd53ab07773040682d22e7edb54858c0'
@@ -104,6 +104,22 @@ function Assert-SourceVersion {
     }
 }
 
+function Get-CompressedResource {
+    param([string]$LiteralPath, [string]$Name)
+    $directory = Join-Path $projectRoot 'artifacts/build-resources'
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $target = Join-Path $directory ($Name + '.gz')
+    $inputStream = [IO.File]::OpenRead($LiteralPath)
+    try {
+        $outputStream = [IO.File]::Create($target)
+        try {
+            $compressed = New-Object IO.Compression.GZipStream($outputStream, [IO.Compression.CompressionLevel]::Optimal, $true)
+            try { $inputStream.CopyTo($compressed) } finally { $compressed.Dispose() }
+        } finally { $outputStream.Dispose() }
+    } finally { $inputStream.Dispose() }
+    return $target
+}
+
 function Invoke-ArchitectureBuild {
     param(
         [Parameter(Mandatory = $true)][ValidateSet('x64', 'x86')][string]$Architecture,
@@ -140,11 +156,13 @@ function Invoke-ArchitectureBuild {
     Assert-FileExists -LiteralPath $viGEmClientPath
     $compilerArguments += "/reference:$netstandardPath"
     $compilerArguments += "/reference:$viGEmClientPath"
-    $compilerArguments += "/resource:$viGEmClientPath,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll"
+    $compressedClient = Get-CompressedResource -LiteralPath $viGEmClientPath -Name 'Nefarius.ViGEm.Client.dll'
+    $compilerArguments += "/resource:$compressedClient,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll.gz"
     if (-not $SkipSdl3) {
         $sdl3ResourcePath = Join-Path $projectRoot ('third-party\SDL3\' + $Architecture + '\SDL3.dll')
         Assert-FileExists -LiteralPath $sdl3ResourcePath
-        $compilerArguments += "/resource:$sdl3ResourcePath,InputStitch.Sdl3.$Architecture.dll"
+        $compressedSdl = Get-CompressedResource -LiteralPath $sdl3ResourcePath -Name "SDL3-$Architecture.dll"
+        $compilerArguments += "/resource:$compressedSdl,InputStitch.Sdl3.$Architecture.dll.gz"
     }
     $compilerArguments += $TargetFrameworkSource
     foreach ($productionSource in $productionSources) { $compilerArguments += $productionSource }

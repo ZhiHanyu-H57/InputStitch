@@ -3,24 +3,22 @@
     // Build scripts and release workflows read these constants as the release source of truth.
     public static class ReleaseInfo
     {
-        public const string Version = "1.5.0-beta.8";
-        public const string FileVersion = "1.5.0.7";
+        public const string Version = "1.5.0-beta.9";
+        public const string FileVersion = "1.5.0.8";
         public const bool IsPrerelease = true;
         public static bool AutomaticChecksAllowed { get { return !IsPrerelease; } }
         public const string ReleasesUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases";
         // Keep this deliberately short: it is shown once after an existing user upgrades.
         // Detailed release notes remain in RELEASE_NOTES.md / GitHub Releases.
         public const string ReleaseSummaryZh =
-            "窗口化与无边框窗口准星测试版，可从左侧“屏幕准星”进入，无需安装组件。\r\n\r\n" +
-            "• 8 种常见样式，可调大小、线宽、间隙、圆点、描边、颜色与透明度。\r\n" +
-            "• 默认居中，支持选择显示器和逐像素微调，可实时预览。\r\n" +
-            "• 默认 Ctrl + Alt + F10 显隐，快捷键可改；设置与显隐状态会保存。\r\n" +
-            "• 穿透鼠标点击、不抢焦点。请使用窗口化或无边框窗口；本版不支持独占全屏。";
+            "界面优先易读、易用、整洁：适中字号、紧凑间距，给执行步骤更多展示空间。\r\n\r\n" +
+            "• 调整步骤列表列宽与行高，减少滚动和手动调整布局。\r\n" +
+            "• 压缩内置运行库，缩小单文件体积；原有宏、手柄与准星功能保留。\r\n" +
+            "• 屏幕准星用于窗口化和无边框窗口，默认 Ctrl + Alt + F10 显隐。";
         public const string ReleaseSummaryEn =
-            "Windowed and borderless crosshair beta. Open Screen crosshair in the sidebar; no component installation is needed.\r\n\r\n" +
-            "• Eight styles with size, line width, gap, center dot, outline, colors and opacity.\r\n" +
-            "• Centered by default, with display selection, pixel offsets and live preview.\r\n" +
-            "• Ctrl + Alt + F10 toggles visibility by default. Settings and visibility are saved.\r\n" +
-            "• Click-through and non-activating. Use windowed or borderless mode; exclusive fullscreen is not supported in this build.";
+            "A clearer, more compact editor with balanced text and more room for steps.\r\n\r\n" +
+            "• Improved row heights and column widths reduce scrolling and manual resizing.\r\n" +
+            "• Compressed bundled runtimes reduce file size while retaining macro, controller and crosshair features.\r\n" +
+            "• Crosshairs support windowed/borderless mode. Ctrl + Alt + F10 toggles visibility by default.";
     }
 }

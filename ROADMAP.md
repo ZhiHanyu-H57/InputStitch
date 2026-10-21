@@ -11,6 +11,10 @@ setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 
+2026-10-21: complete the beta.9 density/footprint correction first. Readability,
+usability and clean overview precede decoration. Keep normal editing visible,
+fix action-list crowding and reduce embedded runtime size with no feature loss.
+
 Pause feature expansion. Complete product usability and repeatable automated
 acceptance first: one trigger editor, ordinary-language labels, consistent
 visuals, compatible old configurations, real editing/save/reopen/package flows,

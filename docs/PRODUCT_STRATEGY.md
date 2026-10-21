@@ -11,6 +11,13 @@ fullscreen remains deferred after failed physical-visibility acceptance.
 
 ## Product priority — 2026-10-20
 
+2026-10-21 refinement: prioritize readable, usable and clean over decorative
+space or large text. Ordinary editing should show a useful number of steps,
+complete columns and reachable actions without adjusting splitters or scrolling
+the whole editor. Measure package composition and keep it lightweight without
+removing supported functions. Beta.9 uses balanced 10.5pt text and compressed
+embedded runtimes; native extraction still verifies the pinned binary.
+
 Keep the supported architecture, but present the product as a simple workflow:
 set up a macro, then use it. New features are paused. Compatibility and runtime
 implementation details belong inside the program and diagnostics, not in the

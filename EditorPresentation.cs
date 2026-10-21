@@ -49,7 +49,7 @@ namespace InputStitch
 
     internal static class EditorTheme
     {
-        internal const float BodyFontSize = 12F;
+        internal const float BodyFontSize = 10.5F;
         internal const float KeyFontSize = 10F;
         internal static Font BodyFont() { return new Font("Microsoft YaHei UI", BodyFontSize); }
         internal static readonly Color Canvas = Color.FromArgb(241, 244, 248);
@@ -86,8 +86,8 @@ namespace InputStitch
                     button.BackColor = Color.White;
                     button.ForeColor = Ink;
                     button.UseVisualStyleBackColor = false;
-                    button.Padding = new Padding(8, 2, 8, 2);
-                    if (button.MinimumSize.Height < 40) button.MinimumSize = new Size(button.MinimumSize.Width, 40);
+                    button.Padding = new Padding(6, 1, 6, 1);
+                    if (button.MinimumSize.Height < 30) button.MinimumSize = new Size(button.MinimumSize.Width, 30);
                 }
                 DataGridView grid = child as DataGridView;
                 if (grid != null)
@@ -101,12 +101,14 @@ namespace InputStitch
                     grid.ColumnHeadersDefaultCellStyle.BackColor = Canvas;
                     grid.ColumnHeadersDefaultCellStyle.ForeColor = Muted;
                     grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Canvas;
-                    grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 7, 6, 7);
-                    grid.DefaultCellStyle.Padding = new Padding(6, 4, 6, 4);
+                    grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(5, 4, 5, 4);
+                    grid.DefaultCellStyle.Padding = new Padding(5, 3, 5, 3);
+                    grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
                     grid.DefaultCellStyle.ForeColor = Ink;
                     grid.DefaultCellStyle.SelectionBackColor = Selection;
                     grid.DefaultCellStyle.SelectionForeColor = Ink;
-                    grid.RowTemplate.Height = 46;
+                    grid.RowTemplate.Height = Math.Max(30, grid.Font.Height + 10);
+                    foreach (DataGridViewRow row in grid.Rows) row.Height = grid.RowTemplate.Height;
                     grid.DefaultCellStyle.SelectionForeColor = Accent;
                     grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(249, 251, 254);
                 }
@@ -163,14 +165,14 @@ namespace InputStitch
             int titleLeft = 18;
             if (!string.IsNullOrEmpty(Badge))
             {
-                Rectangle badge = new Rectangle(16, 12, unit + 8, unit + 8);
+                Rectangle badge = new Rectangle(12, 6, unit + 4, unit + 4);
                 using (Brush fill = new SolidBrush(EditorTheme.Selection)) e.Graphics.FillEllipse(fill, badge);
                 TextRenderer.DrawText(e.Graphics, Badge, Font, badge, EditorTheme.Accent,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-                titleLeft = badge.Right + 10;
+                titleLeft = badge.Right + 8;
             }
             using (Font title = new Font(Font, FontStyle.Bold))
-                TextRenderer.DrawText(e.Graphics, Text, title, new Rectangle(titleLeft, 12, Math.Max(0, Width - titleLeft - 16), unit + 8),
+                TextRenderer.DrawText(e.Graphics, Text, title, new Rectangle(titleLeft, 6, Math.Max(0, Width - titleLeft - 12), unit + 4),
                     EditorTheme.Ink, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
     }
@@ -209,9 +211,9 @@ namespace InputStitch
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            using (Font heading = new Font(Font.FontFamily, Font.Size + 6, FontStyle.Bold))
+            using (Font heading = new Font(Font.FontFamily, Font.Size + 3, FontStyle.Bold))
                 TextRenderer.DrawText(e.Graphics, Text, heading, new Rectangle(0, 2, Width, heading.Height + 8), EditorTheme.Ink, TextFormatFlags.NoPrefix);
-            TextRenderer.DrawText(e.Graphics, Description, Font, new Rectangle(0, Font.Height + 22, Width, Height - Font.Height - 22), EditorTheme.Muted,
+            TextRenderer.DrawText(e.Graphics, Description, Font, new Rectangle(0, Font.Height + 12, Width, Height - Font.Height - 12), EditorTheme.Muted,
                 TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
         }
     }
@@ -223,14 +225,14 @@ namespace InputStitch
         {
             base.OnPaint(e);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            int mark = Math.Min(32, Font.Height + 12);
+            int mark = Math.Min(26, Font.Height + 8);
             using (Pen front = new Pen(EditorTheme.Accent, 3))
             using (Pen back = new Pen(EditorTheme.Ink, 3))
             using (GraphicsPath first = EditorTheme.Rounded(new Rectangle(2, 5, mark - 9, mark - 9), 5))
             using (GraphicsPath second = EditorTheme.Rounded(new Rectangle(10, 13, mark - 9, mark - 9), 5))
             { e.Graphics.DrawPath(back, first); e.Graphics.DrawPath(front, second); }
-            using (Font brand = new Font(Font.FontFamily, Font.Size + 4F, FontStyle.Bold))
-                TextRenderer.DrawText(e.Graphics, "InputStitch", brand, new Rectangle(mark + 10, 5, Width - mark - 10, 34), EditorTheme.Ink,
+            using (Font brand = new Font(Font.FontFamily, Font.Size + 1.5F, FontStyle.Bold))
+                TextRenderer.DrawText(e.Graphics, "InputStitch", brand, new Rectangle(mark + 6, 3, Width - mark - 6, 30), EditorTheme.Ink,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
         }
     }
@@ -419,9 +421,10 @@ namespace InputStitch
                 : macro != null && !macro.Enabled
                     ? EditorDialogs.T("设置会自动保存。点击底部运行按钮即可执行；启用触发键后，也能用快捷键启动。", "Changes save automatically. Use Run at the bottom, or enable the shortcut to start with a key.")
                     : EditorDialogs.T("设置会自动保存。点击底部运行按钮，或切到目标程序后按触发键启动；使用“全部停止”可结束所有宏。", "Changes save automatically. Use Run below, or switch to your target app and press the shortcut. Stop all ends every macro.");
+            if (workflowGuide != null) workflowGuide.Visible = count == 0;
             if (stepsHintLabel != null) stepsHintLabel.Text = count == 0
-                ? (Localizer.IsEnglish ? "Add a key or record your actions to get started." : "添加一个按键，或直接录制你的操作。")
-                : (Localizer.IsEnglish ? count + " step(s), in order · Double-click a row to edit" : count + " 个步骤，按顺序执行 · 双击任意一行可编辑");
+                ? EditorDialogs.T("添加或录制操作", "Add or record actions")
+                : (Localizer.IsEnglish ? count + " steps" : count + " 个步骤");
             if (emptyStepsPanel != null) emptyStepsPanel.Visible = macro != null && count == 0;
             if (grid != null) grid.Visible = count > 0;
             if (addStepButton != null) addStepButton.Enabled = macro != null && !recordingActive;
@@ -462,8 +465,8 @@ namespace InputStitch
         private void RefreshOptionalSettingsText(bool expanded)
         {
             if (optionalSettingsButton != null) optionalSettingsButton.Text = Localizer.IsEnglish
-                ? (expanded ? "▾ Fewer options" : "▸ More options: grouping & input")
-                : (expanded ? "▾ 收起更多设置" : "▸ 更多设置：分组与按键传递");
+                ? (expanded ? "▾ Fewer options" : "▸ More options")
+                : (expanded ? "▾ 收起更多设置" : "▸ 更多设置");
         }
     }
 }

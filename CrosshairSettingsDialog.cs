@@ -58,7 +58,7 @@ namespace InputStitch
             AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
             Text = T("屏幕准星", "Screen crosshair");
             StartPosition = FormStartPosition.CenterParent; MinimizeBox = MaximizeBox = false;
-            ClientSize = new Size(1060, 860); MinimumSize = new Size(820, 660);
+            ClientSize = new Size(920, 700); MinimumSize = new Size(780, 590);
 
             TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64)); body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
@@ -85,7 +85,7 @@ namespace InputStitch
             outlineColor = EditorDialogs.Button("", DialogResult.None); outlineColor.Click += delegate { ChooseColor(true); };
             Row(look, T("描边颜色", "Outline color"), outlineColor);
             opacity = Number(0, 100, "crosshairOpacity"); Row(look, T("不透明度（%）", "Opacity (%)"), opacity);
-            Row(look, "", Help(T("100% 完全可见，0% 完全透明。大小、线宽与偏移使用屏幕像素，不随界面缩放改变。", "100% is fully visible; 0% is transparent. Size, widths and offsets use screen pixels, independently of UI scaling.")));
+            Row(look, "", Help(T("100% 完全可见，0% 完全透明。", "100% is fully visible; 0% is transparent.")));
 
             monitor = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, Name = "crosshairMonitor" };
             monitor.Items.Add(new DisplayChoice { Device = "", Title = T("主显示器（自动）", "Primary display (automatic)") });
@@ -133,7 +133,7 @@ namespace InputStitch
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };
             Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel);
             AcceptButton = save; CancelButton = cancel;
-            EditorDialogs.Frame(this, body, EditorDialogs.Actions(save, cancel), T("在屏幕中央绘制准星。先选择样式，再调整外观与位置；保存后自动恢复。", "Draw a crosshair at the display center. Choose a style, tune its appearance and position, then save to restore it next time."), null);
+            EditorDialogs.Frame(this, body, EditorDialogs.Actions(save, cancel), T("选择样式并调整位置，保存后下次自动恢复。", "Choose a style and position. Save to restore on next launch."), null);
             LoadDraft();
             foreach (NumericUpDown number in new[] { size, line, gap, dot, border, opacity, x, y }) number.ValueChanged += delegate { Changed(); };
             foreach (CheckBox check in new[] { enabled, visible, outline, livePreview }) check.CheckedChanged += delegate { Changed(); };
@@ -145,20 +145,20 @@ namespace InputStitch
         {
             page.Padding = new Padding(10); page.AutoScroll = true; page.BackColor = Color.White;
             TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 6, 12, 12) };
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 158)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             page.Controls.Add(fields); return fields;
         }
-        private static Label Help(string text) { return new Label { Text = text, AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 8, 3, 8) }; }
-        private static CheckBox Check(string text) { return new CheckBox { Text = text, AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(3, 8, 3, 8) }; }
+        private static Label Help(string text) { return new Label { Text = text, AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 4, 3, 4) }; }
+        private static CheckBox Check(string text) { return new CheckBox { Text = text, AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(3, 4, 3, 4) }; }
         private static NumericUpDown Number(int min, int max, string name) { return new NumericUpDown { AutoScaleMode = AutoScaleMode.None,
-            Minimum = min, Maximum = max, Width = 110, MinimumSize = new Size(110, 0), Name = name, Margin = new Padding(3, 6, 3, 6) }; }
+            Minimum = min, Maximum = max, Width = 110, MinimumSize = new Size(110, 0), Name = name, Margin = new Padding(3, 3, 3, 3) }; }
         private static void Row(TableLayoutPanel fields, string title, Control input)
         {
             int row = fields.RowCount++; fields.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             if (title.Length == 0) { fields.Controls.Add(input, 0, row); fields.SetColumnSpan(input, 2); }
             else
             {
-                fields.Controls.Add(new Label { Text = title, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 8, 8) }, 0, row);
+                fields.Controls.Add(new Label { Text = title, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 4, 8, 4) }, 0, row);
                 fields.Controls.Add(input, 1, row);
             }
         }

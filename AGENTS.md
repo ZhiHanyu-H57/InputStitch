@@ -86,3 +86,13 @@ The user authorized a screen-crosshair overlay after the readability pass. This
 specific feature supersedes the earlier feature pause; unrelated feature work
 remains paused. Preserve the Stable macro baseline and the automated acceptance
 policy. See `docs/CROSSHAIR.md` for scope, research and verification.
+
+## Visual and footprint priority (2026-10-21)
+
+The user prioritizes readability, ease of use and a clean overview before
+decoration. Use balanced text and spacing; ordinary editing should expose the
+step list and its actions without outer scrolling, expansion or splitter
+adjustment at normal window sizes. Validate actual visible rows, text height,
+column fit and clipping by ancestor containers. Keep distribution lightweight;
+measure embedded resources and preserve supported functionality when reducing
+size. Compressed runtime packaging must retain verified extraction and startup.
