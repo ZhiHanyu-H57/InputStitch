@@ -1,6 +1,44 @@
 ﻿# HANDOFF.md
 
-## Latest completed pass — screen crosshair (2026-10-21)
+## Latest completed pass — windowed/borderless crosshair closure (2026-10-21)
+
+User requested a usable beta limited to windowed and borderless modes after the
+exclusive-fullscreen experiment failed physical visibility. Local beta.8 /
+FileVersion 1.5.0.7 restores the beta.6 desktop implementation. It retains eight
+styles, all appearance/placement controls, live preview, saved settings/visibility
+and editable Ctrl+Alt+F10 shortcut. No Game Bar renderer, widget resources,
+installation flow or fullscreen tab ships. The settings and release summary
+explicitly state that exclusive fullscreen is unsupported in this build.
+
+- Current branch: `ui/product-refresh`; exact delivery source commit is in the
+  machine-readable verification receipt. No remote publication; Stable 1.4.3
+  remains unchanged. Unrelated feature work is still paused.
+- The failed fullscreen experiment was archived outside the shipping repository,
+  and the local experimental widget was uninstalled. Internal widget rendering
+  and PNG transport are diagnostic only; they are not fullscreen acceptance.
+- 31 regression suites PASS: 903 macro workflow/layout checks, 172 crosshair
+  checks, 303,716 output-ownership assertions. Actual desktop pixels over both
+  windowed and full-display borderless native targets pass fill/50%-alpha,
+  hit-test pass-through, focus, centering, +13/-11 offsets and visibility checks.
+- Packaged Settings smoke initially lacked the newly named beta.8 EXE. It passed
+  after building and a focused rerun; retain both logs. Production code stayed
+  frozen throughout all acceptance, including the retry.
+- Real SendInput and ViGEm/XInput acceptance: 77/77 PASS, failures=0.
+- Macro sustained observer: 300.0 seconds / 3,533 cycles; keyboard down/up
+  14,239/14,239; zero final output sources/held outputs; max UI dispatch 131 ms,
+  max continuous-output gap 159 ms.
+- Actual native overlay: 300.1 seconds / 9,880 changes; GDI 15 to 15, handles
+  287 to 284, USER 14 to 13; private bytes 29,044,736 to 30,461,952;
+  max dispatch 133 ms. Thirty-second warmup, startup samples retained, no forced
+  GC in the overlay test, native-window disposal verified.
+- x64/x86 build, Release Verification and isolated packaged startup, saved
+  enabled crosshair/offset recovery, message loop and orderly cleanup PASS.
+- All 54 production sources unchanged during acceptance; normal config.xml and
+  devices.xml hashes match the pre-fullscreen snapshot. User trial is optional.
+- Measured sustained tests are five minutes each; additional physical monitors,
+  individual game compatibility and exclusive fullscreen are outside this result.
+
+## Previous completed pass — screen crosshair (2026-10-21)
 
 Explicit user request authorizes a bounded crosshair feature after beta.5.
 Implemented eight vector styles, size/width/gap/dot controls, outline/colors,
@@ -45,7 +83,7 @@ work remains paused. See `docs/CROSSHAIR.md` for research, scope and commands.
   Real additional-monitor hardware was not required to establish the ordinary
   feature behavior; simulated monitor geometry is reported as simulation.
 
-Current local target is beta.6; earlier UI pass results below are historical.
+Current local target is beta.8 above; the beta.6 and UI records below are historical.
 
 ## Latest completed pass — larger text and readability (2026-10-20)
 

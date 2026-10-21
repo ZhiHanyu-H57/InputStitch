@@ -5,6 +5,9 @@
 The user explicitly requested a screen crosshair after the readability pass.
 Deliver this bounded feature while preserving the macro baseline and automated
 acceptance policy. Other feature expansion remains paused. See `docs/CROSSHAIR.md`.
+The user has now limited delivery to windowed and borderless desktop overlays.
+Keep use immediate, with no component installation or Game Bar setup. Exclusive
+fullscreen remains deferred after failed physical-visibility acceptance.
 
 ## Product priority — 2026-10-20
 

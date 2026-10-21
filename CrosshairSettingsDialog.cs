@@ -127,7 +127,7 @@ namespace InputStitch
             light.CheckedChanged += delegate { preview.Light = light.Checked; preview.Invalidate(); }; side.Controls.Add(light, 0, 2);
             livePreview = Check(T("在屏幕上实时预览", "Preview on screen")); side.Controls.Add(livePreview, 0, 3);
             feedback = Help(""); feedback.Name = "crosshairFeedback"; side.Controls.Add(feedback, 0, 4);
-            side.Controls.Add(Help(T("准星穿透鼠标点击，不抢焦点。适用于窗口化或无边框窗口；独占全屏下可能不可见。", "The overlay passes mouse clicks through and does not take focus. Use windowed/borderless mode; exclusive fullscreen may hide it.")), 0, 5);
+            side.Controls.Add(Help(T("准星穿透鼠标点击，不抢焦点。请将游戏设为窗口化或无边框窗口；本版不支持独占全屏。", "The overlay passes mouse clicks through and does not take focus. Set the game to windowed or borderless mode; exclusive fullscreen is not supported in this build.")), 0, 5);
             sideViewport.Controls.Add(side); body.Controls.Add(sideViewport, 1, 0);
             save = EditorDialogs.Button(T("保存准星设置", "Save crosshair"), DialogResult.None); save.Name = "crosshairSave";
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };

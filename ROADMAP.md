@@ -5,6 +5,9 @@
 The user explicitly requested a screen crosshair after the readability pass.
 Deliver this bounded feature while preserving the macro baseline and automated
 acceptance policy. Other feature expansion remains paused. See `docs/CROSSHAIR.md`.
+The beta.8 closure targets windowed and borderless mode only. Exclusive fullscreen
+work is deferred after the user observed no reticle; no Game Bar component or
+setup path ships in this build.
 
 ## Active priority override — 2026-10-20
 

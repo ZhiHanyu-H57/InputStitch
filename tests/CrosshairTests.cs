@@ -245,9 +245,16 @@ internal static class CrosshairTests
     }
     private static void NativeOverlay()
     {
+        NativeOverlay(false);
+        NativeOverlay(true);
+    }
+    private static void NativeOverlay(bool borderless)
+    {
         IntPtr foreground = GetForegroundWindow();
+        Rectangle display = Screen.PrimaryScreen.Bounds;
         using (Form target = new Form { Text = "InputStitch crosshair acceptance target", BackColor = Color.White, TopMost = true, StartPosition = FormStartPosition.Manual,
-            Bounds = new Rectangle(Screen.PrimaryScreen.Bounds.Width / 2 - 250, Screen.PrimaryScreen.Bounds.Height / 2 - 150, 500, 300) })
+            FormBorderStyle = borderless ? FormBorderStyle.None : FormBorderStyle.Sizable,
+            Bounds = borderless ? display : new Rectangle(display.Left + display.Width / 2 - 250, display.Top + display.Height / 2 - 150, 500, 300) })
         using (CrosshairController controller = new CrosshairController(target))
         {
             try
@@ -265,7 +272,7 @@ internal static class CrosshairTests
                 Check(controller.Window.Left + controller.Window.Width / 2 == center.X && controller.Window.Top + controller.Window.Height / 2 == center.Y, "actual native window is centered in screen pixels");
                 {
                     Color solid = Pixel(center);
-                    using (Bitmap desktop = Desktop(new Rectangle(center.X - 80, center.Y - 80, 160, 160))) desktop.Save(Path.Combine(root, "native-overlay.png"));
+                    using (Bitmap desktop = Desktop(new Rectangle(center.X - 80, center.Y - 80, 160, 160))) desktop.Save(Path.Combine(root, borderless ? "native-overlay-borderless.png" : "native-overlay.png"));
                     Check(solid.R > 230 && solid.G < 30 && solid.B < 30, "desktop compositor displays selected red fill: " + solid + "; window=" + controller.Window.Bounds
                         + "; visible=" + controller.Visible + "; flags=" + flags.ToString("X") + "; prev=" + GetWindow(controller.Window.Handle, 3) + "; target=" + target.Handle);
                     options.Opacity = 50; controller.Apply(options); Pump(70); Color half = Pixel(center);

@@ -1,6 +1,27 @@
 ﻿# PLAN.md
 
-## Active pass — screen crosshair (2026-10-21)
+## Active pass — desktop crosshair closure (2026-10-21)
+
+The user narrowed delivery to windowed and borderless modes after the exclusive
+fullscreen experiment failed physical visibility. Local target: beta.8 /
+FileVersion 1.5.0.7. Restore the verified beta.6 desktop implementation, omit the
+Game Bar renderer, install flow, package resources and third tab from delivery.
+Keep eight styles, saved settings, preview and visibility hotkey. Preserve the
+failed experiment outside the repository; do not count internal widget-surface
+rendering or transport as on-screen acceptance. Verify actual composited pixels
+over both windowed and full-display borderless native targets, current-build
+workflow, sustained macro/overlay runs and both packaged architectures. Deliver
+a runnable local beta and automated evidence; user trial is optional feedback.
+
+Current-build core acceptance PASS: 31 suites, 903 macro workflow/layout checks,
+172 crosshair checks, 303,716 ownership assertions and 77 real-output checks.
+The actual native targets include windowed and full-display borderless windows.
+Macro sustained observer: 300.0 seconds / 3,533 cycles, zero final held outputs.
+Native overlay: 300.1 seconds / 9,880 changes, GDI 15 to 15, handles 287 to 284,
+USER 14 to 13, native-window disposal verified. See the delivery receipt for
+exact packaged artifact verification and the retained settings-smoke retry.
+
+## Previous pass — screen crosshair (2026-10-21)
 
 Explicit user request authorizes this feature after the product refresh;
 unrelated feature expansion stays paused. Local target: `1.5.0-beta.6`,

@@ -1,7 +1,21 @@
 ﻿# Screen crosshair — 2026-10-21
 
-Local target: 1.5.0-beta.6, FileVersion 1.5.0.5. The user's explicit request
+Local target: 1.5.0-beta.8, FileVersion 1.5.0.7. The user's explicit request
 authorizes this feature; unrelated feature expansion remains paused.
+
+## Desktop-only delivery scope (beta.8)
+
+The user requested closure on windowed and borderless mode. This build restores
+the beta.6 desktop renderer with no Game Bar backend, widget installation, package
+dependency or fullscreen settings tab. All eight styles, editable appearance,
+saved settings, live preview, physical offsets and visibility shortcut remain.
+The UI explicitly directs games to windowed or borderless mode.
+
+The beta.7 exclusive-fullscreen experiment was not accepted: the user saw no
+crosshair. PNG transport and internal widget rendering were diagnostic evidence
+only and did not establish physical visibility. Its source and failure evidence
+were archived outside the shipping repository, and the local experimental widget
+was uninstalled. Exclusive fullscreen is deferred and unsupported in beta.8.
 
 ## Product scope
 
@@ -72,8 +86,8 @@ extreme sizes, negative monitor origins, bilingual compact/scaled dialogs,
 actual main-entry Save/Cancel, screen-preview rollback, saved visibility hotkeys,
 profile globals, conflict feedback and Emergency Stop priority.
 
-The native target uses an isolated white window and a PerMonitorV2-aware test
-process. It verifies window flags, native hit-test pass-through, unchanged
+The native targets use an isolated white window, a full-display borderless
+window and a PerMonitorV2-aware test process. Each verifies window flags, native hit-test pass-through, unchanged
 foreground, full-display center, exact pixel offsets, actual desktop colors and
 50% alpha compositing, missing-display fallback and hide/disable. Desktop
 presentation is asynchronous, so captures wait for presentation before sampling.
@@ -84,7 +98,33 @@ the initialization phase; resource comparisons use a 30-second warmup baseline,
 as with the macro sustained test. No forced garbage collection is used. It
 reports measured duration and iterations, and retains failed-run metrics.
 
-## Completed verification
+## Beta.8 closure verification
+
+- 31 suites PASS: 903 macro workflow/layout checks, 172 crosshair checks,
+  303,716 ownership assertions. Windowed and full-display borderless targets
+  both pass actual desktop red/50%-alpha samples, hit-test pass-through,
+  no focus theft, centering, physical offsets, hiding and disabling.
+- Real SendInput and ViGEm/XInput: 77/77 PASS, zero failures.
+- Current-build macro sustained observer: 300.0 seconds / 3,533 cycles;
+  keyboard down/up 14,239/14,239, final sources/held outputs zero,
+  max UI dispatch 131 ms, max continuous-output gap 159 ms.
+- Current-build native overlay: 300.1 seconds / 9,880 changes;
+  GDI 15 to 15, handles 287 to 284, USER 14 to 13,
+  private bytes 29,044,736 to 30,461,952; max dispatch 133 ms.
+  Resource baseline follows 30 seconds of warmup, retains startup samples,
+  uses no forced GC and verifies native-window disposal.
+- The 31-suite run passed, then packaged Settings smoke initially lacked the
+  new beta.8 EXE. Building it and rerunning Settings smoke passed all bilingual
+  compact layouts, XML defaults and saved gamepad-vector checks. The original
+  failure and the focused retry remain in the delivery evidence.
+- All 54 production sources stayed unchanged during acceptance; normal user
+  configuration hashes match the snapshot taken before the fullscreen attempt.
+- Final binaries, startup/restoration/shutdown checks and hashes are recorded
+  in the delivered machine-readable verification report. No user trial gate.
+- These measured five-minute runs and this host's native targets do not claim
+  hours-long endurance, universal game support or physical multi-monitor coverage.
+
+## Historical beta.6 verification
 
 - Verified production-code commit: `ceb1320` on `ui/product-refresh`.
 - Local `1.5.0-beta.6` / FileVersion `1.5.0.5`; no remote publication and no
