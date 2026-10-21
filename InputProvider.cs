@@ -14,6 +14,8 @@ namespace InputStitch
     internal interface IGamepadInputProvider : IDisposable
     {
         string ProviderName { get; }
+        // Increment whenever ConnectedDeviceIndices membership or index ownership changes.
+        // Consumers may cache membership until this version changes; state and edge polling stay live.
         long TopologyVersion { get; }
         Action<InputEventInfo> InputDown { get; set; }
         Action<InputEventInfo> InputUp { get; set; }

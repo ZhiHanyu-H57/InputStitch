@@ -25,6 +25,7 @@ internal static class ProductAcceptanceTests
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wparam, IntPtr lparam);
+    [DllImport("user32.dll")] private static extern int GetGuiResources(IntPtr process, int flags);
     private static void Check(bool value, string label) { if (!value) throw new Exception(label); checks++; }
     private static T Field<T>(object owner, string name) { return (T)owner.GetType().GetField(name, Private).GetValue(owner); }
     private static object Call(object owner, string name, params object[] args)
@@ -1154,6 +1155,8 @@ internal static class ProductAcceptanceTests
         Process process = Process.GetCurrentProcess();
         long cycles = 0, baselineBytes = 0, maxBytes = 0, maxPumpMs = 0;
         int baselineHandles = 0, maxHandles = 0, baselineThreads = 0, maxThreads = 0;
+        int baselineGdi = 0, baselineUser = 0;
+        List<int> warmHandles = new List<int>(), tailHandles = new List<int>();
         List<string> samples = new List<string> { "elapsed_seconds,cycles,private_bytes,handles,threads,output_downs,output_ups,cpu_milliseconds" };
         using (MainForm form = new MainForm(config, directory, observer))
         {
@@ -1197,7 +1200,10 @@ internal static class ProductAcceptanceTests
                 {
                     process.Refresh();
                     if (baselineBytes == 0 && clock.Elapsed.TotalSeconds >= 30)
-                    { GC.Collect(); GC.WaitForPendingFinalizers(); process.Refresh(); baselineBytes = process.PrivateMemorySize64; baselineHandles = process.HandleCount; baselineThreads = process.Threads.Count; }
+                    { baselineBytes = process.PrivateMemorySize64; baselineHandles = process.HandleCount; baselineThreads = process.Threads.Count;
+                        baselineGdi = GetGuiResources(process.Handle, 0); baselineUser = GetGuiResources(process.Handle, 1); }
+                    if (clock.Elapsed.TotalSeconds >= 30 && clock.Elapsed.TotalSeconds <= 90) warmHandles.Add(process.HandleCount);
+                    if (clock.Elapsed.TotalSeconds >= minutes * 60 - 60) tailHandles.Add(process.HandleCount);
                     maxBytes = Math.Max(maxBytes, process.PrivateMemorySize64);
                     maxHandles = Math.Max(maxHandles, process.HandleCount);
                     maxThreads = Math.Max(maxThreads, process.Threads.Count);
@@ -1215,20 +1221,38 @@ internal static class ProductAcceptanceTests
             Check(observer.Pressed == 0 && Field<OutputOwnershipManager>(form, "outputOwnership").Snapshot().Sources.Count == 0, "soak final state has zero sources and held outputs");
             Check(observer.KeyboardDowns == observer.KeyboardUps, "every keyboard down has a matching release");
             Check(observer.Downs > cycles * 2 && observer.MaxContinuousGapMs < 2000, "continuous output remains active without a 2-second gap");
-            GC.Collect(); GC.WaitForPendingFinalizers(); process.Refresh();
-            Check(baselineBytes > 0 && process.PrivateMemorySize64 <= baselineBytes + 128L * 1024 * 1024, "private memory growth stays below 128 MiB after warmup");
-            Check(process.HandleCount <= baselineHandles + 32, "final handle growth stays below 32");
-            Check(process.Threads.Count <= baselineThreads + 12, "final thread growth stays below 12");
-            Check(maxPumpMs < 2000, "UI message dispatch stays below 2 seconds");
-            string report = "{\"status\":\"PASS\",\"version\":\"" + AppInfo.Version + "\",\"durationSeconds\":" + clock.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) +
+            process.Refresh();
+            int[] warm = warmHandles.OrderBy(x => x).ToArray(), tail = tailHandles.OrderBy(x => x).ToArray();
+            maxBytes = Math.Max(maxBytes, process.PrivateMemorySize64);
+            maxHandles = Math.Max(maxHandles, process.HandleCount);
+            maxThreads = Math.Max(maxThreads, process.Threads.Count);
+            int warmMedian = warm.Length == 0 ? baselineHandles : warm[warm.Length / 2];
+            int tailMedian = tail.Length == 0 ? process.HandleCount : tail[tail.Length / 2];
+            int finalGdi = GetGuiResources(process.Handle, 0), finalUser = GetGuiResources(process.Handle, 1);
+            // CLR Thread objects retain native bookkeeping handles until a natural GC, even after
+            // Join. Compare equal steady-state windows, retaining the +32 growth limit, and bound
+            // peaks separately. A single end sample depends on where the GC cycle happened to stop.
+            string report = "{\"status\":\"MEASURED\",\"version\":\"" + AppInfo.Version + "\",\"durationSeconds\":" + clock.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) +
                 ",\"cycles\":" + cycles + ",\"outputDowns\":" + observer.Downs + ",\"outputUps\":" + observer.Ups +
                 ",\"keyboardDowns\":" + observer.KeyboardDowns + ",\"keyboardUps\":" + observer.KeyboardUps + ",\"maxContinuousGapMs\":" + observer.MaxContinuousGapMs +
                 ",\"cpuMilliseconds\":" + process.TotalProcessorTime.TotalMilliseconds.ToString("F1", CultureInfo.InvariantCulture) +
                 ",\"baselinePrivateBytes\":" + baselineBytes + ",\"finalPrivateBytes\":" + process.PrivateMemorySize64 + ",\"peakPrivateBytes\":" + maxBytes +
                 ",\"baselineHandles\":" + baselineHandles + ",\"finalHandles\":" + process.HandleCount + ",\"peakHandles\":" + maxHandles +
+                ",\"warmedMedianHandles\":" + warmMedian + ",\"tailMedianHandles\":" + tailMedian + ",\"handlePeakBudget\":" + (warmMedian + 256) +
+                ",\"baselineGdi\":" + baselineGdi + ",\"finalGdi\":" + finalGdi + ",\"baselineUser\":" + baselineUser + ",\"finalUser\":" + finalUser +
                 ",\"baselineThreads\":" + baselineThreads + ",\"finalThreads\":" + process.Threads.Count + ",\"peakThreads\":" + maxThreads +
-                ",\"maxUiDispatchMs\":" + maxPumpMs + ",\"remainingOutputSources\":0,\"remainingPressedOutputs\":0,\"backend\":\"isolated observer\"}";
+                ",\"workerThreadsCreated\":" + Field<MacroWorkerPool>(form,"macroWorkers").CreatedThreadCount +
+                ",\"maxUiDispatchMs\":" + maxPumpMs + ",\"remainingOutputSources\":0,\"remainingPressedOutputs\":0,\"forcedGc\":false,\"backend\":\"isolated observer\"}";
             File.WriteAllText(Path.Combine(directory, "report.json"), report, Encoding.UTF8);
+            Check(baselineBytes > 0 && process.PrivateMemorySize64 <= baselineBytes + 128L * 1024 * 1024, "private memory growth stays below 128 MiB after warmup");
+            Check(tailMedian <= warmMedian + 32, "steady-state median handle growth stays below 32 without forced GC");
+            Check(process.HandleCount <= baselineHandles + 32, "final handle growth stays below 32 without forced GC");
+            Check(maxHandles <= warmMedian + 256, "peak handles stay within the explicit CLR-thread bookkeeping budget");
+            Check(finalGdi <= baselineGdi + 8 && finalUser <= baselineUser + 8, "GDI and USER objects remain bounded after sustained execution");
+            Check(process.Threads.Count <= baselineThreads + 12, "final thread growth stays below 12");
+            Check(Field<MacroWorkerPool>(form,"macroWorkers").CreatedThreadCount <= 6, "sustained restarts reuse bounded workers without thread churn");
+            Check(maxPumpMs < 2000, "UI message dispatch stays below 2 seconds");
+            File.WriteAllText(Path.Combine(directory, "report.json"), report.Replace("\"MEASURED\"", "\"PASS\""), Encoding.UTF8);
             Console.WriteLine("SOAK REPORT " + Path.Combine(directory, "report.json"));
         }
     }

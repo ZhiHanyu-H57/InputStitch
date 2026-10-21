@@ -32,8 +32,44 @@ internal static class XInputInputTests
         return type.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, args);
     }
 
+    private static void DisconnectedPolling()
+    {
+        long now = 0;
+        int own = -1, downs = 0, ups = 0;
+        int[] reads = new int[4];
+        XInputPadState[] pads = new XInputPadState[4];
+        using (XInputInputService service = new XInputInputService(delegate { return own; }, delegate(int index) { reads[index]++; return pads[index]; }, delegate { return now; }, 500))
+        {
+            service.InputDown = delegate { downs++; }; service.InputUp = delegate { ups++; };
+            service.Poll();
+            for (int i = 0; i < 100; i++) service.Poll();
+            Check(reads.All(x => x == 1), "empty slots are probed once during the retry window");
+            pads[1] = Pad(true, 0x1000, 0, 0);
+            now = 499; service.Poll();
+            Check(!service.GetState(1).Connected, "a newly attached pad waits until the bounded discovery deadline");
+            now = 500; service.Poll();
+            Check(service.GetState(1).Connected && downs == 0, "new pads are discovered within 500 ms without synthesizing a held-button press");
+            now = 510; pads[1] = Pad(true, 0, 0, 0); service.Poll();
+            now = 520; pads[1] = Pad(true, 0x1000, 0, 0); service.Poll();
+            Check(reads[1] == 4 && downs == 1 && ups == 1, "connected pads are read every tick and retain normal edges");
+            now = 530; pads[1] = new XInputPadState(); service.Poll();
+            Check(ups == 2 && !service.GetState(1).Connected, "disconnect releases immediately without waiting for the retry interval");
+            int disconnectedReads = reads[1];
+            pads[1] = Pad(true, 0x1000, 0, 0);
+            now = 1029; service.Poll();
+            Check(reads[1] == disconnectedReads, "a disconnected slot backs off after its release");
+            now = 1030; service.Poll();
+            Check(service.GetState(1).Connected && downs == 1, "reconnection establishes a fresh held baseline");
+            own = 1; service.Poll();
+            Check(!service.GetState(1).Connected && ups == 3, "own virtual slot exclusion still releases immediately");
+            own = -1; service.Poll();
+            Check(service.GetState(1).Connected && downs == 1, "own-slot changes invalidate backoff and never synthesize a press");
+        }
+    }
+
     public static int Main()
     {
+        DisconnectedPolling();
         XInputPadState[] pads = new XInputPadState[4];
         int own = -1;
         List<Edge> edges = new List<Edge>();

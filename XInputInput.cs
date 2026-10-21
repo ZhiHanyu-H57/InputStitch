@@ -78,6 +78,9 @@ namespace InputStitch
         private readonly SlotState[] slots = new SlotState[4];
         private readonly Func<int> ownXboxSlot;
         private readonly Func<int, XInputPadState> readState;
+        private readonly Func<long> clock;
+        private readonly int retryMs;
+        private readonly long[] nextPoll = new long[4];
         private readonly XInputNativeReader xinput = new XInputNativeReader();
         private readonly object topologySync = new object();
         private bool disposed;
@@ -96,14 +99,21 @@ namespace InputStitch
         public string ProviderName { get { return "xinput"; } }
 
         internal XInputInputService(Func<int> ownXboxSlot)
-            : this(ownXboxSlot, null)
+            : this(ownXboxSlot, null, IdleGamepadService.MonotonicMilliseconds, 500)
         {
         }
 
         internal XInputInputService(Func<int> ownXboxSlot, Func<int, XInputPadState> reader)
+            : this(ownXboxSlot, reader, IdleGamepadService.MonotonicMilliseconds, reader == null ? 500 : 0)
+        {
+        }
+
+        internal XInputInputService(Func<int> ownXboxSlot, Func<int, XInputPadState> reader, Func<long> clock, int retryMs)
         {
             this.ownXboxSlot = ownXboxSlot;
             readState = reader ?? ReadNativeState;
+            this.clock = clock;
+            this.retryMs = retryMs;
             for (int i = 0; i < slots.Length; i++) slots[i] = new SlotState();
         }
 
@@ -153,10 +163,15 @@ namespace InputStitch
             }
             lock (topologySync)
             {
-                if (excludedIndex != own) System.Threading.Interlocked.Increment(ref topologyVersion);
+                if (excludedIndex != own)
+                {
+                    Array.Clear(nextPoll, 0, nextPoll.Length);
+                    System.Threading.Interlocked.Increment(ref topologyVersion);
+                }
                 excludedIndex = own;
             }
 
+            long now = clock();
             for (int index = 0; index < slots.Length; index++)
             {
                 SlotState slot = slots[index];
@@ -175,12 +190,17 @@ namespace InputStitch
                     continue;
                 }
 
+                // Empty XInput slots can be expensive to query (Microsoft advises seconds between
+                // probes). Keep connected devices at input cadence and discover new ones within
+                // 500 ms. Disconnect releases still run on the very first failed connected read.
+                if (!slot.Connected && now < nextPoll[index]) continue;
                 XInputPadState current;
                 try { current = readState(index); }
                 catch { current = new XInputPadState(); }
 
                 if (!current.Connected)
                 {
+                    nextPoll[index] = now + retryMs;
                     if (slot.Connected)
                     {
                         ReleaseAll(index, slot, "disconnect");

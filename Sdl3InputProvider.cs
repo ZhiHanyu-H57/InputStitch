@@ -111,10 +111,10 @@ namespace InputStitch
                 foreach (int deviceId in ids)
                 {
                     if (!present.Add(deviceId)) continue;
+                    if (indexByDeviceId.ContainsKey(deviceId)) continue;
                     Sdl3DeviceDescriptor descriptor = DescribeSafely(deviceId);
                     if (descriptor == null) continue;
                     if (suppressXboxFamily && descriptor.VendorId == MicrosoftVendorId) continue;
-                    if (indexByDeviceId.ContainsKey(deviceId)) continue;
                     indexByDeviceId[deviceId] = AllocateIndexLocked();
                     descriptorByDeviceId[deviceId] = descriptor;
                     try

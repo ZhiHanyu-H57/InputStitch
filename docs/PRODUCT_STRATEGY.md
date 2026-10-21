@@ -1,5 +1,15 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Current evidence and priority — 2026-10-21
+
+The latest official-source comparison, code review, measured fixes and follow-up
+order are in [Maturity and performance review](MATURITY_AND_PERFORMANCE_REVIEW.md).
+Prefer that dated status over older capability-gap paragraphs below: the analog
+transform engine, output-backend seam, source manifest and XInput/SDL3 provider
+seam already exist. Beta.15 preserves beta.14 usability and reduces measured
+background work; expansion remains paused. Prioritize everyday macro workflows,
+low resource consumption, explainable state and incremental runtime/UI separation.
+
 ## Authorized exception — screen crosshair (2026-10-21)
 
 The user explicitly requested a screen crosshair after the readability pass.

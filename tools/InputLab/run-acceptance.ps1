@@ -21,6 +21,18 @@ if ([string]::IsNullOrWhiteSpace($ReportPath)) {
 }
 $ReportPath = [System.IO.Path]::GetFullPath($ReportPath)
 
+# Versioned portable EXEs are product instances too. Do not emit input into a
+# desktop where another copy may consume it or start the user's configured macros.
+$runningProduct = @(Get-Process | Where-Object { $_.ProcessName -eq 'InputStitch' -or $_.ProcessName -match '^InputStitch-\d' })
+if ($runningProduct.Count -ne 0) {
+    [IO.Directory]::CreateDirectory((Split-Path $ReportPath -Parent)) | Out-Null
+    $reason = 'Another InputStitch instance is active: ' + (($runningProduct | Select-Object -ExpandProperty ProcessName) -join ', ')
+    [IO.File]::WriteAllText($ReportPath, "BLOCKED | environment-preflight | $reason`r`nSUMMARY: BLOCKED | checks=0 | failures=0`r`n", (New-Object Text.UTF8Encoding($false)))
+    Write-Output "BLOCKED | environment-preflight | $reason"
+    Write-Output 'SUMMARY: BLOCKED | checks=0 | failures=0'
+    exit 2
+}
+
 $exe = & (Join-Path $toolRoot 'build-acceptance.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Ownership acceptance build failed.' }
 

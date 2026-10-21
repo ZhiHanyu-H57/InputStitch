@@ -22,13 +22,15 @@ internal static class CompositeInputProviderTests
         public string Name;
         public long Version;
         public bool Disposed;
+        public int Reads;
+        public bool FailRead;
 
         public FakeProvider(string name) { Name = name; }
 
         public string ProviderName { get { return Name; } }
         public long TopologyVersion { get { return Version; } }
         public void Poll() { Calls.Add("poll"); }
-        public int[] ConnectedDeviceIndices() { return indices.ToArray(); }
+        public int[] ConnectedDeviceIndices() { Reads++; if (FailRead) throw new InvalidOperationException("probe"); return indices.ToArray(); }
         public bool TryGetState(int deviceIndex, out XInputPadState state)
         {
             if (States.TryGetValue(deviceIndex, out state) && state.Connected) return true;
@@ -48,11 +50,13 @@ internal static class CompositeInputProviderTests
         {
             indices.Add(index);
             States[index] = new XInputPadState { Connected = true, Buttons = buttons };
+            Version++;
         }
         public void Remove(int index)
         {
             indices.Remove(index);
             States.Remove(index);
+            Version++;
         }
         public void RaiseDown(int index, GamepadControl control) { Raise(InputDown, index, control); }
         public void RaiseUp(int index, GamepadControl control) { Raise(InputUp, index, control); }
@@ -100,6 +104,35 @@ internal static class CompositeInputProviderTests
         sdl3.Version = 2;
         composite.Poll();
         Check(composite.TopologyVersion == 7, "a child topology change moves the composite version");
+
+        int reads = xinput.Reads + sdl3.Reads;
+        composite.Poll();
+        Check(xinput.Reads + sdl3.Reads == reads, "unchanged topology reuses membership while polling both children");
+        Check(xinput.Calls.Count == 3 && sdl3.Calls.Count == 3, "cached membership never skips state polling");
+        indices[0] = 999;
+        Check(composite.ConnectedDeviceIndices()[0] == 1, "callers cannot mutate the cached index snapshot");
+        sdl3.Remove(7);
+        composite.Poll();
+        Check(!composite.TryGetState(7, out state) && composite.ConnectedDeviceIndices().Length == 2, "disconnect invalidates ownership immediately");
+        sdl3.Add(7, 0x4000);
+        composite.Poll();
+        Check(composite.TryGetState(7, out state), "reconnect restores ownership immediately");
+        // Equal sums still require invalidation when the child versions differ.
+        xinput.Version++;
+        sdl3.Version--;
+        reads = xinput.Reads + sdl3.Reads;
+        composite.Poll();
+        Check(xinput.Reads + sdl3.Reads == reads + 2, "per-child versions detect changes even when their sum is unchanged");
+        sdl3.Add(9, 0x2000);
+        sdl3.FailRead = true;
+        bool readFailed = false;
+        try { composite.Poll(); } catch (InvalidOperationException) { readFailed = true; }
+        Check(readFailed && composite.TryGetState(7, out state) && composite.ConnectedDeviceIndices().Length == 3, "a failed refresh never publishes a partial ownership map");
+        sdl3.FailRead = false;
+        composite.Poll();
+        Check(composite.TryGetState(9, out state), "a failed refresh retries without a further version change");
+        sdl3.Remove(9);
+        composite.Poll();
 
         List<string> edges = new List<string>();
         composite.InputDown = delegate(InputEventInfo e) { edges.Add("D:" + e.DeviceIndex.ToString() + ":" + e.Input.GamepadControl.ToString()); };

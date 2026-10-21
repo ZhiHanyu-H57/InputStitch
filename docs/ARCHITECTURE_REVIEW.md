@@ -1,5 +1,15 @@
 # InputStitch architecture review
 
+## Current follow-up — 2026-10-21
+
+See [Maturity and performance review](MATURITY_AND_PERFORMANCE_REVIEW.md) for the
+live beta.15 findings and measured fixes. The source-only review below is retained
+as a dated historical record: F3's source manifest is now implemented and tested,
+F6 has XInput/SDL3/Composite implementations, and a virtual-output backend seam
+exists. The remaining MainForm coupling and UI-affine activator decisions are
+current debt. Input-thread timing now has deadline/cancellation/fallback tests and
+repeatable microbenchmarks; real packaged resource probes cover production startup.
+
 Date: 2026-09-21 · Reviewer: Codex (repository evidence + vendor/API facts verified the same day)
 
 Scope: current `main` (post-`v1.4.3`, including the momentary Layer work) — source-only review. No hooks were

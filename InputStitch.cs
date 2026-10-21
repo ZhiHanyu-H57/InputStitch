@@ -3216,6 +3216,7 @@ namespace InputStitch
         private readonly Dictionary<long, MacroRunRuntime> activeMacroRuns = new Dictionary<long, MacroRunRuntime>();
         private readonly Dictionary<MacroDefinition, long> activeMacroRunByMacro = new Dictionary<MacroDefinition, long>();
         private long runSequence = 0;
+        private readonly MacroWorkerPool macroWorkers = new MacroWorkerPool(delegate(Exception ex) { AppLog.Write("Macro worker dispatch failed", ex); });
         private string lastRunStopReason = "none";
 
         public MainForm() : this(null, null, null) { }
@@ -3226,7 +3227,7 @@ namespace InputStitch
         internal MainForm(MacroConfig isolatedConfig, string isolatedDirectory, IOutputBackend outputBackend)
         {
             outputOwnership = new OutputOwnershipManager(outputBackend ?? (IOutputBackend)new DirectOutputBackend());
-            Disposed += delegate { DisposeCrosshair(); };
+            Disposed += delegate { StopAllMacroRuns("dispose"); macroWorkers.Dispose(); DisposeCrosshair(); };
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             Text = AppInfo.ProductName + " " + AppInfo.Version;
@@ -5330,7 +5331,7 @@ namespace InputStitch
         {
             if (recordingActive) StopMacroRecording(false, true);
             StopAllParallelHeldMappings("config-change");
-            List<Thread> threads = StopAllMacroRuns("config-change");
+            List<MacroWorkItem> threads = StopAllMacroRuns("config-change");
             if (threads.Count == 0) return true;
 
             statusLabel.Text = Localizer.IsEnglish
@@ -5339,11 +5340,11 @@ namespace InputStitch
             UpdateRunButton();
 
             Stopwatch wait = Stopwatch.StartNew();
-            foreach (Thread t in threads)
+            foreach (MacroWorkItem t in threads)
             {
-                if (t == null || !t.IsAlive) continue;
+                if (t == null) continue;
                 int remaining = Math.Max(0, 1500 - (int)wait.ElapsedMilliseconds);
-                if (remaining == 0 || !t.Join(remaining))
+                if (remaining == 0 || !t.Wait(remaining))
                 {
                     LocalizedMessageBox.Show(this, "一个或多个宏运行实例未能及时停止。为避免配置与执行线程状态不一致，本次操作已取消。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     statusLabel.Text = "状态：操作失败：仍有宏在停止中。";
@@ -6265,6 +6266,7 @@ namespace InputStitch
         // are dropped, which keeps a busy UI from building an unbounded backlog of stale ticks.
         private void RequestActivatorTick()
         {
+            if (activatorEngine.TrackedCount == 0) return;
             if (IsDisposed || !IsHandleCreated) return;
             if (Interlocked.CompareExchange(ref activatorTickQueued, 1, 0) != 0) return;
             try
@@ -6368,7 +6370,7 @@ namespace InputStitch
 
         private void HandleOutputOwnershipFailure(Exception ex, string context)
         {
-            List<Thread> workers = StopAllMacroRuns("ownership-failure");
+            List<MacroWorkItem> workers = StopAllMacroRuns("ownership-failure");
             lock (runLock)
             {
                 activeParallelHeldMappings.Clear();
@@ -7333,9 +7335,7 @@ namespace InputStitch
 
                 runtime.RunId = ++runSequence;
                 runtime.SourceId = "macro:" + runtime.RunId.ToString();
-                runtime.Thread = new Thread(new ThreadStart(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); }));
-                runtime.Thread.IsBackground = true;
-                runtime.Thread.Name = "InputStitch Worker " + runtime.RunId.ToString();
+                runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
                 activeMacroRuns[runtime.RunId] = runtime;
                 activeMacroRunByMacro[m] = runtime.RunId;
                 lastRunStopReason = "running";
@@ -7345,10 +7345,11 @@ namespace InputStitch
             runtimeTrace.Add("worker-start", "run=" + runtime.RunId.ToString() + "; source=" + runtime.SourceId + "; mode=" + m.RunMode.ToString());
             try
             {
-                runtime.Thread.Start();
+                macroWorkers.Start(runtime.Work);
             }
             catch (Exception ex)
             {
+                runtime.Work.Complete();
                 lock (runLock)
                 {
                     activeMacroRuns.Remove(runtime.RunId);
@@ -7396,16 +7397,16 @@ namespace InputStitch
             }
         }
 
-        private List<Thread> StopAllMacroRuns(string reason)
+        private List<MacroWorkItem> StopAllMacroRuns(string reason)
         {
-            List<Thread> threads = new List<Thread>();
+            List<MacroWorkItem> threads = new List<MacroWorkItem>();
             lock (runLock)
             {
                 foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
                 {
                     if (runtime == null) continue;
                     RequestStopMacroRun_NoLock(runtime, reason);
-                    if (runtime.Thread != null) threads.Add(runtime.Thread);
+                    if (runtime.Work != null) threads.Add(runtime.Work);
                 }
             }
             return threads;
@@ -8066,17 +8067,10 @@ namespace InputStitch
                     foregroundTimer.Dispose();
                     foregroundTimer = null;
                 }
-                List<Thread> shutdownThreads = StopAllMacroRuns("shutdown");
+                StopAllMacroRuns("shutdown");
                 StopAllParallelHeldMappings("shutdown");
                 ForceReleaseActiveHeldInputs();
-                Stopwatch shutdownWait = Stopwatch.StartNew();
-                foreach (Thread t in shutdownThreads)
-                {
-                    if (t == null || !t.IsAlive) continue;
-                    int remaining = Math.Max(0, 1200 - (int)shutdownWait.ElapsedMilliseconds);
-                    if (remaining == 0) break;
-                    t.Join(remaining);
-                }
+                macroWorkers.Dispose();
                 // Ownership is the final shutdown authority. This releases keyboard/mouse state
                 // as well as the gamepad, including the rare case where a worker missed its
                 // normal finally path before the bounded join returned.

@@ -156,8 +156,10 @@ namespace InputStitch
         public void Update()
         {
             if (!available) return;
-            if (sdlUpdateJoysticks != null) sdlUpdateJoysticks();
+            // SDL_UpdateGamepads already calls SDL_UpdateJoysticks in the pinned SDL3 runtime.
+            // Pump once; keep the joystick entry point as a fallback for an incomplete API.
             if (sdlUpdateGamepads != null) sdlUpdateGamepads();
+            else if (sdlUpdateJoysticks != null) sdlUpdateJoysticks();
         }
 
         public int[] ListDeviceIds()
@@ -165,9 +167,12 @@ namespace InputStitch
             if (!available || sdlGetGamepads == null) return new int[0];
             int count = 0;
             IntPtr pointer = sdlGetGamepads(out count);
-            if (pointer == IntPtr.Zero || count <= 0) return new int[0];
+            if (pointer == IntPtr.Zero) return new int[0];
             try
             {
+                // SDL returns a caller-owned, zero-terminated allocation even for an empty list.
+                // Keep the zero-count return inside finally's ownership scope.
+                if (count <= 0) return new int[0];
                 int[] ids = new int[count];
                 for (int i = 0; i < count; i++) ids[i] = Marshal.ReadInt32(pointer, i * 4);
                 return ids;

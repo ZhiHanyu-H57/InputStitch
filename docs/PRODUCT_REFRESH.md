@@ -1,5 +1,9 @@
 ﻿# Product refresh — 2026-10-20
 
+Beta.15 retains the completed visual/input-method pass below. Its changes concern
+background resource use and architecture review; see
+`MATURITY_AND_PERFORMANCE_REVIEW.md`. No visual rework or feature expansion.
+
 ## Current pass — complete visual audit and DCET diamond (beta.14, 2026-10-21)
 
 Local beta.14 / FileVersion 1.5.0.13 on `ui/product-refresh`. Preserve stable

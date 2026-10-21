@@ -1,5 +1,11 @@
 # InputStitch development plan (living document)
 
+Current priority (2026-10-21): preserve existing functions and beta.14 usability;
+complete the measured performance work and automated acceptance in
+[Maturity and performance review](MATURITY_AND_PERFORMANCE_REVIEW.md). Its ordered
+follow-ups supersede the dated feature queue below. Source-manifest/provider/
+backend foundations listed below are already implemented; do not repeat them.
+
 Updated: 2026-09-21
 
 This is the source of truth for "what next". Companions: `ROADMAP.md` (milestones), `PLAN.md` (current

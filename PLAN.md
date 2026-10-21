@@ -1,5 +1,28 @@
 ﻿# PLAN.md
 
+## Completed pass — maturity, architecture and measured performance (2026-10-22)
+
+Local beta.15 / FileVersion 1.5.0.14. Research official mature macro/remapping
+tools, assess current gaps against repository evidence, and implement bounded
+performance fixes without new functions/dependencies or a runtime rewrite.
+See `docs/MATURITY_AND_PERFORMANCE_REVIEW.md` for findings, primary sources and
+the ordered follow-up work. Preserve the beta.14 visuals and stable 1.4.3 behavior.
+
+Implemented: native empty-XInput-slot backoff (500 ms discovery, connected reads
+unchanged), deadline-based interruptible input waiting with native precision and
+framework fallback, topology-version cache with atomic publication, stable SDL3
+metadata reuse and skipping empty advanced-activator UI work. Add repeatable
+micro/packaged resource probes and remove forced GC from sustained acceptance.
+The unforced soak exposed per-run CLR thread bookkeeping costs. Add a dedicated
+worker-reuse module with independent per-run completion, retain per-run ownership
+and cancellation, and restore the strict final +32 handle check alongside the new
+GDI/USER and sampling checks. No shared-thread-pool throttling of long macros.
+Final source passes 34 regression suites, the unforced 600.1-second observer
+(6,939 cycles / three macro workers), 77 isolated real-output checks and both
+packaged architectures. SDL3 empty-device native arrays are freed as required.
+Keep the source/EXE freeze and final hashes in HANDOFF and the delivery receipt.
+No routine manual-trial prerequisite; no remote publication or Stable replacement.
+
 ## Completed pass — complete visual audit and DCET diamond (2026-10-21)
 
 Local target beta.14 / FileVersion 1.5.0.13. Audit main editor and every custom

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using InputStitch;
@@ -8,6 +10,54 @@ using InputStitch;
 internal static class Sdl3ProviderTests
 {
     private static int checks;
+    private static int gamepadUpdates;
+    private static int joystickUpdates;
+    private static int nativeCount;
+    private static int nativeFrees;
+    private static IntPtr NativeList(out int count)
+    {
+        count = Math.Max(0, nativeCount);
+        if (nativeCount < 0) return IntPtr.Zero;
+        IntPtr pointer = Marshal.AllocHGlobal((count + 1) * 4);
+        if (count != 0) Marshal.WriteInt32(pointer, 7);
+        Marshal.WriteInt32(pointer, count * 4, 0);
+        return pointer;
+    }
+    private static void NativeFree(IntPtr pointer) { nativeFrees++; Marshal.FreeHGlobal(pointer); }
+    private static void NativeEnumeration()
+    {
+        Sdl3NativeApi api = new Sdl3NativeApi();
+        BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        typeof(Sdl3NativeApi).GetField("available", flags).SetValue(api, true);
+        FieldInfo list = typeof(Sdl3NativeApi).GetField("sdlGetGamepads", flags), free = typeof(Sdl3NativeApi).GetField("sdlFree", flags);
+        list.SetValue(api, Delegate.CreateDelegate(list.FieldType, typeof(Sdl3ProviderTests).GetMethod("NativeList", BindingFlags.Static | BindingFlags.NonPublic)));
+        free.SetValue(api, Delegate.CreateDelegate(free.FieldType, typeof(Sdl3ProviderTests).GetMethod("NativeFree", BindingFlags.Static | BindingFlags.NonPublic)));
+        for (int i=0;i<5000;i++) api.ListDeviceIds();
+        Check(nativeFrees == 5000, "every allocated empty native device list is freed without waiting for GC");
+        nativeCount = 1;
+        int[] indices = api.ListDeviceIds();
+        Check(indices.Length == 1 && indices[0] == 7 && nativeFrees == 5001, "nonempty lists are copied before the native allocation is freed");
+        nativeCount = -1;
+        Check(api.ListDeviceIds().Length == 0 && nativeFrees == 5001, "a null native result is not freed");
+    }
+    private static void GamepadUpdate() { gamepadUpdates++; }
+    private static void JoystickUpdate() { joystickUpdates++; }
+
+    private static void NativeUpdate()
+    {
+        Sdl3NativeApi api = new Sdl3NativeApi();
+        BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        typeof(Sdl3NativeApi).GetField("available", flags).SetValue(api, true);
+        FieldInfo gamepad = typeof(Sdl3NativeApi).GetField("sdlUpdateGamepads", flags);
+        FieldInfo joystick = typeof(Sdl3NativeApi).GetField("sdlUpdateJoysticks", flags);
+        gamepad.SetValue(api, Delegate.CreateDelegate(gamepad.FieldType, typeof(Sdl3ProviderTests).GetMethod("GamepadUpdate", BindingFlags.Static | BindingFlags.NonPublic)));
+        joystick.SetValue(api, Delegate.CreateDelegate(joystick.FieldType, typeof(Sdl3ProviderTests).GetMethod("JoystickUpdate", BindingFlags.Static | BindingFlags.NonPublic)));
+        api.Update();
+        Check(gamepadUpdates == 1 && joystickUpdates == 0, "native updates pump gamepads once instead of updating joysticks twice");
+        gamepad.SetValue(api, null);
+        api.Update();
+        Check(gamepadUpdates == 1 && joystickUpdates == 1, "the native joystick update remains available as a fallback");
+    }
 
     private static void Check(bool condition, string message)
     {
@@ -21,6 +71,7 @@ internal static class Sdl3ProviderTests
         public int InitializeCount;
         public int ShutdownCount;
         public int UpdateCount;
+        public int DescribeCount;
         public readonly Dictionary<int, Sdl3DeviceDescriptor> Devices = new Dictionary<int, Sdl3DeviceDescriptor>();
         public readonly Dictionary<int, Sdl3DeviceSnapshot> Snapshots = new Dictionary<int, Sdl3DeviceSnapshot>();
         public readonly List<int> Opened = new List<int>();
@@ -32,6 +83,7 @@ internal static class Sdl3ProviderTests
         public int[] ListDeviceIds() { return new List<int>(Devices.Keys).ToArray(); }
         public Sdl3DeviceDescriptor Describe(int deviceId)
         {
+            DescribeCount++;
             Sdl3DeviceDescriptor descriptor;
             return Devices.TryGetValue(deviceId, out descriptor) ? descriptor : null;
         }
@@ -77,6 +129,8 @@ internal static class Sdl3ProviderTests
 
     public static int Main()
     {
+        NativeUpdate();
+        NativeEnumeration();
         // 1. An unavailable SDL3 runtime leaves the provider inert instead of throwing.
         FakeSdl3Api missing = new FakeSdl3Api();
         missing.InitializeResult = false;
@@ -124,6 +178,7 @@ internal static class Sdl3ProviderTests
         edges.Clear();
         provider.Poll();
         Check(edges.Count == 0, "an unchanged SDL3 frame emits no edges");
+        Check(api.DescribeCount == 2, "unchanged connected devices do not requery native metadata every frame");
         int[] again = provider.ConnectedDeviceIndices();
         Check(again.Length == 2 && again[0] == indices[0] && again[1] == indices[1], "device indices stay stable across polls");
         api.Snapshots[11] = Snapshot(Buttons(Sdl3GamepadButtons.South, Sdl3GamepadButtons.DPadRight, Sdl3GamepadButtons.Guide),

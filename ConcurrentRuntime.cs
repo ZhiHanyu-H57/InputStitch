@@ -181,7 +181,7 @@ namespace InputStitch
         public MacroDefinition OwnerMacro;
         public MacroDefinition Snapshot;
         public MacroRuntimeCapability Capability;
-        public Thread Thread;
+        public MacroWorkItem Work;
         public ManualResetEventSlim Stop;
         public AutoResetEvent StepGate;
         public bool HoldControlled;

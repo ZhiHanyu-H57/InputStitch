@@ -42,6 +42,7 @@ ConfigStore.cs
 StepHistory.cs
 QuickCreate.cs
 ConcurrentRuntime.cs
+MacroWorkerPool.cs
 OutputOwnership.cs
 VirtualGamepadBackend.cs
 VirtualKeyboard.cs

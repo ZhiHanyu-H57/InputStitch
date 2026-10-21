@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using InputStitch;
 
@@ -74,6 +75,38 @@ internal static class InputPipelineSchedulerTests
         try { faulty.Start(); }
         catch (ObjectDisposedException) { refused = true; }
         Check(refused, "a disposed scheduler refuses to start again");
+
+        // A long interval previously returned to tick() after only an 8 ms wait. Check an actual
+        // deadline, not a broad count taken as soon as the fifth tick happens.
+        long first = 0, second = 0;
+        int paced = 0;
+        using (InputPipelineScheduler slow = new InputPipelineScheduler(100, delegate
+        {
+            int number = Interlocked.Increment(ref paced);
+            if (number == 1) Interlocked.Exchange(ref first, Stopwatch.GetTimestamp());
+            if (number == 2) Interlocked.Exchange(ref second, Stopwatch.GetTimestamp());
+        }, null))
+        {
+            slow.Start();
+            Check(WaitUntil(delegate { return Interlocked.Read(ref second) != 0; }, 2000), "a long-interval scheduler reaches its second tick");
+            double gap = (Interlocked.Read(ref second) - Interlocked.Read(ref first)) * 1000.0 / Stopwatch.Frequency;
+            Check(gap >= 95, "a 100 ms deadline is not shortened to one 8 ms wait (" + gap.ToString("F1") + " ms)");
+        }
+        using (InputPipelineScheduler waiting = new InputPipelineScheduler(10000, delegate { }, null))
+        {
+            waiting.Start();
+            Thread.Sleep(30);
+            Stopwatch shutdown = Stopwatch.StartNew();
+            waiting.Dispose();
+            Check(!waiting.Running && shutdown.ElapsedMilliseconds < 500, "a long wait remains immediately cancellable");
+        }
+        int fallbackTicks = 0;
+        using (InputPipelineScheduler fallback = new InputPipelineScheduler(100, delegate { Interlocked.Increment(ref fallbackTicks); }, null, false))
+        {
+            fallback.Start();
+            Thread.Sleep(450);
+            Check(Volatile.Read(ref fallbackTicks) >= 2 && Volatile.Read(ref fallbackTicks) <= 5, "older-Windows fallback respects deadlines without spinning");
+        }
 
         Console.WriteLine("PASS input pipeline scheduler: " + checks + " checks; dedicated cadence thread, error containment, clean shutdown, no hooks or devices.");
         return 0;

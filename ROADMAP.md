@@ -1,5 +1,16 @@
 ﻿# ROADMAP.md
 
+## Current priority — measured performance and maintainability (2026-10-21)
+
+Beta.15 follows the mature-tool and live architecture review in
+`docs/MATURITY_AND_PERFORMANCE_REVIEW.md`. Fix measured background waste while
+preserving the existing product scope and beta.14 UI. Next: repeatable resource
+baselines, incremental separation of runtime coordination from UI, and clearer
+configuration/runtime explanations. Evaluate SDL3 allocation and high-concurrency
+work only with profiles; retain ownership safety and current compatible backends.
+The dated feature-order sections below are historical and do not restart feature
+expansion. Broad hardware features, scripting and exclusive fullscreen stay deferred.
+
 ## Authorized exception — screen crosshair (2026-10-21)
 
 The user explicitly requested a screen crosshair after the readability pass.

@@ -1,6 +1,65 @@
 ﻿# HANDOFF.md
 
-## Latest completed pass — complete visual audit and DCET diamond (beta.14, 2026-10-21)
+## Completed pass — maturity and measured runtime performance (beta.15, 2026-10-22)
+
+Local beta.15 / FileVersion 1.5.0.14 on `ui/product-refresh`. Keep Stable 1.4.3,
+beta.14 visuals, existing features and XML semantics. The current official-source
+comparison, gap assessment, fixes and next priorities are in
+`docs/MATURITY_AND_PERFORMANCE_REVIEW.md`; dated earlier architecture gaps are
+marked historical rather than being repeated as current missing features.
+
+- Empty XInput slots retry every 500 ms; connected inputs remain at input cadence,
+  disconnect release is immediate, reconnect establishes a held-input baseline,
+  and own-slot changes invalidate the backoff. Explicit injected-clock coverage.
+- Interruptible deadline input waiting with a per-object Windows high-resolution
+  timer, no busy tail/global resolution change, and a tested framework fallback.
+- Cache Composite membership by each child's topology version, atomically publish
+  complete owner/index snapshots and preserve live state/edge polling. Stable SDL3
+  metadata is not reread each frame; gamepad update pumps once with joystick fallback.
+  Skip empty advanced-activator UI requests; retain active coalesced dispatch.
+- The unforced soaks exposed per-run CLR thread bookkeeping costs. Add
+  `MacroWorkerPool` / per-run `MacroWorkItem`: one dedicated worker per concurrent
+  macro, at most four sleeping spares, no shared-CLR-pool throttling. Preserve
+  independent snapshots/RunId/SourceId/stop signals. Config changes wait for run
+  completion; shutdown/disposal stops and joins the owned workers within a bound.
+  Production manifest and csproj now list 55 files. Module tests have 1,010 checks;
+  isolated integration covers rapid restarts, source-local release and config changes.
+- Keep forced GC out of acceptance. Retain the failed measurements and independent
+  empty-Thread/Join reproduction. The final implementation restores the original
+  end-point +32 handle gate, plus median/peak/GDI/USER limits and a worker-create cap.
+
+Final-source sustained acceptance PASS: 600.1 seconds / 6,939 cycles, only 3 macro
+worker threads created; keyboard down/up 26,571/26,571, zero final sources/held
+output. Handles 368 baseline / 371 final / 371 peak; GDI 26/26, USER 30/30.
+Private bytes 34,230,272 / 35,688,448; max UI dispatch 140 ms. No forced GC.
+The observer backend is isolated; actual output is verified separately.
+
+Packaged startup resource comparison, one source on this 16-logical-CPU host,
+5-second warmup and about 30 seconds per phase: single-core CPU 23.229%→4.269%
+with crosshair off and 23.188%→3.905% on. The minimal managed host loads the real
+package and production providers/hooks; these are bounded local samples, not
+competitor or whole-machine percentages. x64 1,984,000 bytes, x86 1,814,528 bytes;
+about 1% larger than beta.14, no new third-party runtime. The CLR string heap
+crosses the 64 KiB index boundary; see the review for download/cache/RAM distinctions.
+
+Final-source full regression PASS: 34 suites, 6,623 product assertions, 303,716
+ownership assertions, 172 crosshair checks, and 70,499 layout checks across 188
+windows with zero issues. Final real-output InputLab PASS: 77 checks, after the
+user authorized normal shutdown of their elevated beta.14 instance. Both final
+packaged architectures pass startup, native extraction/cache repair, restored
+crosshair and orderly shutdown checks. All 55 production source hashes and the
+icon match the freeze; source-only repacking preserves the tested EXE hashes.
+
+An earlier 77-check run occurred while the user's beta.14 was active and is
+excluded. The runner now blocks both unversioned and versioned product processes
+before emitting input. The active old app refreshed its derived device inventory
+during that earlier virtual-device test; normal macro config stayed unchanged.
+After its authorized normal close, the qualifying isolated rerun leaves both
+normal config and device inventory unchanged. Do not overwrite the live inventory
+with an old snapshot. Raw records and hashes accompany the local delivery receipt.
+User trial remains optional; no remote release or Stable replacement.
+
+## Previous completed pass — complete visual audit and DCET diamond (beta.14, 2026-10-21)
 
 Local beta.14 / FileVersion 1.5.0.13 on `ui/product-refresh`. Preserve stable
 macro/controller/crosshair behavior, XML compatibility and 10.5pt body text.
