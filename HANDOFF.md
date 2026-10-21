@@ -28,6 +28,14 @@ forced GC, keyboard 26,446/26,446 and zero final sources/held outputs. Handles
 369 baseline / 371 final, GDI 26/26, USER 30/30; max UI dispatch 88 ms.
 Complete final package/real-output checks and hosted full regression before
 publication; verify latest assets and the mirror. Failed runs remain saved and excluded.
+The second hosted run likewise stopped before publication: secondary synthetic
+150/200% dialogs inherited the cloud desktop's native track limit. Apply native
+offscreen sizing to their exact requested client viewports and to compact sizes
+derived from the original logical minimum; assert each actual size. Keep native
+first-show/work-area checks separate. The enhanced local matrix passes 96,103
+checks across the same 188 windows, with zero issues and additional compact
+coverage. This last change is test-only; production, soak and real-output source
+hashes remain frozen. Hosted full regression must pass before publishing.
 Release result and exact asset hashes will be recorded afterward.
 
 ## Completed pass — maturity and measured runtime performance (beta.15, 2026-10-22)

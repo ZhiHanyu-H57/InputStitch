@@ -16,6 +16,9 @@ the configured R2 mirror. Local full 34-suite regression and final Stable-source
 observer PASS (600.1 seconds / 6,927 cycles / three workers / no forced GC).
 Keep the observer/real-output/package evidence distinct. Record published assets
 and hashes after the hosted regression gate and publication.
+The enhanced secondary-dialog fixture uses exact offscreen DPI viewports and
+logical minimum sizes, retaining native work-area tests; its 96,103 local checks
+pass. Production code remains unchanged while the hosted release gate reruns.
 
 ## Completed pass — maturity, architecture and measured performance (2026-10-22)
 

@@ -20,6 +20,15 @@ internal static class SecondaryLayoutTests
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr parameter, IntPtr value);
+    [DllImport("user32.dll", SetLastError=true)] private static extern bool SetWindowPos(IntPtr window,IntPtr after,int x,int y,int width,int height,uint flags);
+    private static void SyntheticSize(Form form,Size size)
+    {
+        form.MaximumSize=size;
+        if(!SetWindowPos(form.Handle,IntPtr.Zero,-20000,-20000,size.Width,size.Height,0x14))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        Pump(8);
+        Check(form.Size==size,"synthetic window retains requested size "+size+"; actual="+form.Size);
+    }
     private static void Check(bool value, string message)
     { checks++; if (!value) failures.Add(context + " | " + message); }
     private static IEnumerable<Control> All(Control rootControl)
@@ -239,6 +248,11 @@ internal static class SecondaryLayoutTests
                         context = name;
                         form.StartPosition=FormStartPosition.Manual; form.Location=new Point(-20000,-20000); form.ShowInTaskbar=false;
                         Size requested = form.ClientSize;
+                        Size chrome = new Size(form.Width-form.ClientSize.Width,form.Height-form.ClientSize.Height);
+                        Size originalMinimum = form.MinimumSize;
+                        Size scaledMinimum = originalMinimum.IsEmpty ? Size.Empty : new Size(
+                            (int)Math.Ceiling(Math.Max(0,originalMinimum.Width-chrome.Width)*scale)+chrome.Width,
+                            (int)Math.Ceiling(Math.Max(0,originalMinimum.Height-chrome.Height)*scale)+chrome.Height);
                         if (scale != 1F)
                         {
                             form.Scale(new SizeF(scale,scale));
@@ -252,6 +266,12 @@ internal static class SecondaryLayoutTests
                             requested=new Size((int)(requested.Width*scale),(int)(requested.Height*scale)); form.ClientSize=requested;
                         }
                         form.Show(); Pump(20); windows++;
+                        if(!native)
+                        {
+                            chrome=new Size(form.Width-form.ClientSize.Width,form.Height-form.ClientSize.Height);
+                            SyntheticSize(form,new Size(requested.Width+chrome.Width,requested.Height+chrome.Height));
+                            Check(form.ClientSize==requested,"synthetic client viewport retains requested DPI dimensions "+requested);
+                        }
                         Audit(form);
                         foreach(ComboBox choice in All(form).OfType<ComboBox>().Where(x=>x.Visible).ToArray()) ExerciseChoice(choice);
                         if (native || scale==1F) Capture(form,name+"-default");
@@ -272,15 +292,17 @@ internal static class SecondaryLayoutTests
                         { Field<CheckBox>(form,"analogEnabled").Checked=true; Pump(5); context=name+" analog limits"; Audit(form); }
                         // Resize the same live window down and back; controls must not retain an earlier layout's clipped size.
                         Size original=form.Size;
-                        bool clamped = scale > 1F && (form.ClientSize.Width < requested.Width || form.ClientSize.Height < requested.Height);
-                        if (!clamped && form.MinimumSize.Width <= original.Width && form.MinimumSize.Height <= original.Height)
+                        Size minimum=native?form.MinimumSize:scaledMinimum;
+                        if (minimum.Width <= original.Width && minimum.Height <= original.Height)
                         {
-                            form.Size=new Size(Math.Max(form.MinimumSize.Width,(int)(original.Width*.85)),Math.Max(form.MinimumSize.Height,(int)(original.Height*.85)));
+                            Size compact=new Size(Math.Max(minimum.Width,(int)(original.Width*.85)),Math.Max(minimum.Height,(int)(original.Height*.85)));
+                            if(native) form.Size=compact; else SyntheticSize(form,compact);
                             Pump(12); context=name+" compact"; Audit(form);
                             if (native || scale==1F) Capture(form,name+"-compact");
-                            form.Size=original; Pump(8); context=name+" restored"; Audit(form);
+                            if(native) form.Size=original; else SyntheticSize(form,original);
+                            Pump(8); context=name+" restored"; Audit(form);
                         }
-                        else Console.WriteLine("CLAMPED compact resize unavailable: "+name+" minimum="+form.MinimumSize+" actual="+original);
+                        else Console.WriteLine("MINIMUM compact resize unavailable: "+name+" minimum="+minimum+" actual="+original);
                         Console.WriteLine("WINDOW "+name+" "+form.Size+" font="+form.Font.Height);
                         form.Close();
                     }
