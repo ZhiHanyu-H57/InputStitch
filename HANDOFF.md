@@ -1,4 +1,61 @@
-﻿# HANDOFF.md
+# HANDOFF.md
+
+## Completed local beta — 1.5.1-beta.3 (2026-10-22)
+
+Branch `perf/runtime-coordination`; verified code/test commit `659e7f7defd9f29efa3942852135746259306c19`.
+Version/FileVersion `1.5.1-beta.3` / `1.5.1.2`; manifest/csproj: 57 files.
+No push/publication or Stable 1.5.0 main/tag/latest/mirror changes.
+
+Prepared LongPress edge snapshots reuse the input pipeline for threshold/admission
+and coordinator/worker pool for execution. Single-use tickets serialize admission
+with release/reset/all-stop; selected stop also resets its activator. Received
+panic events stop coordinated workers synchronously before original UI cleanup.
+Own foreground timing/conditions, editor inspection and first device setup retain
+a coalesced UI lane. Device prompts do not hold admission locks. Background own
+caption reads fail closed; UI reads remain valid. Fast workers retain source-local
+UI suspension and conservative own-window protection. Other activators, physical
+hook registration/capture, XML and drivers retain their existing paths.
+
+16 impact-selected suites PASS (36 available): SourceManifest, ForegroundIdentityCache,
+InputPipelineScheduler/Integration, AdvancedTriggerDispatch, ActivatorCondition,
+MacroRunCoordinator/WorkerPool/Timing, UiSafety, OutputOwnership, Layer/LayerContext,
+Productivity, ModifierSafetyPolicy, ReleasePolicy. Latest focused dispatch 163,
+caption cache 7. Beginner workflow 142, real SendInput/ViGEm/XInput 81/0 and final
+x64/x86 packaged extraction/cache repair/SDL3/startup/crosshair/exit PASS.
+
+Delivered-edge observer: 150 ms threshold / 400 ms UI block, beta.2 405 ms ->
+integration 152 ms; final repeated 151..254 ms, median 152 ms.
+Real XInput down at ~178 ms before UI resumes; stop releases correctly.
+Physical state/focus are explicit seams, not physical-hook/game latency evidence.
+
+Unforced observer: 600.1 s / 4503 cycles, 2252 long presses and
+225 blocked UI checks. Keyboard 25704/25704, final sources/pressed 0/0,
+3 worker threads created. Handles 375 -> 387, peak 387, warm/tail medians
+375/378; GDI 26/26, USER 30/31, max UI dispatch 55 ms. No forced GC.
+Pre-final interrupted observer excluded. Do not count preliminary runs as final passes.
+
+After the soak, only MainForm.AdvancedTriggers.cs added current-config membership
+validation, restoring the original UI rejection of late old-profile definitions.
+A dedicated canary without just this guard reproduces the stale start. Final
+163 dispatch checks plus affected pipeline/safety/cache/manifest checks and final
+source acceptance output and packaged startup were reverified. The other 56 production files (including
+engine/executor/timing) retain the soak hashes. Removing only the guard reconstructs
+the exact old module hash; both source sets/delta are in verification. Per impact
+policy, the unchanged 600-second valid-run path was not repeated. An earlier generic
+150..299 ms canary bound failed before the profile check; it is excluded, superseded
+by dedicated profile proof and output-before-400-ms-UI-recovery assertions.
+
+x64 1,993,728 B / x86 1,823,744 B, +5,120/+4,608 B over beta.2.
+No new dependency/timer/thread/configuration field. Final idle one-core CPU
+3.645% / 3.230%, crosshair off/on ~30 s, 16 logical CPUs, zero visible devices;
+no further idle CPU improvement claim. 1,000 released requests queue zero UI work.
+Normal config/devices hashes unchanged. Chat delivery outputs/beta153 uses fixed
+InputStitch.exe names; see docs/ADVANCED_TRIGGER_DISPATCH_BETA_1_5_1_3.md.
+
+Do not claim full UI/physical-hook decoupling, all 36 suites, formal publication,
+or universal long-term/game compatibility. Continue impact-based checks; formal
+publication needs all release gates. No manual-trial prerequisite.
+
 
 ## Completed local beta — 1.5.1-beta.2 (2026-10-22)
 
