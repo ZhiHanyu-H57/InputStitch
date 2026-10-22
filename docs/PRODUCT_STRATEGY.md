@@ -1,18 +1,16 @@
 ﻿# InputStitch product positioning and competitive strategy
 
-## 1.5.2 formal release freeze — 2026-10-23
+## 1.5.2 Stable released and verified — 2026-10-23
 
-User authorized Stable 1.5.2 after complete automated release acceptance. Freeze
-1.5.2-beta.1 production behavior; change only release metadata and issues found
-by acceptance. No new features, architecture expansion or manual-trial gate.
-Run all 37 suites, packaged x64/x86, mouse trigger/recording/batch timing flows,
-original configuration save/reopen, fixed-name updates/backups/rollback, real
-output and a fresh ten-minute sustained run. Publish via protected-main PR and
-the existing full-verification release workflow only after local gates pass.
-Local formal acceptance PASS: 37 suites, three legacy upgrades, real output and
-600.1 seconds / 4297 cycles. Independent GitHub verification/publication pending.
+Published v1.5.2 at 2278a55730e05beebd2f6a63f51a9f1552567499 after complete
+local and independent GitHub acceptance. All 37 suites pass in both environments;
+three original-version upgrades pass 708 checks; real output 81/0; fresh soak
+600.1 seconds / 4297 cycles with zero final outputs and three macro workers.
+Actual GitHub/R2 files, both published architectures, legacy update parsers and
+packaged upgrades are verified. Production remains frozen at beta.1 except
+Stable ReleaseInfo metadata. No new feature, dependency or architecture work.
+No manual-trial prerequisite. Keep expansion paused until a separate request.
 Results: docs/RELEASE_1_5_2_VERIFICATION.md.
-
 
 ## Current decision — 1.5.1 release freeze (2026-10-22)
 

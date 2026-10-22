@@ -1,27 +1,32 @@
 # HANDOFF.md
 
-## 1.5.2 local formal acceptance completed — 2026-10-23
+## 1.5.2 Stable released and verified — 2026-10-23
 
-Verified code commit: `8e0fc52b1d6ed07b7fd922686b3b9a9b77b78f9b`.
-Freeze main baseline `5ba48ebb393f9ab2b083906b3a10b467c22cf60e` / beta.1.
-Only ReleaseInfo changes among the 59 production sources: Stable 1.5.2,
-FileVersion 1.5.2.1. No new feature, dependency or architecture work.
+GitHub latest Stable v1.5.2, tag/source 2278a55730e05beebd2f6a63f51a9f1552567499.
+Verified code commit 8e0fc52b1d6ed07b7fd922686b3b9a9b77b78f9b; beta.1 freeze
+baseline 5ba48ebb393f9ab2b083906b3a10b467c22cf60e. Only ReleaseInfo differs
+among 59 production files: Stable 1.5.2 / FileVersion 1.5.2.1. No new feature,
+dependency or architecture expansion during formal closure.
 
-PASS: all 37 suites plus SettingsSmoke; workflow 6639; mouse/record/batch 209;
-scaled layouts 109755/204 windows; actual 144 DPI layouts 28024/54 plus journey
-142 and fields 1086; packaged x64/x86 startup; three official old-version
-EXE/config upgrades 708; original 1.4.3/1.5.0/1.5.1 update parsers; real output
-81/0. Fresh soak 600.1 s / 4297 cycles, keyboard 22990/22990, three workers,
-zero final outputs. The work-only PS5 array-comparison false alarm was corrected
-and its audit rerun; production and normal config/device hashes are unchanged.
-See docs/RELEASE_1_5_2_VERIFICATION.md for scope and exact results.
+Local and independent GitHub full regression: all 37 suites plus SettingsSmoke.
+Workflow local/CI 6639/6643; mouse/record/batch 209; scaled layout 109755/204;
+actual 144 DPI layout 28024/54, journey 142, fields 1086; ownership 303716;
+packaged x64/x86, original 1.4.3/1.5.0/1.5.1 upgrade/backup/rollback 708,
+real output 81/0. Fresh soak 600.1 seconds / 4297 cycles, keyboard 22990/22990,
+three workers, zero final outputs. Work-only PS5 array/JSON-encoding probe issues
+were corrected and the affected audits rerun; no production/configuration change.
 
-Next: normal protected-main PR merge, then dispatch release.yml with
-publish_stable=true. Its complete independent regression remains mandatory before
-publication. Download/verify all GitHub and R2 assets, published packaged startup,
-legacy update parsers and packaged upgrades. Do not repeat unrelated local gates
-without a new failure/change. No manual-trial requirement. Stable/latest is still
-1.5.1 until publication succeeds. Preserve the release freeze.
+Release workflow 39818549517 succeeded: independent verify, Stable publish and R2
+mirror. All five GitHub + versioned website assets and both latest EXEs match
+API digests/checksums/manifests. Source ZIP matches 59 frozen production texts
+and UI resource inputs. Actual downloaded packages pass both startup probes,
+the 708-check upgrade again and all original-version update parsers. Normal
+config/device hashes unchanged. Published x64/x86 hashes and complete evidence:
+docs/RELEASE_1_5_2_VERIFICATION.md. Delivery uses downloaded published files.
+
+Protected main remains enforced; source release merged normally through PR #4.
+No manual-trial gate. Retain the feature/architecture freeze; further changes
+need a measured issue or separate user request. No normal-config app is running.
 
 ## Recording / mouse / batch timing beta completed — 2026-10-23
 
