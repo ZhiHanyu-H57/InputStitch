@@ -218,6 +218,7 @@ namespace InputStitch
 
         private readonly object sync = new object();
         private readonly Dictionary<MacroDefinition, State> states = new Dictionary<MacroDefinition, State>();
+        private int downCount;
 
         internal ActivatorDecision OnDown(MacroDefinition macro, InputEventInfo inputEvent, TriggerSpec effectiveTrigger,
             long nowMs, bool conditionsSatisfied)
@@ -230,7 +231,9 @@ namespace InputStitch
             {
                 State state = GetStateLocked(macro);
                 if (state.Down && !edgeOnly) return null;
+                bool wasDown = state.Down;
                 state.Down = !edgeOnly;
+                if (wasDown != state.Down) downCount += state.Down ? 1 : -1;
                 state.EligibleAtDown = conditionsSatisfied;
                 state.LongFired = false;
                 state.ShortDisarmed = false;
@@ -294,6 +297,7 @@ namespace InputStitch
                     string mode = macro.Activator == null ? ActivatorModes.Legacy : ActivatorModes.Normalize(macro.Activator.Mode);
                     bool currentConditions = conditionsSatisfied == null || conditionsSatisfied(macro, state.DeviceIndex);
                     state.Down = false;
+                    downCount--;
                     if (string.Equals(mode, ActivatorModes.Release, StringComparison.OrdinalIgnoreCase) &&
                         state.EligibleAtDown && currentConditions)
                         result.Add(Decision(macro, ActivatorDecisionKind.StartOnce, CloneEvent(inputEvent), "release"));
@@ -359,12 +363,23 @@ namespace InputStitch
         internal void Reset(MacroDefinition macro)
         {
             if (macro == null) return;
-            lock (sync) states.Remove(macro);
+            lock (sync)
+            {
+                State state;
+                if (states.TryGetValue(macro, out state) && state.Down) downCount--;
+                states.Remove(macro);
+            }
         }
 
         internal void Clear()
         {
-            lock (sync) states.Clear();
+            lock (sync) { states.Clear(); downCount = 0; }
+        }
+
+        // Released states retain double-press history, but need no periodic UI work.
+        internal bool HasPendingTick
+        {
+            get { lock (sync) return downCount != 0; }
         }
 
         internal int TrackedCount

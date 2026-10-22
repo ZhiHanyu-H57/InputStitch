@@ -37,7 +37,26 @@ Before changing code in this repository, restore project context in this order:
 
 ## Verification before commit
 
-For runtime or UI changes, run the full regression suite:
+Use impact-based verification during development (user instruction, 2026-10-22).
+Select the suites and focused workflows affected by the actual change. List the
+selection and results in the handoff. Do not rerun unrelated layout, provider or
+update suites for every change. Examples:
+
+```powershell
+./tests/Run-Tests.ps1 -List
+./tests/Run-Tests.ps1 -Suite MacroRunCoordinatorTests,InputPipelineIntegrationTests,UiSafetyTests,OutputOwnershipTests
+./tests/Run-SecondaryLayout.ps1 -ScaledFonts -Focus QuickCreateDialog
+```
+
+UI-only edits need the affected bilingual/DPI layouts and workflow; runtime
+coordination edits need run/stop, ownership, UI safety and sustained acceptance.
+Serialization changes need old-configuration save/reopen coverage. Add source
+manifest checks when files change; verify metadata/startup for packaged builds.
+Broaden only when dependencies or failures establish a reason. Targeted runs do
+not imply a full-suite pass. Tests use the same assertions in either mode.
+
+Before a formal release, run the entire suite (no selection), packaged smoke,
+release verification and applicable sustained/real-output acceptance:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Tests.ps1

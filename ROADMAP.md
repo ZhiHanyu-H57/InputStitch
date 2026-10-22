@@ -1,6 +1,16 @@
 ﻿# ROADMAP.md
 
-## Current priority — measured performance and maintainability (2026-10-21)
+## Incremental runtime coordination — 2026-10-22
+
+Local 1.5.1-beta.1 follows P1: separate run lifecycle/indexes from MainForm and
+eliminate released advanced-trigger idle UI dispatch, retaining workers, timing,
+ownership and configuration. See `docs/RUNTIME_COORDINATION_BETA_1_5_1.md`.
+Remaining execution/progress/condition coupling is intentional follow-up work,
+not authorization for a wholesale runtime rewrite or new product features.
+Develop with impact-based verification; complete regression remains a formal
+release gate. Stable 1.5.0 stays published unchanged.
+
+## Previous priority — measured performance and maintainability (2026-10-21)
 
 Beta.15 follows the mature-tool and live architecture review in
 `docs/MATURITY_AND_PERFORMANCE_REVIEW.md`. Fix measured background waste while

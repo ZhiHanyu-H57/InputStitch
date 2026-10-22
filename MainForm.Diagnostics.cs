@@ -66,9 +66,7 @@ namespace InputStitch
             string stopReason;
             lock (runLock)
             {
-                List<MacroRunRuntime> runs = new List<MacroRunRuntime>(activeMacroRuns.Values);
-                runs.RemoveAll(delegate(MacroRunRuntime x) { return x == null; });
-                runs.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
+                List<MacroRunRuntime> runs = runCoordinator.Snapshot();
                 foreach (MacroRunRuntime runtime in runs)
                 {
                     string name = runtime.OwnerMacro == null ? "?" : runtime.OwnerMacro.Name;
@@ -82,7 +80,7 @@ namespace InputStitch
                         " | held=" + Localizer.T(runtime.HeldText);
                     runLines.Add(line);
                 }
-                stopReason = lastRunStopReason;
+                stopReason = runCoordinator.LastStopReason;
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
                 {
                     HeldMappingRuntime runtime = pair.Value;
@@ -228,10 +226,8 @@ namespace InputStitch
             sb.AppendLine("ActiveProfile: " + (string.IsNullOrWhiteSpace(activeProfilePath) ? Localizer.T("（当前 config.xml）") : activeProfilePath));
             lock (runLock)
             {
-                sb.AppendLine("MacroRunCount: " + activeMacroRuns.Count.ToString());
-                List<MacroRunRuntime> runs = new List<MacroRunRuntime>(activeMacroRuns.Values);
-                runs.RemoveAll(delegate(MacroRunRuntime x) { return x == null; });
-                runs.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
+                sb.AppendLine("MacroRunCount: " + runCoordinator.Count.ToString());
+                List<MacroRunRuntime> runs = runCoordinator.Snapshot();
                 foreach (MacroRunRuntime runtime in runs)
                 {
                     string name = runtime.OwnerMacro == null ? Localizer.T("无") : runtime.OwnerMacro.Name;

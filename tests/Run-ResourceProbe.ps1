@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$Package, [ValidatePattern('^[a-zA-Z0-9-]+$')][string]$Label = 'current', [ValidateRange(10,600)][int]$Seconds = 30)
+param([Parameter(Mandatory=$true)][string]$Package, [ValidatePattern('^[a-zA-Z0-9-]+$')][string]$Label = 'current', [ValidateRange(10,600)][int]$Seconds = 30, [switch]$AfterAdvancedTrigger)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
@@ -14,5 +14,5 @@ $arguments += Join-Path $PSScriptRoot 'ResourceProbe.cs'
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Resource probe compilation failed.' }
 Get-FileHash -LiteralPath $Package -Algorithm SHA256 | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'package-hash.json') -Encoding UTF8
-& $exe $Package $output $Seconds
+& $exe $Package $output $Seconds ([bool]$AfterAdvancedTrigger).ToString()
 if ($LASTEXITCODE -ne 0) { throw 'Resource probe failed.' }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Reflection;
 using System.Diagnostics;
@@ -85,12 +85,16 @@ internal static class InputPipelineIntegrationTests
             request.Invoke(form, null);
             Application.DoEvents();
             if ((int)queued.GetValue(form) != 0) throw new Exception("advanced ticks must still coalesce and dispatch");
+            engine.OnUp(input, IdleGamepadService.MonotonicMilliseconds(), null);
+            if (engine.TrackedCount != 1) throw new Exception("released advanced states must retain history");
+            for (int i = 0; i < 10000; i++) request.Invoke(form, null);
+            if ((int)queued.GetValue(form) != 0) throw new Exception("released advanced state must not enqueue periodic UI work");
             engine.Clear();
             request.Invoke(form, null);
             if ((int)queued.GetValue(form) != 0) throw new Exception("clearing activators must restore idle behavior");
         }
         WorkerReuse(directory);
-        Console.WriteLine("PASS input pipeline integration: 10 checks; idle UI work, worker reuse, source-local cancellation and configuration-change completion; isolated observer, no hooks or real output.");
+        Console.WriteLine("PASS input pipeline integration: 12 checks; idle UI work, worker reuse, source-local cancellation and configuration-change completion; isolated observer, no hooks or real output.");
         return 0;
     }
 }

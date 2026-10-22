@@ -1,7 +1,15 @@
-[CmdletBinding()]
-param()
+﻿[CmdletBinding()]
+param([string[]]$Suite, [switch]$List, [switch]$SettingsSmoke)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$allSuites = @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputPipelineIntegrationTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','MacroWorkerPoolTests','MacroRunCoordinatorTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests','SecondaryLayoutTests')
+if ($List) { $allSuites; return }
+$fullRun = -not $Suite
+$selectedSuites = @(if ($fullRun) { $allSuites } else { $Suite | ForEach-Object { $_.Split(',') } | Select-Object -Unique })
+foreach ($name in $selectedSuites) {
+  if ($name -notin $allSuites) { throw "Unknown suite '$name'. Use -List to see accepted suite names." }
+}
+Write-Output ("Running {0} of {1} suites ({2})." -f $selectedSuites.Count, $allSuites.Count, $(if ($fullRun) { 'full' } else { 'targeted' }))
 $project = Split-Path $PSScriptRoot -Parent
 $references = & (Join-Path $project 'scripts/Restore-NetFramework472.ps1')
 $productionSources = & (Join-Path $project 'scripts/Get-ProductionSources.ps1')
@@ -33,25 +41,27 @@ function Invoke-NativeCaptured([string]$file, [object[]]$arguments) {
   return [pscustomobject]@{ ExitCode = $exitCode; Output = @($captured) }
 }
 
-foreach($suite in @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputPipelineIntegrationTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','MacroWorkerPoolTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests','SecondaryLayoutTests')) {
-  $exe=Join-Path $output ($suite+'.exe')
-  $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$suite","/out:$exe")
+foreach($testSuite in $selectedSuites) {
+  $exe=Join-Path $output ($testSuite+'.exe')
+  $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$testSuite","/out:$exe")
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
   $arguments += '/win32icon:' + (Join-Path $project 'InputStitch.ico')
 $arguments += '/reference:'+$client
   $arguments += '/resource:'+$client+',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
   foreach($file in $productionSources) { $arguments += $file }
-  $arguments += Join-Path $PSScriptRoot ($suite+'.cs')
+  $arguments += Join-Path $PSScriptRoot ($testSuite+'.cs')
   $compile = Invoke-NativeCaptured $compiler $arguments
   $compileReport = $compile.Output
-  if($compile.ExitCode -ne 0) { $compileReport | Write-Output; Write-CiError "$suite compilation failed" $compileReport; throw "$suite compilation failed" }
-  $testArguments = if ($suite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } else { @() }
+  if($compile.ExitCode -ne 0) { $compileReport | Write-Output; Write-CiError "$testSuite compilation failed" $compileReport; throw "$testSuite compilation failed" }
+  $testArguments = if ($testSuite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } else { @() }
   $execution = Invoke-NativeCaptured $exe $testArguments
   $report = $execution.Output
-  $report | Set-Content -LiteralPath (Join-Path $output ($suite+'.log')) -Encoding UTF8
-  if($execution.ExitCode -ne 0) { $report | Write-Output; Write-CiError "$suite failed" $report; throw "$suite failed" }
+  $report | Set-Content -LiteralPath (Join-Path $output ($testSuite+'.log')) -Encoding UTF8
+  if($execution.ExitCode -ne 0) { $report | Write-Output; Write-CiError "$testSuite failed" $report; throw "$testSuite failed" }
   $report | Select-Object -Last 1 | Write-Output
 }
-Write-Output 'All regression suites passed. Crosshair tests use an isolated native target window; no real input or virtual devices were used.'
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
-if($LASTEXITCODE -ne 0) { Write-CiError 'Settings smoke tests failed' @('SettingsSmoke.ps1 returned a non-zero exit code.'); throw 'Settings smoke tests failed' }
+Write-Output ("PASS {0} selected regression suites. Tests use isolated observers/native target windows; real output acceptance is separate." -f $selectedSuites.Count)
+if ($fullRun -or $SettingsSmoke) {
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
+  if($LASTEXITCODE -ne 0) { Write-CiError 'Settings smoke tests failed' @('SettingsSmoke.ps1 returned a non-zero exit code.'); throw 'Settings smoke tests failed' }
+}

@@ -168,6 +168,11 @@ x64 `SDL3.dll` 为 2,844,160 B，x86 为 2,358,784 B；其大小本轮未增加�
 
 ## 未关闭的架构债务及后续顺序
 
+2026-10-22 跟进：1.5.1-beta.1 将运行登记、索引、停止和结束生命周期提取为不依赖
+界面的 `MacroRunCoordinator`，并消除高级触发松键后每 10 ms 的空 UI 检查。
+这是下表第一项的阶段性落实；执行与进度状态仍有耦合，高级触发的 UI 阻塞延迟也仍需测量。
+范围、定向验收与剩余边界见 [本轮记录](RUNTIME_COORDINATION_BETA_1_5_1.md)。
+
 | 优先级 | 现状/证据 | 下一步及验收条件 |
 |---|---|---|
 | P1：界面与运行协调解耦 | `InputStitch.cs` 仍约 8.1 千行；MainForm 仍负责捕获、调度协调、保存和执行。专用线程生命周期现已独立，但 partial 和这次提取没有完全解除依赖 | 下一次维护执行路径时，继续把运行协调提取为可注入服务，界面只发命令/显示状态；一次移动一个职责。保持 RunId、停止、UI 保护及旧 XML 回归。避免一口气重写。 |
@@ -186,6 +191,7 @@ x64 `SDL3.dll` 为 2,844,160 B，x86 为 2,358,784 B；其大小本轮未增加�
 ## 重复验证入口
 
 - `tests/Run-Tests.ps1`：全部回归，含调度、提供者、所有权、真实窗口流程及布局。
+- `tests/Run-Tests.ps1 -List` / `-Suite <names>`：日常迭代按影响选组；正式发布仍不加筛选运行全套。
 - `tests/Run-Performance.ps1 -Label <name>`：三个重复样本，调度/拓扑微基准，无钩子、设备输出、用户配置或强制 GC。
 - `tests/Run-ResourceProbe.ps1 -Package <x64-exe> -Label <name> -Seconds 30`：成品路径暖机后，准星关闭/开启各一阶段；全部应用路径隔离，宏禁用，SDL3 开启。
 - `tests/Run-ProductAcceptance.ps1 -SoakMinutes <minutes>`：持续宏、反复开始/停止、编辑保存及最终清理，不强制 GC。

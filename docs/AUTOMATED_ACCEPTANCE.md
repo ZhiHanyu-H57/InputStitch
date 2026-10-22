@@ -1,6 +1,6 @@
 ﻿# Automated product acceptance
 
-Updated: 2026-10-20
+Updated: 2026-10-22
 
 ## Completion policy
 
@@ -15,6 +15,31 @@ target-game compatibility are separate claims. A missing environment limits
 that claim; it does not block unrelated ordinary macro features.
 
 ## Repeatable commands
+
+### Development: select by impact
+
+Routine changes run relevant suites and focused workflow checks. A layout or
+wording change runs its affected Chinese/English, resize and DPI checks; it does
+not require controller, updater and sustained-output suites. A runtime lifecycle
+change runs coordination, worker, timing, ownership, UI safety and sustained
+checks, with applicable real-output acceptance. Configuration changes include
+old XML save/reopen. Build-manifest and packaging changes include their guards.
+Record the chosen scope and any exclusions. Broaden when failures or actual
+dependencies justify it, rather than repeating the whole suite each iteration.
+
+```powershell
+./tests/Run-Tests.ps1 -List
+./tests/Run-Tests.ps1 -Suite MacroRunCoordinatorTests,InputPipelineIntegrationTests,OutputOwnershipTests,UiSafetyTests
+./tests/Run-SecondaryLayout.ps1 -ScaledFonts -Focus QuickCreateDialog
+./tests/Run-ProductAcceptance.ps1 -JourneyOnly
+```
+
+`-Suite` accepts names or comma-separated names, rejects unknown names before
+compilation and runs unchanged assertions. Settings smoke requires a built
+package; selected runs include it only with `-SettingsSmoke`. No arguments still
+run all suites plus settings smoke, preserving the formal-release CI gate.
+
+### Formal release: complete acceptance
 
 Run from the repository in Windows PowerShell:
 

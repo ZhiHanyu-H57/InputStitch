@@ -60,6 +60,7 @@
     <Compile Include="StepHistory.cs" />
     <Compile Include="QuickCreate.cs" />
     <Compile Include="ConcurrentRuntime.cs" />
+    <Compile Include="MacroRunCoordinator.cs" />
     <Compile Include="MacroWorkerPool.cs" />
     <Compile Include="OutputOwnership.cs" />
     <Compile Include="VirtualGamepadBackend.cs" />

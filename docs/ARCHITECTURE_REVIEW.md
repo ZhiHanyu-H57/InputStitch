@@ -1,5 +1,15 @@
 # InputStitch architecture review
 
+## Incremental follow-up — 2026-10-22
+
+Local 1.5.1-beta.1 extracts run registration/identity/stop/completion into
+`MacroRunCoordinator`, with no UI dependency, while retaining the original shared
+lock and worker/output model. Released advanced-trigger history no longer causes
+10 ms empty UI dispatches. This is a bounded first step; execution and some mutable
+progress/condition state still belong to MainForm. See
+[scope and verification](RUNTIME_COORDINATION_BETA_1_5_1.md). Development now uses
+impact-based tests; formal releases retain complete regression.
+
 ## Current follow-up — 2026-10-21
 
 See [Maturity and performance review](MATURITY_AND_PERFORMANCE_REVIEW.md) for the

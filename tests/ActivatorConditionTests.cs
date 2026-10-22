@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Windows.Forms;
@@ -39,6 +39,7 @@ internal static class ActivatorConditionTests
     {
         try
         {
+            PendingTicks();
             ConfigAndClassifier();
             PressReleaseAndHeld();
             LongAndDoublePress();
@@ -56,6 +57,33 @@ internal static class ActivatorConditionTests
             Console.Error.WriteLine(ex);
             return 1;
         }
+    }
+
+    private static void PendingTicks()
+    {
+        ActivatorRuntimeEngine engine = new ActivatorRuntimeEngine();
+        MacroDefinition a = Macro(ActivatorModes.DoublePress), b = Macro(ActivatorModes.LongPress);
+        Check(!engine.HasPendingTick, "empty engine needs no ticks");
+        engine.OnDown(a, Key(Keys.F8), Trigger(Keys.F8), 0, true);
+        engine.OnDown(a, Key(Keys.F8), Trigger(Keys.F8), 1, true);
+        engine.OnDown(b, Key(Keys.F9), Trigger(Keys.F9), 2, true);
+        Check(engine.HasPendingTick, "held states require tick and repeat down is ignored");
+        engine.OnUp(Key(Keys.F8), 10, null);
+        Check(engine.HasPendingTick, "releasing one does not suspend another held state");
+        engine.Reset(b);
+        Check(!engine.HasPendingTick && engine.TrackedCount == 1, "reset held state suspends ticks but retains released history");
+        ActivatorDecision decision = engine.OnDown(a, Key(Keys.F8), Trigger(Keys.F8), 20, true);
+        Check(decision != null && decision.Reason == "double-press", "double-press survives idle suspension");
+        engine.OnUp(Key(Keys.F8), 21, null);
+        engine.OnUp(Key(Keys.F8), 22, null);
+        Check(!engine.HasPendingTick, "duplicate up never makes pending count negative");
+        a.Trigger.Kind = InputKind.WheelUp;
+        engine.OnDown(a, new InputEventInfo { Input = new InputSpec { Kind = InputKind.WheelUp } }, a.Trigger, 30, true);
+        Check(!engine.HasPendingTick, "wheel edge history requires no periodic tick");
+        engine.OnDown(b, Key(Keys.F9), Trigger(Keys.F9), 31, false);
+        Check(engine.HasPendingTick, "ineligible down keeps existing condition monitoring behavior");
+        engine.Clear(); engine.Reset(b);
+        Check(!engine.HasPendingTick && engine.TrackedCount == 0, "clear resets tick demand");
     }
 
     private static void ConfigAndClassifier()

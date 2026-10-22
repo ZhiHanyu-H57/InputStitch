@@ -3216,11 +3216,8 @@ namespace InputStitch
         private int foregroundIdentityCacheMisses;
         private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
-        private readonly Dictionary<long, MacroRunRuntime> activeMacroRuns = new Dictionary<long, MacroRunRuntime>();
-        private readonly Dictionary<MacroDefinition, long> activeMacroRunByMacro = new Dictionary<MacroDefinition, long>();
-        private long runSequence = 0;
+        private readonly MacroRunCoordinator runCoordinator;
         private readonly MacroWorkerPool macroWorkers = new MacroWorkerPool(delegate(Exception ex) { AppLog.Write("Macro worker dispatch failed", ex); });
-        private string lastRunStopReason = "none";
 
         public MainForm() : this(null, null, null) { }
 
@@ -3229,6 +3226,8 @@ namespace InputStitch
 
         internal MainForm(MacroConfig isolatedConfig, string isolatedDirectory, IOutputBackend outputBackend)
         {
+            runCoordinator = new MacroRunCoordinator(runLock, delegate(long id, string reason)
+            { runtimeTrace.Add("stop-request", "run=" + id.ToString() + "; reason=" + reason); });
             outputOwnership = new OutputOwnershipManager(outputBackend ?? (IOutputBackend)new DirectOutputBackend());
             Disposed += delegate { StopAllMacroRuns("dispose"); macroWorkers.Dispose(); DisposeCrosshair(); };
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -3589,7 +3588,7 @@ namespace InputStitch
         {
             lock (runLock)
             {
-                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
                 {
                     if (runtime == null) continue;
                     runtime.HeldInputs.Clear();
@@ -3754,7 +3753,7 @@ namespace InputStitch
         {
             lock (runLock)
             {
-                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
                 {
                     if (runtime == null) continue;
                     MacroDefinition runningDefinition = runtime.Snapshot ?? runtime.OwnerMacro;
@@ -3948,7 +3947,7 @@ namespace InputStitch
                     }
                 }
 
-                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
                 {
                     if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null || runtime.Stop == null || runtime.Stop.IsSet) continue;
                     bool released = !IsPhysicalHoldTriggerSatisfied(runtime.HoldTrigger);
@@ -6269,7 +6268,7 @@ namespace InputStitch
         // are dropped, which keeps a busy UI from building an unbounded backlog of stale ticks.
         private void RequestActivatorTick()
         {
-            if (activatorEngine.TrackedCount == 0) return;
+            if (!activatorEngine.HasPendingTick) return;
             if (IsDisposed || !IsHandleCreated) return;
             if (Interlocked.CompareExchange(ref activatorTickQueued, 1, 0) != 0) return;
             try
@@ -6348,7 +6347,7 @@ namespace InputStitch
                     HeldMappingRuntime runtime = pair.Value;
                     if (runtime != null && ModifierSafetyPolicy.HoldTriggerReleasedByEvent(runtime.Trigger, e)) parallelReleased.Add(pair.Key);
                 }
-                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
+                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
                 {
                     if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null) continue;
                     if (ModifierSafetyPolicy.HoldTriggerReleasedByEvent(runtime.HoldTrigger, e)) holdRunsReleased.Add(runtime.RunId);
@@ -7077,7 +7076,7 @@ namespace InputStitch
             lock (runLock)
             {
                 singleStepRun = GetSingleStepRun_NoLock();
-                activeRunCount = activeMacroRuns.Count;
+                activeRunCount = runCoordinator.Count;
             }
             if (singleStepRun != null)
             {
@@ -7146,37 +7145,22 @@ namespace InputStitch
 
         private MacroRunRuntime GetMacroRun_NoLock(MacroDefinition macro)
         {
-            if (macro == null) return null;
-            long runId;
-            MacroRunRuntime runtime;
-            if (!activeMacroRunByMacro.TryGetValue(macro, out runId)) return null;
-            if (!activeMacroRuns.TryGetValue(runId, out runtime) || runtime == null) return null;
-            return runtime;
+            return runCoordinator.Find(macro);
         }
 
         private MacroRunRuntime GetSingleStepRun_NoLock()
         {
-            foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
-            {
-                if (runtime != null && runtime.SingleStep) return runtime;
-            }
-            return null;
+            return runCoordinator.SingleStepRun;
         }
 
         private List<MacroRunRuntime> SnapshotActiveMacroRuns()
         {
-            lock (runLock)
-            {
-                List<MacroRunRuntime> result = new List<MacroRunRuntime>(activeMacroRuns.Values);
-                result.RemoveAll(delegate(MacroRunRuntime runtime) { return runtime == null; });
-                result.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
-                return result;
-            }
+            return runCoordinator.Snapshot();
         }
 
         private int ActiveMacroRunCount()
         {
-            lock (runLock) return activeMacroRuns.Count;
+            lock (runLock) return runCoordinator.Count;
         }
 
         private bool HasWorkerBackedRuns()
@@ -7187,7 +7171,7 @@ namespace InputStitch
         private bool HasAnyActiveRuntime()
         {
             lock (runLock)
-                return activeMacroRuns.Count != 0 || activeParallelHeldMappings.Count != 0;
+                return runCoordinator.Count != 0 || activeParallelHeldMappings.Count != 0;
         }
 
         private bool IsMacroActuallyRunning(MacroDefinition m)
@@ -7289,7 +7273,7 @@ namespace InputStitch
                     SetStatusSafe(Localizer.IsEnglish ? "This macro is already running." : "状态：这个宏已经在运行。" );
                     return;
                 }
-                if (singleStep && activeMacroRuns.Count != 0)
+                if (singleStep && runCoordinator.Count != 0)
                 {
                     SetStatusSafe(Localizer.IsEnglish
                         ? "Single-step remains exclusive among macro runs. Stop other macros first."
@@ -7321,27 +7305,14 @@ namespace InputStitch
             runtime.StopReason = "running";
             runtime.StepCount = snapshot.Steps == null ? 0 : snapshot.Steps.Count;
 
-            lock (runLock)
+            runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
+            if (!runCoordinator.TryRegister(runtime))
             {
-                // Re-check under the same lock that installs the run so UI/hotkey requests can never
-                // create two instances of the same MacroDefinition. Single-step intentionally remains
-                // the only execution mode that excludes other macro workers.
-                if (GetMacroRun_NoLock(m) != null ||
-                    (singleStep && activeMacroRuns.Count != 0))
-                {
-                    try { runtime.Stop.Dispose(); } catch { }
-                    try { if (runtime.StepGate != null) runtime.StepGate.Dispose(); } catch { }
-                    SetStatusSafe(Localizer.IsEnglish ? "Runtime state changed; this macro was not started." : "状态：运行状态已变化，本次未启动这个宏。" );
-                    UpdateRunButtonSafe();
-                    return;
-                }
-
-                runtime.RunId = ++runSequence;
-                runtime.SourceId = "macro:" + runtime.RunId.ToString();
-                runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
-                activeMacroRuns[runtime.RunId] = runtime;
-                activeMacroRunByMacro[m] = runtime.RunId;
-                lastRunStopReason = "running";
+                runtime.Stop.Dispose();
+                if (runtime.StepGate != null) runtime.StepGate.Dispose();
+                SetStatusSafe(Localizer.IsEnglish ? "Runtime state changed; this macro was not started." : "状态：运行状态已变化，本次未启动这个宏。" );
+                UpdateRunButtonSafe();
+                return;
             }
 
             UpdateUiSafetyPauseState(true);
@@ -7353,13 +7324,7 @@ namespace InputStitch
             catch (Exception ex)
             {
                 runtime.Work.Complete();
-                lock (runLock)
-                {
-                    activeMacroRuns.Remove(runtime.RunId);
-                    long mapped;
-                    if (activeMacroRunByMacro.TryGetValue(m, out mapped) && mapped == runtime.RunId) activeMacroRunByMacro.Remove(m);
-                    lastRunStopReason = "start-error";
-                }
+                runCoordinator.Finish(runtime, "start-error");
                 try { runtime.Stop.Dispose(); } catch { }
                 try { if (runtime.StepGate != null) runtime.StepGate.Dispose(); } catch { }
                 AppLog.Write("Macro worker start failed: " + m.Name, ex);
@@ -7370,49 +7335,22 @@ namespace InputStitch
 
         private void RequestStopMacroRun_NoLock(MacroRunRuntime runtime, string reason)
         {
-            if (runtime == null || runtime.Stop == null) return;
-            string resolved = string.IsNullOrWhiteSpace(reason) ? "stop-request" : reason;
-            if (!runtime.Stop.IsSet) runtimeTrace.Add("stop-request", "run=" + runtime.RunId.ToString() + "; reason=" + resolved);
-            runtime.StopReason = resolved;
-            runtime.Phase = "stopping";
-            lastRunStopReason = resolved;
-            runtime.Stop.Set();
-            if (runtime.StepGate != null) runtime.StepGate.Set();
+            runCoordinator.RequestStop(runtime, reason);
         }
 
         private void StopMacro(MacroDefinition macro, string reason)
         {
-            if (macro == null) return;
-            lock (runLock)
-            {
-                MacroRunRuntime runtime = GetMacroRun_NoLock(macro);
-                if (runtime != null) RequestStopMacroRun_NoLock(runtime, reason);
-            }
+            runCoordinator.Stop(macro, reason);
         }
 
         private void StopMacroRun(long runId, string reason)
         {
-            lock (runLock)
-            {
-                MacroRunRuntime runtime;
-                if (activeMacroRuns.TryGetValue(runId, out runtime) && runtime != null)
-                    RequestStopMacroRun_NoLock(runtime, reason);
-            }
+            runCoordinator.Stop(runId, reason);
         }
 
         private List<MacroWorkItem> StopAllMacroRuns(string reason)
         {
-            List<MacroWorkItem> threads = new List<MacroWorkItem>();
-            lock (runLock)
-            {
-                foreach (MacroRunRuntime runtime in activeMacroRuns.Values)
-                {
-                    if (runtime == null) continue;
-                    RequestStopMacroRun_NoLock(runtime, reason);
-                    if (runtime.Work != null) threads.Add(runtime.Work);
-                }
-            }
-            return threads;
+            return runCoordinator.StopAll(reason);
         }
 
         private void MacroWorker(MacroRunRuntime runtime, int startDelayMs, TriggerSpec waitForReleaseTrigger)
@@ -7437,8 +7375,7 @@ namespace InputStitch
 
             lock (runLock)
             {
-                MacroRunRuntime current;
-                if (activeMacroRuns.TryGetValue(runId, out current) && object.ReferenceEquals(current, runtime))
+                if (runCoordinator.IsCurrent(runtime))
                 {
                     runtime.Phase = singleStep ? "single-step-running" : "running";
                     runtime.Iteration = 0;
@@ -7598,23 +7535,7 @@ namespace InputStitch
                 held.Clear();
                 SyncRunHeldInputs(runtime, held);
 
-                bool removed = false;
-                lock (runLock)
-                {
-                    MacroRunRuntime current;
-                    if (activeMacroRuns.TryGetValue(runId, out current) && object.ReferenceEquals(current, runtime))
-                    {
-                        activeMacroRuns.Remove(runId);
-                        long mapped;
-                        if (runtime.OwnerMacro != null && activeMacroRunByMacro.TryGetValue(runtime.OwnerMacro, out mapped) && mapped == runId)
-                            activeMacroRunByMacro.Remove(runtime.OwnerMacro);
-                        runtime.Phase = "finished";
-                        runtime.SingleStepWaiting = false;
-                        runtime.StopReason = executionError != null ? "error" : (stop.IsSet ? runtime.StopReason : "completed");
-                        lastRunStopReason = runtime.StopReason;
-                        removed = true;
-                    }
-                }
+                bool removed = runCoordinator.Finish(runtime, executionError != null ? "error" : null);
                 try { stop.Dispose(); } catch { }
                 try { if (stepGate != null) stepGate.Dispose(); } catch { }
 
@@ -7674,8 +7595,7 @@ namespace InputStitch
             if (runtime == null) return;
             lock (runLock)
             {
-                MacroRunRuntime current;
-                if (!activeMacroRuns.TryGetValue(runtime.RunId, out current) || !object.ReferenceEquals(current, runtime)) return;
+                if (!runCoordinator.IsCurrent(runtime)) return;
                 runtime.HeldInputs.Clear();
                 List<string> names = new List<string>();
                 if (held != null)
@@ -7933,7 +7853,7 @@ namespace InputStitch
                 selectedRun = GetMacroRun_NoLock(selected);
                 singleStepRun = GetSingleStepRun_NoLock();
                 selectedHeldActive = selected != null && activeParallelHeldMappings.ContainsKey(selected);
-                runCount = activeMacroRuns.Count;
+                runCount = runCoordinator.Count;
             }
 
             bool selectedStopping = selectedRun != null && selectedRun.Stop != null && selectedRun.Stop.IsSet;

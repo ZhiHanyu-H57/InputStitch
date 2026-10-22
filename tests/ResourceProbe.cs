@@ -29,6 +29,7 @@ internal static class ResourceProbe
     {
         string package = Path.GetFullPath(args[0]), directory = Path.GetFullPath(args[1]);
         int seconds = int.Parse(args[2], CultureInfo.InvariantCulture);
+        bool afterAdvancedTrigger = args.Length > 3 && bool.Parse(args[3]);
         Directory.CreateDirectory(directory);
         Application.EnableVisualStyles();
         Assembly assembly = Assembly.LoadFrom(package);
@@ -48,11 +49,35 @@ internal static class ResourceProbe
         ((IList)Field(config, "Macros").GetValue(config)).Add(macro);
         using (FileStream stream = File.Create(Path.Combine(directory, "config.xml"))) new XmlSerializer(config.GetType()).Serialize(stream, config);
         List<Sample> samples = new List<Sample>();
+        int idleTickRequestsQueued = 0;
         using (Form form = (Form)Activator.CreateInstance(assembly.GetType("InputStitch.MainForm")))
         using (System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer())
         using (Process process = Process.GetCurrentProcess())
         {
             form.StartPosition = FormStartPosition.Manual; form.Location = new System.Drawing.Point(-20000, -20000); form.ShowInTaskbar = false;
+            if (afterAdvancedTrigger)
+            {
+                object engine = Field(form, "activatorEngine").GetValue(form);
+                object activator = Field(macro, "Activator").GetValue(macro);
+                Set(activator, "Mode", "DoublePress");
+                object input = Activator.CreateInstance(assembly.GetType("InputStitch.InputSpec"));
+                Set(input, "VirtualKey", (int)Keys.F24);
+                object edge = Activator.CreateInstance(assembly.GetType("InputStitch.InputEventInfo"));
+                Set(edge, "Input", input);
+                object trigger = Field(macro, "Trigger").GetValue(macro);
+                Set(trigger, "VirtualKey", (int)Keys.F24);
+                BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
+                engine.GetType().GetMethod("OnDown", flags).Invoke(engine, new object[] { macro, edge, trigger, 0L, true });
+                engine.GetType().GetMethod("OnUp", flags).Invoke(engine, new object[] { edge, 1L, null });
+                IntPtr handle = form.Handle;
+                MethodInfo request = form.GetType().GetMethod("RequestActivatorTick", flags);
+                for (int i = 0; i < 1000; i++)
+                {
+                    request.Invoke(form, null);
+                    if ((int)Field(form, "activatorTickQueued").GetValue(form) != 0) idleTickRequestsQueued++;
+                    Application.DoEvents();
+                }
+            }
             int phase = -1;
             double cpuStart = 0;
             Stopwatch clock = Stopwatch.StartNew();
@@ -96,7 +121,8 @@ internal static class ResourceProbe
                 ",\"oneCorePercent\":" + Number(cpu / (duration * 10)) + ",\"finalPrivateBytes\":" + last.Bytes + ",\"peakPrivateBytes\":" + group.Max(x => x.Bytes) +
                 ",\"firstHandles\":" + first.Handles + ",\"finalHandles\":" + last.Handles + ",\"peakHandles\":" + group.Max(x => x.Handles) + ",\"firstThreads\":" + first.Threads + ",\"finalThreads\":" + last.Threads + ",\"devices\":" + last.Devices + "}");
         }
-        string report = "{\"version\":" + Quote(version) + ",\"package\":" + Quote(package) + ",\"forcedGc\":false,\"logicalProcessors\":" + Environment.ProcessorCount +
+        string report = "{\"version\":" + Quote(version) + ",\"package\":" + Quote(package) + ",\"afterAdvancedTrigger\":" + afterAdvancedTrigger.ToString().ToLowerInvariant() +
+            ",\"idleTickRequestsTested\":" + (afterAdvancedTrigger ? 1000 : 0) + ",\"idleTickRequestsQueued\":" + idleTickRequestsQueued + ",\"forcedGc\":false,\"logicalProcessors\":" + Environment.ProcessorCount +
             ",\"note\":\"Isolated minimal managed host; production startup, SDL3 and hooks; disabled macros; CPU is one core.\",\"phases\":[" + string.Join(",", summaries) + "]}";
         File.WriteAllText(Path.Combine(directory, "report.json"), report); Console.WriteLine(report);
         return 0;

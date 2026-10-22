@@ -1,6 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
-## Current evidence and priority — 2026-10-21
+## Incremental follow-up — 2026-10-22
+
+Local 1.5.1-beta.1 implements the first bounded coordination extraction and removes
+post-gesture empty activator dispatch. Keep the Stable 1.5.0 behavior and package
+weight; defer features and broad rewrites. Scope and measured resource comparison:
+[runtime coordination](RUNTIME_COORDINATION_BETA_1_5_1.md). Development checks are
+selected by impact; complete verification remains mandatory for formal publication.
+
+## Previous evidence and priority — 2026-10-21
 
 The latest official-source comparison, code review, measured fixes and follow-up
 order are in [Maturity and performance review](MATURITY_AND_PERFORMANCE_REVIEW.md).

@@ -1,5 +1,20 @@
 ﻿# PLAN.md
 
+## Completed local beta — 1.5.1-beta.1 (2026-10-22)
+
+Follow P1 with a UI-independent run-lifecycle coordinator and suspend empty UI
+activator ticks after release, preserving double-press history and the 1.5.0
+execution/output/configuration model. No new feature, dependency or publication.
+The final production freeze passes 13 impact-selected suites, the 142-check
+beginner workflow, 77 real-output checks, both packaged architectures and an
+unforced 600.1-second / 7,040-cycle soak with three workers and zero final outputs.
+Packaged CPU after an advanced-trigger release: off 4.480% -> 2.969%, on 3.751% ->
+2.918% of one core, one bounded sample per phase. UI enqueue requests 1,000 -> 0.
+Both EXEs add only 512 bytes. See `docs/RUNTIME_COORDINATION_BETA_1_5_1.md`.
+Development now selects tests by impact; formal publication retains the full
+35-suite gate. This beta did not run the unrelated complete matrix or publish
+anything remotely. Stable main/tag/latest remain unchanged.
+
 ## Completed Stable release — 1.5.0 (2026-10-22)
 
 Published `v1.5.0` from `166faab96f337b8164c729c1f233e6b2de294ff1` as GitHub latest Stable.
