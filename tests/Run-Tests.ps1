@@ -4,6 +4,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $allSuites = @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputPipelineIntegrationTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','MacroWorkerPoolTests','MacroRunCoordinatorTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests','SecondaryLayoutTests')
 $allSuites += 'AdvancedTriggerDispatchTests'
+$allSuites += 'RecordingEditingTests'
 if ($List) { $allSuites; return }
 $fullRun = -not $Suite
 $selectedSuites = @(if ($fullRun) { $allSuites } else { $Suite | ForEach-Object { $_.Split(',') } | Select-Object -Unique })
@@ -49,6 +50,7 @@ foreach($testSuite in $selectedSuites) {
   $arguments += '/win32icon:' + (Join-Path $project 'InputStitch.ico')
 $arguments += '/reference:'+$client
   $arguments += '/resource:'+$client+',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
+  $arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
   foreach($file in $productionSources) { $arguments += $file }
   $arguments += Join-Path $PSScriptRoot ($testSuite+'.cs')
   $compile = Invoke-NativeCaptured $compiler $arguments

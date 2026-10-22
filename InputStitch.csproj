@@ -58,6 +58,8 @@
     <Compile Include="TargetWindowPolicy.cs" />
     <Compile Include="ConfigStore.cs" />
     <Compile Include="StepHistory.cs" />
+    <Compile Include="StepTimingEditor.cs" />
+    <Compile Include="MouseInputDiagram.cs" />
     <Compile Include="QuickCreate.cs" />
     <Compile Include="ConcurrentRuntime.cs" />
     <Compile Include="MacroRunCoordinator.cs" />
@@ -86,6 +88,8 @@
     <Compile Include="MainForm.Crosshair.cs" />
     <Compile Include="MainForm.AdvancedTriggers.cs" />
     <None Include="InputStitch.ico" />
+    <EmbeddedResource Include="assets\mouse-color.jpg"><LogicalName>InputStitch.Assets.mouse-color.jpg</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="assets\mouse-alpha.png"><LogicalName>InputStitch.Assets.mouse-alpha.png</LogicalName></EmbeddedResource>
     <None Include="app.manifest" />
     <EmbeddedResource Include="third-party\Nefarius.ViGEm.Client\Nefarius.ViGEm.Client.dll">
       <LogicalName>InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll</LogicalName>

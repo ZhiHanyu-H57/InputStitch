@@ -15,6 +15,7 @@ namespace InputStitch
         private readonly RadioButton singleButton;
         private readonly RadioButton multipleButton;
         private readonly KeyboardSurface keyboard;
+        private readonly MouseInputDiagram mouseDiagram;
         private Button confirmButton;
         public List<InputSpec> SelectedInputs { get; private set; }
         public TriggerSpec SelectedTrigger { get; private set; }
@@ -43,7 +44,7 @@ namespace InputStitch
             {
                 menu.Items.Clear();
                 menu.Items.Add(TextFor("按下键盘键 / 鼠标按钮来设置", "Set by pressing a key / mouse button"), null, physicalCapture);
-                menu.Items.Add(TextFor("在键盘图中选择…", "Choose on the keyboard diagram…"), null, virtualCapture);
+                menu.Items.Add(TextFor("在键盘 / 鼠标图中选择…", "Choose on the keyboard / mouse diagram…"), null, virtualCapture);
                 EditorTheme.Menu(menu, primary.Font);
             };
             arrow.Click += delegate { menu.Show(arrow, new Point(0, arrow.Height)); };
@@ -64,7 +65,7 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             MinimumSize = new Size(800, 540);
-            ClientSize = new Size(1240, 600);
+            ClientSize = new Size(1280, 660);
 
             TableLayoutPanel root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
@@ -127,7 +128,23 @@ namespace InputStitch
                 keyboard.Size = new Size(Math.Max(keyboard.MinimumSize.Width, viewport.ClientSize.Width), height);
                 viewport.AutoScrollMinSize = keyboard.Size;
             };
-            root.Controls.Add(viewport, 0, 2);
+            TabControl devices = new TabControl { Dock = DockStyle.Fill, Padding = new Point(14, 5) };
+            TabPage keysPage = new TabPage(TextFor("键盘", "Keyboard")) { BackColor = Color.White };
+            TabPage mousePage = new TabPage(TextFor("鼠标", "Mouse")) { BackColor = Color.White, AutoScroll = true };
+            keysPage.Controls.Add(viewport);
+            mouseDiagram = new MouseInputDiagram();
+            mouseDiagram.InputSelected += delegate(InputKind kind) { ToggleInput(new InputSpec { Kind = kind, VirtualKey = 0 }); };
+            mousePage.Controls.Add(mouseDiagram);
+            mousePage.Resize += delegate
+            {
+                float scale = Font.Size / EditorTheme.BodyFontSize * Font.GetHeight() / Font.GetHeight(96F);
+                mouseDiagram.MinimumSize = new Size((int)(360 * scale), (int)(300 * scale));
+                mouseDiagram.Size = new Size(Math.Min(mousePage.ClientSize.Width, (int)(420 * scale)), Math.Max((int)(300 * scale), mousePage.ClientSize.Height));
+                mouseDiagram.Left = Math.Max(0, (mousePage.ClientSize.Width - mouseDiagram.Width) / 2);
+            };
+            devices.TabPages.Add(keysPage);
+            devices.TabPages.Add(mousePage);
+            root.Controls.Add(devices, 0, 2);
             BuildKeyboard();
 
             selectionLabel = new Label();
@@ -162,7 +179,8 @@ namespace InputStitch
 
             if (initial != null)
                 foreach (InputSpec input in initial)
-                    if (input != null && input.Kind == InputKind.Keyboard && !ContainsKey(input)) selected.Add(input.Clone());
+                    if (input != null && (input.Kind == InputKind.Keyboard || MouseInputDiagram.IsMouse(input.Kind)) && !ContainsKey(input)) selected.Add(input.Clone());
+            foreach (InputSpec input in selected) if (MouseInputDiagram.IsMouse(input.Kind)) devices.SelectedTab = mousePage;
             multipleButton.Checked = selected.Count > 1;
             singleButton.Checked = !multipleButton.Checked;
             singleButton.CheckedChanged += delegate
@@ -173,8 +191,8 @@ namespace InputStitch
             multipleButton.CheckedChanged += delegate { RefreshSelection(); };
             root.Padding = new Padding(0);
             EditorDialogs.Frame(this, root, footer, forTrigger
-                ? triggerDescription ?? TextFor("这是用来启动宏的快捷键。点击下方按键；需要 Ctrl、Shift 等组合时，先选“选择组合键”。", "This shortcut starts your macro. Click keys below; choose Key combination to include Ctrl, Shift or other modifiers.")
-                : TextFor("这是宏替你按的键。点击选中，再次点击取消；确认后回到步骤编辑。", "These are the keys your macro will press. Click to select, click again to clear, then confirm to return to the step editor."), help);
+                ? triggerDescription ?? TextFor("选择启动宏的键盘键或鼠标按钮；需要 Ctrl、Shift 等组合时，先选“选择组合键”。", "Choose a keyboard key or mouse button to start the macro. Choose Key combination to include Ctrl, Shift or other modifiers.")
+                : TextFor("选择宏要执行的键盘键或鼠标按钮。点击选中，再次点击取消；确认后回到步骤编辑。", "Choose the keyboard keys or mouse buttons your macro will press. Click to select, click again to clear, then confirm."), help);
             RefreshSelection();
         }
 
@@ -189,8 +207,26 @@ namespace InputStitch
         private bool ContainsKey(InputSpec input)
         {
             foreach (InputSpec key in selected)
-                if (key.VirtualKey == input.VirtualKey && key.Extended == input.Extended) return true;
+                if (SameInput(key, input)) return true;
             return false;
+        }
+
+        private static bool SameInput(InputSpec a, InputSpec b)
+        { return a.Kind == b.Kind && (a.Kind != InputKind.Keyboard || a.VirtualKey == b.VirtualKey && a.Extended == b.Extended); }
+
+        private static bool IsModifier(InputSpec input)
+        { return input.Kind == InputKind.Keyboard && ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey); }
+
+        private void ToggleInput(InputSpec input)
+        {
+            int index = selected.FindIndex(delegate(InputSpec item) { return SameInput(item, input); });
+            if (index >= 0) selected.RemoveAt(index);
+            else
+            {
+                if (singleButton.Checked) selected.Clear();
+                selected.Add(input.Clone());
+            }
+            RefreshSelection();
         }
 
         private void AddKey(string label, Keys key, float x, float y, float width, float height, bool extended)
@@ -210,14 +246,7 @@ namespace InputStitch
             button.Font = new Font("Segoe UI", EditorTheme.KeyFontSize);
             button.Click += delegate
             {
-                int index = selected.FindIndex(delegate(InputSpec item) { return item.VirtualKey == input.VirtualKey && item.Extended == input.Extended; });
-                if (index >= 0) selected.RemoveAt(index);
-                else
-                {
-                    if (singleButton.Checked) selected.Clear();
-                    selected.Add(input.Clone());
-                }
-                RefreshSelection();
+                ToggleInput(input);
             };
             keyButtons.Add(button);
             keyboard.AddKey(button, new RectangleF(x, y, width, height));
@@ -301,6 +330,10 @@ namespace InputStitch
 
         private void RefreshSelection()
         {
+            if (mouseDiagram != null)
+            {
+                mouseDiagram.SetSelections(selected);
+            }
             foreach (Button key in keyButtons)
             {
                 bool on = ContainsKey((InputSpec)key.Tag);
@@ -312,8 +345,8 @@ namespace InputStitch
             }
             if (selectionLabel == null) return;
             List<string> names = new List<string>();
-            foreach (InputSpec input in selected) if (ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) names.Add(FormatKeyboardInput(input));
-            foreach (InputSpec input in selected) if (!ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) names.Add(FormatKeyboardInput(input));
+            foreach (InputSpec input in selected) if (IsModifier(input)) names.Add(FormatKeyboardInput(input));
+            foreach (InputSpec input in selected) if (!IsModifier(input)) names.Add(FormatKeyboardInput(input));
             string hint = triggerMode
                 ? TextFor("组合触发键支持 Ctrl / Shift / Alt / Win 加一个主键；也可单独选择修饰键。", "Trigger chords support Ctrl / Shift / Alt / Win plus one main key. A modifier can also be used alone.")
                 : TextFor("所选按键会作为组合执行；确认后仍可编辑每个按键的按下与松开步骤。", "Selected keys run as a combination. You can still edit each press and release step after confirming.");
@@ -344,7 +377,7 @@ namespace InputStitch
             int ordinary = 0;
             foreach (InputSpec input in inputs)
             {
-                if (!ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) { terminal = input; ordinary++; }
+                if (!IsModifier(input)) { terminal = input; ordinary++; }
             }
             if (ordinary > 1)
             {
@@ -354,16 +387,16 @@ namespace InputStitch
             }
             if (terminal == null) terminal = inputs[inputs.Count - 1];
             trigger = new TriggerSpec();
-            trigger.Kind = InputKind.Keyboard;
+            trigger.Kind = terminal.Kind;
             trigger.VirtualKey = terminal.VirtualKey;
             trigger.Extended = terminal.Extended;
-            trigger.MatchExtended = terminal.VirtualKey == (int)Keys.Enter;
-            int terminalMask = ModifierSafetyPolicy.ModifierMaskForKey(terminal.VirtualKey);
+            trigger.MatchExtended = terminal.Kind == InputKind.Keyboard && terminal.VirtualKey == (int)Keys.Enter;
+            int terminalMask = IsModifier(terminal) ? ModifierSafetyPolicy.ModifierMaskForKey(terminal.VirtualKey) : 0;
             int modifiers = 0;
             foreach (InputSpec input in inputs)
             {
                 if (object.ReferenceEquals(input, terminal)) continue;
-                int mask = ModifierSafetyPolicy.ModifierMaskForKey(input.VirtualKey);
+                int mask = IsModifier(input) ? ModifierSafetyPolicy.ModifierMaskForKey(input.VirtualKey) : 0;
                 if ((mask & (terminalMask | modifiers)) != 0)
                 {
                     trigger = null;
@@ -382,12 +415,12 @@ namespace InputStitch
         public static List<InputSpec> InputsFromTrigger(TriggerSpec trigger)
         {
             List<InputSpec> inputs = new List<InputSpec>();
-            if (trigger == null || trigger.Kind != InputKind.Keyboard) return inputs;
+            if (trigger == null || (trigger.Kind != InputKind.Keyboard && !MouseInputDiagram.IsMouse(trigger.Kind))) return inputs;
             if (trigger.Ctrl) inputs.Add(new InputSpec { VirtualKey = (int)Keys.LControlKey });
             if (trigger.Shift) inputs.Add(new InputSpec { VirtualKey = (int)Keys.LShiftKey });
             if (trigger.Alt) inputs.Add(new InputSpec { VirtualKey = (int)Keys.LMenu });
             if (trigger.Win) inputs.Add(new InputSpec { VirtualKey = (int)Keys.LWin, Extended = true });
-            inputs.Add(new InputSpec { VirtualKey = trigger.VirtualKey, Extended = trigger.Extended });
+            inputs.Add(new InputSpec { Kind = trigger.Kind, VirtualKey = trigger.VirtualKey, Extended = trigger.Extended });
             return inputs;
         }
 
@@ -396,17 +429,20 @@ namespace InputStitch
         public static List<MacroStep> BuildChordSteps(IList<InputSpec> inputs, MacroStep template)
         {
             List<InputSpec> ordered = new List<InputSpec>();
-            foreach (InputSpec input in inputs) if (ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) ordered.Add(input);
-            foreach (InputSpec input in inputs) if (!ModifierSafetyPolicy.IsModifierVirtualKey(input.VirtualKey)) ordered.Add(input);
+            foreach (InputSpec input in inputs) if (IsModifier(input)) ordered.Add(input);
+            foreach (InputSpec input in inputs) if (!IsModifier(input) && input.Kind != InputKind.WheelUp && input.Kind != InputKind.WheelDown) ordered.Add(input);
+            foreach (InputSpec input in inputs) if (input.Kind == InputKind.WheelUp || input.Kind == InputKind.WheelDown) ordered.Add(input);
             List<MacroStep> steps = new List<MacroStep>();
             if (template.Action == MacroAction.Up) ordered.Reverse();
             for (int i = 0; i < ordered.Count; i++)
             {
-                MacroAction action = template.Action == MacroAction.Press && i < ordered.Count - 1 ? MacroAction.Down : template.Action;
+                bool wheel = ordered[i].Kind == InputKind.WheelUp || ordered[i].Kind == InputKind.WheelDown;
+                MacroAction action = wheel ? MacroAction.Press : template.Action == MacroAction.Press && i < ordered.Count - 1 ? MacroAction.Down : template.Action;
                 steps.Add(MakeStep(ordered[i], template, action));
             }
             if (template.Action == MacroAction.Press)
-                for (int i = ordered.Count - 2; i >= 0; i--) steps.Add(MakeStep(ordered[i], template, MacroAction.Up));
+                for (int i = ordered.Count - 2; i >= 0; i--)
+                    if (InputSender.IsHoldable(ordered[i])) steps.Add(MakeStep(ordered[i], template, MacroAction.Up));
             if (steps.Count > 0)
             {
                 MacroStep last = steps[steps.Count - 1];
@@ -421,7 +457,7 @@ namespace InputStitch
         private static MacroStep MakeStep(InputSpec input, MacroStep template, MacroAction action)
         {
             MacroStep step = template.Clone();
-            step.Kind = InputKind.Keyboard;
+            step.Kind = input.Kind;
             step.VirtualKey = input.VirtualKey;
             step.ScanCode = input.ScanCode;
             step.Extended = input.Extended;

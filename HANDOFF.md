@@ -1,5 +1,32 @@
 # HANDOFF.md
 
+## Recording / mouse / batch timing beta completed — 2026-10-23
+
+Branch `fix/recording-batch-timing`, based on protected main `1eee151`.
+The user authorized normal closure of the running Stable instance for actual
+output acceptance; it saved/exited normally through an elevated close helper.
+All test settings remain isolated. Do not restart a normal-config copy during
+the output acceptance run. Stable/latest publication remains 1.5.1; local
+development metadata is 1.5.2-beta.1, not a formal publication instruction.
+
+Verified production commit: `132069ac9ab43a43cdb528b9e687ebafa46c1ef9`.
+Fix scope, final hashes and selected evidence are recorded in
+`docs/RECORDING_EDITING_1_5_2_BETA1.md`. Eight selected suites pass, including
+174 recording/editing checks, 802 save/legacy checks and 303716 ownership checks;
+dialog flow 512, complete journey/input switching 142, real output 81/0,
+final mouse layouts 4453/12 (100–200%) and 1842/6 (native 150%), native photo
+pixels 5, both packaged architectures pass. No user-trial gate.
+The final mouse is a generated white product image with compact JPEG color and
+lossless alpha (39390 embedded bytes), cached once. Its photo and hit areas keep
+the same aspect ratio; right/middle callouts do not cross. The diagram selector
+remains available after physical mouse capture. Default recording tests provide
+the foreground boundary explicitly, using actual external-window identity;
+`--recording-native` is the optional live foreground variant. Formal CI need not
+fight the user's active desktop. Actual output is independently tested in Input Lab.
+No speculative Raw Input lane, hook rewrite, scheduler or target policy change.
+Use the normal PR workflow; do not bypass main protection or publish a version
+tag to deliver a local beta.
+
 ## Main protection and website HSTS completed — 2026-10-22
 
 User authorized these two changes first; Cloudflare account 2FA is a later,

@@ -605,6 +605,7 @@ namespace InputStitch
         private Panel emptyStepsPanel;
         private Button addStepButton;
         private Button editStepButton;
+        private Button batchTimingButton;
         private Button newMacroButton;
         private Label workflowGuide;
 
@@ -662,6 +663,7 @@ namespace InputStitch
             if (grid != null) grid.Visible = count > 0;
             if (addStepButton != null) addStepButton.Enabled = macro != null && !recordingActive;
             if (editStepButton != null) editStepButton.Enabled = macro != null && count > 0 && !recordingActive;
+            if (batchTimingButton != null) batchTimingButton.Enabled = macro != null && count > 0 && !recordingActive;
             if (macroList != null) macroList.Invalidate();
         }
 

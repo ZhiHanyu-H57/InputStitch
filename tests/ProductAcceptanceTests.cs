@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -686,7 +686,7 @@ internal static class ProductAcceptanceTests
                         "confirmed key selection preserves trigger semantics");
                 }
             }
-            using (BatchDelayDialog delay = new BatchDelayDialog())
+            using (BatchTimingDialog delay = new BatchTimingDialog())
             {
                 Render(delay, "batch-wait-" + language);
                 Field<RadioButton>(delay, "randomMode").Checked = true;
@@ -696,7 +696,7 @@ internal static class ProductAcceptanceTests
                 Check(((Button)delay.AcceptButton).Enabled, "correcting batch wait restores confirmation");
                 FooterVisible(delay);
                 ((Button)delay.AcceptButton).PerformClick();
-                Check(delay.UseRandom && delay.MinMs == 90 && delay.MaxMs == 110, "batch wait confirmation commits the chosen range");
+                Check(delay.Edit.RandomWait && delay.Edit.MinWaitMs == 90 && delay.Edit.MaxWaitMs == 110, "batch wait confirmation commits the chosen range");
             }
             using (MacroExportSelectionForm export = new MacroExportSelectionForm(new List<MacroDefinition> { new MacroDefinition { Name = "Export example" } }, 0))
             {
@@ -947,6 +947,8 @@ internal static class ProductAcceptanceTests
 
     private static void ChooseKeys(VirtualKeyboardDialog dialog, params Keys[] keys)
     {
+        All(dialog).OfType<TabControl>().Single().SelectedIndex = 0;
+        Pump(15);
         All(dialog).OfType<Button>().Single(b => b.Text == (Localizer.IsEnglish ? "Clear selection" : "清空选择")).PerformClick();
         Field<RadioButton>(dialog, "multipleButton").Checked = keys.Length > 1;
         Field<RadioButton>(dialog, "singleButton").Checked = keys.Length <= 1;

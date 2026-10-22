@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -59,95 +59,128 @@ namespace InputStitch
         }
     }
 
-    internal sealed class BatchDelayDialog : Form
+    internal sealed class BatchTimingDialog : Form
     {
-        private RadioButton fixedMode;
-        private RadioButton randomMode;
-        private NumericUpDown fixedBox;
-        private NumericUpDown minBox;
-        private NumericUpDown maxBox;
-        public bool UseRandom;
-        public int FixedMs;
-        public int MinMs;
-        public int MaxMs;
+        private readonly RadioButton selectedScope, allScope, fixedMode, randomMode;
+        private readonly CheckBox holdChangeBox, waitChangeBox;
+        private readonly NumericUpDown holdBox, fixedBox, minBox, maxBox;
+        private readonly Button applyButton;
+        private readonly Label rangeHint;
+        private readonly int selectedCount, totalCount, selectedHoldCount, totalHoldCount;
+        internal StepTimingEdit Edit { get; private set; }
 
-        private Button applyButton;
-        private Label rangeHint;
+        public BatchTimingDialog() : this(1, 1, 1, 1, new MacroStep()) { }
 
-        public BatchDelayDialog()
+        internal BatchTimingDialog(int selected, int total, int selectedHolds, int totalHolds, MacroStep sample)
         {
-            Text = EditorDialogs.T("批量设置步骤间隔", "Set step wait times");
+            selectedCount = selected; totalCount = total;
+            selectedHoldCount = selectedHolds; totalHoldCount = totalHolds;
+            sample = sample ?? new MacroStep();
+            Text = EditorDialogs.T("批量修改时间", "Edit step timing");
             StartPosition = FormStartPosition.CenterParent;
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96, 96);
-            ClientSize = new Size(600, 310);
-            MinimumSize = new Size(580, 340);
+            ClientSize = new Size(600, 390);
+            MinimumSize = new Size(560, 410);
             MaximizeBox = MinimizeBox = false;
             Font = EditorTheme.BodyFont();
-            TableLayoutPanel body = new TableLayoutPanel { AutoScroll = true, Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(16), BackColor = Color.White };
+            TableLayoutPanel body = new TableLayoutPanel { AutoScroll = true, Dock = DockStyle.Fill,
+                ColumnCount = 2, Padding = new Padding(16), BackColor = Color.White };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            fixedMode = new RadioButton { Text = Localizer.T("固定间隔"), AutoSize = true, Checked = true };
-            randomMode = new RadioButton { Text = Localizer.T("随机间隔"), AutoSize = true };
-            fixedBox = MakeNumber(0, 0, 50);
-            minBox = MakeNumber(0, 0, 45);
-            maxBox = MakeNumber(0, 0, 60);
-            FlowLayoutPanel fixedRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
-            fixedRow.Controls.Add(fixedBox); fixedRow.Controls.Add(MakeLabel("ms", 0, 0));
-            FlowLayoutPanel randomRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
-            randomRow.Controls.AddRange(new Control[] { minBox, MakeLabel("–", 0, 0), maxBox, MakeLabel("ms", 0, 0) });
-            body.Controls.Add(fixedMode, 0, 0); body.Controls.Add(fixedRow, 1, 0);
-            body.Controls.Add(randomMode, 0, 1); body.Controls.Add(randomRow, 1, 1);
-            rangeHint = new Label { AutoSize = true, Dock = DockStyle.Top, ForeColor = EditorTheme.Muted, Margin = new Padding(0, 16, 0, 0), MaximumSize = new Size(530, 0) };
-            body.Controls.Add(rangeHint, 0, 2); body.SetColumnSpan(rangeHint, 2);
-            Button ok = EditorDialogs.Button(EditorDialogs.T("应用到所选步骤", "Apply to selection"), DialogResult.None);
-            applyButton = ok;
-            ok.Click += delegate
+            selectedScope = new RadioButton { Text = EditorDialogs.T("所选步骤", "Selected steps") + " (" + selected + ")",
+                AutoSize = true, Enabled = selected > 0, Checked = selected > 0 };
+            allScope = new RadioButton { Text = EditorDialogs.T("全部步骤", "All steps") + " (" + total + ")",
+                AutoSize = true, Checked = selected == 0 };
+            FlowLayoutPanel scope = Row(selectedScope, allScope);
+            scope.Margin = new Padding(0, 0, 0, 16);
+            body.Controls.Add(scope, 0, 0); body.SetColumnSpan(scope, 2);
+            holdChangeBox = new CheckBox { Text = EditorDialogs.T("修改按住时长", "Hold duration"), AutoSize = true };
+            waitChangeBox = new CheckBox { Text = EditorDialogs.T("修改等待时长", "Wait after each step"), AutoSize = true, Checked = true };
+            holdBox = Number(sample.HoldMs);
+            fixedBox = Number(sample.DelayMs);
+            minBox = Number(sample.RandomDelayMinMs);
+            maxBox = Number(sample.RandomDelayMaxMs);
+            body.Controls.Add(holdChangeBox, 0, 1); body.Controls.Add(Row(holdBox, LabelFor("ms")), 1, 1);
+            waitChangeBox.Margin = new Padding(0, 13, 0, 6);
+            body.Controls.Add(waitChangeBox, 0, 2); body.SetColumnSpan(waitChangeBox, 2);
+            fixedMode = new RadioButton { Text = EditorDialogs.T("固定", "Fixed"), AutoSize = true, Checked = !sample.RandomDelay };
+            randomMode = new RadioButton { Text = EditorDialogs.T("随机范围", "Random range"), AutoSize = true, Checked = sample.RandomDelay };
+            body.Controls.Add(fixedMode, 0, 3); body.Controls.Add(Row(fixedBox, LabelFor("ms")), 1, 3);
+            body.Controls.Add(randomMode, 0, 4); body.Controls.Add(Row(minBox, LabelFor("–"), maxBox, LabelFor("ms")), 1, 4);
+            rangeHint = new Label { AutoSize = true, Dock = DockStyle.Top, ForeColor = EditorTheme.Muted,
+                Margin = new Padding(0, 16, 0, 0), MaximumSize = new Size(530, 0) };
+            body.Controls.Add(rangeHint, 0, 5); body.SetColumnSpan(rangeHint, 2);
+            applyButton = EditorDialogs.Button(EditorDialogs.T("应用修改", "Apply changes"), DialogResult.None);
+            applyButton.Click += delegate
             {
-                if (randomMode.Checked && minBox.Value > maxBox.Value) return;
-                UseRandom = randomMode.Checked; FixedMs = (int)fixedBox.Value; MinMs = (int)minBox.Value; MaxMs = (int)maxBox.Value;
+                UpdateEnabled();
+                if (!applyButton.Enabled) return;
+                Edit = new StepTimingEdit { AllSteps = allScope.Checked, EditHold = holdChangeBox.Checked,
+                    HoldMs = (int)holdBox.Value, EditWait = waitChangeBox.Checked, RandomWait = randomMode.Checked,
+                    WaitMs = (int)fixedBox.Value, MinWaitMs = (int)minBox.Value, MaxWaitMs = (int)maxBox.Value };
                 DialogResult = DialogResult.OK; Close();
             };
             Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel);
-            AcceptButton = ok; CancelButton = cancel;
-            fixedMode.CheckedChanged += delegate { UpdateEnabled(); };
-            randomMode.CheckedChanged += delegate { UpdateEnabled(); };
+            AcceptButton = applyButton; CancelButton = cancel;
+            foreach (RadioButton option in new[] { selectedScope, allScope, fixedMode, randomMode })
+                option.CheckedChanged += delegate { UpdateEnabled(); };
+            holdChangeBox.CheckedChanged += delegate { UpdateEnabled(); };
+            waitChangeBox.CheckedChanged += delegate { UpdateEnabled(); };
             minBox.ValueChanged += delegate { UpdateEnabled(); };
             maxBox.ValueChanged += delegate { UpdateEnabled(); };
-            EditorDialogs.Frame(this, body, EditorDialogs.Actions(ok, cancel), EditorDialogs.T("设置每个操作完成后，多久再执行下一步。仅修改选中的步骤，不改变按住时长。", "Choose how long to wait after each action. Only selected steps change; hold durations stay the same."), null);
+            EditorDialogs.Frame(this, body, EditorDialogs.Actions(applyButton, cancel),
+                EditorDialogs.T("选择步骤范围，勾选要修改的时间。1000 毫秒 = 1 秒。",
+                    "Choose the steps and the timing fields to change. 1000 ms = 1 second."), null);
+            body.Layout += delegate
+            {
+                int height = body.Padding.Vertical;
+                foreach (Control child in body.Controls)
+                    if (child.Visible) height = Math.Max(height, child.Bottom - body.AutoScrollPosition.Y + child.Margin.Bottom + body.Padding.Bottom);
+                Size extent = new Size(0, height);
+                if (body.AutoScrollMinSize != extent) body.AutoScrollMinSize = extent;
+            };
             UpdateEnabled();
         }
 
-        private NumericUpDown MakeNumber(int x, int y, int value)
+        private static FlowLayoutPanel Row(params Control[] controls)
         {
-            NumericUpDown n = new NumericUpDown();
-            n.Location = new Point(x, y);
-            n.Size = new Size(110, 26);
-            n.Minimum = 0;
-            n.Maximum = 600000;
-            n.Value = value;
-            return n;
+            FlowLayoutPanel row = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill,
+                Margin = new Padding(0), WrapContents = true };
+            row.Controls.AddRange(controls); return row;
         }
 
-        private Label MakeLabel(string text, int x, int y)
+        private static Label LabelFor(string value)
+        { return new Label { Text = value, AutoSize = true, Margin = new Padding(4, 4, 6, 0) }; }
+
+        private static NumericUpDown Number(int value)
         {
-            Label l = new Label();
-            l.Text = text;
-            l.Location = new Point(x, y);
-            l.AutoSize = true;
-            return l;
+            return new NumericUpDown { Width = 108, Minimum = 0, Maximum = 600000,
+                Value = Math.Max(0, Math.Min(600000, value)), Margin = new Padding(0, 0, 5, 4) };
         }
 
         private void UpdateEnabled()
         {
-            fixedBox.Enabled = fixedMode.Checked;
-            minBox.Enabled = randomMode.Checked;
-            maxBox.Enabled = randomMode.Checked;
-            bool valid = !randomMode.Checked || minBox.Value <= maxBox.Value;
-            if (applyButton != null) applyButton.Enabled = valid;
-            if (rangeHint != null) rangeHint.Text = valid
-                ? EditorDialogs.T("1000 毫秒 = 1 秒。随机间隔会在最小值和最大值之间选择等待时间。", "1000 ms = 1 second. A random wait is chosen between your minimum and maximum.")
-                : EditorDialogs.T("最小间隔不能大于最大间隔，请调整后再应用。", "The minimum wait must not exceed the maximum. Adjust the range to apply.");
+            int count = allScope.Checked ? totalCount : selectedCount;
+            int holds = allScope.Checked ? totalHoldCount : selectedHoldCount;
+            holdChangeBox.Enabled = holds > 0;
+            if (!holdChangeBox.Enabled) holdChangeBox.Checked = false;
+            holdBox.Enabled = holdChangeBox.Checked && holdChangeBox.Enabled;
+            fixedMode.Enabled = randomMode.Enabled = waitChangeBox.Checked;
+            fixedBox.Enabled = waitChangeBox.Checked && fixedMode.Checked;
+            minBox.Enabled = maxBox.Enabled = waitChangeBox.Checked && randomMode.Checked;
+            bool validRange = !waitChangeBox.Checked || !randomMode.Checked || minBox.Value <= maxBox.Value;
+            applyButton.Enabled = count > 0 && (holdChangeBox.Checked || waitChangeBox.Checked) && validRange;
+            if (!validRange)
+                rangeHint.Text = EditorDialogs.T("最小等待不能大于最大等待。", "The minimum wait must not exceed the maximum.");
+            else if (holds == 0)
+                rangeHint.Text = EditorDialogs.T("这些步骤使用单独按下、松开或滚轮操作，可通过等待时长调整节奏。",
+                    "These steps use separate down/up events or the wheel. Change their wait times to adjust the timing.");
+            else if (holds < count)
+                rangeHint.Text = EditorDialogs.T("可修改按住时长的步骤：", "Steps with an editable hold duration: ") + holds + " / " + count;
+            else
+                rangeHint.Text = EditorDialogs.T("按住时长控制一次按键持续多久；等待时长控制完成后多久执行下一步。",
+                    "Hold = time pressed; wait = pause before the next step.");
         }
     }
 

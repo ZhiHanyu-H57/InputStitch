@@ -1,5 +1,15 @@
 # PLAN.md
 
+## Recording and mouse editing fixes completed — 1.5.2-beta.1 (2026-10-23)
+
+User authorized independent recording, batch hold/wait editing, and restoring
+mouse selection throughout trigger/step editing. Fix the keyboard-only virtual
+selector and stale single-input capture at recording start; add a lightweight
+mouse selector with a generated product image and accessible hit regions. Preserve Stable 1.5.1 runtime,
+target-window uses, editing protection and stop/release semantics. Deliver local
+x64/x86 beta packages with impact-selected automated evidence; no Stable release
+publication is requested. See docs/RECORDING_EDITING_1_5_2_BETA1.md.
+
 ## 1.5.1 Stable released — 2026-10-22
 
 Completed local formal acceptance, independent GitHub full regression, Stable/latest

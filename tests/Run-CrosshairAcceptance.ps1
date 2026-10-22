@@ -14,6 +14,7 @@ $arguments = @('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64',
 foreach ($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:' + (Join-Path $references $name) }
 $arguments += '/reference:' + $client
 $arguments += '/resource:' + $client + ',InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll'
+$arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
 $arguments += $sources
 $arguments += Join-Path $PSScriptRoot 'CrosshairTests.cs'
 & $compiler @arguments
