@@ -1,5 +1,40 @@
 ﻿# HANDOFF.md
 
+## Completed local beta — 1.5.1-beta.1 (2026-10-22)
+
+Branch: `perf/runtime-coordination`. Verified production/test commit: `1f673aab029e94e6c5c588df22f1ff8808ba6d39`.
+Based on unchanged Stable `v1.5.0` / `166faab` and main `bcb17c2`. This branch and
+beta remain local; nothing was pushed or published and Stable latest/mirror were
+not modified. Production manifest/csproj contain 56 files.
+
+`MacroRunCoordinator` owns registration, RunId/SourceId indexes, single-step entry,
+independent/all stop and completion with the original shared lock. Final stop
+reason selection stays under that lock. MainForm still owns execution/progress,
+conditions and UI safety; no whole-runtime rewrite or new feature. Advanced
+activators suspend empty periodic UI dispatch after release while retaining
+history. Dedicated workers, output ownership and XML rules are preserved.
+
+Final acceptance: 13 impact-selected suites, beginner workflow 142, real output
+77/0, x64/x86 packaged extraction/cache repair/startup/restore/exit PASS. Unforced
+observer: 600.1 seconds / 7,040 cycles / 3 workers; keyboard 27,404/27,404 and zero
+final sources/pressed outputs. Handles 365 -> 378 (warm/tail medians 373/369),
+GDI 26/26, USER 29/30, maximum UI dispatch 118 ms. Normal config/devices hashes
+were unchanged. A pre-final interrupted soak and overlapping initial resource
+sample are excluded; do not count them as successful acceptance.
+
+Sequential packaged comparison: 1,000 released-state requests enqueue 1,000 -> 0
+UI ticks; CPU off 4.480% -> 2.969%, on 3.751% -> 2.918% of one core, about 30 s
+per phase, zero visible controller sources. Bounded local samples, not universal
+hardware gains. x64 1,987,072 B / x86 1,817,088 B, +512 B each, no new dependency.
+Scope, final hashes and remaining work: `docs/RUNTIME_COORDINATION_BETA_1_5_1.md`.
+
+Development now uses `tests/Run-Tests.ps1 -Suite <names>` / `-List`, plus affected
+focused flows. No-argument formal CI still runs all 35 suites and SettingsSmoke.
+This beta did not run the complete unrelated matrix; do not claim a 35-suite pass.
+Future work follows P1: measure UI-blocked trigger latency before moving pure
+condition/activator decisions. Keep UI safety, RunId/source-local stop and current
+hardware/output support intact. No user trial is an acceptance prerequisite.
+
 ## Completed Stable release — 1.5.0 (2026-10-22)
 
 Published `v1.5.0` from `166faab96f337b8164c729c1f233e6b2de294ff1` as GitHub latest Stable.
