@@ -1,46 +1,39 @@
-# InputStitch 1.5.1
+# InputStitch 1.5.2
 
-本次是性能与稳定性维护版本，冻结现有功能，不新增功能或第三方运行依赖。1.4.3、1.5.0 的宏和设置继续使用，无需重新配置。
+修复鼠标按键选择与录制，完善宏步骤的批量时间编辑。
 
-## 本次改进
+## 本次更新
 
-- 将运行生命周期、进度与单步控制逐步交给独立协调器，减少重复处理；诊断名称在查看时按需生成。
-- 高级触发松开后，停止不必要的空闲界面任务。
-- 已准备好输出的长按宏，可以在界面繁忙时按输入线程的节拍启动，减少等待；保留编辑保护、松开取消、紧急停止和输出所有权。
-- 首次设备准备、程序自身窗口的编辑状态和条件判断仍保留必要的界面协作。这次改进不代表所有物理按键、驱动及游戏延迟均不受界面影响。
+- 触发键、录制和执行步骤可选择鼠标左键、右键、中键、前后侧键和滚轮方向，支持键盘修饰键组合。
+- 录制可直接切换到其他应用使用，无需设置目标窗口；开始录制时会结束之前未完成的单键录入。
+- 选中多个步骤后，可统一修改按住时长、等待时长或随机等待范围，也可应用到全部步骤；支持撤销和重做。
+- 添加步骤时，实体按键录入与虚拟键盘／鼠标选择可随时切换。鼠标示意图采用白色外观，并标明侧键位置。
+
+批量修改按住时长适用于自动松开的“按下并松开”步骤；分开的“按下／松开”步骤可通过中间的等待时间调整持续时间。
 
 ## 下载与升级
 
-- 现代 64 位 Windows 请选择 **InputStitch-1.5.1-Windows-x64.exe**；32 位系统请选择 x86。下载后可改名为 **InputStitch.exe** 使用。
-- 便携式单文件程序；需 .NET Framework 4.7.2 或兼容的更高版本。关闭旧版后启动新版，自动读取已有配置。
-- 软件内更新后，主程序继续固定为 **InputStitch.exe**。常见桌面/开始菜单中指向旧程序的快捷方式同步目标，保留自定义名称与参数；其他位置的快捷方式可手动指向新文件。
-- 更新先备份原程序及配置，安装或启动失败时恢复旧程序；目录中已有另一个 InputStitch.exe 时停止更新，保留原文件。
-- 键鼠宏无需额外驱动；虚拟手柄输出沿用单独安装的 ViGEmBus。保留原更新偏好和官网优先、GitHub 备用更新链路。
-- 窗口/无边框准星继续直接使用；独占全屏准星不在本版支持范围，无需 Game Bar 组件。手柄接管仍属实验性能力。
-- 附完整源码、正式更新清单与 SHA-256 校验文件。
+- 64 位 Windows 下载 **InputStitch-1.5.2-Windows-x64.exe**；32 位 Windows 下载 x86。便携单文件程序，需 .NET Framework 4.7.2 或兼容的更高版本。
+- 关闭旧版后启动新版，已有宏和设置自动读取。软件内更新后的文件名固定为 **InputStitch.exe**，更新前备份原程序和配置，失败时回滚。
+- 键鼠宏直接使用；虚拟手柄输出需 ViGEmBus。准星适用于窗口与无边框窗口。
+- 提供完整源码、正式更新清单和 SHA-256 校验文件。
 
-## 自动化验收
-
-正式发布执行完整回归、x64/x86 成品启动、原始 1.4.3 / 1.5.0 配置加载与保存重开、更新备份/回滚、真实键鼠和虚拟手柄输出，以及十分钟持续运行检查。验收以自动化结果为依据，不要求每轮人工试用。
-
-- 本地正式验收：36 套完整回归通过；188 个弹窗布局样本零问题；81 项真实输出检查零失败；原始 1.4.3、1.5.0 文件升级与配置重开通过。
-- 持续运行 600.1 秒、4,520 轮，结束无残留输出，只创建 3 个宏工作线程，未强制垃圾回收。
-- x64 主程序约 1.90 MiB，x86 约 1.74 MiB；x64 比 1.5.0 增加约 6.5 KiB。
-
-GitHub 云端已再次通过完整 36 套回归并发布正式版、同步官网镜像；发布后的实际下载文件、两种架构启动、旧版更新解析器和升级回滚也已核验。
-
-实际结果和证据范围见 [1.5.1 正式验收记录](https://github.com/ZhiHanyu-H57/InputStitch/blob/main/docs/RELEASE_1_5_1_VERIFICATION.md)。十分钟持续运行是有界证据，不替代具体实体设备和游戏的兼容性结论。
+验证结果见 [1.5.2 正式验收记录](https://github.com/ZhiHanyu-H57/InputStitch/blob/main/docs/RELEASE_1_5_2_VERIFICATION.md)。
 
 ---
 
-This maintenance release reduces repeated runtime bookkeeping and idle UI work,
-and lets prepared long-press runs start while the UI is busy. Editing safety,
-release cancellation, emergency stop and output ownership remain in place.
-Initial device preparation and own-window checks still require UI cooperation.
-No new features, runtime dependencies or configuration fields are introduced.
+This release restores mouse selection for triggers, recording and macro steps,
+including left/right/middle buttons, side buttons, wheel directions and modifier
+combinations. Recording works in other applications without configuring a target
+window and clears unfinished single-input capture when it starts.
 
-Existing 1.4.3 and 1.5.0 settings remain compatible. In-app updates retain the fixed
-name **InputStitch.exe**, executable/configuration backups and failure rollback.
-Use the x64 portable EXE on 64-bit Windows. Virtual-controller output requires
-ViGEmBus; exclusive fullscreen crosshairs are not supported. Full automated release
-acceptance is recorded in the linked verification document.
+Batch timing edits apply to selected steps or the entire macro, with independent
+hold and fixed/random wait settings, undo and redo. Hold duration applies to
+automatic-release steps; separate down/up steps use intervening wait times.
+Physical capture and the virtual keyboard/mouse selector remain available
+together. The mouse diagram now uses a white product image with labeled controls.
+
+Existing settings load automatically. In-app updates use **InputStitch.exe**,
+preserve executable/configuration backups and roll back on failure. Choose x64
+for 64-bit Windows; .NET Framework 4.7.2 or later is required. See the linked
+verification record for automated release results.

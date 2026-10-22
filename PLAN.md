@@ -1,5 +1,19 @@
 # PLAN.md
 
+## 1.5.2 formal release freeze — 2026-10-23
+
+User authorized Stable 1.5.2 after complete automated release acceptance. Freeze
+1.5.2-beta.1 production behavior; change only release metadata and issues found
+by acceptance. No new features, architecture expansion or manual-trial gate.
+Run all 37 suites, packaged x64/x86, mouse trigger/recording/batch timing flows,
+original configuration save/reopen, fixed-name updates/backups/rollback, real
+output and a fresh ten-minute sustained run. Publish via protected-main PR and
+the existing full-verification release workflow only after local gates pass.
+Local formal acceptance PASS: 37 suites, three legacy upgrades, real output and
+600.1 seconds / 4297 cycles. Independent GitHub verification/publication pending.
+Results: docs/RELEASE_1_5_2_VERIFICATION.md.
+
+
 ## Recording and mouse editing fixes completed — 1.5.2-beta.1 (2026-10-23)
 
 User authorized independent recording, batch hold/wait editing, and restoring
