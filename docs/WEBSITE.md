@@ -56,6 +56,31 @@ website edits; the desktop product suite is unrelated.
 
 ## Redesign verification — 2026-10-22
 
+### Homepage refinement and language acceptance
+
+Follow-up feedback identified repeated numbered columns, line-icon feature
+blocks, decorative screenshot chrome and a duplicate getting-started summary.
+The homepage now keeps the actual application, three compact input/action
+examples and the interactive crosshair preview. Detailed setup remains in the
+guide. Removed the generic template sentence and forced hero line breaks;
+rewrote the examples around concrete button behavior. Deleted unused component
+styles. Initial Chinese page assets are **73,569 bytes uncompressed** in this
+checkout, compared with 83,734 bytes in the initial redesign.
+
+Language selection already follows `navigator.language` when there is no valid
+saved choice: `zh-*` selects Simplified Chinese, other languages select English.
+An explicit Chinese/English choice is saved and takes precedence on later
+visits. Browser language usually follows the operating system but can be set
+independently. The no-JavaScript HTML fallback is Chinese. No new language
+dependency or language-selection implementation was introduced.
+
+The refined source passes **295 browser assertions / 40 responsive cases** and
+**222 static/published-metadata checks**. Added seven language scenarios: first
+visits with zh-CN, zh-TW, en-US and fr-FR; saved choices opposite to the browser
+language; and an invalid saved choice. Existing blocked-storage and navigation
+persistence checks remain. Actual desktop/mobile screenshots were inspected.
+No desktop software test or rebuild is needed for these website-only changes.
+
 Local final results: **278 browser assertions / 40 page-language-width cases**,
 **226 static and published-version/size checks**. Zero detected overflow, clipped
 text or broken images. The initial page assets total about **83 KB uncompressed**

@@ -9,7 +9,7 @@
   <link rel="canonical" href="https://inputstitch.zhihanyu.com/">
   <link rel="icon" type="image/svg+xml" href="/assets/diamond.svg">
   <link rel="alternate icon" href="/assets/InputStitch.ico">
-  <link rel="stylesheet" href="/assets/style.css?v=20261022">
+  <link rel="stylesheet" href="/assets/style.css?v=20261022b">
   <script defer src="/assets/site.js?v=20261022"></script>
 </head>
 <body data-page="home" data-title-zh="InputStitch — Windows 键盘、鼠标与手柄宏" data-title-en="InputStitch — Keyboard, mouse &amp; controller macros" data-description-zh="InputStitch 是 Windows 输入映射与宏工具。设置触发键、编辑动作步骤，支持按住映射、重复操作和屏幕准星。" data-description-en="Input mapping and macros for Windows. Choose a shortcut, edit action sequences, create held mappings, repeat actions and add a screen crosshair.">
@@ -27,11 +27,9 @@
 <div class="wrap">
 <div class="hero-grid">
 <div class="hero-copy">
-<div class="eyebrow"><span class="lang-zh">Windows 输入工具</span><span class="lang-en">Windows input utility</span>
-</div>
-<h1><span class="lang-zh">键盘、鼠标与<br>手柄宏</span><span class="lang-en">Keyboard, mouse<br>&amp; controller macros</span>
+<h1><span class="lang-zh">键盘、鼠标和手柄宏</span><span class="lang-en">Keyboard, mouse &amp; controller macros</span>
 </h1>
-<p class="lead"><span class="lang-zh">设置触发键、动作顺序和间隔，保存后即可运行。支持按住映射、重复操作与屏幕准星。</span><span class="lang-en">Choose a shortcut, arrange your actions and set their timing. Create held mappings, repeat actions and add a screen crosshair.</span>
+<p class="lead"><span class="lang-zh">为键盘、鼠标和手柄设置快捷操作。可以连续点击、按顺序执行动作，也可以把一个按键映射成另一个。</span><span class="lang-en">Automate clicks and key sequences, or map one input to another. Works with keyboards, mice and controllers on Windows.</span>
 </p>
 <div class="actions"><a class="button button-primary" href="https://download.zhihanyu.com/latest/InputStitch-Windows-x64.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg><span class="lang-zh">下载 Windows 64 位</span><span class="lang-en">Download for Windows x64</span></a><a class="button button-secondary" href="/guide#first-macro"><span class="lang-zh">创建第一个宏</span><span class="lang-en">Create your first macro</span><span aria-hidden="true">→</span></a>
 </div>
@@ -40,8 +38,7 @@
 </div>
 <div class="hero-art">
 <figure class="app-frame">
-<div class="frame-label"><span><i></i><span class="lang-zh">宏编辑器</span><span class="lang-en">MACRO EDITOR</span></span><span><span class="lang-zh">顺序执行 · 5 个步骤</span><span class="lang-en">SEQUENCE · 5 STEPS</span></span>
-</div><a class="screenshot-button" href="/assets/app-zh.webp" data-image-open data-aria-zh="放大查看软件界面" data-aria-en="Enlarge application screenshot"><img src="/assets/app-zh.webp" width="1160" height="780" data-image-zh="/assets/app-zh.webp" data-image-en="/assets/app-en.webp" alt="InputStitch 1.5.1 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-zh="InputStitch 1.5.1 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-en="InputStitch 1.5.1 macro editor with a five-step sequence" fetchpriority="high"></a><figcaption><span>InputStitch</span><span><span class="lang-zh">点击放大界面</span><span class="lang-en">Click to enlarge</span> ↗</span></figcaption>
+<a class="screenshot-button" href="/assets/app-zh.webp" data-image-open data-aria-zh="放大查看软件界面" data-aria-en="Enlarge application screenshot"><img src="/assets/app-zh.webp" width="1160" height="780" data-image-zh="/assets/app-zh.webp" data-image-en="/assets/app-en.webp" alt="InputStitch 1.5.1 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-zh="InputStitch 1.5.1 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-en="InputStitch 1.5.1 macro editor with a five-step sequence" fetchpriority="high"></a><figcaption><span>InputStitch</span><span><span class="lang-zh">点击放大界面</span><span class="lang-en">Click to enlarge</span> ↗</span></figcaption>
 </figure>
 </div>
 </div>
@@ -59,98 +56,34 @@
 <div class="wrap">
 <div class="section-heading">
 <div>
-<div class="eyebrow"><span class="lang-zh">常用操作</span><span class="lang-en">COMMON ACTIONS</span>
-</div>
-<h2><span class="lang-zh">三种常用宏</span><span class="lang-en">Three ways to build a macro</span>
+<h2><span class="lang-zh">常见用法</span><span class="lang-en">Examples</span>
 </h2>
 </div>
-<p class=""><span class="lang-zh">从新建宏开始，按你的使用方式选择模板。</span><span class="lang-en">Start with a template, then adjust it in the editor.</span>
-</p>
 </div>
 <div class="example-grid">
 <article class="example">
-<div class="example-number">01
-</div>
-<h3><span class="lang-zh">按住映射</span><span class="lang-en">Held mapping</span>
+<h3><span class="lang-zh">按住映射</span><span class="lang-en">Hold a key</span>
 </h3>
 <div class="key-sequence" aria-hidden="true"><kbd class="key-wide"><span class="lang-zh">鼠标侧键</span><span class="lang-en">Mouse 4</span></kbd><span>→</span><kbd>E</kbd>
 </div>
-<p class=""><span class="lang-zh">按住鼠标侧键时保持 E，松开时一同释放。</span><span class="lang-en">Hold a mouse side button to keep E pressed; release it to release E.</span>
-</p><a class="text-link" href="/guide#modes"><span class="lang-zh">查看设置方法</span><span class="lang-en">How to set it up</span> <span aria-hidden="true">↗</span></a>
+<p class=""><span class="lang-zh">按住鼠标侧键时保持 E，松开时一同释放。</span><span class="lang-en">E stays pressed while you hold the mouse side button.</span>
+</p><a class="text-link" href="/guide#modes"><span class="lang-zh">设置方法</span><span class="lang-en">Setup</span> <span aria-hidden="true">↗</span></a>
 </article>
 <article class="example">
-<div class="example-number">02
-</div>
-<h3><span class="lang-zh">重复动作</span><span class="lang-en">Repeated action</span>
+<h3><span class="lang-zh">重复点击</span><span class="lang-en">Repeated clicks</span>
 </h3>
 <div class="key-sequence" aria-hidden="true"><kbd>F8</kbd><span>→</span><kbd class="key-wide"><span class="lang-zh">左键</span><span class="lang-en">Left click</span></kbd><span class="repeat-mark">↻</span>
 </div>
-<p class=""><span class="lang-zh">按 F8 开始循环点击，再按一次停止。每次点击的间隔可以调整。</span><span class="lang-en">Press F8 to start repeated clicks, then press again to stop. Adjust the interval between clicks.</span>
-</p><a class="text-link" href="/guide#first-macro"><span class="lang-zh">查看设置方法</span><span class="lang-en">How to set it up</span> <span aria-hidden="true">↗</span></a>
+<p class=""><span class="lang-zh">按 F8 开始循环点击，再按一次停止。每次点击的间隔可以调整。</span><span class="lang-en">F8 starts and stops repeated left clicks at the interval you set.</span>
+</p><a class="text-link" href="/guide#first-macro"><span class="lang-zh">设置方法</span><span class="lang-en">Setup</span> <span aria-hidden="true">↗</span></a>
 </article>
 <article class="example">
-<div class="example-number">03
-</div>
 <h3><span class="lang-zh">顺序执行</span><span class="lang-en">Action sequence</span>
 </h3>
 <div class="key-sequence" aria-hidden="true"><kbd>F9</kbd><span>→</span><span class="sequence-mini"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span>
 </div>
-<p class=""><span class="lang-zh">将键盘、鼠标或手柄动作排成列表，分别设置按住时间和间隔。</span><span class="lang-en">Arrange keyboard, mouse or controller actions in a list, each with its own hold time and delay.</span>
-</p><a class="text-link" href="/guide#steps"><span class="lang-zh">查看设置方法</span><span class="lang-en">How to set it up</span> <span aria-hidden="true">↗</span></a>
-</article>
-</div>
-</div>
-</section>
-<section class="section">
-<div class="wrap">
-<div class="section-heading">
-<div>
-<div class="eyebrow"><span class="lang-zh">输入与设置</span><span class="lang-en">INPUT & SETTINGS</span>
-</div>
-<h2><span class="lang-zh">触发、分层与手柄映射</span><span class="lang-en">Triggers, layers &amp; controller mapping</span>
-</h2>
-</div><a class="text-link" href="/guide#triggers"><span class="lang-zh">查看使用指南</span><span class="lang-en">Read the guide</span> ↗</a>
-</div>
-<div class="capabilities">
-<article class="capability">
-<div class="capability-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></svg>
-</div>
-<div>
-<h3><span class="lang-zh">触发方式</span><span class="lang-en">Choose when it runs</span>
-</h3>
-<p class=""><span class="lang-zh">按下、松开、按住、短按、长按或双击触发；按键可直接录入，也可从虚拟键盘选择。</span><span class="lang-en">Run on press, release, hold, short press, long press or double press. Capture a shortcut or choose it on the virtual keyboard.</span>
-</p>
-</div>
-</article>
-<article class="capability">
-<div class="capability-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg>
-</div>
-<div>
-<h3><span class="lang-zh">映射层与独立运行</span><span class="lang-en">Layers and concurrent macros</span>
-</h3>
-<p class=""><span class="lang-zh">把不同用途的宏放进映射层，按需要切换。多个宏可同时运行，也可分别停止。</span><span class="lang-en">Group macros into named layers and switch between them. Run several macros together and stop them individually.</span>
-</p>
-</div>
-</article>
-<article class="capability">
-<div class="capability-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg>
-</div>
-<div>
-<h3><span class="lang-zh">按应用设置生效范围</span><span class="lang-en">Limit macros to an application</span>
-</h3>
-<p class=""><span class="lang-zh">根据前台进程、窗口标题等条件设置宏的生效范围，在“时间与条件”中统一编辑。</span><span class="lang-en">Use foreground process or window-title conditions to choose where a macro applies. Edit them under Timing & conditions.</span>
-</p>
-</div>
-</article>
-<article class="capability">
-<div class="capability-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10c3 0 5 9 4 11s-4-1-6-3H9c-2 2-5 5-6 3S4 7 7 7Z"/><path d="M7 9v5M4.5 11.5h5M16 10h.01M18 13h.01"/></svg>
-</div>
-<div>
-<h3><span class="lang-zh">手柄输入与虚拟输出</span><span class="lang-en">Controller input and output</span>
-</h3>
-<p class=""><span class="lang-zh">使用手柄按键、扳机和摇杆触发操作，或将动作输出到虚拟 Xbox 360 / DualShock 4 手柄。</span><span class="lang-en">Trigger actions from controller buttons, triggers and sticks, or send output to a virtual Xbox 360 / DualShock 4 controller.</span>
-</p>
-</div>
+<p class=""><span class="lang-zh">将键盘、鼠标或手柄动作排成列表，分别设置按住时间和间隔。</span><span class="lang-en">F9 runs a list of actions with a hold time and delay for each step.</span>
+</p><a class="text-link" href="/guide#steps"><span class="lang-zh">设置方法</span><span class="lang-en">Setup</span> <span aria-hidden="true">↗</span></a>
 </article>
 </div>
 </div>
@@ -158,11 +91,9 @@
 <section class="section crosshair-section">
 <div class="wrap crosshair-layout">
 <div class="crosshair-copy">
-<div class="eyebrow"><span class="lang-zh">屏幕叠加</span><span class="lang-en">SCREEN OVERLAY</span>
-</div>
-<h2><span class="lang-zh">屏幕准星</span><span class="lang-en">A crosshair on your screen</span>
+<h2><span class="lang-zh">屏幕准星</span><span class="lang-en">Screen crosshair</span>
 </h2>
-<p class=""><span class="lang-zh">选择样式、大小、颜色与透明度，精确调整位置。设置会自动保存，快捷键可随时切换显隐。</span><span class="lang-en">Choose the style, size, color and opacity, then fine-tune the position. Settings are saved automatically; use a shortcut to show or hide the crosshair.</span>
+<p class=""><span class="lang-zh">在屏幕中央显示准星，支持窗口和无边框模式。可调整样式、位置和颜色，关闭软件后保留设置。</span><span class="lang-en">Add a crosshair to windowed and borderless games. Change its shape, position, color, size and opacity in InputStitch. Your settings are saved for next time.</span>
 </p>
 <div class="tags"><span class="tag"><span class="lang-zh">窗口化</span><span class="lang-en">Windowed</span></span><span class="tag"><span class="lang-zh">无边框窗口</span><span class="lang-en">Borderless</span></span>
 </div>
@@ -170,7 +101,7 @@
 </div><a class="text-link" href="/guide#crosshair"><span class="lang-zh">设置屏幕准星</span><span class="lang-en">Set up a crosshair</span> ↗</a>
 </div>
 <div class="preview-shell">
-<div class="preview-bar"><span><span class="lang-zh">样式预览</span><span class="lang-en">STYLE PREVIEW</span></span><span><span class="lang-zh">屏幕中心</span><span class="lang-en">SCREEN CENTER</span></span>
+<div class="preview-bar"><span><span class="lang-zh">样式预览</span><span class="lang-en">Preview</span></span><span><span class="lang-zh">屏幕中心</span><span class="lang-en">Screen center</span></span>
 </div>
 <div class="reticle-stage"><svg class="terrain" viewBox="0 0 600 270" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M-30 60c130-95 250 80 350 5s160-115 300-20M-30 85c130-95 250 80 350 5s160-115 300-20M-30 110c130-95 250 80 350 5s160-115 300-20M-30 135c130-95 250 80 350 5s160-115 300-20M-30 160c130-95 250 80 350 5s160-115 300-20M-30 185c130-95 250 80 350 5s160-115 300-20M-30 210c130-95 250 80 350 5s160-115 300-20M-30 235c130-95 250 80 350 5s160-115 300-20"/></svg>
 <div class="reticle" data-reticle aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M24 4v11m0 18v11M4 24h11m18 0h11"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/></svg>
@@ -183,44 +114,6 @@
 </div>
 </div>
 </div>
-</div>
-</section>
-<section class="section">
-<div class="wrap getting-started">
-<div>
-<div class="eyebrow"><span class="lang-zh">开始使用</span><span class="lang-en">GETTING STARTED</span>
-</div>
-<h2><span class="lang-zh">创建并运行第一个宏</span><span class="lang-en">Create and run your first macro</span>
-</h2>
-<p class=""><span class="lang-zh">指南以 F8 触发重复点击为例，按界面顺序完成设置。</span><span class="lang-en">Follow the guide to build a repeated-click macro triggered by F8.</span>
-</p><a class="button button-primary" href="/guide#first-macro"><span class="lang-zh">查看操作步骤</span><span class="lang-en">Follow the steps</span> <span aria-hidden="true">→</span></a>
-</div>
-<ol class="steps-overview">
-<li><span class="step-number">01</span>
-<div><strong><span class="lang-zh">下载并启动</span><span class="lang-en">Download and launch</span></strong>
-<p class=""><span class="lang-zh">选择对应的 Windows 架构，运行 EXE。</span><span class="lang-en">Choose your Windows architecture and run the EXE.</span>
-</p>
-</div>
-</li>
-<li><span class="step-number">02</span>
-<div><strong><span class="lang-zh">新建宏并选择模板</span><span class="lang-en">Create a macro</span></strong>
-<p class=""><span class="lang-zh">设置名称，从常用模板或空白宏开始。</span><span class="lang-en">Name it and choose a template or start from scratch.</span>
-</p>
-</div>
-</li>
-<li><span class="step-number">03</span>
-<div><strong><span class="lang-zh">设置触发键与步骤</span><span class="lang-en">Choose a shortcut and actions</span></strong>
-<p class=""><span class="lang-zh">选择如何触发，添加动作并调整间隔。</span><span class="lang-en">Choose when it runs, add actions and adjust their timing.</span>
-</p>
-</div>
-</li>
-<li><span class="step-number">04</span>
-<div><strong><span class="lang-zh">保存并运行</span><span class="lang-en">Save and run</span></strong>
-<p class=""><span class="lang-zh">设置自动保存，使用触发键或“执行所选宏”。</span><span class="lang-en">Edits save automatically. Use the shortcut or Run selected macro.</span>
-</p>
-</div>
-</li>
-</ol>
 </div>
 </section>
 </main>

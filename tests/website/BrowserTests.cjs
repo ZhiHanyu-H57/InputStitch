@@ -73,6 +73,37 @@ async function inspect(page, label) {
         await context.close();
       }
     }
+    const languageCases = [];
+    for (const [locale, expected] of [['zh-CN','zh'], ['zh-TW','zh'], ['en-US','en'], ['fr-FR','en']]) {
+      const automatic = await browser.newContext({ locale });
+      await fixture(automatic);
+      const visitor = await automatic.newPage();
+      await visitor.goto(base + '/', { waitUntil: 'networkidle' });
+      check(await visitor.locator('html').getAttribute('lang') === (expected === 'zh' ? 'zh-CN' : 'en'), `first visit follows browser language ${locale}`);
+      check((await visitor.title()).includes(expected === 'zh' ? '键盘' : 'Keyboard'), `automatic translated title ${locale}`);
+      check((await visitor.locator('.app-frame img').getAttribute('src')).includes(`-${expected}.webp`), `automatic translated screenshot ${locale}`);
+      languageCases.push({ locale, expected, savedPreference: null });
+      await automatic.close();
+    }
+    for (const [locale, preferred] of [['zh-CN','en'], ['en-US','zh']]) {
+      const selected = await browser.newContext({ locale });
+      await fixture(selected);
+      await selected.addInitScript(value => localStorage.setItem('inputstitch-lang', value), preferred);
+      const visitor = await selected.newPage();
+      await visitor.goto(base + '/', { waitUntil: 'networkidle' });
+      check(await visitor.locator('html').getAttribute('lang') === (preferred === 'zh' ? 'zh-CN' : 'en'), `manual language overrides browser ${locale}`);
+      check(await visitor.evaluate(() => localStorage.getItem('inputstitch-lang')) === preferred, 'automatic selection preserves manual preference');
+      languageCases.push({ locale, expected: preferred, savedPreference: preferred });
+      await selected.close();
+    }
+    const invalidPreference = await browser.newContext({ locale: 'en-US' });
+    await fixture(invalidPreference);
+    await invalidPreference.addInitScript(() => localStorage.setItem('inputstitch-lang', 'invalid'));
+    const invalidVisitor = await invalidPreference.newPage();
+    await invalidVisitor.goto(base + '/', { waitUntil: 'networkidle' });
+    check(await invalidVisitor.locator('html').getAttribute('lang') === 'en', 'invalid preference falls back to browser language');
+    languageCases.push({ locale: 'en-US', expected: 'en', savedPreference: 'invalid' });
+    await invalidPreference.close();
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN' });
     await fixture(context);
     const page = await context.newPage();
@@ -135,7 +166,7 @@ async function inspect(page, label) {
     check(await unavailable.locator('[data-release-version]').textContent() === snapshot.version, 'unavailable external metadata preserves snapshot');
     check(await unavailable.locator('.download-main-button').getAttribute('href') === 'https://download.zhihanyu.com/latest/InputStitch-Windows-x64.exe', 'unavailable external metadata preserves website download');
     await offline.close();
-    const report = { status: 'PASS', checks, matrixCases: matrix.length, matrix, browser: await browser.version(), base, scope: 'Isolated headless browser, bilingual responsive/high-DPI rendering, assets, clipping, actual keyboard/click interactions, no-JS download and unavailable preference storage; desktop runtime not tested or changed.' };
+    const report = { status: 'PASS', checks, matrixCases: matrix.length, matrix, languageCases, browser: await browser.version(), base, scope: 'Isolated headless browser, bilingual responsive/high-DPI rendering, automatic browser language/manual preference, assets, clipping, actual keyboard/click interactions, no-JS download and unavailable preference storage; desktop runtime not tested or changed.' };
     fs.writeFileSync(path.join(out, 'browser-report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({ status: 'PASS', checks, matrixCases: matrix.length, browser: report.browser }));
   } finally { await browser.close(); }

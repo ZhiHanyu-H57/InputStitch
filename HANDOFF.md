@@ -1,5 +1,22 @@
 # HANDOFF.md
 
+## Homepage refinement ready — 2026-10-22
+
+Follow-up to published redesign: simplify the homepage to the actual software,
+compact input/action examples and crosshair preview; remove the icon matrix,
+decorative numbering/screenshot chrome and duplicate four-step overview. Keep
+setup details in the existing guide. Remove forced headline wrapping and the
+generic template sentence; use concrete button/action descriptions. Remove the
+unused CSS; first-page assets are now 73,569 bytes uncompressed in this checkout.
+
+Existing language logic is unchanged: valid saved zh/en preference wins, otherwise
+zh-* browser locale selects Simplified Chinese and other locales select English.
+Local acceptance PASS: 295 browser assertions / 40 responsive cases, seven added
+automatic/saved-language scenarios and 222 static/published-version checks.
+Reviewed actual desktop/mobile screenshots. No desktop source/build/test change.
+Publish to the existing Pages project with the already authorized separate
+inputstitch-site profile, then check actual deployed assets and homepage paths.
+
 ## Website redesign published and verified — 2026-10-22
 
 Branch `web/151-redesign`, based on main `365e75a`. Rebuilt overview/download/guide/
