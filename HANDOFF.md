@@ -1,6 +1,35 @@
 # HANDOFF.md
 
-## 1.5.1 Stable release closure — 2026-10-22
+## 1.5.1 Stable published and verified — 2026-10-22
+
+Published release/tag `v1.5.1`, source commit
+`3e89cc62d4bb8ac59d1652b9fcf043735db68ee0`.
+https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.5.1
+GitHub workflow 39715748602: verify, publish-stable and mirror-stable-r2 all PASS;
+both Beta jobs skipped. CI full 36 groups + SettingsSmoke PASS, product 6,643,
+layouts 96,103 / 188 / zero issues. No production change after the local freeze.
+
+All five downloaded GitHub assets match API digests/SHA256SUMS/manifest; website
+versioned assets, latest manifest/version and both latest EXEs match. Source ZIP
+matches all 57 frozen production texts. Actual published x64/x86 startup/cache/
+SDL3/crosshair/exit PASS; published x64 upgrade probe 442 PASS. Original official
+1.4.3 and 1.5.0 parsers accept published GitHub manifest for x64/x86; current parser
+accepts GitHub and website. Final local delivery uses downloaded published bytes.
+
+x64 SHA-256 `24b7590fb79ba4382f5165be0d4aeff1418acebe0954252baaea4721474d0056`;
+x86 `84c37d8a19c386690d7ee1f2c2b97ce4168c6eddf7cfc64e28acc1394baf2c6e`.
+See `docs/RELEASE_1_5_1_VERIFICATION.md` and chat delivery outputs/stable151 for
+full counters/raw evidence. This follow-up changes release documentation only;
+no new runtime build or regression is required. Feature work remains paused;
+there is no outstanding manual-trial gate.
+
+Final normal config/devices hashes remain unchanged. Git fast-forward checkout
+only normalized LF -> CRLF in MacroRunCoordinator.cs and MainForm.AdvancedTriggers.cs;
+reversing just line endings exactly reconstructs their raw acceptance freeze
+hashes. The remaining 55 raw source hashes match; all 57 production texts match.
+Both raw hash sets and mechanical reconstruction proof are in delivery evidence.
+
+## Local 1.5.1 release closure evidence — 2026-10-22
 
 User authorized full automated acceptance and GitHub Stable publication; freeze
 features/architecture and fix only acceptance-found issues. Production delta from

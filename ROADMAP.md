@@ -1,6 +1,10 @@
 ﻿# ROADMAP.md
 
-## Current priority — finish 1.5.1 Stable (2026-10-22)
+## Current status — 1.5.1 Stable released (2026-10-22)
+
+Formal release and published-download verification completed. All local gates,
+independent GitHub full regression and the website mirror pass. Retain the release
+freeze; further work needs a measured issue or a separate user request.
 
 Freeze the accepted beta.3 scope and complete formal automated release acceptance,
 including old settings and in-app updates. Further architecture/performance work

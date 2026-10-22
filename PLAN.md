@@ -1,6 +1,12 @@
 # PLAN.md
 
-## 1.5.1 release freeze — 2026-10-22
+## 1.5.1 Stable released — 2026-10-22
+
+Completed local formal acceptance, independent GitHub full regression, Stable/latest
+publication, website mirroring and actual published-download validation. Tag
+`v1.5.1` points to `3e89cc62d4bb8ac59d1652b9fcf043735db68ee0`.
+See the release verification document for results; feature/architecture expansion
+remains deferred rather than automatically resuming after release.
 
 The user authorized final Stable publication after complete automated acceptance.
 Freeze beta.3 runtime behavior; change only release metadata and acceptance-found
