@@ -4,6 +4,22 @@ The public static site is `https://inputstitch.zhihanyu.com/`; source is `websit
 It is deployed independently of the Windows executable. Website changes do not
 require rebuilding or republishing InputStitch.
 
+## HTTPS and publication protection
+
+The custom website host declares `Strict-Transport-Security: max-age=31536000`
+through a host-specific `_headers` rule. It applies to `inputstitch.zhihanyu.com`
+only; it does not use `includeSubDomains` or preload. Downloads on
+`download.zhihanyu.com`, the parent domain and Pages preview hosts keep their
+existing policies. HTTPS redirection and the existing CSP remain in place.
+If a controlled rollback is needed, serve `max-age=0` over valid HTTPS before
+removing the rule. No browser script, runtime component or asset payload is added.
+
+`main` requires PR-based updates for administrators too, disallows force pushes
+and deletion, and requires resolved review conversations. The single maintainer
+can merge without an external approval. Checks follow the change scope; software
+release verification remains in the existing release workflow. See `AGENTS.md`
+for the protected-branch publishing procedure.
+
 ## Content and visual direction
 
 The October 22 redesign replaces all four pages: overview, download, guide and

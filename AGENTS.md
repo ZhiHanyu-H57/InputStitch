@@ -77,6 +77,22 @@ For release-affecting changes, also build and run Release Verification using the
 
 ## Handoff rule
 
+### Protected main workflow (2026-10-22)
+
+`main` requires a pull request, including for administrators. Force pushes and
+branch deletion are disabled; review conversations must be resolved. Use a topic
+branch, run impact-selected checks, push that branch and merge its PR through the
+normal merge API. Do not disable protection or use an administrator bypass to
+complete routine work. This single-maintainer repository requires zero external
+approvals; no other reviewer is needed. There is no unconditional desktop status
+check on every documentation/website PR. Formal software releases retain the
+complete verification gate in the existing release workflow.
+
+Use tag or workflow-dispatch publication as before. If publishing from a main
+commit marker, preserve `[publish-stable]` / `[publish-beta]` in the merge commit
+message. The publishers push version tags and release assets, not changes to
+`main`. Documentation and handoff updates also follow this PR workflow.
+
 Before switching development machines:
 
 1. Reach a safe breakpoint.
