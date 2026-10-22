@@ -194,7 +194,6 @@ namespace InputStitch
         public int Iteration;
         public int StepIndex;
         public int StepCount;
-        public string HeldText = "无";
         public readonly Dictionary<string, InputSpec> HeldInputs = new Dictionary<string, InputSpec>();
         public DateTime StartedUtc = DateTime.UtcNow;
     }

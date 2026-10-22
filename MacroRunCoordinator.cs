@@ -3,6 +3,44 @@ using System.Collections.Generic;
 
 namespace InputStitch
 {
+    internal struct MacroRunControls
+    {
+        internal readonly int RunCount;
+        internal readonly bool SelectedRunning, SelectedStopping, SingleStepActive, SingleStepWaiting, SingleStepStopping;
+        internal MacroRunControls(int count, MacroRunRuntime selected, MacroRunRuntime singleStep)
+        {
+            RunCount = count;
+            SelectedRunning = selected != null;
+            SelectedStopping = selected != null && selected.Stop != null && selected.Stop.IsSet;
+            SingleStepActive = singleStep != null;
+            SingleStepWaiting = singleStep != null && singleStep.SingleStepWaiting;
+            SingleStepStopping = singleStep != null && singleStep.Stop != null && singleStep.Stop.IsSet;
+        }
+    }
+
+    // Detached presentation data. Consumers may format/mutate their input copies
+    // without racing the worker or changing runtime/output state.
+    internal sealed class MacroRunProgressSnapshot
+    {
+        internal readonly long RunId;
+        internal readonly string Name, SourceId, Phase;
+        internal readonly int Iteration, StepIndex, StepCount;
+        internal readonly bool SingleStep, SingleStepWaiting;
+        internal readonly MacroRuntimeCapability Capability;
+        internal readonly InputSpec[] HeldInputs;
+        internal MacroRunProgressSnapshot(MacroRunRuntime run)
+        {
+            RunId = run.RunId; SourceId = run.SourceId;
+            Name = run.OwnerMacro == null ? "?" : run.OwnerMacro.Name;
+            Phase = run.Phase; Iteration = run.Iteration; StepIndex = run.StepIndex; StepCount = run.StepCount;
+            SingleStep = run.SingleStep; SingleStepWaiting = run.SingleStepWaiting;
+            Capability = run.Capability ?? MacroRuntimeClassifier.Classify(run.OwnerMacro);
+            HeldInputs = new InputSpec[run.HeldInputs.Count];
+            int index = 0;
+            foreach (InputSpec input in run.HeldInputs.Values) HeldInputs[index++] = input.Clone();
+        }
+    }
+
     // Owns run identity and lifecycle. No Form, UI dispatch, output backend or timer.
     // Shares the existing runtime lock so held mappings and UI safety keep their
     // atomic observations. Execution and presentation remain separate callers.
@@ -56,6 +94,9 @@ namespace InputStitch
                 if (Find(run.OwnerMacro) != null || (run.SingleStep && runs.Count != 0)) return false;
                 run.RunId = ++sequence;
                 run.SourceId = "macro:" + run.RunId.ToString();
+                run.Phase = run.SingleStep ? "single-step-start" : "starting";
+                run.SingleStepWaiting = false;
+                run.StepCount = run.Snapshot == null || run.Snapshot.Steps == null ? 0 : run.Snapshot.Steps.Count;
                 runs.Add(run.RunId, run);
                 byMacro.Add(run.OwnerMacro, run.RunId);
                 lastStopReason = "running";
@@ -80,6 +121,87 @@ namespace InputStitch
                 result.Sort(delegate(MacroRunRuntime a, MacroRunRuntime b) { return a.RunId.CompareTo(b.RunId); });
                 return result;
             }
+        }
+
+        internal MacroRunControls ReadControls(MacroDefinition selected)
+        {
+            lock (sync) return new MacroRunControls(runs.Count, Find(selected), SingleStepRun);
+        }
+
+        internal List<MacroRunProgressSnapshot> ReadProgress()
+        {
+            lock (sync)
+            {
+                List<MacroRunProgressSnapshot> result = new List<MacroRunProgressSnapshot>(runs.Count);
+                foreach (MacroRunRuntime run in runs.Values) result.Add(new MacroRunProgressSnapshot(run));
+                result.Sort(delegate(MacroRunProgressSnapshot a, MacroRunProgressSnapshot b) { return a.RunId.CompareTo(b.RunId); });
+                return result;
+            }
+        }
+
+        internal void BeginExecution(MacroRunRuntime run, int steps)
+        {
+            lock (sync)
+            {
+                if (!IsCurrent(run) || run.Stop.IsSet) return;
+                run.Phase = run.SingleStep ? "single-step-running" : "running";
+                run.Iteration = 0; run.StepIndex = 0; run.StepCount = steps;
+                run.HeldInputs.Clear();
+            }
+        }
+
+        internal void SetIteration(MacroRunRuntime run, int iteration)
+        {
+            lock (sync) { if (IsCurrent(run) && !run.Stop.IsSet) run.Iteration = iteration; }
+        }
+
+        internal void BeginStep(MacroRunRuntime run, int step, int total)
+        {
+            lock (sync)
+            {
+                if (!IsCurrent(run) || run.Stop.IsSet) return;
+                run.Phase = run.SingleStep ? "single-step-executing" : "running";
+                run.StepIndex = step; run.StepCount = total;
+            }
+        }
+
+        internal void SetSingleStepWaiting(MacroRunRuntime run, bool waiting)
+        {
+            lock (sync)
+            {
+                if (!IsCurrent(run)) return;
+                run.SingleStepWaiting = waiting && !run.Stop.IsSet;
+                run.Phase = run.Stop.IsSet ? "stopping" : (waiting ? "single-step-wait" : "single-step-running");
+            }
+        }
+
+        internal bool TryAdvanceSingleStep()
+        {
+            lock (sync)
+            {
+                MacroRunRuntime run = SingleStepRun;
+                if (run == null || !run.SingleStepWaiting || run.StepGate == null || run.Stop.IsSet) return false;
+                run.StepGate.Set();
+                return true;
+            }
+        }
+
+        internal void UpdateHeldInputs(MacroRunRuntime run, Dictionary<string, InputSpec> held)
+        {
+            lock (sync)
+            {
+                if (!IsCurrent(run)) return;
+                run.HeldInputs.Clear();
+                if (held != null)
+                    foreach (KeyValuePair<string, InputSpec> pair in held)
+                        if (pair.Value != null) run.HeldInputs[pair.Key] = pair.Value.Clone();
+                // Diagnostic names belong to presentation; no formatting on each output edge.
+            }
+        }
+
+        internal void ClearHeldInputs()
+        {
+            lock (sync) foreach (MacroRunRuntime run in runs.Values) run.HeldInputs.Clear();
         }
 
         internal void RequestStop(MacroRunRuntime run, string reason)

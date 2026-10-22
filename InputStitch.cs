@@ -3586,15 +3586,7 @@ namespace InputStitch
 
         private void ForceReleaseActiveHeldInputs()
         {
-            lock (runLock)
-            {
-                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
-                {
-                    if (runtime == null) continue;
-                    runtime.HeldInputs.Clear();
-                    runtime.HeldText = "无";
-                }
-            }
+            runCoordinator.ClearHeldInputs();
         }
 
 
@@ -7071,24 +7063,17 @@ namespace InputStitch
             try { if (inputSink != null && inputSink.CanFocus) inputSink.Focus(); } catch { }
             UpdateUiSafetyPauseState();
 
-            MacroRunRuntime singleStepRun;
-            int activeRunCount;
-            lock (runLock)
+            MacroRunControls controls = runCoordinator.ReadControls(null);
+            if (controls.SingleStepActive)
             {
-                singleStepRun = GetSingleStepRun_NoLock();
-                activeRunCount = runCoordinator.Count;
-            }
-            if (singleStepRun != null)
-            {
-                if (singleStepRun.SingleStepWaiting && singleStepRun.StepGate != null && !singleStepRun.Stop.IsSet)
+                if (runCoordinator.TryAdvanceSingleStep())
                 {
-                    singleStepRun.StepGate.Set();
                     statusLabel.Text = Localizer.IsEnglish ? "Single-step: continuing to the next step..." : "单步：继续执行下一步…";
                     UpdateRunButton();
                 }
                 return;
             }
-            if (activeRunCount != 0)
+            if (controls.RunCount != 0)
             {
                 statusLabel.Text = Localizer.IsEnglish
                     ? "Single-step is exclusive. Stop the other macro runs first."
@@ -7146,11 +7131,6 @@ namespace InputStitch
         private MacroRunRuntime GetMacroRun_NoLock(MacroDefinition macro)
         {
             return runCoordinator.Find(macro);
-        }
-
-        private MacroRunRuntime GetSingleStepRun_NoLock()
-        {
-            return runCoordinator.SingleStepRun;
         }
 
         private List<MacroRunRuntime> SnapshotActiveMacroRuns()
@@ -7300,10 +7280,7 @@ namespace InputStitch
             runtime.HoldTrigger = holdControlled && runtimeHoldTrigger != null ? runtimeHoldTrigger.Clone() : null;
             runtime.ReleaseProbeSince = 0;
             runtime.SingleStep = singleStep;
-            runtime.SingleStepWaiting = false;
-            runtime.Phase = singleStep ? "single-step-start" : "starting";
             runtime.StopReason = "running";
-            runtime.StepCount = snapshot.Steps == null ? 0 : snapshot.Steps.Count;
 
             runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
             if (!runCoordinator.TryRegister(runtime))
@@ -7373,18 +7350,7 @@ namespace InputStitch
             Random random = new Random(unchecked(Environment.TickCount * 31 + (int)(runId & 0x7FFFFFFF)));
             int lastStatusTick = unchecked(Environment.TickCount - 100);
 
-            lock (runLock)
-            {
-                if (runCoordinator.IsCurrent(runtime))
-                {
-                    runtime.Phase = singleStep ? "single-step-running" : "running";
-                    runtime.Iteration = 0;
-                    runtime.StepIndex = 0;
-                    runtime.StepCount = steps.Count;
-                    runtime.HeldInputs.Clear();
-                    runtime.HeldText = "无";
-                }
-            }
+            runCoordinator.BeginExecution(runtime, steps.Count);
 
             try
             {
@@ -7419,7 +7385,7 @@ namespace InputStitch
                     if (!infinite && iteration >= repeatCount) break;
                     iteration++;
                     bool producedOutput = false;
-                    lock (runLock) runtime.Iteration = iteration;
+                    runCoordinator.SetIteration(runtime, iteration);
                     int statusTick = Environment.TickCount;
                     if (iteration == 1 || unchecked(statusTick - lastStatusTick) >= 100)
                     {
@@ -7432,12 +7398,7 @@ namespace InputStitch
                         MacroStep step = steps[stepIndex];
                         if (stop.IsSet) break;
                         if (singleStep && stepIndex > 0 && WaitForSingleStepAdvance(runtime, stepIndex, steps.Count)) break;
-                        lock (runLock)
-                        {
-                            runtime.Phase = singleStep ? "single-step-executing" : "running";
-                            runtime.StepIndex = stepIndex + 1;
-                            runtime.StepCount = steps.Count;
-                        }
+                        runCoordinator.BeginStep(runtime, stepIndex + 1, steps.Count);
 
                         InputSpec input = InputFromStep(step);
                         string key = InputKey(input);
@@ -7555,11 +7516,7 @@ namespace InputStitch
             if (runtime == null || runtime.Stop == null || runtime.Stop.IsSet) return true;
             ManualResetEventSlim stop = runtime.Stop;
             System.Threading.AutoResetEvent gate = runtime.StepGate;
-            lock (runLock)
-            {
-                runtime.SingleStepWaiting = true;
-                runtime.Phase = "single-step-wait";
-            }
+            runCoordinator.SetSingleStepWaiting(runtime, true);
             SetStatusSafe((Localizer.IsEnglish ? "Single-step: completed " : "单步：已执行 ") + completedSteps.ToString() + "/" + totalSteps.ToString() +
                 (Localizer.IsEnglish ? "; click Next Step to continue." : "；点击“下一步”继续。"));
             UpdateRunButtonSafe();
@@ -7570,11 +7527,7 @@ namespace InputStitch
                 if (gate == null && stop.Wait(50)) break;
             }
 
-            lock (runLock)
-            {
-                runtime.SingleStepWaiting = false;
-                if (runtime.SingleStep) runtime.Phase = stop.IsSet ? "stopping" : "single-step-running";
-            }
+            runCoordinator.SetSingleStepWaiting(runtime, false);
             UpdateRunButtonSafe();
             if (!stop.IsSet) SetStatusSafe((Localizer.IsEnglish ? "Single-step executing: " : "单步执行：") + (runtime.Snapshot == null ? "" : runtime.Snapshot.Name));
             return stop.IsSet;
@@ -7592,23 +7545,7 @@ namespace InputStitch
 
         private void SyncRunHeldInputs(MacroRunRuntime runtime, Dictionary<string, InputSpec> held)
         {
-            if (runtime == null) return;
-            lock (runLock)
-            {
-                if (!runCoordinator.IsCurrent(runtime)) return;
-                runtime.HeldInputs.Clear();
-                List<string> names = new List<string>();
-                if (held != null)
-                {
-                    foreach (KeyValuePair<string, InputSpec> pair in held)
-                    {
-                        if (pair.Value == null) continue;
-                        runtime.HeldInputs[pair.Key] = pair.Value.Clone();
-                        names.Add(InputNames.FormatInput(pair.Value));
-                    }
-                }
-                runtime.HeldText = names.Count == 0 ? "无" : string.Join(" + ", names.ToArray());
-            }
+            runCoordinator.UpdateHeldInputs(runtime, held);
         }
 
         private void SetMacroRunStatusSafe(MacroRunRuntime runtime, string singleRunText)
@@ -7844,26 +7781,21 @@ namespace InputStitch
         {
             if (runButton == null || runButton.IsDisposed) return;
             MacroDefinition selected = SelectedMacro;
-            MacroRunRuntime selectedRun;
-            MacroRunRuntime singleStepRun;
+            MacroRunControls controls;
             bool selectedHeldActive;
-            int runCount;
             lock (runLock)
             {
-                selectedRun = GetMacroRun_NoLock(selected);
-                singleStepRun = GetSingleStepRun_NoLock();
+                controls = runCoordinator.ReadControls(selected);
                 selectedHeldActive = selected != null && activeParallelHeldMappings.ContainsKey(selected);
-                runCount = runCoordinator.Count;
             }
 
-            bool selectedStopping = selectedRun != null && selectedRun.Stop != null && selectedRun.Stop.IsSet;
-            if (selectedStopping)
+            if (controls.SelectedStopping)
             {
                 runButton.Text = Localizer.T("■ 正在停止…");
                 runButton.ForeColor = Color.DarkOrange;
                 runButton.Enabled = true;
             }
-            else if (selectedRun != null || selectedHeldActive)
+            else if (controls.SelectedRunning || selectedHeldActive)
             {
                 runButton.Text = Localizer.IsEnglish ? "■ Stop selected macro" : "■ 停止所选宏";
                 runButton.ForeColor = uiSafetyPauseRequested ? Color.DarkOrange : Color.Firebrick;
@@ -7885,17 +7817,16 @@ namespace InputStitch
 
             if (stepRunButton != null && !stepRunButton.IsDisposed)
             {
-                bool singleStepStopping = singleStepRun != null && singleStepRun.Stop != null && singleStepRun.Stop.IsSet;
-                if (singleStepRun != null)
+                if (controls.SingleStepActive)
                 {
-                    stepRunButton.Text = Localizer.T(singleStepRun.SingleStepWaiting ? "▷ 下一步" : "▷ 正在执行…");
-                    stepRunButton.Enabled = singleStepRun.SingleStepWaiting && !singleStepStopping;
+                    stepRunButton.Text = Localizer.T(controls.SingleStepWaiting ? "▷ 下一步" : "▷ 正在执行…");
+                    stepRunButton.Enabled = controls.SingleStepWaiting && !controls.SingleStepStopping;
                     stepRunButton.ForeColor = stepRunButton.Enabled ? Color.RoyalBlue : SystemColors.GrayText;
                 }
                 else
                 {
                     stepRunButton.Text = Localizer.T("▷ 单步执行");
-                    stepRunButton.Enabled = !recordingActive && runCount == 0 && selected != null &&
+                    stepRunButton.Enabled = !recordingActive && controls.RunCount == 0 && selected != null &&
                         !ActivatorModes.IsHoldLifecycle(selected) && MacroRuntimeClassifier.Classify(selected).CanStart;
                     stepRunButton.ForeColor = stepRunButton.Enabled ? Color.RoyalBlue : SystemColors.GrayText;
                 }

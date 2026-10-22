@@ -1,5 +1,21 @@
 ﻿# PLAN.md
 
+## Completed local beta — 1.5.1-beta.2 (2026-10-22)
+
+Continue P1 from beta.1: coordinator owns progress, atomic control snapshots and
+single-step advancement. Format diagnostic names on detached input copies only
+when read, outside the run lock. Preserve execution, timing, output and XML.
+13 impact-selected suites PASS; the final lock-scope edit was rechecked with
+pipeline/bilingual diagnostics and UI-safety tests. Final x64/x86 packages,
+beginner workflow 142 and 77 real-output checks PASS. Final observer: 600.0 s /
+7,220 cycles / 3 workers, keyboard 28,244/28,244, zero final output; no forced GC.
+The interrupted pre-final run is excluded. Whole 35-suite regression was not run.
+Final real-package microbenchmark, 200,000 state updates, three samples: median
+2347.42 -> 101.25 ms; Gen0 median 64 -> 6. This is not whole-app CPU throughput.
+x64/x86 add 1,536/2,048 B over beta.1, no new dependency. UI-blocked long-press
+measurement confirms UI affinity remains. See `docs/RUNTIME_PROGRESS_BETA_1_5_1_2.md`.
+No new feature, remote publication, Stable/latest/mirror change or manual-trial gate.
+
 ## Completed local beta — 1.5.1-beta.1 (2026-10-22)
 
 Follow P1 with a UI-independent run-lifecycle coordinator and suspend empty UI

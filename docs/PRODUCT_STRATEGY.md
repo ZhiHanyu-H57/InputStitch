@@ -1,5 +1,13 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Current P1 follow-up — beta.2 (2026-10-22)
+
+Incrementally separate progress/commands/presentation and remove per-edge
+background diagnostic formatting. Keep the accepted 1.5.0 execution/output and
+lightweight single-file distribution. Report local microbenchmarks as such,
+not whole-app CPU gains; UI-blocked activator dispatch remains measured debt.
+Scope: [second coordination pass](RUNTIME_PROGRESS_BETA_1_5_1_2.md).
+
 ## Incremental follow-up — 2026-10-22
 
 Local 1.5.1-beta.1 implements the first bounded coordination extraction and removes

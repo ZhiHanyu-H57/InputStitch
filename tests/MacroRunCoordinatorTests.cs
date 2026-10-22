@@ -23,6 +23,7 @@ internal static class MacroRunCoordinatorTests
         try
         {
             Lifecycle();
+            ProgressAndControls();
             ConcurrentRegistration();
             Console.WriteLine("PASS run coordinator: " + checks + " checks; identity, independent stop, stale completion, single-step, stop-all and concurrent registration; no UI or output.");
             return 0;
@@ -92,5 +93,54 @@ internal static class MacroRunCoordinatorTests
         coordinator.Finish(winner, null);
         Check(winner.StopReason == "completed", "natural completion selects completed reason under lock");
         foreach (MacroRunRuntime run in runs) Dispose(run);
+    }
+
+    private static void ProgressAndControls()
+    {
+        MacroRunCoordinator coordinator = new MacroRunCoordinator(new object(), null);
+        MacroDefinition owner = new MacroDefinition { Name = "progress" };
+        MacroRunRuntime run = Run(owner, true); run.Snapshot = owner.Clone();
+        Check(coordinator.TryRegister(run), "progress run registers");
+        Check(!coordinator.TryAdvanceSingleStep(), "cannot advance before single-step wait");
+        coordinator.BeginExecution(run, 2); coordinator.SetIteration(run, 3); coordinator.BeginStep(run, 1, 2);
+        Dictionary<string, InputSpec> held = new Dictionary<string, InputSpec>();
+        InputSpec a = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = 65 };
+        held.Add("a", a); held.Add("ignored-null", null);
+        coordinator.UpdateHeldInputs(run, held);
+        MacroRunProgressSnapshot view = coordinator.ReadProgress()[0];
+        Check(view.Phase == "single-step-executing" && view.Iteration == 3 && view.StepIndex == 1 && view.StepCount == 2, "progress is coordinated independently of UI");
+        Check(view.HeldInputs.Length == 1 && view.HeldInputs[0].VirtualKey == 65, "held view excludes null values");
+        a.VirtualKey = 66;
+        Check(coordinator.ReadProgress()[0].HeldInputs[0].VirtualKey == 65, "worker input mutation cannot alter published held state");
+        view.HeldInputs[0].VirtualKey = 67;
+        Check(coordinator.ReadProgress()[0].HeldInputs[0].VirtualKey == 65, "presentation input mutation cannot alter runtime state");
+        MacroRunControls controls = coordinator.ReadControls(owner);
+        Check(controls.RunCount == 1 && controls.SelectedRunning && controls.SingleStepActive && !controls.SingleStepWaiting, "control state is captured together");
+        coordinator.SetSingleStepWaiting(run, true);
+        Check(coordinator.ReadControls(owner).SingleStepWaiting && coordinator.TryAdvanceSingleStep() && run.StepGate.WaitOne(0), "advance command signals the waiting run");
+        coordinator.SetSingleStepWaiting(run, false);
+        Thread worker = new Thread(delegate()
+        {
+            for (int i = 1; i <= 1000; i++) { coordinator.SetIteration(run, i); coordinator.BeginStep(run, 2, 2); }
+        });
+        worker.Start(); Check(worker.Join(3000), "progress publication completes without a UI loop");
+        Check(coordinator.ReadProgress()[0].Iteration == 1000, "headless progress reaches final iteration");
+        coordinator.Stop(run.RunId, "emergency");
+        coordinator.BeginExecution(run, 9); coordinator.BeginStep(run, 9, 9); coordinator.SetIteration(run, 9999);
+        coordinator.SetSingleStepWaiting(run, true);
+        Check(!coordinator.TryAdvanceSingleStep(), "stopped single-step cannot advance");
+        controls = coordinator.ReadControls(owner);
+        Check(controls.SelectedStopping && controls.SingleStepStopping && !controls.SingleStepWaiting, "stop wins over later progress publication");
+        Check(coordinator.ReadProgress()[0].Phase == "stopping" && coordinator.ReadProgress()[0].Iteration == 1000, "late progress cannot overwrite stopping state");
+        coordinator.ClearHeldInputs();
+        Check(coordinator.ReadProgress()[0].HeldInputs.Length == 0 && view.HeldInputs.Length == 1, "emergency clears runtime display but detached view remains stable");
+        coordinator.Finish(run, null); Dispose(run);
+        MacroRunRuntime restarted = Run(owner, false); coordinator.TryRegister(restarted);
+        coordinator.UpdateHeldInputs(run, held); coordinator.BeginStep(run, 8, 8);
+        Check(coordinator.ReadProgress()[0].HeldInputs.Length == 0 && coordinator.ReadProgress()[0].StepIndex == 0, "stale progress cannot affect restarted run");
+        Check(!coordinator.ReadControls(new MacroDefinition()).SelectedRunning, "controls distinguish selected macro identity");
+        coordinator.UpdateHeldInputs(restarted, null);
+        Check(coordinator.ReadProgress()[0].HeldInputs.Length == 0, "null held publication clears safely");
+        coordinator.Finish(restarted, null); Dispose(restarted);
     }
 }

@@ -2,6 +2,12 @@
 
 ## Incremental follow-up — 2026-10-22
 
+Beta.2 adds coordinated progress, atomic button-state capture, single-step
+commands and detached diagnostic input snapshots. Per-edge name formatting now
+runs only when viewing diagnostics. A real-scheduler/worker observer sample
+confirms long-press UI-dispatch latency remains under UI blocking. See
+[second pass](RUNTIME_PROGRESS_BETA_1_5_1_2.md); do not mark UI affinity resolved.
+
 Local 1.5.1-beta.1 extracts run registration/identity/stop/completion into
 `MacroRunCoordinator`, with no UI dependency, while retaining the original shared
 lock and worker/output model. Released advanced-trigger history no longer causes

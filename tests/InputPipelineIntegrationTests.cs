@@ -12,7 +12,8 @@ internal static class InputPipelineIntegrationTests
     private sealed class Observer : IOutputBackend
     {
         internal int Downs, Ups;
-        public void SendDown(InputSpec input) { Interlocked.Increment(ref Downs); }
+        internal long FirstDownAt;
+        public void SendDown(InputSpec input) { Interlocked.CompareExchange(ref FirstDownAt, Stopwatch.GetTimestamp(), 0); Interlocked.Increment(ref Downs); }
         public void SendUp(InputSpec input) { Interlocked.Increment(ref Ups); }
         public void NeutralizeGamepad() { }
     }
@@ -39,6 +40,16 @@ internal static class InputPipelineIntegrationTests
             OutputOwnershipManager ownership = (OutputOwnershipManager)typeof(MainForm).GetField("outputOwnership", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
             Call(form,"StartMacro",first,0,null,false,false); Call(form,"StartMacro",second,0,null,false,false);
             Wait(delegate { return ownership.Snapshot().Sources.Count == 2; });
+            foreach (string language in new[] { "zh-CN", "en-US" })
+            {
+                Localizer.SetLanguage(language);
+                string observation = (string)Call(form, "BuildRuntimeObservationText");
+                string diagnostics = (string)Call(form, "BuildDiagnosticsText");
+                if (!observation.Contains("RunId=1") || !observation.Contains("RunId=2")) throw new Exception("observation must show both coordinated runs");
+                if (!observation.Contains("held=F8") || !diagnostics.Contains("Held=F8")) throw new Exception("held names must still render on demand in both languages");
+                if (!diagnostics.Contains("MacroRunCount: 2")) throw new Exception("diagnostics must show a consistent coordinated count");
+            }
+            Localizer.SetLanguage("zh-CN");
             Call(form,"StopMacro",first,"reuse-test");
             Wait(delegate { return ownership.Snapshot().Sources.Count == 1; });
             if (ownership.Snapshot().Merged.Count != 1) throw new Exception("stopping one reused worker released the other run's output");
@@ -51,6 +62,37 @@ internal static class InputPipelineIntegrationTests
             if (ownership.Snapshot().Sources.Count != 0 || observer.Downs != observer.Ups) throw new Exception("reused runs must release every output");
             MacroWorkerPool workers = (MacroWorkerPool)typeof(MainForm).GetField("macroWorkers", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
             if (workers.CreatedThreadCount > 6) throw new Exception("actual macro restarts must reuse bounded workers");
+        }
+    }
+
+    // Input seam -> production scheduler/UI dispatch -> real worker -> observer.
+    // Measures current UI-affine activators; this does not claim physical hook or
+    // game latency, nor does it remove UI safety checks to make the sample pass.
+    private static long AdvancedLatency(string directory, int uiBlockedMs)
+    {
+        MacroConfig config = new MacroConfig { GamepadDeviceType = VirtualGamepadTypes.None };
+        MacroDefinition macro = new MacroDefinition { Name = "long-press-latency", Enabled = true, Infinite = false, RepeatCount = 1,
+            Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F24 },
+            Activator = new ActivatorConfig { Mode = ActivatorModes.LongPress, LongPressMs = 150 } };
+        macro.Steps.Add(new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F23, Action = MacroAction.Press, HoldMs = 1 });
+        config.Macros.Add(macro); Observer observer = new Observer();
+        using (MainForm form = new MainForm(config, directory, observer))
+        {
+            IntPtr handle = form.Handle;
+            InputEventInfo input = new InputEventInfo { Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F24 } };
+            using (InputPipelineScheduler scheduler = new InputPipelineScheduler(10, delegate { Call(form, "RequestActivatorTick"); }, null))
+            {
+                long start = Stopwatch.GetTimestamp();
+                Call(form, "HandleTerminalInput", input); scheduler.Start();
+                if (uiBlockedMs != 0) Thread.Sleep(uiBlockedMs);
+                Wait(delegate { return Interlocked.Read(ref observer.FirstDownAt) != 0; });
+                long latency = (Interlocked.Read(ref observer.FirstDownAt) - start) * 1000 / Stopwatch.Frequency;
+                if (latency < 150 || latency < uiBlockedMs) throw new Exception("long-press must respect the threshold and current UI dispatch boundary");
+                Call(form, "HandleTerminalInputReleased", input);
+                Wait(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); });
+                if (observer.Downs != observer.Ups) throw new Exception("latency sample left held output");
+                return latency;
+            }
         }
     }
     [STAThread]
@@ -94,7 +136,12 @@ internal static class InputPipelineIntegrationTests
             if ((int)queued.GetValue(form) != 0) throw new Exception("clearing activators must restore idle behavior");
         }
         WorkerReuse(directory);
-        Console.WriteLine("PASS input pipeline integration: 12 checks; idle UI work, worker reuse, source-local cancellation and configuration-change completion; isolated observer, no hooks or real output.");
+        long responsive = AdvancedLatency(directory, 0), blocked = AdvancedLatency(directory, 400);
+        string report = "{\"version\":\"" + AppInfo.Version + "\",\"thresholdMs\":150,\"uiBlockedMs\":400,\"responsiveMs\":" + responsive +
+            ",\"blockedMs\":" + blocked + ",\"backend\":\"isolated observer\",\"note\":\"Input seam, production scheduler and worker; UI affinity remains; no physical hooks or real output.\"}";
+        File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "activator-ui-latency.json"), report);
+        Console.WriteLine(report);
+        Console.WriteLine("PASS input pipeline integration: 24 checks; idle UI work, worker reuse, source-local cancellation, bilingual progress diagnostics, configuration completion and UI-blocked long-press samples; isolated observer, no hooks or real output.");
         return 0;
     }
 }

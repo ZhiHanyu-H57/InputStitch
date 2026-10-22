@@ -1,5 +1,14 @@
 ﻿# ROADMAP.md
 
+## Current P1 follow-up — beta.2 (2026-10-22)
+
+Progress publication, single-step commands and control-state capture now join
+run lifecycle in the coordinator. Format diagnostic input names only on demand
+and outside the runtime lock. The blocked-UI trigger sample confirms UI affinity
+still needs a careful condition/commit boundary; do not bypass editing safety.
+See `docs/RUNTIME_PROGRESS_BETA_1_5_1_2.md`. Keep feature expansion paused and use
+impact-selected development checks, with complete acceptance at formal release.
+
 ## Incremental runtime coordination — 2026-10-22
 
 Local 1.5.1-beta.1 follows P1: separate run lifecycle/indexes from MainForm and

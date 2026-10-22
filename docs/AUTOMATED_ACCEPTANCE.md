@@ -16,6 +16,18 @@ that claim; it does not block unrelated ordinary macro features.
 
 ## Repeatable commands
 
+Runtime-progress comparison (specified real packages, isolated state publication,
+no hooks/output/forced GC):
+
+```powershell
+./tests/Run-RuntimeProgressProbe.ps1 -Package <x64-exe> -Label <name>
+```
+
+This reports three 200,000-update microbenchmarks; it does not represent whole-app
+CPU or macro throughput. `InputPipelineIntegrationTests` additionally records
+`activator-ui-latency.json` for responsive/blocked UI via the production scheduler
+and actual worker with an observer backend. Physical/game input latency is separate.
+
 ### Development: select by impact
 
 Routine changes run relevant suites and focused workflow checks. A layout or

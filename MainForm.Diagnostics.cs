@@ -10,6 +10,14 @@ namespace InputStitch
     // the incremental MainForm decomposition (architecture-review finding F4); behaviour is unchanged.
     public partial class MainForm
     {
+        private static string FormatRunHeldInputs(InputSpec[] held)
+        {
+            if (held.Length == 0) return Localizer.T("\u65e0");
+            List<string> names = new List<string>(held.Length);
+            foreach (InputSpec input in held) names.Add(InputNames.FormatInput(input));
+            return Localizer.T(string.Join(" + ", names.ToArray()));
+        }
+
         private string BuildRuntimeObservationText()
         {
             StringBuilder sb = new StringBuilder();
@@ -64,22 +72,10 @@ namespace InputStitch
             List<string> runLines = new List<string>();
             List<string> heldMappings = new List<string>();
             string stopReason;
+            List<MacroRunProgressSnapshot> runs;
             lock (runLock)
             {
-                List<MacroRunRuntime> runs = runCoordinator.Snapshot();
-                foreach (MacroRunRuntime runtime in runs)
-                {
-                    string name = runtime.OwnerMacro == null ? "?" : runtime.OwnerMacro.Name;
-                    MacroRuntimeCapability capability = runtime.Capability ?? MacroRuntimeClassifier.Classify(runtime.OwnerMacro);
-                    string line = "RunId=" + runtime.RunId.ToString() + " | " + name + " | " + runtime.SourceId +
-                        " | " + capability.CategoryText(Localizer.IsEnglish) +
-                        " | phase=" + runtime.Phase +
-                        " | iter=" + runtime.Iteration.ToString() +
-                        " | step=" + runtime.StepIndex.ToString() + "/" + runtime.StepCount.ToString() +
-                        (runtime.SingleStep ? (runtime.SingleStepWaiting ? " | SINGLE-STEP WAIT" : " | SINGLE-STEP") : "") +
-                        " | held=" + Localizer.T(runtime.HeldText);
-                    runLines.Add(line);
-                }
+                runs = runCoordinator.ReadProgress();
                 stopReason = runCoordinator.LastStopReason;
                 foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
                 {
@@ -88,6 +84,21 @@ namespace InputStitch
                     string name = runtime.Macro == null ? "?" : runtime.Macro.Name;
                     heldMappings.Add(name + " | " + InputNames.FormatTrigger(runtime.Trigger) + " | " + runtime.SourceId);
                 }
+            }
+
+            // Formatting uses detached data; do not hold the runtime lock during native key-name lookup.
+            foreach (MacroRunProgressSnapshot runtime in runs)
+            {
+                string name = runtime.Name;
+                MacroRuntimeCapability capability = runtime.Capability;
+                string line = "RunId=" + runtime.RunId.ToString() + " | " + name + " | " + runtime.SourceId +
+                    " | " + capability.CategoryText(Localizer.IsEnglish) +
+                    " | phase=" + runtime.Phase +
+                    " | iter=" + runtime.Iteration.ToString() +
+                    " | step=" + runtime.StepIndex.ToString() + "/" + runtime.StepCount.ToString() +
+                    (runtime.SingleStep ? (runtime.SingleStepWaiting ? " | SINGLE-STEP WAIT" : " | SINGLE-STEP") : "") +
+                    " | held=" + FormatRunHeldInputs(runtime.HeldInputs);
+                runLines.Add(line);
             }
 
             sb.AppendLine((Localizer.IsEnglish ? "Macro runs: " : "宏运行实例：") + runLines.Count.ToString());
@@ -224,20 +235,17 @@ namespace InputStitch
             sb.AppendLine("Target: " + (targetWindowBox == null ? "" : targetWindowBox.Text));
             sb.AppendLine("AutoProfileSwitch: " + (config != null && config.AutoSwitchProfiles ? Localizer.T("开启") : (Localizer.IsEnglish ? "Off" : "关闭")));
             sb.AppendLine("ActiveProfile: " + (string.IsNullOrWhiteSpace(activeProfilePath) ? Localizer.T("（当前 config.xml）") : activeProfilePath));
-            lock (runLock)
+            List<MacroRunProgressSnapshot> runs = runCoordinator.ReadProgress();
+            sb.AppendLine("MacroRunCount: " + runs.Count.ToString());
+            foreach (MacroRunProgressSnapshot runtime in runs)
             {
-                sb.AppendLine("MacroRunCount: " + runCoordinator.Count.ToString());
-                List<MacroRunRuntime> runs = runCoordinator.Snapshot();
-                foreach (MacroRunRuntime runtime in runs)
-                {
-                    string name = runtime.OwnerMacro == null ? Localizer.T("无") : runtime.OwnerMacro.Name;
-                    sb.AppendLine("Run[" + runtime.RunId.ToString() + "]: " + name +
-                        " Source=" + runtime.SourceId +
-                        " Phase=" + runtime.Phase +
-                        " Iteration=" + runtime.Iteration.ToString() +
-                        " Step=" + runtime.StepIndex.ToString() + "/" + runtime.StepCount.ToString() +
-                        " Held=" + Localizer.T(runtime.HeldText));
-                }
+                string name = runtime.Name;
+                sb.AppendLine("Run[" + runtime.RunId.ToString() + "]: " + name +
+                    " Source=" + runtime.SourceId +
+                    " Phase=" + runtime.Phase +
+                    " Iteration=" + runtime.Iteration.ToString() +
+                    " Step=" + runtime.StepIndex.ToString() + "/" + runtime.StepCount.ToString() +
+                    " Held=" + FormatRunHeldInputs(runtime.HeldInputs));
             }
             sb.AppendLine("TriggerConflicts: " + GetTriggerConflictSummary());
             return sb.ToString();
