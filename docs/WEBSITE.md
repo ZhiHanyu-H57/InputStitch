@@ -20,6 +20,19 @@ can merge without an external approval. Checks follow the change scope; software
 release verification remains in the existing release workflow. See `AGENTS.md`
 for the protected-branch publishing procedure.
 
+Verified on 2026-10-22: an administrator's direct push to main was rejected
+(GH006), then PR #1 merged normally without bypass. The website deployed source
+`6ce175f` as `f49e3dc7-2af6-478b-be7e-f7c47b44ec22`. Document responses carry
+HSTS and browser smoke passes 33 assertions, including an actual download-button
+click and SHA-256 match. Both download architectures and update manifests match
+the existing Stable 1.5.1 release. All 13 served file contents are unchanged.
+
+The existing CDN cache can retain older header metadata for unchanged static
+assets. Compare a fresh cache key when checking newly deployed headers; document
+responses are verified directly. Once learned from HTTPS, HSTS covers every path
+on that host. Do not change asset contents or unrelated caching policies solely
+to refresh the metadata. No extra runtime or client dependency is introduced.
+
 ## Content and visual direction
 
 The October 22 redesign replaces all four pages: overview, download, guide and
