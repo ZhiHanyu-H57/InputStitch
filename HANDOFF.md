@@ -1,5 +1,42 @@
 ﻿# HANDOFF.md
 
+## Completed local beta — 1.5.1-beta.2 (2026-10-22)
+
+Branch `perf/runtime-coordination`; verified code/test commit `587b3d859d248c971b239045a4c20255b547a032`.
+Based on beta.1 (`1f673aa` / handoff `56e72aa`). No remote push/publication or
+Stable main/tag/latest/mirror modification. Manifest/csproj still list 56 files.
+
+Coordinator owns progress, single-step wait/advance and atomic control snapshots;
+UI consumes detached diagnostic input snapshots. Per-edge synchronization no
+longer builds key-name strings; names render on demand outside the run lock.
+Execution, timing, ownership, device backends, UI editing safety and XML remain.
+MainForm still owns the executor/condition input. UI-affine advanced triggers
+remain debt: final source's 150-ms long-press sample is 187 ms with responsive UI
+and 405 ms after blocking UI for 400 ms (input seam -> production scheduler ->
+worker -> isolated observer, not physical/game latency). Keep the safety commit
+boundary while pursuing that next P1 step.
+
+13 impact-selected suites PASS. Coordinator 55, integration/bilingual diagnostics/
+blocked UI 24, safety 26, ownership 303,716, worker reuse 1,010, productivity/old
+config save 536, plus timing/layers/activators/metadata/source guards. The final
+formatting lock-scope edit rechecked only affected integration and safety suites.
+Final package workflow 142, x64/x86 extraction/cache repair/startup/restore/exit
+and real-output 77/0 PASS. Final unforced observer: 600.0 s / 7,220 cycles / three
+workers, keyboard 28,244/28,244 and zero final sources/pressed outputs. Handles
+375 -> 377 (warm/tail medians 375/368), GDI 26/26, USER 30/30, max UI dispatch 69 ms.
+Normal config/devices hashes unchanged. Pre-final interrupted run is excluded.
+
+Final-package state-sync microbenchmark (3 x 200,000 updates, 8 held inputs/empty):
+median 2347.42 -> 101.25 ms; Gen0 median 64 -> 6. Local path result, not whole-app
+CPU/throughput. Final idle sample is 2.969% / 3.384% of one core, crosshair off/on,
+~30 s each, zero visible sources; do not claim further idle CPU improvement.
+x64 1,988,608 B / x86 1,819,136 B, +1,536/+2,048 B over beta.1, no new dependency.
+See `docs/RUNTIME_PROGRESS_BETA_1_5_1_2.md` for hashes, scope and open boundary.
+
+Continue impact-based development verification; no complete 35-suite claim.
+Formal publication still requires the entire regression/release gates. No manual
+trial prerequisite, no feature expansion or wholesale execution rewrite.
+
 ## Completed local beta — 1.5.1-beta.1 (2026-10-22)
 
 Branch: `perf/runtime-coordination`. Verified production/test commit: `1f673aab029e94e6c5c588df22f1ff8808ba6d39`.
