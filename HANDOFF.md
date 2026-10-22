@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## Homepage refinement ready — 2026-10-22
+## Homepage refinement published and verified — 2026-10-22
 
 Follow-up to published redesign: simplify the homepage to the actual software,
 compact input/action examples and crosshair preview; remove the icon matrix,
@@ -14,8 +14,14 @@ zh-* browser locale selects Simplified Chinese and other locales select English.
 Local acceptance PASS: 295 browser assertions / 40 responsive cases, seven added
 automatic/saved-language scenarios and 222 static/published-version checks.
 Reviewed actual desktop/mobile screenshots. No desktop source/build/test change.
-Publish to the existing Pages project with the already authorized separate
-inputstitch-site profile, then check actual deployed assets and homepage paths.
+Published source `51c65e1274ca87b37349472ae632ad6b29bb69bf` to the existing
+Pages project using the authorized inputstitch-site profile. Production deployment
+`ec4ac4ea-11c7-40dd-a137-f00972689c70` succeeded on the original custom domain.
+All 13 served files/404/headers/MIME checks PASS; live homepage smoke PASS with
+28 assertions across Chinese/English and widths 390/1440, including actual
+first-visit language, manual switch/navigation/reload and screenshot loading.
+No duplicated full live matrix: the local 40-case matrix already covers the
+changed shared CSS. Evidence is in this chat's outputs/website-refinement.
 
 ## Website redesign published and verified — 2026-10-22
 

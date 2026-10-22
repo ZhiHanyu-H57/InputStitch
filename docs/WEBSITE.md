@@ -81,7 +81,14 @@ language; and an invalid saved choice. Existing blocked-storage and navigation
 persistence checks remain. Actual desktop/mobile screenshots were inspected.
 No desktop software test or rebuild is needed for these website-only changes.
 
-Local final results: **278 browser assertions / 40 page-language-width cases**,
+The refinement is published on the original domain from source `51c65e1`, Pages
+deployment `ec4ac4ea-11c7-40dd-a137-f00972689c70`. Post-publication checks match
+all 13 served files and pass 28 focused live homepage assertions (Chinese/English,
+widths 390/1440, fresh language selection, saved selection across navigation and
+reload, overflow and screenshot loading). Live networking is unmocked. Keep the
+local matrix and focused live results distinct; do not rerun unrelated suites.
+
+Initial redesign results: **278 browser assertions / 40 page-language-width cases**,
 **226 static and published-version/size checks**. Zero detected overflow, clipped
 text or broken images. The initial page assets total about **83 KB uncompressed**
 for Chinese (HTML, CSS, JS, screenshot, diamond and release snapshot). Browser
