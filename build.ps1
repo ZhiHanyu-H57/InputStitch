@@ -158,6 +158,7 @@ function Invoke-ArchitectureBuild {
     $compilerArguments += "/reference:$viGEmClientPath"
     $compressedClient = Get-CompressedResource -LiteralPath $viGEmClientPath -Name 'Nefarius.ViGEm.Client.dll'
     $compilerArguments += "/resource:$compressedClient,InputStitch.ThirdParty.Nefarius.ViGEm.Client.dll.gz"
+    $compilerArguments += @(& (Join-Path $projectRoot 'scripts/Get-UiResourceArguments.ps1'))
     if (-not $SkipSdl3) {
         $sdl3ResourcePath = Join-Path $projectRoot ('third-party\SDL3\' + $Architecture + '\SDL3.dll')
         Assert-FileExists -LiteralPath $sdl3ResourcePath
@@ -181,6 +182,7 @@ function New-SourceArchive {
     $archivePath = Join-Path $distDirectory "InputStitch-$releaseVersion-Source.zip"
     $includedFiles = @(
         '.github',
+        'assets',
         'docs',
         'scripts',
         'tests',

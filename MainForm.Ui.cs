@@ -540,7 +540,7 @@ namespace InputStitch
             Button delStep = MakeButton("删除", 0, 0, 0);
             Button upStep = MakeButton("↑", 0, 0, 32);
             Button downStep = MakeButton("↓", 0, 0, 32);
-            Button batchDelayStep = MakeButton("批量间隔", 0, 0, 0);
+            Button batchDelayStep = MakeButton("批量时间", 0, 0, 0);
             foreach (Button b in new Button[] { addStep, editStep, copyStep, delStep, upStep, downStep, batchDelayStep })
             {
                 b.AutoSize = true;
@@ -553,13 +553,14 @@ namespace InputStitch
             SetTip(upStep, "上移"); SetTip(downStep, "下移");
             addStepButton = addStep;
             editStepButton = editStep;
+            batchTimingButton = batchDelayStep;
             addStep.Click += delegate { AddStep(); };
             editStep.Click += delegate { EditSelectedStep(); };
             copyStep.Click += delegate { CopySelectedSteps(); };
             delStep.Click += delegate { DeleteSelectedStep(); };
             upStep.Click += delegate { MoveSelectedStep(-1); };
             downStep.Click += delegate { MoveSelectedStep(1); };
-            batchDelayStep.Click += delegate { BatchEditSelectedStepDelay(); };
+            batchDelayStep.Click += delegate { BatchEditSelectedStepTiming(); };
             stepFooter.Controls.AddRange(new Control[] { addStep, editStep, copyStep, delStep, upStep, downStep, batchDelayStep });
             stepsLayout.Controls.Add(stepFooter, 0, 2);
             rightRoot.Controls.Add(stepsGroup, 0, 3);
@@ -575,14 +576,14 @@ namespace InputStitch
             SetTip(repeatBox, "宏完整执行的次数。勾选无限循环后忽略此数值。" );
             SetTip(triggerModeBox, EditorDialogs.T("选择按下、松开、按住或连按触发键时如何运行宏。", "Choose when the shortcut starts and stops this macro."));
             SetTip(activatorConditionButton, Localizer.IsEnglish ? "Adjust press timing or limit when this macro can run." : "调整短按、长按、双击的时间，或限制这个宏在哪些情况下生效。" );
-            SetTip(triggerButton, EditorDialogs.T("点击在键盘图中选择；右侧箭头可改用实际按键或鼠标来设置。", "Choose on the keyboard diagram, or use the arrow to set a shortcut by pressing it."));
+            SetTip(triggerButton, EditorDialogs.T("点击在键盘或鼠标图中选择；右侧箭头可改用实际按键录入。", "Choose on the keyboard or mouse diagram, or use the arrow to capture a physical input."));
             SetTip(suppressBox, "触发宏时阻止最后一个实际按键或鼠标事件继续传给当前程序；其他输入不受影响。" );
             SetTip(targetWindowBox, "当前锁定的目标窗口。用于 UI 自动切换和保存方案时的进程绑定。" );
             SetTip(lockTargetButton, "先切到目标程序，再切回 InputStitch 后点击这里；程序会锁定最近有效的外部前台窗口。" );
             SetTip(clearTargetButton, "清除当前目标窗口，不删除任何宏。" );
             SetTip(recordButton, "录制物理键盘、鼠标按钮和滚轮输入，自动换算为宏步骤；不记录鼠标移动。" );
             SetTip(copyStep, "复制当前选中的一个或多个步骤，并插入到所选步骤之后。" );
-            SetTip(batchDelayStep, "批量设置所选步骤的固定间隔或简单随机间隔范围。" );
+            SetTip(batchDelayStep, EditorDialogs.T("修改所选或全部步骤的按住时长、固定等待或随机等待。", "Edit hold duration, fixed waits or random waits for selected steps or all steps."));
             SetTip(runButton, "开始执行所选宏；所选宏正在运行时用于停止所选宏。" );
 
             RegisterUiSafetyControl(libraryButton, "导入与备份");
@@ -794,7 +795,7 @@ namespace InputStitch
             if (statusLabel == null) return;
             if (recordingActive)
             {
-                statusLabel.Text = Localizer.Dynamic("录制中：切到目标程序进行操作；回到 InputStitch 后点击“停止录制”。");
+                statusLabel.Text = RecordingInstructions;
                 return;
             }
             int runCount = ActiveMacroRunCount();

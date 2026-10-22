@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -53,9 +53,11 @@ internal static class SecondaryLayoutTests
         { string selected = mode; yield return () => new ActivatorConditionDialog(new MacroDefinition { Activator = new ActivatorConfig { Mode = selected } }, Inventory, "Base / 基础"); }
         yield return () => new StepEditDialog(null, new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F8, HoldMs = 30, DelayMs = 100 });
         yield return () => new StepEditDialog(null, new MacroStep { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.LeftStick, GamepadX = 50, GamepadY = 50 });
+        yield return () => new StepEditDialog(null, new MacroStep { Kind = InputKind.MouseX1 });
         yield return () => new VirtualKeyboardDialog(true, null);
         yield return () => new VirtualKeyboardDialog(false, null);
-        yield return () => new BatchDelayDialog();
+        yield return () => new VirtualKeyboardDialog(true, new[] { new InputSpec { Kind = InputKind.MouseX2, VirtualKey = 0 } });
+        yield return () => new BatchTimingDialog();
         yield return () => new MacroExportSelectionForm(Enumerable.Range(0,24).Select(i => new MacroDefinition { Name = "Example macro / 示例宏 " + (i+1) }).ToList(),0);
         yield return () => new MacroExportSelectionForm(new List<MacroDefinition> { new MacroDefinition { Name = "One macro / 一个宏" } },0);
         yield return () => new RouterSourceDialog(new RouterSourcePolicyConfig(), Inventory);
@@ -87,7 +89,7 @@ internal static class SecondaryLayoutTests
     private static void Audit(Form form)
     {
         if (form is VirtualKeyboardDialog && !context.EndsWith(" compact",StringComparison.Ordinal) && (native || context.EndsWith("-100",StringComparison.Ordinal)))
-            foreach (ScrollableControl viewport in All(form).OfType<ScrollableControl>().Where(x => x.AutoScroll))
+            foreach (ScrollableControl viewport in All(form).OfType<ScrollableControl>().Where(x => x.AutoScroll && x.Visible))
                 Check(!viewport.HorizontalScroll.Visible && !viewport.VerticalScroll.Visible,"default keyboard is fully visible without scrolling");
         foreach (EditorIntro intro in All(form).OfType<EditorIntro>().Where(x => x.Visible))
             Check(intro.Height >= intro.GetPreferredSize(new Size(intro.Width,0)).Height, "intro description fits: " + intro.Size);
@@ -243,7 +245,9 @@ internal static class SecondaryLayoutTests
                     {
                         if (args.Contains("--settings-only") && !(form is SettingsDialog)) continue;
                         string focus=args.FirstOrDefault(x=>x.StartsWith("--focus=",StringComparison.Ordinal));
-                        if(focus!=null && !focus.Substring(8).Split(',').Contains(form.GetType().Name)) continue;
+                        if(focus!=null && !focus.Substring(8).Split(',').Contains(form.GetType().Name) &&
+                            !(focus.Substring(8).Split(',').Contains("MouseStep") && form is StepEditDialog &&
+                              MouseInputDiagram.IsMouse(Field<InputSpec>(form,"selectedInput").Kind))) continue;
                         string name = (++index).ToString("D2")+"-"+form.GetType().Name+"-"+language+"-"+(int)(scale*100);
                         context = name;
                         form.StartPosition=FormStartPosition.Manual; form.Location=new Point(-20000,-20000); form.ShowInTaskbar=false;
@@ -252,7 +256,7 @@ internal static class SecondaryLayoutTests
                         // Its constructor can already be clamped on a small test
                         // desktop, so this full-view fixture owns its logical size.
                         // Native first-show/work-area checks above remain unchanged.
-                        if(form is VirtualKeyboardDialog && !native) requested=new Size(1240,600);
+                        if(form is VirtualKeyboardDialog && !native) requested=new Size(1280,660);
                         Size chrome = new Size(form.Width-form.ClientSize.Width,form.Height-form.ClientSize.Height);
                         Size originalMinimum = form.MinimumSize;
                         Size scaledMinimum = originalMinimum.IsEmpty ? Size.Empty : new Size(

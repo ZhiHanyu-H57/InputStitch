@@ -190,6 +190,7 @@ namespace InputStitch
             { "上移", "Move Up" },
             { "下移", "Move Down" },
             { "批量间隔", "Batch Delay" },
+            { "批量时间", "Batch timing" },
             { "▶ 执行所选宏", "▶ Run Selected Macro" },
             { "▷ 单步执行", "▷ Single-step" },
             { "▷ 下一步", "▷ Next Step" },
@@ -1677,8 +1678,8 @@ namespace InputStitch
                 case InputKind.MouseLeft: return Localizer.T("鼠标左键");
                 case InputKind.MouseRight: return Localizer.T("鼠标右键");
                 case InputKind.MouseMiddle: return Localizer.T("鼠标中键");
-                case InputKind.MouseX1: return Localizer.T("鼠标侧键1 (X1)");
-                case InputKind.MouseX2: return Localizer.T("鼠标侧键2 (X2)");
+                case InputKind.MouseX1: return Localizer.IsEnglish ? "Back side button (X1)" : "鼠标后退侧键 (X1)";
+                case InputKind.MouseX2: return Localizer.IsEnglish ? "Forward side button (X2)" : "鼠标前进侧键 (X2)";
                 case InputKind.WheelUp: return Localizer.T("滚轮向上");
                 case InputKind.WheelDown: return Localizer.T("滚轮向下");
                 case InputKind.Gamepad: return Localizer.T("虚拟手柄");
@@ -6549,10 +6550,19 @@ namespace InputStitch
             StartMacroRecording();
         }
 
+        private static string RecordingInstructions
+        {
+            get { return Localizer.IsEnglish
+                ? "Recording: use any other app, then return here and click Stop recording. No target window is required."
+                : "录制中：切到任意程序操作，回到这里点击“停止录制”。无需设置目标窗口。"; }
+        }
+
         private void StartMacroRecording()
         {
             MacroDefinition m = SelectedMacro;
             if (m == null) return;
+            // Recording and one-key capture are exclusive input consumers.
+            CancelCapture();
             if (HasAnyActiveRuntime())
             {
                 if (!StopRuntimeForConfigChange()) return;
@@ -6581,7 +6591,7 @@ namespace InputStitch
             }
             UpdateRecordButton();
             UpdateRunButton();
-            statusLabel.Text = "录制中：切到目标程序进行操作；回到 InputStitch 后点击“停止录制”。";
+            statusLabel.Text = RecordingInstructions;
             AppLog.Write("Macro recording started: " + m.Name);
         }
 
@@ -6621,7 +6631,7 @@ namespace InputStitch
             List<MacroStep> steps = ConvertRecordedEventsToSteps(events);
             if (steps.Count == 0)
             {
-                if (!silent) statusLabel.Text = "状态：录制结束，没有记录到目标程序中的键鼠操作。";
+                if (!silent) statusLabel.Text = Localizer.IsEnglish ? "No keyboard or mouse actions were recorded outside InputStitch." : "录制结束，未记录到 InputStitch 以外的键鼠操作。";
                 return;
             }
             if (target.Steps == null) target.Steps = new List<MacroStep>();
@@ -6635,10 +6645,14 @@ namespace InputStitch
 
         private void RecordPhysicalInput(InputEventInfo e, bool isDown)
         {
+            RecordPhysicalInputForWindow(e, isDown, NativeWindowFocus.ForegroundWindow());
+        }
+
+        private void RecordPhysicalInputForWindow(InputEventInfo e, bool isDown, IntPtr foreground)
+        {
             if (!recordingActive || e == null || e.Input == null) return;
             bool holdable = InputSender.IsHoldable(e.Input);
             string key = InputKey(e.Input);
-            IntPtr foreground = NativeWindowFocus.ForegroundWindow();
             bool externalForeground = NativeWindowFocus.IsUsableExternalWindow(foreground) && !NativeWindowFocus.IsLikelyTransientTaskSwitcher(foreground);
 
             lock (recordingLock)
@@ -6840,7 +6854,7 @@ namespace InputStitch
             if (m == null || indices.Count == 0) return;
             if (indices.Count != 1)
             {
-                statusLabel.Text = "提示：单步编辑一次只能选择一个步骤；批量修改间隔请使用“批量间隔”。";
+                BatchEditSelectedStepTiming();
                 return;
             }
             int idx = indices[0];
@@ -6956,41 +6970,37 @@ namespace InputStitch
             SelectStepIndices(result);
         }
 
-        private void BatchEditSelectedStepDelay()
+        private void BatchEditSelectedStepTiming()
         {
             MacroDefinition m = SelectedMacro;
             List<int> indices = GetSelectedStepIndices();
-            if (m == null || indices.Count == 0) return;
+            if (recordingActive || m == null || m.Steps == null || m.Steps.Count == 0) return;
+            int selectedHolds = 0, totalHolds = 0;
+            for (int i = 0; i < m.Steps.Count; i++) if (StepTimingEditor.SupportsHold(m.Steps[i]))
+            { totalHolds++; if (indices.Contains(i)) selectedHolds++; }
+            MacroStep sample = m.Steps[indices.Count > 0 ? indices[0] : 0];
+            bool previousPause = pauseHotkeys;
             pauseHotkeys = true;
             uiSafetyModalDepth++;
             UpdateUiSafetyPauseState();
             try
             {
-                using (BatchDelayDialog d = new BatchDelayDialog())
+                using (BatchTimingDialog d = new BatchTimingDialog(indices.Count, m.Steps.Count, selectedHolds, totalHolds, sample))
                 {
                     if (d.ShowDialog(this) != DialogResult.OK) return;
-                    StopMacroForDefinitionChange(m, "batch-delay");
-                    foreach (int idx in indices)
-                    {
-                        if (idx < 0 || idx >= m.Steps.Count) continue;
-                        MacroStep step = m.Steps[idx];
-                        step.RandomDelay = d.UseRandom;
-                        if (d.UseRandom)
-                        {
-                            step.RandomDelayMinMs = d.MinMs;
-                            step.RandomDelayMaxMs = d.MaxMs;
-                        }
-                        else step.DelayMs = d.FixedMs;
-                    }
+                    StopMacroForDefinitionChange(m, "batch-timing");
+                    int changed = StepTimingEditor.Apply(m.Steps, indices, d.Edit);
+                    if (changed == 0) return;
                     SaveConfig();
                     RefreshSteps();
                     SelectStepIndices(indices);
+                    statusLabel.Text = Localizer.IsEnglish ? "Updated timing for " + changed + " steps." : "已修改 " + changed + " 个步骤的时间。";
                 }
             }
             finally
             {
                 uiSafetyModalDepth = Math.Max(0, uiSafetyModalDepth - 1);
-                pauseHotkeys = false;
+                pauseHotkeys = previousPause;
                 UpdateUiSafetyPauseState();
             }
         }
@@ -7868,6 +7878,7 @@ namespace InputStitch
 
         private void UpdateRecordButton()
         {
+            RefreshEditorGuidance();
             if (undoStepsButton != null)
             {
                 undoStepsButton.Enabled = stepHistory.CanUndo && !recordingActive;

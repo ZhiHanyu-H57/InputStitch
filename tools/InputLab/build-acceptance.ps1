@@ -33,6 +33,7 @@ foreach ($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawin
     $arguments += '/reference:' + (Join-Path $references $name)
 }
 $arguments += '/reference:' + $client
+$arguments += @(& (Join-Path $projectRoot 'scripts/Get-UiResourceArguments.ps1'))
 
 foreach ($productionSource in $productionSources) {
     $arguments += $productionSource

@@ -40,6 +40,8 @@ ProfileCatalog.cs
 TargetWindowPolicy.cs
 ConfigStore.cs
 StepHistory.cs
+StepTimingEditor.cs
+MouseInputDiagram.cs
 QuickCreate.cs
 ConcurrentRuntime.cs
 MacroRunCoordinator.cs

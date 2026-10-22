@@ -60,6 +60,15 @@ internal static class SourceManifestTests
         Check(projectSources.Count == entries.Count, "csproj compile list matches the manifest count");
         foreach (string entry in entries)
             Check(projectSources.Contains(entry), "csproj lists manifest entry: " + entry);
+        foreach (string resource in new[] { "mouse-color.jpg", "mouse-alpha.png" })
+        {
+            Check(File.Exists(Path.Combine(root, "assets", resource)), "mouse artwork exists: " + resource);
+            Check(File.ReadAllText(projectPath).Contains("InputStitch.Assets." + resource), "csproj embeds mouse artwork: " + resource);
+            using (Stream stream = typeof(SourceManifestTests).Assembly.GetManifestResourceStream("InputStitch.Assets." + resource))
+                Check(stream != null, "test build embeds mouse artwork: " + resource);
+        }
+        foreach (string script in new[] { "build.ps1", "tests/Run-Tests.ps1", "tests/Run-SecondaryLayout.ps1", "tests/Run-ProductAcceptance.ps1", "tests/Run-CrosshairAcceptance.ps1", "tools/InputLab/build-acceptance.ps1" })
+            Check(File.ReadAllText(Path.Combine(root, script.Replace('/', Path.DirectorySeparatorChar))).Contains("Get-UiResourceArguments.ps1"), "UI resource build parity: " + script);
 
         // Every build/test entry point must consume the shared manifest instead of a private copy.
         Check(ScriptUsesManifest(root, "build.ps1"), "build.ps1 consumes the shared source manifest");

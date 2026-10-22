@@ -23,6 +23,10 @@ $client = [Reflection.Assembly]::Load('Nefarius.ViGEm.Client')
 if ($client.Location) { throw 'The packaged managed dependency was not loaded from its embedded resource.' }
 $native = $assembly.GetType('InputStitch.Sdl3NativeApi')
 $hidden = [Reflection.BindingFlags]'Static,NonPublic'
+$mouseArtwork = $assembly.GetType('InputStitch.MouseInputDiagram').GetMethod('LoadPhoto',$hidden).Invoke($null,@())
+try {
+    if ($mouseArtwork.Width -ne 320 -or $mouseArtwork.Height -ne 480 -or $mouseArtwork.GetPixel(0,0).A -ne 0 -or $mouseArtwork.GetPixel(160,240).A -lt 240) { throw 'Embedded mouse artwork dimensions/transparency did not restore.' }
+} finally { $mouseArtwork.Dispose() }
 $extract = $native.GetMethod('TryExtractEmbeddedRuntimeTo',$hidden)
 [string]$runtimeDirectory = Join-Path $output ('runtime-'+[Guid]::NewGuid().ToString('N'))
 [string]$runtime = $extract.Invoke($null,[object[]]@([string]$runtimeDirectory))

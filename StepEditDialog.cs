@@ -44,6 +44,7 @@ namespace InputStitch
         private bool loadingControls = true;
         private Label stepPreviewText;
         private EditorKeyPreview keyPreview;
+        private MouseInputDiagram mousePreview;
         private Button confirmButton;
         private Control angleField, strengthField, triggerField;
 
@@ -114,8 +115,9 @@ namespace InputStitch
 
             inputTypeBox = new EditorChoice();
             inputTypeBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            inputTypeBox.Items.Add(Localizer.T("键盘 / 鼠标"));
+            inputTypeBox.Items.Add(EditorDialogs.T("键盘", "Keyboard"));
             inputTypeBox.Items.Add(Localizer.T("虚拟手柄"));
+            inputTypeBox.Items.Add(EditorDialogs.T("鼠标", "Mouse"));
             inputTypeBox.Dock = DockStyle.Fill;
             inputTypeBox.Margin = new Padding(3, 4, 3, 6);
             inputTypeBox.SelectedIndexChanged += delegate { if (!loadingControls) UpdateInputMode(); };
@@ -133,7 +135,7 @@ namespace InputStitch
                 Dock=DockStyle.Fill, WrapContents=true, Margin=new Padding(3,3,3,6) };
             inputText = new Label { AutoSize=true, Font=new Font(Font,FontStyle.Bold), Anchor=AnchorStyles.Left,
                 Margin=new Padding(0,6,10,4) };
-            captureButton = new EditorButton { Text=EditorDialogs.T("键盘图选择…", "Keyboard diagram…"), AutoSize=true,
+            captureButton = new EditorButton { Text=EditorDialogs.T("键盘 / 鼠标图…", "Keyboard / mouse…"), AutoSize=true,
                 MinimumSize=new Size(118,32), Margin=new Padding(0,0,6,4) };
             captureButton.AccessibleDescription=EditorDialogs.T("在键盘图中选择键盘键、组合按键或鼠标按钮。", "Choose keys, a key combination or a mouse button on the diagram.");
             captureButton.Click += SelectVirtualKeyboardInput;
@@ -193,6 +195,16 @@ namespace InputStitch
             keyPreview = new EditorKeyPreview { Dock = DockStyle.Fill, Margin = new Padding(16, 0, 0, 8) };
             root.Controls.Add(keyPreview, 3, 0);
             root.SetRowSpan(keyPreview, 7);
+            mousePreview = new MouseInputDiagram { Dock = DockStyle.Fill, Margin = new Padding(16, 0, 0, 8) };
+            mousePreview.InputSelected += delegate(InputKind kind)
+            {
+                if (ownerMain != null) ownerMain.CancelCapture();
+                selectedInputs = null;
+                selectedInput = new InputSpec { Kind = kind, VirtualKey = 0 };
+                RefreshInputText(); UpdateHoldEnabled();
+            };
+            root.Controls.Add(mousePreview, 3, 0);
+            root.SetRowSpan(mousePreview, 7);
 
             holdLabel = new Label();
             holdLabel.Text = "按住时长：";
@@ -362,7 +374,7 @@ namespace InputStitch
             int initialAngle;
             int initialStrength;
             GamepadVector.FromCartesian(selectedInput.GamepadX, selectedInput.GamepadY, out initialAngle, out initialStrength);
-            inputTypeBox.SelectedIndex = selectedInput.Kind == InputKind.Gamepad ? 1 : 0;
+            inputTypeBox.SelectedIndex = DeviceIndex(selectedInput);
             gamepadControlBox.SelectedIndex = Math.Max(0, Math.Min(gamepadControlBox.Items.Count - 1, (int)selectedInput.GamepadControl));
             stickAngleBox.Value = ClampDecimal(initialAngle, stickAngleBox.Minimum, stickAngleBox.Maximum);
             stickStrengthBox.Value = ClampDecimal(initialStrength, stickStrengthBox.Minimum, stickStrengthBox.Maximum);
@@ -377,10 +389,11 @@ namespace InputStitch
                 label.AutoSize = true;
             EditorTheme.Apply(this);
             EditorTheme.Primary(ok, false);
+            RefreshInputText();
             UpdateStepPreview();
             root.Layout += delegate
             {
-                float scale=Font.GetHeight()/Font.GetHeight(96F);
+                float scale=Math.Max(Font.GetHeight()/Font.GetHeight(96F), Font.Size/EditorTheme.BodyFontSize);
                 float previewWidth=Math.Min(380*scale,Math.Max(260*scale,root.ClientSize.Width*.4F));
                 if(root.ColumnStyles[3].Width!=previewWidth) root.ColumnStyles[3].Width=previewWidth;
                 inputText.MaximumSize=new Size((int)(260*scale),0);
@@ -432,6 +445,7 @@ namespace InputStitch
         {
             if (selectedInput == null) return;
             bool gamepad = inputTypeBox.SelectedIndex == 1;
+            bool mouse = inputTypeBox.SelectedIndex == 2;
             if (gamepad && selectedInput.Kind != InputKind.Gamepad)
             {
                 selectedInputs = null;
@@ -445,14 +459,21 @@ namespace InputStitch
                 triggerValueBox.Value = 100;
                 loadingControls = false;
             }
-            else if (!gamepad && selectedInput.Kind == InputKind.Gamepad)
+            else if (mouse && !MouseInputDiagram.IsMouse(selectedInput.Kind))
             {
+                selectedInputs = null;
+                selectedInput = new InputSpec { Kind = InputKind.MouseLeft, VirtualKey = 0 };
+            }
+            else if (!gamepad && !mouse && selectedInput.Kind != InputKind.Keyboard)
+            {
+                selectedInputs = null;
                 selectedInput = new InputSpec();
                 selectedInput.Kind = InputKind.Keyboard;
                 selectedInput.VirtualKey = (int)Keys.A;
             }
             inputLabel.Visible = !gamepad;
             inputPanel.Visible = !gamepad;
+            captureButton.Visible = true;
             gamepadLabel.Visible = gamepad;
             gamepadPanel.Visible = gamepad;
             if (gamepad)
@@ -514,6 +535,10 @@ namespace InputStitch
                 {
                     selectedInputs = null;
                     selectedInput = input.Clone();
+                    loadingControls = true;
+                    inputTypeBox.SelectedIndex = DeviceIndex(selectedInput);
+                    loadingControls = false;
+                    UpdateInputMode();
                     RefreshInputText();
                 }
                 recordButton.Text = EditorDialogs.T("实际按键录入…", "Press a key…");
@@ -541,8 +566,11 @@ namespace InputStitch
             if (keyPreview != null)
             {
                 bool gamepad = selectedInput.Kind == InputKind.Gamepad;
-                keyPreview.Visible = !gamepad;
+                bool mouse = MouseInputDiagram.IsMouse(selectedInput.Kind);
+                keyPreview.Visible = !gamepad && !mouse;
                 gamepadPreview.Visible = gamepad;
+                mousePreview.Visible = mouse;
+                mousePreview.SetSelection(mouse ? (InputKind?)selectedInput.Kind : null);
                 keyPreview.Text = inputText.Text;
                 keyPreview.Invalidate();
             }
@@ -562,13 +590,17 @@ namespace InputStitch
         {
             if (ownerMain != null) ownerMain.CancelCapture();
             IList<InputSpec> initial = selectedInputs;
-            if (initial == null && selectedInput != null && selectedInput.Kind == InputKind.Keyboard)
+            if (initial == null && selectedInput != null && selectedInput.Kind != InputKind.Gamepad)
                 initial = new List<InputSpec>(new InputSpec[] { selectedInput });
             using (VirtualKeyboardDialog dialog = new VirtualKeyboardDialog(false, initial))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 selectedInputs = dialog.SelectedInputs;
                 selectedInput = selectedInputs[0].Clone();
+                loadingControls = true;
+                inputTypeBox.SelectedIndex = DeviceIndex(selectedInput);
+                loadingControls = false;
+                UpdateInputMode();
                 RefreshInputText();
                 UpdateHoldEnabled();
             }
@@ -585,11 +617,14 @@ namespace InputStitch
             UpdateStepPreview();
         }
 
+        private static int DeviceIndex(InputSpec input)
+        { return input.Kind == InputKind.Gamepad ? 1 : MouseInputDiagram.IsMouse(input.Kind) ? 2 : 0; }
+
         private void UpdateStepPreview()
         {
             if (loadingControls || stepPreviewText == null || selectedInput == null) return;
             bool validRange = !randomDelayBox.Checked || randomMinBox.Value <= randomMaxBox.Value;
-            bool validAction = (selectedInput.Kind != InputKind.WheelUp && selectedInput.Kind != InputKind.WheelDown) || actionBox.SelectedIndex == 0;
+            bool validAction = !HasWheelInput() || actionBox.SelectedIndex == 0;
             if (confirmButton != null) confirmButton.Enabled = validRange && validAction;
             if (!validRange || !validAction)
             {
@@ -619,7 +654,7 @@ namespace InputStitch
                 LocalizedMessageBox.Show(this, "请先选择一个按键、鼠标或手柄输入。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            if ((selectedInput.Kind == InputKind.WheelUp || selectedInput.Kind == InputKind.WheelDown) && actionBox.SelectedIndex != 0)
+            if (HasWheelInput() && actionBox.SelectedIndex != 0)
             {
                 LocalizedMessageBox.Show(this, "滚轮只支持“按一下”动作，因为滚轮没有持续按下/松开的状态。", AppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
@@ -652,6 +687,13 @@ namespace InputStitch
                 : new List<MacroStep>(new MacroStep[] { s });
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private bool HasWheelInput()
+        {
+            if (selectedInputs != null) foreach (InputSpec input in selectedInputs)
+                if (input.Kind == InputKind.WheelUp || input.Kind == InputKind.WheelDown) return true;
+            return selectedInput != null && (selectedInput.Kind == InputKind.WheelUp || selectedInput.Kind == InputKind.WheelDown);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
