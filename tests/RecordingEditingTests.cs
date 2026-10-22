@@ -23,6 +23,55 @@ internal static class RecordingEditingTests
     private static InputSpec Mouse(InputKind kind) { return new InputSpec { Kind = kind, VirtualKey = 0 }; }
     private static InputEventInfo Event(InputKind kind) { return new InputEventInfo { Input = Mouse(kind) }; }
     private static readonly InputKind[] Mice = { InputKind.MouseLeft, InputKind.MouseRight, InputKind.MouseMiddle, InputKind.MouseX1, InputKind.MouseX2, InputKind.WheelUp, InputKind.WheelDown };
+    private sealed class Observer : IOutputBackend
+    {
+        internal int Downs, Ups;
+        public void SendDown(InputSpec input) { Interlocked.Increment(ref Downs); }
+        public void SendUp(InputSpec input) { Interlocked.Increment(ref Ups); }
+        public void NeutralizeGamepad() { }
+    }
+
+    private static void TestMouseTriggerExecution(string root)
+    {
+        MacroConfig config = new MacroConfig { GamepadDeviceType = VirtualGamepadTypes.None };
+        foreach (InputKind kind in Mice)
+        {
+            TriggerSpec trigger; string error;
+            Check(VirtualKeyboardDialog.TryCreateTrigger(new[] { Mouse(kind) }, out trigger, out error), "create runnable mouse trigger " + kind);
+            MacroDefinition macro = new MacroDefinition { Name = kind.ToString(), Trigger = trigger };
+            macro.Steps.Add(new MacroStep { VirtualKey = (int)Keys.F23, HoldMs = 2 });
+            config.Macros.Add(macro);
+        }
+        Observer observer = new Observer();
+        using (MainForm form = new MainForm(config, root, observer))
+        using (HookManager hook = Hook(e => Call(form, "HandleTerminalInput", e), e => Call(form, "HandleTerminalInputReleased", e)))
+        {
+            IntPtr handle = form.Handle;
+            OutputOwnershipManager ownership = Field<OutputOwnershipManager>(form, "outputOwnership");
+            foreach (bool ctrl in new[] { false, true })
+            foreach (MacroDefinition macro in config.Macros)
+            {
+                macro.Trigger.Ctrl = ctrl;
+                int before = Volatile.Read(ref observer.Downs);
+                if (ctrl)
+                {
+                    InputEventInfo input = Event(macro.Trigger.Kind); input.Ctrl = true;
+                    Call(form, "HandleTerminalInput", input);
+                    Call(form, "HandleTerminalInputReleased", input);
+                }
+                else
+                {
+                    MouseEdge(hook, macro.Trigger.Kind, true, false);
+                    if (InputSender.IsHoldable(Mouse(macro.Trigger.Kind))) MouseEdge(hook, macro.Trigger.Kind, false, false);
+                }
+                Stopwatch clock = Stopwatch.StartNew();
+                while ((Volatile.Read(ref observer.Ups) <= before || (bool)Call(form, "HasWorkerBackedRuns")) && clock.ElapsedMilliseconds < 3000) Pump();
+                Check(Volatile.Read(ref observer.Downs) == before + 1 && Volatile.Read(ref observer.Ups) == before + 1,
+                    "mouse trigger executes and balances output: Ctrl=" + ctrl + "; " + macro.Trigger.Kind);
+                Check(ownership.Snapshot().Sources.Count == 0 && ownership.Snapshot().Merged.Count == 0, "mouse trigger leaves no output ownership " + macro.Trigger.Kind);
+            }
+        }
+    }
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr window, int message, IntPtr w, IntPtr l);
     [DllImport("user32.dll")] private static extern bool AllowSetForegroundWindow(int process);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr process);
@@ -318,7 +367,7 @@ internal static class RecordingEditingTests
         }
         EmbeddedDependencyLoader.Register();
         string root = Path.Combine(Path.GetTempPath(), "InputStitch-record-edit-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
-        try { TestMouseSelection(); TestTiming(Path.Combine(root, "timing")); TestRecording(root, args.Contains("--recording-native")); Console.WriteLine("PASS recording/editing: " + checks + " checks; native decoder, explicit foreground boundary, real external window, isolated settings; no global hooks or emitted input."); return 0; }
+        try { TestMouseSelection(); TestMouseTriggerExecution(Path.Combine(root, "triggers")); TestTiming(Path.Combine(root, "timing")); TestRecording(root, args.Contains("--recording-native")); Console.WriteLine("PASS recording/editing: " + checks + " checks; native decoder, mouse trigger execution, explicit foreground boundary, real external window, isolated settings; no global hooks or emitted input."); return 0; }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
         finally { Directory.Delete(root, true); }
     }
