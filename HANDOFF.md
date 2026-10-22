@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## Website redesign prepared — 2026-10-22
+## Website redesign published and verified — 2026-10-22
 
 Branch `web/151-redesign`, based on main `365e75a`. Rebuilt overview/download/guide/
 404, current diamond branding and actual 1.5.1 bilingual screenshots, responsive
@@ -17,13 +17,18 @@ diamond overlap. Four old screenshots removed, four current lossless WebP images
 added. First-page local assets ~83 KB uncompressed. No desktop C# or release
 artifact change, no unrelated desktop regression run. See `docs/WEBSITE.md`.
 
-Deployment pending user authorization: current Cloudflare OAuth supports Workers
-but lacks pages:write; Pages API returns 10000. Read-only Workers/domain checks
-confirmed that profile only exposes the existing speedrun services. User has
-been asked through the async question to authorize Pages publication for
-inputstitch.zhihanyu.com. Use a separate publishing profile to preserve existing
-Workers access. Do not run a broad default OAuth reauthorization or migrate hosts.
-Deliverable preview/screenshots/test JSON are in this chat's outputs/website-redesign.
+User authorized Pages publication and completed Cloudflare OAuth. Created the
+separate `inputstitch-site` profile with account/user read + Pages write and
+offline access; retained the existing default Workers login. Published the
+existing `inputstitch` Pages project, branch `main`, source `bd5c9c2`, deployment
+`17621dc1-4b07-45bd-9d6b-cb13a55c5800`. Cloudflare confirms production success
+and the original custom domain https://inputstitch.zhihanyu.com/.
+
+Live domain acceptance: 278 browser checks / 40 cases PASS, 226 static/version/
+size checks PASS, all 13 served files match sources (HTML comparison excludes
+only line endings and the hosting platform's existing injected beacon). Custom
+404, response headers and SVG/WebP MIME checks PASS. Source ZIP, report and live
+screenshots are in this chat's outputs/website-redesign; no manual-trial gate.
 
 ## 1.5.1 Stable published and verified — 2026-10-22
 

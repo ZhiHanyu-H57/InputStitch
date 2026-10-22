@@ -63,7 +63,18 @@ for Chinese (HTML, CSS, JS, screenshot, diamond and release snapshot). Browser
 155.0.4283.62; desktop and mobile screenshots were inspected. No production C#
 source or Windows release asset changed. Existing user settings were not used.
 
-Publication is pending authorization for the existing Cloudflare Pages site:
-the current OAuth profile can access Workers but lacks `pages:write`; Pages API
-returns error 10000. Keep the existing Workers profile intact when authorizing a
-separate site-publishing profile. Do not replace this domain with a new site.
+Published to https://inputstitch.zhihanyu.com/ on 2026-10-22 using the existing
+Cloudflare Pages project `inputstitch`, production branch `main`, source commit
+`bd5c9c2fef9ca03572bfb04deb76bcf99860db73`. Deployment
+`17621dc1-4b07-45bd-9d6b-cb13a55c5800` completed successfully. The separate
+`inputstitch-site` auth profile has Pages publication access; the existing
+default Workers profile was retained.
+
+Post-publication checks on the actual custom domain also passed **278 browser
+assertions / 40 cases** and **226 static/published-metadata checks**. All 13
+served files match the authored sources, accounting only for line endings and
+the hosting platform's existing injected beacon in HTML; binary/CSS/JS/JSON
+assets match byte for byte. Security headers, SVG/WebP MIME types and the custom
+404 response passed. Evidence and live screenshots are in this chat's
+`outputs/website-redesign/live`. Website publishing does not rebuild the desktop
+application or change Stable 1.5.1 downloads.
