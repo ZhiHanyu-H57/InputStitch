@@ -29,7 +29,7 @@ namespace InputStitch
         }
 
         // Empty means only Base is eligible. This is intentionally runtime-only in Layer v1.
-        private string activeMappingLayerId = "";
+        private volatile string activeMappingLayerId = "";
         // Underlying click-to-switch / UI selection. Momentary holds temporarily override this value.
         private string persistentMappingLayerId = "";
         // Momentary layer holds in activation order; the last still-valid entry is the effective layer.

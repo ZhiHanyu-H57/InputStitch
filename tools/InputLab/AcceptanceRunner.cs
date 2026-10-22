@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -140,6 +141,7 @@ namespace InputStitch.Tools.InputLab
             ScenarioUniversalMacroConcurrency(lab, product);
             ScenarioFourHeldPlusOrdinary(lab, product);
             ScenarioEmergencyStop(lab, product);
+            ScenarioBlockedUiLongPress(lab, product);
             Neutral(product, lab, "final-neutral");
 
             Report.AppendLine();
@@ -178,6 +180,75 @@ namespace InputStitch.Tools.InputLab
             }, 1200, out cleared);
             if (!released)
                 throw new AcceptanceBlockedException("ViGEm/XInput probe was visible but did not return to neutral before acceptance. " + DescribeXInputSlots());
+        }
+
+        private static void ScenarioBlockedUiLongPress(InputLabForm lab, MainForm product)
+        {
+            Section("Prepared long-press while UI is blocked: real ViGEm/XInput output");
+            ObservationSnapshot before = lab.CaptureObservation();
+            XInputReader reader = new XInputReader();
+            InputEventInfo edge = KeyEvent(Keys.F24);
+            MacroDefinition macro = null;
+            Exception uiError = null;
+            long startedAt = 0;
+            using (ManualResetEventSlim began = new ManualResetEventSlim(false))
+            using (ManualResetEventSlim finished = new ManualResetEventSlim(false))
+            using (InputPipelineScheduler scheduler = new InputPipelineScheduler(10, delegate
+            {
+                typeof(MainForm).GetMethod("RequestActivatorTick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(product, null);
+            }, null))
+            {
+                product.Invoke((MethodInvoker)delegate
+                {
+                    MacroConfig config = (MacroConfig)typeof(MainForm).GetField("config", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(product);
+                    macro = config.Macros.Find(delegate(MacroDefinition item) { return item.Trigger.VirtualKey == (int)Keys.F24; });
+                    // The acceptance input edge/focus are explicit seams. The output is real
+                    // and read directly from XInput while neither UI message loop can pump.
+                    product.ActivatorPhysicalProbe = delegate { return true; };
+                    product.ActivatorOwnWindowProbe = delegate { return false; };
+                });
+                scheduler.Start();
+                product.BeginInvoke((MethodInvoker)delegate
+                {
+                    try
+                    {
+                        startedAt = Stopwatch.GetTimestamp();
+                        HandleDown.Invoke(product, new object[] { edge });
+                        began.Set();
+                        Thread.Sleep(400);
+                    }
+                    catch (Exception ex) { uiError = ex; }
+                    finally { began.Set(); finished.Set(); }
+                });
+                try
+                {
+                    Check("blocked UI long-press edge delivered", began.Wait(2000) && uiError == null, "explicit input seam; threshold=150ms; UI block=400ms");
+                    bool observed = false;
+                    long latency = -1;
+                    Stopwatch timeout = Stopwatch.StartNew();
+                    while (timeout.ElapsedMilliseconds < 700)
+                    {
+                        XInputReader.XINPUT_STATE state;
+                        if (before.XInputSlot >= 0 && reader.TryGetState((uint)before.XInputSlot, out state) && (state.Gamepad.wButtons & XInputReader.A) != 0)
+                        { observed = true; latency = (Stopwatch.GetTimestamp() - startedAt) * 1000 / Stopwatch.Frequency; break; }
+                        Thread.Sleep(2);
+                    }
+                    Check("real XInput A down before UI resumes", observed && !finished.IsSet, "observed=" + observed + "; UI finished=" + finished.IsSet);
+                    Check("real XInput long-press respects threshold without UI wait", observed && latency >= 150 && latency < 350, "latency=" + latency + "ms; explicit input/focus seams, real virtual-controller output");
+                }
+                finally
+                {
+                    if (!finished.Wait(2000)) throw new Exception("blocked UI did not return");
+                    product.Invoke((MethodInvoker)delegate
+                    {
+                        HandleUp.Invoke(product, new object[] { edge });
+                        typeof(MainForm).GetMethod("StopMacro", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(product, new object[] { macro, "blocked-ui-acceptance" });
+                        product.ActivatorPhysicalProbe = null;
+                        product.ActivatorOwnWindowProbe = null;
+                    });
+                }
+                CheckWaitButton(lab, "blocked UI long-press stop releases real XInput A", XInputReader.A, false, 1200);
+            }
         }
 
         private static OutputOwnershipManager GetOwnershipManager(MainForm product)
@@ -912,6 +983,9 @@ namespace InputStitch.Tools.InputLab
             config.Macros.Add(ComplexHoldKeyboard("F9 -> K complex Hold", Keys.F9, Keys.K, 2500));
             config.Macros.Add(ComplexHoldMouse("F10 -> X2 complex Hold", Keys.F10, InputKind.MouseX2, 2500));
             config.Macros.Add(ComplexHoldGamepad("F11 -> RT60 complex Hold", Keys.F11, GamepadControl.RightTrigger, 60, 2500));
+            MacroDefinition longPress = TimedGamepadPress("F24 long-press -> A", Keys.F24, GamepadControl.South, 900);
+            longPress.Activator = new ActivatorConfig { Mode = ActivatorModes.LongPress, LongPressMs = 150 };
+            config.Macros.Add(longPress);
             return config;
         }
 

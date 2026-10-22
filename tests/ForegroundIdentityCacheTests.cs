@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Diagnostics;
+using System.Windows.Forms;
 using InputStitch;
 
 internal static class ForegroundIdentityCacheTests
@@ -35,6 +37,7 @@ internal static class ForegroundIdentityCacheTests
         public void NeutralizeGamepad() { }
     }
 
+    [STAThread]
     public static int Main()
     {
         string root = Path.Combine(Path.GetTempPath(), "InputStitch-ForegroundCache-" + Guid.NewGuid().ToString("N"));
@@ -79,6 +82,32 @@ internal static class ForegroundIdentityCacheTests
                 }
                 for (int i = 0; i < workers.Length; i++) workers[i].Join();
                 Check(failure == null, "concurrent foreground describes do not throw");
+
+                // A real window handle, without stealing foreground focus or emitting input.
+                // The UI waits without pumping; background condition lookup must not send
+                // synchronous caption messages back to this blocked thread.
+                IntPtr ownHandle = form.Handle;
+                MethodInfo read = typeof(MainForm).GetMethod("ReadForegroundIdentityCached", BindingFlags.Instance | BindingFlags.NonPublic);
+                TargetWindowIdentity own = read.Invoke(form, new object[] { ownHandle }) as TargetWindowIdentity;
+                Check(own != null && own.Title == form.Text, "UI lane can still inspect its own window conditions");
+                using (ManualResetEventSlim completed = new ManualResetEventSlim(false))
+                {
+                    object backgroundIdentity = own;
+                    Thread background = new Thread(delegate()
+                    {
+                        try { backgroundIdentity = read.Invoke(form, new object[] { ownHandle }); }
+                        catch (Exception ex) { failure = ex; }
+                        finally { completed.Set(); }
+                    });
+                    background.IsBackground = true;
+                    background.Start();
+                    bool returnedWithoutUi = completed.Wait(300);
+                    Stopwatch cleanup = Stopwatch.StartNew();
+                    while (!completed.IsSet && cleanup.ElapsedMilliseconds < 1000) { Application.DoEvents(); Thread.Sleep(2); }
+                    background.Join(1000);
+                    Check(returnedWithoutUi && failure == null && backgroundIdentity == null,
+                        "background own-window conditions fail closed while UI is blocked, including with a warm own-window cache");
+                }
             }
         }
         finally

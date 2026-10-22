@@ -61,6 +61,7 @@ internal static class ProductAcceptanceTests
         private readonly object sync = new object();
         private readonly HashSet<string> pressed = new HashSet<string>();
         internal long Downs, Ups, KeyboardDowns, KeyboardUps, MaxContinuousGapMs;
+        internal long FiniteDowns, LastFiniteDownAt;
         private long lastContinuousDown;
         private static string Key(InputSpec value) { return value.Kind + ":" + value.VirtualKey + ":" + value.GamepadControl; }
         public void SendDown(InputSpec value)
@@ -69,6 +70,11 @@ internal static class ProductAcceptanceTests
             {
                 Downs++; pressed.Add(Key(value));
                 if (value.Kind == InputKind.Keyboard) KeyboardDowns++;
+                if (value.Kind == InputKind.Keyboard && value.VirtualKey == (int)Keys.F7)
+                {
+                    Interlocked.Exchange(ref LastFiniteDownAt, Stopwatch.GetTimestamp());
+                    Interlocked.Increment(ref FiniteDowns);
+                }
                 if (value.Kind == InputKind.Keyboard && value.VirtualKey == (int)Keys.F6)
                 {
                     long now = Stopwatch.GetTimestamp();
@@ -1164,6 +1170,8 @@ internal static class ProductAcceptanceTests
         MacroConfig config = new MacroConfig { GamepadDeviceType = VirtualGamepadTypes.None };
         MacroDefinition continuous = Timed("continuous", Keys.F6, true);
         MacroDefinition finite = Timed("repeated-start-stop", Keys.F7, false);
+        finite.Trigger = new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F24 };
+        finite.Activator = new ActivatorConfig { Mode = ActivatorModes.LongPress, LongPressMs = 50 };
         MacroDefinition held = QuickMacros.Create(QuickTemplate.HeldMapping, "held-stick", new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.W },
             new List<MacroStep> { new MacroStep { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.LeftStick, GamepadY = 80 } }, 1);
         config.Macros.Add(continuous); config.Macros.Add(finite); config.Macros.Add(held);
@@ -1171,20 +1179,43 @@ internal static class ProductAcceptanceTests
         Stopwatch clock = Stopwatch.StartNew();
         Process process = Process.GetCurrentProcess();
         long cycles = 0, baselineBytes = 0, maxBytes = 0, maxPumpMs = 0;
+        long longPressCycles = 0, blockedUiSamples = 0, maxLongPressMs = 0;
         int baselineHandles = 0, maxHandles = 0, baselineThreads = 0, maxThreads = 0;
         int baselineGdi = 0, baselineUser = 0;
         List<int> warmHandles = new List<int>(), tailHandles = new List<int>();
         List<string> samples = new List<string> { "elapsed_seconds,cycles,private_bytes,handles,threads,output_downs,output_ups,cpu_milliseconds" };
         using (MainForm form = new MainForm(config, directory, observer))
+        using (InputPipelineScheduler scheduler = new InputPipelineScheduler(10, delegate { Call(form, "RequestActivatorTick"); }, null))
         {
             IntPtr handle = form.Handle;
+            form.ActivatorPhysicalProbe = delegate { return true; };
+            form.ActivatorOwnWindowProbe = delegate { return false; };
+            scheduler.Start();
             Call(form, "StartParallelHeldMapping", held);
             Call(form, "StartMacro", continuous, 0, null, false, false);
             Wait(delegate { return observer.Downs > 0; }, "continuous run starts", 2000);
             long nextSample = 0;
             while (clock.Elapsed.TotalMinutes < minutes)
             {
-                Call(form, "StartMacro", finite, 0, null, false, false);
+                if (cycles % 2 == 0)
+                {
+                    InputEventInfo edge = new InputEventInfo { Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F24 } };
+                    long previous = Interlocked.Read(ref observer.FiniteDowns), started = Stopwatch.GetTimestamp();
+                    Call(form, "HandleTerminalInput", edge);
+                    if (cycles > 0 && cycles % 20 == 0)
+                    {
+                        Thread.Sleep(120);
+                        Check(Interlocked.Read(ref observer.FiniteDowns) > previous, "long-press output occurs before blocked UI resumes during soak");
+                        blockedUiSamples++;
+                    }
+                    Wait(delegate { return Interlocked.Read(ref observer.FiniteDowns) > previous; }, "long-press starts during soak", 2000);
+                    long latency = (Interlocked.Read(ref observer.LastFiniteDownAt) - started) * 1000 / Stopwatch.Frequency;
+                    Check(latency >= 50 && latency < 300, "sustained long-press respects threshold without UI delay");
+                    maxLongPressMs = Math.Max(maxLongPressMs, latency);
+                    Call(form, "HandleTerminalInputReleased", edge);
+                    longPressCycles++;
+                }
+                else Call(form, "StartMacro", finite, 0, null, false, false);
                 Wait(delegate { return !(bool)Call(form, "IsMacroActuallyRunning", finite); }, "finite run completes during soak", 2000);
                 cycles++;
                 Check(Field<OutputOwnershipManager>(form, "outputOwnership").Snapshot().Merged.Any(x =>
@@ -1251,6 +1282,7 @@ internal static class ProductAcceptanceTests
             // peaks separately. A single end sample depends on where the GC cycle happened to stop.
             string report = "{\"status\":\"MEASURED\",\"version\":\"" + AppInfo.Version + "\",\"durationSeconds\":" + clock.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) +
                 ",\"cycles\":" + cycles + ",\"outputDowns\":" + observer.Downs + ",\"outputUps\":" + observer.Ups +
+                ",\"longPressCycles\":" + longPressCycles + ",\"longPressThresholdMs\":50,\"blockedUiSamples\":" + blockedUiSamples + ",\"blockedUiDurationMs\":120,\"maxLongPressMs\":" + maxLongPressMs +
                 ",\"keyboardDowns\":" + observer.KeyboardDowns + ",\"keyboardUps\":" + observer.KeyboardUps + ",\"maxContinuousGapMs\":" + observer.MaxContinuousGapMs +
                 ",\"cpuMilliseconds\":" + process.TotalProcessorTime.TotalMilliseconds.ToString("F1", CultureInfo.InvariantCulture) +
                 ",\"baselinePrivateBytes\":" + baselineBytes + ",\"finalPrivateBytes\":" + process.PrivateMemorySize64 + ",\"peakPrivateBytes\":" + maxBytes +

@@ -66,3 +66,4 @@ Crosshair.cs
 CrosshairOverlay.cs
 CrosshairSettingsDialog.cs
 MainForm.Crosshair.cs
+MainForm.AdvancedTriggers.cs

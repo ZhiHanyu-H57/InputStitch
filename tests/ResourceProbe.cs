@@ -67,7 +67,8 @@ internal static class ResourceProbe
                 object trigger = Field(macro, "Trigger").GetValue(macro);
                 Set(trigger, "VirtualKey", (int)Keys.F24);
                 BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
-                engine.GetType().GetMethod("OnDown", flags).Invoke(engine, new object[] { macro, edge, trigger, 0L, true });
+                engine.GetType().GetMethods(flags).Single(x => x.Name == "OnDown" && x.GetParameters().Length == 5)
+                    .Invoke(engine, new object[] { macro, edge, trigger, 0L, true });
                 engine.GetType().GetMethod("OnUp", flags).Invoke(engine, new object[] { edge, 1L, null });
                 IntPtr handle = form.Handle;
                 MethodInfo request = form.GetType().GetMethod("RequestActivatorTick", flags);

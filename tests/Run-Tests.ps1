@@ -3,6 +3,7 @@ param([string[]]$Suite, [switch]$List, [switch]$SettingsSmoke)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $allSuites = @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputPipelineIntegrationTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','MacroWorkerPoolTests','MacroRunCoordinatorTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests','SecondaryLayoutTests')
+$allSuites += 'AdvancedTriggerDispatchTests'
 if ($List) { $allSuites; return }
 $fullRun = -not $Suite
 $selectedSuites = @(if ($fullRun) { $allSuites } else { $Suite | ForEach-Object { $_.Split(',') } | Select-Object -Unique })

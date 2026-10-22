@@ -1,4 +1,27 @@
-﻿# PLAN.md
+# PLAN.md
+
+## Completed local beta — 1.5.1-beta.3 (2026-10-22)
+
+Prepared LongPress timing/admission reuses the input pipeline and coordinator;
+external ready-output runs no longer wait for UI. Immutable edge snapshots and
+single-use tickets preserve release/edit/stop cancellation. Own foreground UI,
+caption conditions and first device setup retain a coalesced UI lane; background
+own-caption lookup fails closed. Driver prompts do not hold admission locks.
+Fast workers retain source-local UI suspension and conservative own-window guard.
+16 impact-selected suites PASS (163 focused dispatch checks, 7 caption-cache checks),
+journey 142, real-output 81/0 and x64/x86 packaged smoke PASS. Final unforced observer:
+600.1 s / 4503 cycles, 2252 long presses, 225 blocked UI samples,
+keyboard 25704/25704, final sources/pressed outputs zero.
+Pre-final interrupted observer is excluded. Same delivered-edge observer sample:
+150 ms threshold / 400 ms UI block, previous 405 ms -> 152 ms;
+real XInput down before UI resumes at ~178 ms. This is not physical-hook/game latency.
+Post-soak change only restores current-config macro membership at admission; an
+explicit canary reproduces old-profile start without it. Targeted dispatch/safety
+and final package/output reverified. The other 56 production files (including executor/timing/engine) are
+unchanged; unchanged 600-second valid-run path was not repeated. Both hash sets retained.
+No new thread/timer/dependency/XML field or remote publication; Stable unchanged.
+Full 36-suite release regression was not run. See `docs/ADVANCED_TRIGGER_DISPATCH_BETA_1_5_1_3.md`.
+
 
 ## Completed local beta — 1.5.1-beta.2 (2026-10-22)
 

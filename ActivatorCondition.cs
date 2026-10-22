@@ -195,9 +195,11 @@ namespace InputStitch
         public ActivatorDecisionKind Kind;
         public InputEventInfo TriggerEvent;
         public string Reason = "";
+        internal MacroDefinition Snapshot;
+        internal object Ticket;
     }
 
-    // Timing/edge state only. Macro execution still goes through the existing concurrent runtime
+    // Timing/edge state and prepared long-press admission. Execution still uses the concurrent runtime
     // and Output Ownership. Legacy Toggle/Hold remains a compatibility adapter outside this state
     // machine until the advanced rule is explicitly enabled on a macro.
     internal sealed class ActivatorRuntimeEngine
@@ -214,6 +216,8 @@ namespace InputStitch
             public int DeviceIndex = -1;
             public TriggerSpec EffectiveTrigger;
             public InputEventInfo DownEvent;
+            public MacroDefinition Prepared;
+            public ActivatorDecision Pending;
         }
 
         private readonly object sync = new object();
@@ -222,6 +226,12 @@ namespace InputStitch
 
         internal ActivatorDecision OnDown(MacroDefinition macro, InputEventInfo inputEvent, TriggerSpec effectiveTrigger,
             long nowMs, bool conditionsSatisfied)
+        {
+            return OnDown(macro, inputEvent, effectiveTrigger, nowMs, conditionsSatisfied, false);
+        }
+
+        internal ActivatorDecision OnDown(MacroDefinition macro, InputEventInfo inputEvent, TriggerSpec effectiveTrigger,
+            long nowMs, bool conditionsSatisfied, bool prepareLongPress)
         {
             if (macro == null || inputEvent == null || inputEvent.Input == null || !ActivatorModes.UsesAdvancedPolicy(macro)) return null;
             string mode = ActivatorModes.Normalize(macro.Activator.Mode);
@@ -242,6 +252,9 @@ namespace InputStitch
                 state.DeviceIndex = inputEvent.DeviceIndex;
                 state.EffectiveTrigger = effectiveTrigger == null ? null : effectiveTrigger.Clone();
                 state.DownEvent = CloneEvent(inputEvent);
+                state.Pending = null;
+                state.Prepared = prepareLongPress && conditionsSatisfied && mode == ActivatorModes.LongPress ? macro.Clone() : null;
+                if (state.Prepared != null && state.EffectiveTrigger != null) state.Prepared.Trigger = state.EffectiveTrigger.Clone();
 
                 // Wheel directions are edge-only inputs. Press and DoublePress have meaningful
                 // edge semantics; Release/WhileHeld/LongPress require a persistent down state and
@@ -250,6 +263,7 @@ namespace InputStitch
                     !string.Equals(mode, ActivatorModes.DoublePress, StringComparison.OrdinalIgnoreCase))
                 {
                     state.EligibleAtDown = false;
+                    state.Prepared = null;
                     state.EffectiveTrigger = null;
                     state.DownEvent = null;
                     return null;
@@ -297,6 +311,8 @@ namespace InputStitch
                     string mode = macro.Activator == null ? ActivatorModes.Legacy : ActivatorModes.Normalize(macro.Activator.Mode);
                     bool currentConditions = conditionsSatisfied == null || conditionsSatisfied(macro, state.DeviceIndex);
                     state.Down = false;
+                    state.Pending = null;
+                    state.Prepared = null;
                     downCount--;
                     if (string.Equals(mode, ActivatorModes.Release, StringComparison.OrdinalIgnoreCase) &&
                         state.EligibleAtDown && currentConditions)
@@ -328,6 +344,7 @@ namespace InputStitch
                     MacroDefinition macro = pair.Key;
                     State state = pair.Value;
                     if (macro == null || state == null || !state.Down || macro.Activator == null) continue;
+                    if (state.Prepared != null) continue;
                     bool currentConditions = conditionsSatisfied == null || conditionsSatisfied(macro, state.DeviceIndex);
                     string mode = ActivatorModes.Normalize(macro.Activator.Mode);
                     if (!currentConditions)
@@ -358,6 +375,68 @@ namespace InputStitch
                 }
             }
             return result;
+        }
+
+        // Runs on the existing input pipeline. The prepared definition is isolated from
+        // editor changes; admission shares this lock with release/reset/all-stop.
+        internal List<ActivatorDecision> TickPrepared(long nowMs, Func<MacroDefinition, int, bool> conditionsSatisfied,
+            Func<TriggerSpec, bool> physicallyHeld)
+        {
+            List<ActivatorDecision> result = new List<ActivatorDecision>();
+            lock (sync)
+            {
+                foreach (KeyValuePair<MacroDefinition, State> pair in states)
+                {
+                    State state = pair.Value;
+                    if (!state.Down || state.Prepared == null || !state.EligibleAtDown || state.LongFired) continue;
+                    if (!pair.Key.Enabled || (physicallyHeld != null && !physicallyHeld(state.EffectiveTrigger)) ||
+                        (conditionsSatisfied != null && !conditionsSatisfied(state.Prepared, state.DeviceIndex)))
+                    { state.EligibleAtDown = false; state.Pending = null; continue; }
+                    if (nowMs < state.DownAt || nowMs - state.DownAt < state.Prepared.Activator.LongPressMs) continue;
+                    state.LongFired = true;
+                    ActivatorDecision decision = Decision(pair.Key, ActivatorDecisionKind.StartOnce, state.DownEvent, "long-press");
+                    decision.Snapshot = state.Prepared;
+                    decision.Ticket = state;
+                    state.Pending = decision;
+                    result.Add(decision);
+                }
+            }
+            return result;
+        }
+
+        internal bool TryDispatchPrepared(ActivatorDecision decision, Action dispatch)
+        {
+            if (decision == null || dispatch == null) return false;
+            lock (sync)
+            {
+                State state;
+                if (!states.TryGetValue(decision.Macro, out state) || !ReferenceEquals(state, decision.Ticket) ||
+                    !ReferenceEquals(state.Pending, decision) || !state.Down || !state.EligibleAtDown) return false;
+                state.Pending = null;
+                dispatch();
+                return true;
+            }
+        }
+
+        internal bool IsPreparedCurrent(ActivatorDecision decision)
+        {
+            if (decision == null) return false;
+            lock (sync)
+            {
+                State state;
+                return states.TryGetValue(decision.Macro, out state) && ReferenceEquals(state, decision.Ticket) &&
+                    ReferenceEquals(state.Pending, decision) && state.Down && state.EligibleAtDown;
+            }
+        }
+
+        internal bool HasUiPendingTick
+        {
+            get { lock (sync) { foreach (State state in states.Values) if (state.Down && state.Prepared == null) return true; return false; } }
+        }
+
+        internal bool HasPreparedPendingTick
+        {
+            get { lock (sync) { foreach (State state in states.Values) if (state.Down && state.Prepared != null && state.EligibleAtDown && !state.LongFired) return true; return false; } }
         }
 
         internal void Reset(MacroDefinition macro)

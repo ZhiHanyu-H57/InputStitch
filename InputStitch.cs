@@ -3130,13 +3130,13 @@ namespace InputStitch
         private readonly Dictionary<Control, string> uiSafetyControls = new Dictionary<Control, string>();
         private volatile bool uiSafetyPauseRequested;
         private volatile string uiSafetyPauseReason = "";
-        private int uiSafetyModalDepth;
+        private volatile int uiSafetyModalDepth;
 
         private bool loadingUi;
-        private bool pauseHotkeys;
-        private bool manualTriggerSuspend;
+        private volatile bool pauseHotkeys;
+        private volatile bool manualTriggerSuspend;
         private enum CaptureMode { None, Trigger, StepInput, PanicTrigger, LayerSwitch, QuickTrigger }
-        private CaptureMode captureMode = CaptureMode.None;
+        private volatile CaptureMode captureMode = CaptureMode.None;
         private InputEventInfo pendingModifierCapture;
         private MappingLayerDefinition layerSwitchCaptureTarget;
         private Action<InputSpec> stepCaptureCallback;
@@ -3386,7 +3386,8 @@ namespace InputStitch
                 1000,
                 2);
             // Input polling and router mirroring run on their own thread so UI stalls cannot delay input
-            // timing (architecture-review finding F1). Activator decisions stay UI-affine and are posted back.
+            // timing (architecture-review finding F1). Prepared long-press runs also use this lane;
+            // other activators and editor/device preparation are posted to the UI.
             inputPipelineScheduler = new InputPipelineScheduler(
                 10,
                 TickGamepadInput,
@@ -4339,11 +4340,19 @@ namespace InputStitch
         // lookups per second. Callers treat the returned instance as read-only.
         private TargetWindowIdentity DescribeForegroundIdentityCached()
         {
+            return ReadForegroundIdentityCached(NativeWindowFocus.ForegroundWindow());
+        }
+
+        private TargetWindowIdentity ReadForegroundIdentityCached(IntPtr hwnd)
+        {
             long now = Stopwatch.GetTimestamp();
             long ttlTicks = ForegroundIdentityCacheMs * Stopwatch.Frequency / 1000L;
             lock (foregroundIdentityCacheSync)
             {
-                IntPtr hwnd = NativeWindowFocus.ForegroundWindow();
+                // Reading our own caption from the input lane can synchronously wait
+                // for this UI thread. Own-window checks belong to its UI lane; if focus
+                // changes during background evaluation, the condition fails closed.
+                if (InvokeRequired && NativeWindowFocus.IsCurrentProcessWindow(hwnd)) return null;
                 if (foregroundIdentityCacheValid && hwnd == foregroundIdentityCacheHandle &&
                     now - foregroundIdentityCacheStamp < ttlTicks)
                     return foregroundIdentityCache;
@@ -5959,6 +5968,7 @@ namespace InputStitch
             // global escape path from every interactive state.
             if (config != null && config.PanicTrigger != null && ModifierSafetyPolicy.TriggerRequiredModifiersMatch(config.PanicTrigger, e))
             {
+                StopAllMacroRuns("emergency-stop");
                 try { BeginInvoke((MethodInvoker)delegate { EmergencyStop("全局紧急停止键"); }); } catch { }
                 return true;
             }
@@ -6163,7 +6173,7 @@ namespace InputStitch
                         e,
                         ResolveTriggerForPhysicalEvent(m.Trigger, e),
                         IdleGamepadService.MonotonicMilliseconds(),
-                        true);
+                        true, true);
                     runtimeTrace.Add("activator-down", "macro-index=" + config.Macros.IndexOf(m).ToString() +
                         "; mode=" + ActivatorModes.Normalize(m.Activator.Mode) +
                         "; decision=" + (decision == null ? "wait" : decision.Kind.ToString()));
@@ -6255,13 +6265,20 @@ namespace InputStitch
             finally { gamepadTickStats.End(tickStart); }
         }
 
-        // Advanced activators dispatch through UI-affine paths (safety-pause inspection, macro start/stop),
-        // so the input thread only requests a tick. Requests coalesce: while one is queued, further requests
-        // are dropped, which keeps a busy UI from building an unbounded backlog of stale ticks.
+        // Prepared long-press timing/admission runs here. Other advanced activators retain a
+        // coalesced UI request, so a busy UI cannot accumulate periodic stale callbacks.
         private void RequestActivatorTick()
         {
             if (!activatorEngine.HasPendingTick) return;
             if (IsDisposed || !IsHandleCreated) return;
+            bool ownForeground = IsActivatorOwnWindowForeground();
+            if (!ownForeground)
+            {
+                foreach (ActivatorDecision decision in activatorEngine.TickPrepared(
+                    IdleGamepadService.MonotonicMilliseconds(), AreMacroConditionsSatisfied, IsActivatorPhysicallyHeld))
+                    DispatchPreparedActivator(decision);
+            }
+            if (!activatorEngine.HasUiPendingTick && !(ownForeground && activatorEngine.HasPreparedPendingTick)) return;
             if (Interlocked.CompareExchange(ref activatorTickQueued, 1, 0) != 0) return;
             try
             {
@@ -6279,6 +6296,9 @@ namespace InputStitch
 
         private void TickAdvancedActivators()
         {
+            foreach (ActivatorDecision decision in activatorEngine.TickPrepared(
+                IdleGamepadService.MonotonicMilliseconds(), AreMacroConditionsSatisfied, IsActivatorPhysicallyHeld))
+                AdmitPreparedActivator(decision, false);
             List<ActivatorDecision> decisions = activatorEngine.Tick(
                 IdleGamepadService.MonotonicMilliseconds(),
                 delegate(MacroDefinition macro, int deviceIndex) { return AreMacroConditionsSatisfied(macro, deviceIndex); });
@@ -7267,6 +7287,15 @@ namespace InputStitch
 
             MacroDefinition snapshot = m.Clone();
             snapshot.Name = m.Name;
+            StartPreparedMacro(m, snapshot, capability, startDelayMs, waitForReleaseTrigger, holdControlled, singleStep, holdTriggerOverride, false);
+        }
+
+        // All callers arrive with an immutable definition and ready output devices.
+        // Registration/worker launch have no Control access and reuse the same coordinator.
+        private void StartPreparedMacro(MacroDefinition m, MacroDefinition snapshot, MacroRuntimeCapability capability,
+            int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep,
+            TriggerSpec holdTriggerOverride, bool nativeUiGuard)
+        {
             InputSender.UseScanCodeInput = config.UseScanCodeInput;
 
             MacroRunRuntime runtime = new MacroRunRuntime();
@@ -7280,6 +7309,7 @@ namespace InputStitch
             runtime.HoldTrigger = holdControlled && runtimeHoldTrigger != null ? runtimeHoldTrigger.Clone() : null;
             runtime.ReleaseProbeSince = 0;
             runtime.SingleStep = singleStep;
+            runtime.NativeUiGuard = nativeUiGuard;
             runtime.StopReason = "running";
 
             runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
@@ -7292,7 +7322,7 @@ namespace InputStitch
                 return;
             }
 
-            UpdateUiSafetyPauseState(true);
+            if (!nativeUiGuard) UpdateUiSafetyPauseState(true);
             runtimeTrace.Add("worker-start", "run=" + runtime.RunId.ToString() + "; source=" + runtime.SourceId + "; mode=" + m.RunMode.ToString());
             try
             {
@@ -7307,7 +7337,7 @@ namespace InputStitch
                 AppLog.Write("Macro worker start failed: " + m.Name, ex);
                 SetStatusSafe(Localizer.IsEnglish ? "Failed to start macro: " + ex.Message : "宏启动失败：" + ex.Message);
             }
-            UpdateRunButton();
+            UpdateRunButtonSafe();
         }
 
         private void RequestStopMacroRun_NoLock(MacroRunRuntime runtime, string reason)
@@ -7317,6 +7347,7 @@ namespace InputStitch
 
         private void StopMacro(MacroDefinition macro, string reason)
         {
+            activatorEngine.Reset(macro);
             runCoordinator.Stop(macro, reason);
         }
 
@@ -7327,6 +7358,7 @@ namespace InputStitch
 
         private List<MacroWorkItem> StopAllMacroRuns(string reason)
         {
+            activatorEngine.Clear();
             return runCoordinator.StopAll(reason);
         }
 
@@ -7363,10 +7395,10 @@ namespace InputStitch
                 if (startDelayMs > 0)
                 {
                     SetMacroRunStatusSafe(runtime, "准备执行：" + macroName + "（等待目标窗口稳定 " + startDelayMs.ToString() + " ms）");
-                    if (WaitOrStopWithUiSafety(stop, startDelayMs, macroName, held, sourceId)) return;
+                    if (WaitOrStopWithUiSafety(stop, startDelayMs, macroName, held, sourceId, runtime.NativeUiGuard)) return;
                 }
 
-                if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) return;
+                if (WaitForUiSafetyClear(stop, macroName, held, sourceId, runtime.NativeUiGuard)) return;
 
                 bool hasNaturalDelay = false;
                 foreach (MacroStep s in steps)
@@ -7403,8 +7435,8 @@ namespace InputStitch
                         InputSpec input = InputFromStep(step);
                         string key = InputKey(input);
 
-                        if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) break;
-                        if (WaitForDangerousPhysicalShortcutToClear(stop, macroName, held, step, sourceId)) break;
+                        if (WaitForUiSafetyClear(stop, macroName, held, sourceId, runtime.NativeUiGuard)) break;
+                        if (WaitForDangerousPhysicalShortcutToClear(stop, macroName, held, step, sourceId, runtime.NativeUiGuard)) break;
 
                         if (step.Action == MacroAction.Press)
                         {
@@ -7423,7 +7455,7 @@ namespace InputStitch
                                     held[key] = input.Clone();
                                     SyncRunHeldInputs(runtime, held);
                                 }
-                                if (WaitOrStopWithUiSafety(stop, Math.Max(0, step.HoldMs), macroName, held, sourceId)) break;
+                                if (WaitOrStopWithUiSafety(stop, Math.Max(0, step.HoldMs), macroName, held, sourceId, runtime.NativeUiGuard)) break;
                                 if (!alreadyHeldByThisRun)
                                 {
                                     outputOwnership.SetUp(sourceId, input);
@@ -7470,13 +7502,13 @@ namespace InputStitch
                         if (!singleStep)
                         {
                             int stepDelay = ResolveStepDelay(step, random);
-                            if (WaitOrStopWithUiSafety(stop, stepDelay, macroName, held, sourceId)) break;
+                            if (WaitOrStopWithUiSafety(stop, stepDelay, macroName, held, sourceId, runtime.NativeUiGuard)) break;
                         }
                     }
 
                     if (infinite && !hasNaturalDelay && !stop.IsSet)
                     {
-                        if (WaitOrStopWithUiSafety(stop, producedOutput ? 1 : 15, macroName, held, sourceId)) break;
+                        if (WaitOrStopWithUiSafety(stop, producedOutput ? 1 : 15, macroName, held, sourceId, runtime.NativeUiGuard)) break;
                     }
                 }
 
@@ -7579,10 +7611,10 @@ namespace InputStitch
             SetStatusSafe(Localizer.T("状态：空闲"));
         }
 
-        private bool WaitForUiSafetyClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, string sourceId)
+        private bool WaitForUiSafetyClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, string sourceId, bool nativeUiGuard = false)
         {
             if (stop.IsSet) return true;
-            if (!uiSafetyPauseRequested) return false;
+            if (!WorkerUiPauseRequested(nativeUiGuard)) return false;
 
             // Suspend only this worker's source. Other parallel Held Mapping sources remain active.
             try { outputOwnership.SuspendSource(sourceId); }
@@ -7592,7 +7624,7 @@ namespace InputStitch
             if (string.IsNullOrWhiteSpace(reason)) reason = "编辑控件";
             SetStatusSafe("已暂停：" + macroName + "（UI编辑保护：" + Localizer.T(reason) + "）");
 
-            while (!stop.IsSet && uiSafetyPauseRequested)
+            while (!stop.IsSet && WorkerUiPauseRequested(nativeUiGuard))
             {
                 if (stop.Wait(10)) return true;
             }
@@ -7604,9 +7636,9 @@ namespace InputStitch
             return false;
         }
 
-        private bool WaitOrStopWithUiSafety(ManualResetEventSlim stop, int ms, string macroName, Dictionary<string, InputSpec> held, string sourceId)
+        private bool WaitOrStopWithUiSafety(ManualResetEventSlim stop, int ms, string macroName, Dictionary<string, InputSpec> held, string sourceId, bool nativeUiGuard = false)
         {
-            if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) return true;
+            if (WaitForUiSafetyClear(stop, macroName, held, sourceId, nativeUiGuard)) return true;
             if (ms <= 0) return stop.IsSet;
 
             // Do not assume that Wait(10) advances time by exactly 10 ms. On Windows the scheduler
@@ -7616,7 +7648,7 @@ namespace InputStitch
             double remainingMs = ms;
             while (remainingMs > 0.0 && !stop.IsSet)
             {
-                if (WaitForUiSafetyClear(stop, macroName, held, sourceId)) return true;
+                if (WaitForUiSafetyClear(stop, macroName, held, sourceId, nativeUiGuard)) return true;
                 int slice = Math.Max(1, Math.Min(10, (int)Math.Ceiling(remainingMs)));
                 long before = Stopwatch.GetTimestamp();
                 if (stop.Wait(slice)) return true;
@@ -7625,7 +7657,7 @@ namespace InputStitch
                 // If UI protection became active during this slice, preserve the historical rule:
                 // none of that slice counts toward macro timing. The next iteration waits for the
                 // protection state to clear before timing resumes.
-                if (!uiSafetyPauseRequested)
+                if (!WorkerUiPauseRequested(nativeUiGuard))
                 {
                     double elapsedMs = (after - before) * 1000.0 / Stopwatch.Frequency;
                     if (elapsedMs <= 0.0) elapsedMs = slice;
@@ -7635,7 +7667,7 @@ namespace InputStitch
             return stop.IsSet;
         }
 
-        private bool WaitForDangerousPhysicalShortcutToClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, MacroStep step, string sourceId)
+        private bool WaitForDangerousPhysicalShortcutToClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, MacroStep step, string sourceId, bool nativeUiGuard = false)
         {
             if (step == null || step.Action == MacroAction.Up || step.Kind != InputKind.Keyboard) return stop.IsSet;
 
@@ -7644,7 +7676,7 @@ namespace InputStitch
             long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
             while (!stop.IsSet)
             {
-                if (uiSafetyPauseRequested && WaitForUiSafetyClear(stop, macroName, held, sourceId)) return true;
+                if (WorkerUiPauseRequested(nativeUiGuard) && WaitForUiSafetyClear(stop, macroName, held, sourceId, nativeUiGuard)) return true;
 
                 HookManager h = hooks;
                 int hookMask = h == null ? 0 : h.PhysicalModifierMaskSnapshot;

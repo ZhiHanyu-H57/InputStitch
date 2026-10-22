@@ -66,8 +66,8 @@ internal static class InputPipelineIntegrationTests
     }
 
     // Input seam -> production scheduler/UI dispatch -> real worker -> observer.
-    // Measures current UI-affine activators; this does not claim physical hook or
-    // game latency, nor does it remove UI safety checks to make the sample pass.
+    // Measures an already delivered input edge; this does not claim physical hook
+    // or game latency. Physical state/focus are explicit isolated-test seams.
     private static long AdvancedLatency(string directory, int uiBlockedMs)
     {
         MacroConfig config = new MacroConfig { GamepadDeviceType = VirtualGamepadTypes.None };
@@ -78,16 +78,22 @@ internal static class InputPipelineIntegrationTests
         config.Macros.Add(macro); Observer observer = new Observer();
         using (MainForm form = new MainForm(config, directory, observer))
         {
+            form.ActivatorPhysicalProbe = delegate { return true; };
+            form.ActivatorOwnWindowProbe = delegate { return false; };
             IntPtr handle = form.Handle;
             InputEventInfo input = new InputEventInfo { Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F24 } };
             using (InputPipelineScheduler scheduler = new InputPipelineScheduler(10, delegate { Call(form, "RequestActivatorTick"); }, null))
             {
                 long start = Stopwatch.GetTimestamp();
                 Call(form, "HandleTerminalInput", input); scheduler.Start();
-                if (uiBlockedMs != 0) Thread.Sleep(uiBlockedMs);
+                if (uiBlockedMs != 0)
+                {
+                    Thread.Sleep(uiBlockedMs);
+                    if (Interlocked.Read(ref observer.FirstDownAt) == 0) throw new Exception("long-press output must occur before UI pumping resumes");
+                }
                 Wait(delegate { return Interlocked.Read(ref observer.FirstDownAt) != 0; });
                 long latency = (Interlocked.Read(ref observer.FirstDownAt) - start) * 1000 / Stopwatch.Frequency;
-                if (latency < 150 || latency < uiBlockedMs) throw new Exception("long-press must respect the threshold and current UI dispatch boundary");
+                if (latency < 150 || (uiBlockedMs != 0 && latency >= 300)) throw new Exception("long-press must respect the threshold without waiting for UI dispatch");
                 Call(form, "HandleTerminalInputReleased", input);
                 Wait(delegate { return !(bool)Call(form, "HasWorkerBackedRuns"); });
                 if (observer.Downs != observer.Ups) throw new Exception("latency sample left held output");
@@ -138,7 +144,7 @@ internal static class InputPipelineIntegrationTests
         WorkerReuse(directory);
         long responsive = AdvancedLatency(directory, 0), blocked = AdvancedLatency(directory, 400);
         string report = "{\"version\":\"" + AppInfo.Version + "\",\"thresholdMs\":150,\"uiBlockedMs\":400,\"responsiveMs\":" + responsive +
-            ",\"blockedMs\":" + blocked + ",\"backend\":\"isolated observer\",\"note\":\"Input seam, production scheduler and worker; UI affinity remains; no physical hooks or real output.\"}";
+            ",\"blockedMs\":" + blocked + ",\"backend\":\"isolated observer\",\"note\":\"Delivered input edge, production scheduler and worker; output before UI resumes; no physical hooks or real output.\"}";
         File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "activator-ui-latency.json"), report);
         Console.WriteLine(report);
         Console.WriteLine("PASS input pipeline integration: 24 checks; idle UI work, worker reuse, source-local cancellation, bilingual progress diagnostics, configuration completion and UI-blocked long-press samples; isolated observer, no hooks or real output.");

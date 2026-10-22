@@ -176,6 +176,7 @@ namespace InputStitch
 
     internal sealed class MacroRunRuntime
     {
+        internal bool NativeUiGuard;
         public long RunId;
         public string SourceId = "";
         public MacroDefinition OwnerMacro;
