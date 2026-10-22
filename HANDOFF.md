@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## Main protection and website HSTS completed — 2026-10-22
+
+User authorized these two changes first; Cloudflare account 2FA is a later,
+separate task. Main protection is active and applies to administrators: PRs are
+required, force pushes/deletion are denied, review conversations must be
+resolved. Zero external approvals supports the single-maintainer workflow.
+Impact-selected checks remain the development policy; the existing full software
+release verification gate and tag/dispatch publishers are unchanged.
+
+Actual administrator-authenticated direct push rejected with GH006; main stayed
+at aaade7d. The same change merged normally through PR #1 without admin bypass,
+source merge 6ce175f25921ba2629107d1afa7718c8703d0aa4. See AGENTS.md before
+future commits/pushes; documentation also uses topic branches and PRs.
+
+Published HSTS `max-age=31536000` on inputstitch.zhihanyu.com only, without
+includeSubDomains/preload. Deployment f49e3dc7-2af6-478b-be7e-f7c47b44ec22
+succeeded. Live document responses and fresh static-resource requests carry it;
+some prior asset cache entries retain older header metadata. HTML delivery
+teaches the policy for the entire host. Download and preview host policies are
+unchanged, and all 13 served file contents match the existing website.
+
+Acceptance PASS: 222 static/published-metadata checks; 33 focused live browser
+assertions across Chinese/English and widths 390/1440, including HSTS, navigation,
+language persistence and an actual download-button click yielding the verified
+x64 EXE. Both x64/x86 R2 download hashes match GitHub digests and update manifests.
+Canonical GitHub legacy URLs and derived R2 manifest validation pass. Stable
+v1.5.1/tag, all 57 production sources, workflows and publishers are unchanged;
+no new software release or unrelated product regression was run.
+Detailed records are in this chat's outputs/website-security.
+
 ## Homepage refinement published and verified — 2026-10-22
 
 Follow-up to published redesign: simplify the homepage to the actual software,
