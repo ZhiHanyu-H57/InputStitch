@@ -28,15 +28,15 @@ InputStitch 可以把键盘、鼠标和手柄组合成你需要的输入方式�
 
 ### 正式版
 
-**当前正式版：v1.5.1。** 减少界面繁忙时已准备就绪的长按宏启动等待，减少运行状态处理中的重复工作，保留轻量的宏编辑器与窗口/无边框准星。1.4.3、1.5.0 的已有配置继续兼容，保留官网优先、GitHub 备用更新链路。详见[发布说明](RELEASE_NOTES.md)及[调研与性能报告](docs/MATURITY_AND_PERFORMANCE_REVIEW.md)。
+**当前正式版：v1.5.2。** 修复触发键和执行步骤中的鼠标选择，录制无需设置目标窗口，支持批量修改按住与等待时长。1.4.3、1.5.0、1.5.1 的已有配置继续兼容。软件内更新后的文件名固定为 InputStitch.exe，保留备份与失败回滚。详见[发布说明](RELEASE_NOTES.md)及[正式验收记录](docs/RELEASE_1_5_2_VERIFICATION.md)。
 
 普通宏和窗口/无边框准星无需接管手柄或安装 Game Bar 组件。独占全屏准星不在本版支持范围；手柄接管仍属实验性功能，具体硬件与游戏兼容性单独验证。
 
 | Windows 架构 | 下载 |
 | --- | --- |
-| 64 位 Windows（x64） | [InputStitch-1.5.1-Windows-x64.exe](../../releases/latest/download/InputStitch-1.5.1-Windows-x64.exe) |
-| 32 位 Windows（x86） | [InputStitch-1.5.1-Windows-x86.exe](../../releases/latest/download/InputStitch-1.5.1-Windows-x86.exe) |
-| 完整源码 | [InputStitch-1.5.1-Source.zip](../../releases/latest/download/InputStitch-1.5.1-Source.zip) |
+| 64 位 Windows（x64） | [InputStitch-1.5.2-Windows-x64.exe](../../releases/latest/download/InputStitch-1.5.2-Windows-x64.exe) |
+| 32 位 Windows（x86） | [InputStitch-1.5.2-Windows-x86.exe](../../releases/latest/download/InputStitch-1.5.2-Windows-x86.exe) |
+| 完整源码 | [InputStitch-1.5.2-Source.zip](../../releases/latest/download/InputStitch-1.5.2-Source.zip) |
 | 文件校验值 | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 ### 历史测试版
