@@ -3,22 +3,22 @@
     // Build scripts and release workflows read these constants as the release source of truth.
     public static class ReleaseInfo
     {
-        public const string Version = "1.5.1-beta.3";
-        public const string FileVersion = "1.5.1.2";
-        public const bool IsPrerelease = true;
+        public const string Version = "1.5.1";
+        public const string FileVersion = "1.5.1.3";
+        public const bool IsPrerelease = false;
         public static bool AutomaticChecksAllowed { get { return !IsPrerelease; } }
         public const string ReleasesUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases";
         // Keep this deliberately short: it is shown once after an existing user upgrades.
         // Detailed release notes remain in RELEASE_NOTES.md / GitHub Releases.
         public const string ReleaseSummaryZh =
-            "后台运行更省资源，已有设置继续使用。软件内更新后，程序名固定为 InputStitch.exe。\r\n\r\n" +
-            "• 已连接的手柄保持及时响应；新接入手柄通常在半秒左右被发现。\r\n" +
-            "• 反复运行与停止宏时，减少不必要的资源占用。\r\n" +
-            "• 屏幕准星用于窗口化和无边框窗口，默认 Ctrl + Alt + F10 显隐。";
+            "长按触发更及时，已有宏和设置继续使用。\r\n\r\n" +
+            "• 减少界面繁忙时的长按启动等待，保留编辑保护和紧急停止。\r\n" +
+            "• 减少运行进度和诊断处理中的重复工作，保持轻量。\r\n" +
+            "• 更新后程序名继续固定为 InputStitch.exe，无需重新配置宏。";
         public const string ReleaseSummaryEn =
-            "Lower background resource use; your settings are retained. In-app updates use the fixed name InputStitch.exe.\r\n\r\n" +
-            "• Connected controllers stay responsive. Newly connected XInput controllers appear within about half a second.\r\n" +
-            "• Repeated macro runs and stops use fewer resources.\r\n" +
-            "• Crosshairs support windowed/borderless mode. Ctrl + Alt + F10 toggles visibility by default.";
+            "More timely long-press activation; your macros and settings are retained.\r\n\r\n" +
+            "• Less long-press startup delay while the UI is busy, preserving editing protection and Emergency Stop.\r\n" +
+            "• Less repeated progress and diagnostic work, with lightweight packaging.\r\n" +
+            "• In-app updates keep the fixed name InputStitch.exe. No macro reconfiguration is needed.";
     }
 }

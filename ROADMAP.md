@@ -1,5 +1,12 @@
 ﻿# ROADMAP.md
 
+## Current priority — finish 1.5.1 Stable (2026-10-22)
+
+Freeze the accepted beta.3 scope and complete formal automated release acceptance,
+including old settings and in-app updates. Further architecture/performance work
+is deferred beyond this release; reopen it only for measured issues and separate
+authorization. No new features. See `docs/RELEASE_1_5_1_VERIFICATION.md`.
+
 ## Current P1 follow-up — beta.2 (2026-10-22)
 
 Progress publication, single-step commands and control-state capture now join

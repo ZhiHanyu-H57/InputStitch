@@ -1,4 +1,4 @@
-﻿# InputStitch
+# InputStitch
 
 ## Create and run a macro
 
@@ -24,7 +24,7 @@ See [Product positioning and competitive strategy](docs/PRODUCT_STRATEGY.md) for
 
 ## Download
 
-**Stable: v1.5.0.** Clearer bilingual editing, compact controls and readable scaled layouts, a configurable windowed/borderless crosshair, and lower background input overhead. Existing settings remain compatible. The website-first update path retains GitHub as a fallback. See [release notes](RELEASE_NOTES.md) and the [maturity and performance review](docs/MATURITY_AND_PERFORMANCE_REVIEW.md).
+**Stable: v1.5.1.** Faster prepared long-press starts while the interface is busy, less repeated runtime bookkeeping, and the same lightweight macro editor and windowed/borderless crosshair. Existing 1.4.3 and 1.5.0 settings remain compatible. The website-first update path retains GitHub as a fallback. See [release notes](RELEASE_NOTES.md) and the [maturity and performance review](docs/MATURITY_AND_PERFORMANCE_REVIEW.md).
 
 **Controller takeover remains Experimental.** Physical-controller + HidHide + target-game compatibility has its own hardware acceptance scope. Ordinary keyboard/mouse macros and windowed/borderless crosshairs do not require takeover or Game Bar setup. Exclusive fullscreen crosshairs are not included.
 
@@ -32,9 +32,9 @@ The project website is the preferred Stable download path; GitHub Releases remai
 
 | Windows architecture | Direct download |
 | --- | --- |
-| 64-bit Windows (x64) | [InputStitch-1.5.0-Windows-x64.exe](../../releases/latest/download/InputStitch-1.5.0-Windows-x64.exe) |
-| 32-bit Windows (x86) | [InputStitch-1.5.0-Windows-x86.exe](../../releases/latest/download/InputStitch-1.5.0-Windows-x86.exe) |
-| Complete source code | [InputStitch-1.5.0-Source.zip](../../releases/latest/download/InputStitch-1.5.0-Source.zip) |
+| 64-bit Windows (x64) | [InputStitch-1.5.1-Windows-x64.exe](../../releases/latest/download/InputStitch-1.5.1-Windows-x64.exe) |
+| 32-bit Windows (x86) | [InputStitch-1.5.1-Windows-x86.exe](../../releases/latest/download/InputStitch-1.5.1-Windows-x86.exe) |
+| Complete source code | [InputStitch-1.5.1-Source.zip](../../releases/latest/download/InputStitch-1.5.1-Source.zip) |
 | Checksums | [SHA256SUMS.txt](../../releases/latest/download/SHA256SUMS.txt) |
 
 Previous `v1.3.1-beta.2` prerelease artifacts remain available for historical comparison/testing:

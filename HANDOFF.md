@@ -1,5 +1,41 @@
 # HANDOFF.md
 
+## 1.5.1 Stable release closure — 2026-10-22
+
+User authorized full automated acceptance and GitHub Stable publication; freeze
+features/architecture and fix only acceptance-found issues. Production delta from
+final beta.3 is ReleaseInfo only: Version 1.5.1, FileVersion 1.5.1.3, prerelease
+false. The other 56 production files retain final beta.3 hashes. No new dependency
+or configuration field. Tests add original-EXE 1.5.0 fixture migration beside 1.4.3.
+
+Local formal gates PASS: all 36 regression groups + SettingsSmoke, product 6,639,
+layouts 96,103 / 188 windows / zero issues, productivity 802, ownership 303,716,
+advanced dispatch 163, crosshair 172. Both packaged architectures start, repair
+compressed caches, initialize SDL3, restore crosshair offsets and exit. Additional
+actual-package upgrade: 442 checks from official 1.4.3/1.5.0 EXE/config, fixed
+InputStitch.exe name, byte-exact backups, editor save/reopen and injected launch
+failure rollback. Separate 76-check updater suite covers real isolated child
+wait/restart, shortcuts and failures; update-network 29.
+
+Real output: 81 checks / zero failures, prepared long-press 171 ms for 150 ms
+threshold during 400 ms UI block (explicit delivered-input/focus seams).
+Fresh sustained final-source observer PASS: 600.1 s / 4,520 cycles / 2,260 long
+presses / 225 UI blocks, 3 workers, keyboard 25,941/25,941, final sources/pressed
+0/0. No forced GC. See `docs/RELEASE_1_5_1_VERIFICATION.md` for counters and limits.
+
+Local packages: x64 1,993,216 B / x86 1,823,232 B. Resource/config-hash closure PASS:
+1,000 released requests queue zero UI work, idle one-core CPU off/on 3.280%/3.853%
+in bounded 30-second phases; normal config/devices hashes unchanged. All 57
+production hashes retain the freeze. Release through existing CI; it rebuilds/full-tests
+before Stable/latest and website mirroring. Download/verify published artifacts
+and smoke-test the actual released assemblies before final delivery. Normal
+user configuration is protected; no manual-trial prerequisite.
+
+Initial new 1.5.0 migration assertion wrongly assumed no-op saves created a
+backup; corrected test now proves byte-exact original or changed-save backup.
+Work-only packaged probe also needed explicit PowerShell reflection string
+conversions. Neither required a runtime change; failed preliminary runs excluded.
+
 ## Completed local beta — 1.5.1-beta.3 (2026-10-22)
 
 Branch `perf/runtime-coordination`; verified code/test commit `659e7f7defd9f29efa3942852135746259306c19`.

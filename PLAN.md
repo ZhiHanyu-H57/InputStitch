@@ -1,5 +1,16 @@
 # PLAN.md
 
+## 1.5.1 release freeze — 2026-10-22
+
+The user authorized final Stable publication after complete automated acceptance.
+Freeze beta.3 runtime behavior; change only release metadata and acceptance-found
+issues. No feature or further architecture work. Verify all 36 suites, both
+packaged architectures, original 1.4.3/1.5.0 configuration migration, update and
+rollback, real output and a fresh ten-minute sustained run on final sources.
+Publish through the existing GitHub workflow only after local gates pass; verify
+the published downloads and website mirror. No manual-trial prerequisite.
+See `docs/RELEASE_1_5_1_VERIFICATION.md` for the resulting evidence.
+
 ## Completed local beta — 1.5.1-beta.3 (2026-10-22)
 
 Prepared LongPress timing/admission reuses the input pipeline and coordinator;

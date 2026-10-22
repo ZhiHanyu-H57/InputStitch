@@ -3,6 +3,17 @@
 All notable public changes to InputStitch are documented here.  
 InputStitch 的重要公开变更记录在此处。
 
+## 1.5.1
+
+- 逐步将运行生命周期、进度与单步控制移入独立协调器，减少重复状态处理和后台诊断格式化；高级触发松开后不再持续排空界面任务。
+- 已准备好输出的长按宏可在界面繁忙时按独立节拍启动，保留编辑保护、按键松开取消、输出所有权及停止机制。首次设备准备和程序自身窗口判断仍保留界面协作。
+- 不新增功能、运行依赖或配置字段；继续兼容 1.4.3、1.5.0 配置。软件内更新沿用固定文件名 InputStitch.exe、备份及失败回滚。
+- 正式发布按完整回归、成品启动、更新/迁移、真实输出及持续运行自动化验收；详见 `docs/RELEASE_1_5_1_VERIFICATION.md`。
+
+Incremental runtime/UI separation and less repeated background work, with prepared
+long-press dispatch independent of a busy UI. Existing editing/stop protection,
+configuration and lightweight packaging are retained; no new product features.
+
 ## 1.5.0-beta.1（测试版）
 
 **一句话：这是下一个功能版本的首个测试版，加入“按住临时切层”和“层上下文条件自动生效”、短按激活，以及可选 SDL3 手柄通道；同时把设备身份、路由来源策略、模拟量变换、激活/条件引擎等平台基础纳入同一版本。**

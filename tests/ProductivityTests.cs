@@ -51,7 +51,7 @@ internal static class ProductivityTests
         }
         string root = Path.Combine(Path.GetTempPath(), "InputStitch-productivity-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        try { TestSave(root); TestLegacy143(root); TestHistory(); TestTemplates(); TestMainUi(root); TestDialogs(); }
+        try { TestSave(root); TestLegacyUpgrade(root, "1.4.3"); TestLegacyUpgrade(root, "1.5.0"); TestHistory(); TestTemplates(); TestMainUi(root); TestDialogs(); }
         catch (Exception ex)
         {
             Console.Error.WriteLine("Productivity failure: " + ex.GetType().FullName + ": " + ex.Message);
@@ -61,17 +61,28 @@ internal static class ProductivityTests
         finally { Directory.Delete(root, true); }
         Console.WriteLine("PASS productivity: " + checks + " checks; isolated files, no hooks / real input / devices.");
     }
-    private static void TestLegacy143(string root)
+    private static void TestLegacyUpgrade(string root, string version)
     {
         string fixture = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-            "..", "..", "tests", "fixtures", "config-1.4.3.xml"));
-        string directory = Path.Combine(root, "upgrade143"); Directory.CreateDirectory(directory);
+            "..", "..", "tests", "fixtures", "config-" + version + ".xml"));
+        string directory = Path.Combine(root, "upgrade" + version); Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, "config.xml"); File.Copy(fixture, path);
+        byte[] originalBytes = File.ReadAllBytes(path);
         string original = File.ReadAllText(path);
         MacroConfig config = ConfigPackageSerializer.DeserializeConfigFromFile(path);
-        Check(config.Macros.Count == 3 && config.MappingLayers.Count == 2, "actual 1.4.3 collections load without duplicate layers");
-        Check(config.Macros.All(m => m.Activator.Mode == ActivatorModes.Legacy), "old trigger behaviors remain Legacy internally");
-        Check(!config.Crosshair.Enabled && config.Sdl3InputEnabled, "new options initialize safely without an enabled crosshair");
+        Check(config.Macros.Count == 3 && config.MappingLayers.Count == 2, "actual " + version + " collections load without duplicate layers");
+        if (version == "1.4.3")
+        {
+            Check(config.Macros.All(m => m.Activator.Mode == ActivatorModes.Legacy), "old trigger behaviors remain Legacy internally");
+            Check(!config.Crosshair.Enabled && config.Sdl3InputEnabled, "new options initialize safely without an enabled crosshair");
+        }
+        else
+        {
+            Check(config.Macros[0].Activator.Mode == ActivatorModes.LongPress && config.Macros[0].Activator.LongPressMs == 420,
+                "1.5.0 advanced trigger remains configured");
+            Check(config.Crosshair.Enabled && !config.Crosshair.Visible && config.Crosshair.Color == "#34A2F0" && config.Crosshair.Opacity == 66,
+                "1.5.0 crosshair visibility/color/opacity remain configured");
+        }
         Check(config.UpdateMode == "Manual" && config.GamepadDeviceType == "None", "old update/virtual-controller preferences survive");
         using (MainForm form = new MainForm(config, directory))
         {
@@ -95,10 +106,17 @@ internal static class ProductivityTests
             }
             string xpath = "/" + string.Join("/", parts.ToArray());
             XmlNode current = after.SelectSingleNode(xpath);
-            Check(current != null && current.InnerText == leaf.InnerText, "1.4.3 value survives editor save/reopen: " + xpath);
+            Check(current != null && current.InnerText == leaf.InnerText, version + " value survives editor save/reopen: " + xpath);
         }
-        string[] backups = Directory.GetFiles(Path.Combine(directory, "backups", "config"), "config-*.xml");
-        Check(backups.Any(p => File.ReadAllText(p) == original), "first editor save retains the original 1.4.3 XML backup");
+        string backupDirectory = Path.Combine(directory, "backups", "config");
+        if (originalBytes.SequenceEqual(File.ReadAllBytes(path)))
+            Check(!Directory.Exists(backupDirectory), "unchanged " + version + " XML stays byte exact without redundant backups");
+        else
+        {
+            string[] backups = Directory.Exists(backupDirectory) ? Directory.GetFiles(backupDirectory, "config-*.xml") : new string[0];
+            Check(backups.Any(p => File.ReadAllBytes(p).SequenceEqual(originalBytes)),
+                "changed editor save retains the byte-exact original " + version + " XML backup");
+        }
         using (MainForm form = new MainForm(reopened, directory))
             Check(((ListBox)Field(form, "macroList")).Items.Count == 3, "saved upgrade opens again with every old macro");
     }

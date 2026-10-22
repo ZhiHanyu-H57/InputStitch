@@ -14,3 +14,16 @@ objects and serializes XML; it never starts the application or sends input.
 `ProductivityTests` loads the old XML, opens/saves the actual isolated editor,
 reopens it, compares every original XML leaf value and checks the byte-preserving
 backup. New trigger policy defaults remain Legacy and the crosshair starts off.
+
+# Original 1.5.0 configuration fixture
+
+`config-1.5.0.xml` is synthetic data serialized by the public **v1.5.0** Windows
+x64 executable (SHA-256
+`17dc784b562709772c90da485a98dca8cba716fe1b2d3b1714a6028b15684db9`).
+Reproduce with `Generate-Config150.cs` in the same way as the 1.4.3 fixture.
+It additionally exercises a long-press trigger, foreground condition and saved
+crosshair style, visibility, colors, size, opacity and offsets.
+
+Both fixtures pass through actual isolated editor load/save/reopen and comparison
+of every original XML leaf. A changed save must keep a byte-exact backup; an
+unchanged save must retain the byte-exact original without redundant backups.

@@ -1,5 +1,13 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Current decision — 1.5.1 release freeze (2026-10-22)
+
+Ship the bounded runtime coordination and prepared long-press improvements after
+complete automated acceptance. Preserve the 1.5.0 feature set, compatible settings,
+editing/stop safety and lightweight packaging. Do not expand architecture or add
+features during release closure. Measured residual coupling is documented, not a
+reason to prolong this maintenance release. See [release verification](RELEASE_1_5_1_VERIFICATION.md).
+
 ## Current P1 follow-up — beta.2 (2026-10-22)
 
 Incrementally separate progress/commands/presentation and remove per-edge
