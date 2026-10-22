@@ -1,5 +1,30 @@
 # HANDOFF.md
 
+## Website redesign prepared — 2026-10-22
+
+Branch `web/151-redesign`, based on main `365e75a`. Rebuilt overview/download/guide/
+404, current diamond branding and actual 1.5.1 bilingual screenshots, responsive
+light layout, keyboard-accessible image enlargement and crosshair preview.
+Copy contains practical setup/usage/requirements, matching current template/UI
+labels; old version history, internal mechanisms and defensive/test-process copy
+are removed. Stable version/date/sizes refresh from the official release API with
+a local snapshot; download buttons retain permanent website URLs.
+
+Final website-only acceptance: 278 browser checks / 40 bilingual page-width cases
+(320/390/768/1024/1440, DPR 1/2), 226 static/live metadata checks. Actual rendered
+screenshots inspected; fixed active-download navigation contrast and decorative
+diamond overlap. Four old screenshots removed, four current lossless WebP images
+added. First-page local assets ~83 KB uncompressed. No desktop C# or release
+artifact change, no unrelated desktop regression run. See `docs/WEBSITE.md`.
+
+Deployment pending user authorization: current Cloudflare OAuth supports Workers
+but lacks pages:write; Pages API returns 10000. Read-only Workers/domain checks
+confirmed that profile only exposes the existing speedrun services. User has
+been asked through the async question to authorize Pages publication for
+inputstitch.zhihanyu.com. Use a separate publishing profile to preserve existing
+Workers access. Do not run a broad default OAuth reauthorization or migrate hosts.
+Deliverable preview/screenshots/test JSON are in this chat's outputs/website-redesign.
+
 ## 1.5.1 Stable published and verified — 2026-10-22
 
 Published release/tag `v1.5.1`, source commit
