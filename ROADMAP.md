@@ -1,5 +1,15 @@
 ﻿# ROADMAP.md
 
+## Authorized overlay tools beta — 2026-10-23
+
+Completed as local 1.6.0-beta.1 with selected automated acceptance and both
+architectures. Verification: docs/OVERLAY_TOOLS_1_6_0_BETA1.md. Keep Stable 1.5.2
+published; no automatic follow-on feature work or formal release.
+
+Corner-cut square crosshair; configurable desktop/RTSS stopwatch; reversible
+network hotkey scoped to a program path or the whole computer. Stable 1.5.2
+remains published. Full crosshair drawing is deferred pending broader need.
+
 ## 1.5.2 Stable released and verified — 2026-10-23
 
 Published v1.5.2 at 2278a55730e05beebd2f6a63f51a9f1552567499 after complete

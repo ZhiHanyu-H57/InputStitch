@@ -230,6 +230,10 @@ namespace InputStitch
             if (value.PanicTrigger.Kind == InputKind.Gamepad) value.PanicTrigger = new MacroConfig().PanicTrigger;
             if (value.Crosshair == null) value.Crosshair = new CrosshairOptions();
             value.Crosshair.Normalize();
+            if (value.Timer == null) value.Timer = new TimerOptions();
+            value.Timer.Normalize();
+            if (value.NetworkControl == null) value.NetworkControl = new NetworkControlOptions();
+            value.NetworkControl.Normalize();
             if (!string.Equals(value.Language, Localizer.English, StringComparison.OrdinalIgnoreCase)) value.Language = Localizer.Chinese;
             if (!string.Equals(value.UpdateMode, UpdateModes.Manual, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(value.UpdateMode, UpdateModes.Disabled, StringComparison.OrdinalIgnoreCase))

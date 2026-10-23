@@ -1411,6 +1411,8 @@ namespace InputStitch
         public RouterSourcePolicyConfig GamepadRouterSourcePolicy = new RouterSourcePolicyConfig();
         public IdleGamepadOptions IdleGamepad = new IdleGamepadOptions();
         public CrosshairOptions Crosshair = new CrosshairOptions();
+        public TimerOptions Timer = new TimerOptions();
+        public NetworkControlOptions NetworkControl = new NetworkControlOptions();
         public bool HasSeenWelcome = false;
         // Empty on configurations created by older versions. Existing users then see the
         // current release summary once; fresh installs mark it seen together with Welcome.
@@ -3230,7 +3232,7 @@ namespace InputStitch
             runCoordinator = new MacroRunCoordinator(runLock, delegate(long id, string reason)
             { runtimeTrace.Add("stop-request", "run=" + id.ToString() + "; reason=" + reason); });
             outputOwnership = new OutputOwnershipManager(outputBackend ?? (IOutputBackend)new DirectOutputBackend());
-            Disposed += delegate { StopAllMacroRuns("dispose"); macroWorkers.Dispose(); DisposeCrosshair(); };
+            Disposed += delegate { StopAllMacroRuns("dispose"); macroWorkers.Dispose(); DisposeCrosshair(); DisposeScreenTools(); };
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
             Text = AppInfo.ProductName + " " + AppInfo.Version;
@@ -3419,6 +3421,7 @@ namespace InputStitch
             Shown += delegate
             {
                 ApplyCrosshair();
+                ApplyScreenTools();
                 if (rawKeyboardFallback != null)
                 {
                     rawKeyboardFallback.AttachWindow(Handle);
@@ -3527,6 +3530,7 @@ namespace InputStitch
 
         private void EmergencyStop(string reason)
         {
+            QueueNetworkOperation(true);
             try
             {
                 bool replacementRestoreFailed = false;
@@ -4021,6 +4025,7 @@ namespace InputStitch
             {
                 lastObservedForeground = hwnd;
                 if (crosshairController != null) crosshairController.KeepOnTop();
+                if (timerController != null) timerController.KeepOnTop();
                 RememberExternalForeground(hwnd);
                 if (recordingActive && NativeWindowFocus.IsCurrentProcessWindow(hwnd))
                     TrimRecordingTailForUiReturn();
@@ -5390,6 +5395,8 @@ namespace InputStitch
                 ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             IdleGamepadOptions idleOptions = config.IdleGamepad;
             CrosshairOptions crosshairOptions = config.Crosshair;
+            TimerOptions timerOptions = config.Timer;
+            NetworkControlOptions networkOptions = config.NetworkControl;
             bool welcome = config.HasSeenWelcome;
             string lastReleaseSummary = config.LastShownReleaseSummaryVersion;
             try
@@ -5406,6 +5413,8 @@ namespace InputStitch
                 config.GamepadRouterSourcePolicy = gamepadRouterSourcePolicy;
                 config.IdleGamepad = idleOptions;
                 config.Crosshair = crosshairOptions;
+                config.Timer = timerOptions;
+                config.NetworkControl = networkOptions;
                 Localizer.SetLanguage(config.Language);
                 GamepadOutput.Configure(config.GamepadDeviceType);
                 if (routerSourcePolicyEvaluator != null) routerSourcePolicyEvaluator.Update(config.GamepadRouterSourcePolicy);
@@ -6112,6 +6121,7 @@ namespace InputStitch
             UpdateUiSafetyPauseState();
 
             if (HandleCrosshairShortcut(e)) return true;
+            if (HandleScreenToolShortcut(e)) return true;
 
             // Layer switching has priority over ordinary macro matching, but it does not suppress
             // the physical input from the foreground application. This lets a game key also act as
@@ -7936,6 +7946,7 @@ namespace InputStitch
             {
                 if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
                 DisposeCrosshair();
+                DisposeScreenTools();
                 if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
                 if (inputPipelineScheduler != null)
                 {
@@ -8015,6 +8026,7 @@ namespace InputStitch
         public static void Main(string[] args)
         {
             EmbeddedDependencyLoader.Register();
+            if (NetworkPrivilegeHelper.TryRunHelper(args)) return;
             if (UpdateManager.TryApplyPendingUpdate(args)) return;
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e)

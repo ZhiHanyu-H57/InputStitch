@@ -69,3 +69,10 @@ CrosshairOverlay.cs
 CrosshairSettingsDialog.cs
 MainForm.Crosshair.cs
 MainForm.AdvancedTriggers.cs
+Timer.cs
+TimerOverlay.cs
+TimerRtss.cs
+NetworkControl.cs
+NetworkPrivilegeHelper.cs
+ToolSettingsDialogs.cs
+MainForm.Tools.cs

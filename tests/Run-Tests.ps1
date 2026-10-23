@@ -5,6 +5,7 @@ $ErrorActionPreference = 'Stop'
 $allSuites = @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputPipelineIntegrationTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','MacroWorkerPoolTests','MacroRunCoordinatorTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests','SecondaryLayoutTests')
 $allSuites += 'AdvancedTriggerDispatchTests'
 $allSuites += 'RecordingEditingTests'
+$allSuites += @('CornerCutCrosshairTests','CornerCutDialogTests','TimerTests','NetworkControlTests','ToolIntegrationTests')
 if ($List) { $allSuites; return }
 $fullRun = -not $Suite
 $selectedSuites = @(if ($fullRun) { $allSuites } else { $Suite | ForEach-Object { $_.Split(',') } | Select-Object -Unique })
@@ -45,7 +46,8 @@ function Invoke-NativeCaptured([string]$file, [object[]]$arguments) {
 
 foreach($testSuite in $selectedSuites) {
   $exe=Join-Path $output ($testSuite+'.exe')
-  $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$testSuite","/out:$exe")
+  $entryPoint = if ($testSuite -eq 'NetworkControlTests') { 'InputStitch.NetworkControlTests' } else { $testSuite }
+  $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$entryPoint","/out:$exe")
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
   $arguments += '/win32icon:' + (Join-Path $project 'InputStitch.ico')
 $arguments += '/reference:'+$client
@@ -53,10 +55,12 @@ $arguments += '/reference:'+$client
   $arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
   foreach($file in $productionSources) { $arguments += $file }
   $arguments += Join-Path $PSScriptRoot ($testSuite+'.cs')
+  if ($testSuite -eq 'CornerCutCrosshairTests') { $arguments += Join-Path $PSScriptRoot 'Fixtures/LegacyCrosshair.cs' }
+  if ($testSuite -in @('CornerCutDialogTests','ToolIntegrationTests')) { $arguments += Join-Path $PSScriptRoot 'SecondaryLayoutTests.cs' }
   $compile = Invoke-NativeCaptured $compiler $arguments
   $compileReport = $compile.Output
   if($compile.ExitCode -ne 0) { $compileReport | Write-Output; Write-CiError "$testSuite compilation failed" $compileReport; throw "$testSuite compilation failed" }
-  $testArguments = if ($testSuite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } else { @() }
+  $testArguments = if ($testSuite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } elseif ($testSuite -eq 'ToolIntegrationTests') { if ($fullRun) { @('--core','--ui') } else { @('--core') } } else { @() }
   $execution = Invoke-NativeCaptured $exe $testArguments
   $report = $execution.Output
   $report | Set-Content -LiteralPath (Join-Path $output ($testSuite+'.log')) -Encoding UTF8

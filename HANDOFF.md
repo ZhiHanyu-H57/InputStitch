@@ -1,4 +1,29 @@
-# HANDOFF.md
+﻿# HANDOFF.md
+
+## Overlay tools local beta completed — 2026-10-23
+
+1.6.0-beta.1 on feature/overlay-tools, based on main 4e32bce. All 66 production
+sources integrated. No remote publication. Defaults opt in; timer starts paused
+at zero; only the WFP helper elevates. Parent/helper exit removes dynamic filters.
+16 impact-selected suites pass, including new render/serialization/shortcut/
+rollback/exit tests. Tool UI 29933/32, corner UI 65+4672, journey 142, density
+3328; packaged x64/x86 restore settings, show timer paused, release native windows
+and preserve normal config/devices. Desktop native 77/77 per architecture.
+Actual D3D9 x64/x86: bilingual 36px text, zero one-pixel shift mismatch, zero
+independent-client region changes. RTSS uses power-of-two atlas/gutters and
+read-only target zoom; no FNT or profile changes. D3D preflight waits for an
+independent visible marker, else BLOCKED/2; empty scenes need a real primitive.
+Native network IPv4 TCP/UDP and existing-flow reauth, other-exe negative control,
+parent/helper crash recovery pass. No whole-host interruption; no usable native
+IPv6 address; OBS not installed. Do not claim these three as live-tested.
+Source scopes from three isolated module agents were integrated by root.
+Only work-only test issues and acceptance-found product issues were repaired;
+all final feature behavior has automated evidence. Actual old Stable 1.5.2 reads
+new config/macros via the new shape's ring fallback. 60-second cache benchmark
+and binary hashes: docs/OVERLAY_TOOLS_1_6_0_BETA1.md. No manual trial gate.
+
+Published Stable remains v1.5.2. Further formal publication requires a separate
+request and the full release gate; this beta ran selected checks, not all 42.
 
 ## 1.5.2 Stable released and verified — 2026-10-23
 

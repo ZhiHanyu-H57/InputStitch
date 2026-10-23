@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([ValidateSet('x64','x86')][string]$Architecture = 'x64')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -59,6 +59,11 @@ $config.Crosshair.Visible = $true
 $config.Crosshair.Size = 31
 $config.Crosshair.OffsetX = 7
 $config.Crosshair.OffsetY = -9
+$config.Timer.Enabled = $true
+$config.Timer.TextTemplate = 'Timer {time}'
+$config.Timer.FontSize = 32
+$config.Timer.X = 31
+$config.Timer.Y = 43
 $macro = New-Object InputStitch.MacroDefinition
 $macro.Name = 'Packaged startup check'
 $macro.Enabled = $false
@@ -88,9 +93,15 @@ $timer.add_Tick({
         if (($bounds.Left + [Math]::Floor($bounds.Width / 2)) -ne ($screen.Left + [Math]::Floor($screen.Width / 2) + 7) -or
             ($bounds.Top + [Math]::Floor($bounds.Height / 2)) -ne ($screen.Top + [Math]::Floor($screen.Height / 2) - 9)) { throw 'Packaged crosshair did not restore pixel offsets.' }
         $script:crosshairWindow = $window
+        $timerController = $form.GetType().GetField('timerController',$privateFlags).GetValue($form)
+        if ($null -eq $timerController -or !$timerController.GetType().GetProperty('Visible',$privateFlags).GetValue($timerController)) { throw 'Saved timer did not restore at startup.' }
+        if ($timerController.GetType().GetProperty('IsRunning',$privateFlags).GetValue($timerController)) { throw 'Timer must start paused at zero.' }
+        $script:timerWindow = $timerController.GetType().GetProperty('Window',$privateFlags).GetValue($timerController)
+        if ($null -eq $script:timerWindow -or !$script:timerWindow.GetType().GetProperty('Visible',$privateFlags).GetValue($script:timerWindow)) { throw 'Packaged timer window is not visible.' }
+        if ($null -ne $form.GetType().GetField('networkController',$privateFlags).GetValue($form)) { throw 'Network controller must remain unused at startup.' }
         $bitmap = New-Object Drawing.Bitmap($form.Width,$form.Height)
         try { $form.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$bitmap.Width,$bitmap.Height))); $bitmap.Save((Join-Path $output 'startup.png')) } finally { $bitmap.Dispose() }
-        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9; compressedManagedDependencyLoaded=$true; compressedSdlColdExtraction=$true; verifiedCacheReused=$true; corruptedCacheRepaired=$true; actualSdlInitialized=$true } |
+        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; timerRestored=$true; timerStartsPaused=$true; networkUnusedAtStartup=$true; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9; compressedManagedDependencyLoaded=$true; compressedSdlColdExtraction=$true; verifiedCacheReused=$true; corruptedCacheRepaired=$true; actualSdlInitialized=$true } |
             ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding UTF8
     } catch { $script:smokeFailure = $_ }
     finally { $form.Close() }
@@ -99,4 +110,5 @@ $timer.Start()
 try { [Windows.Forms.Application]::Run($form) } finally { $timer.Dispose(); $form.Dispose() }
 if ($script:smokeFailure) { throw $script:smokeFailure }
 if ($script:crosshairWindow -and $script:crosshairWindow.Handle -ne [IntPtr]::Zero) { throw 'Crosshair native window survived application shutdown.' }
+if ($script:timerWindow -and $script:timerWindow.Handle -ne [IntPtr]::Zero) { throw 'Timer native window survived application shutdown.' }
 Write-Output ("PASS packaged {0} startup, live message loop and orderly shutdown; isolated configuration, disabled macros." -f $Architecture)

@@ -77,10 +77,15 @@ namespace InputStitch
             addMacro.Font = new Font(Font, FontStyle.Bold);
             addMacro.Click += ShowNewMacroChooser;
             leftRoot.Controls.Add(addMacro, 0, 1);
-            crosshairButton = new EditorButton { Text = EditorDialogs.T("屏幕准星…", "Screen crosshair…"), Name = "crosshairButton",
+            crosshairButton = new EditorButton { Text = EditorDialogs.T("准星…", "Crosshair…"), Name = "crosshairButton",
                 Dock = DockStyle.Fill, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(0, 0, 0, 8) };
             crosshairButton.Click += ShowCrosshairDialog;
-            leftRoot.Controls.Add(crosshairButton, 0, 2);
+            TableLayoutPanel screenButtons = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+            screenButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); screenButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            timerButton = new EditorButton { Text = EditorDialogs.T("计时器…", "Timer…"), Name = "timerButton", Dock = DockStyle.Fill, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(4, 0, 0, 8) };
+            timerButton.Click += ShowTimerDialog;
+            screenButtons.Controls.Add(crosshairButton, 0, 0); screenButtons.Controls.Add(timerButton, 1, 0);
+            leftRoot.Controls.Add(screenButtons, 0, 2);
             macroCountLabel = new Label { AutoSize = true, Dock = DockStyle.Fill, ForeColor = EditorTheme.Muted, Margin = new Padding(3, 0, 0, 10) };
             leftRoot.Controls.Add(macroCountLabel, 0, 3);
 
@@ -831,7 +836,11 @@ namespace InputStitch
         private void RefreshMenuLanguage()
         {
             if (settingsMenuItem != null) settingsMenuItem.Text = Localizer.T("设置...");
-            if (crosshairButton != null) crosshairButton.Text = EditorDialogs.T("屏幕准星…", "Screen crosshair…");
+            if (crosshairButton != null) crosshairButton.Text = EditorDialogs.T("准星…", "Crosshair…");
+            if (timerButton != null) timerButton.Text = EditorDialogs.T("计时器…", "Timer…");
+            if (networkMenuItem != null) networkMenuItem.Text = EditorDialogs.T("网络开关…", "Network toggle…");
+            if (restoreNetworkMenuItem != null) restoreNetworkMenuItem.Text = EditorDialogs.T("恢复网络", "Restore network");
+            RefreshNetworkStateUi();
             if (suspendTriggersMenuItem != null) suspendTriggersMenuItem.Text = Localizer.T("暂停全局宏触发");
             if (trayMenuItem != null) trayMenuItem.Text = Localizer.T("最小化到系统托盘");
             if (languageMenuItem != null) languageMenuItem.Text = Localizer.T("语言 / Language");
@@ -903,6 +912,10 @@ namespace InputStitch
             settingsMenuItem = new ToolStripMenuItem();
             settingsMenuItem.Click += delegate { ShowSettingsDialog(); };
             toolsMenu.Items.Add(settingsMenuItem);
+            networkMenuItem = new ToolStripMenuItem(); networkMenuItem.Click += ShowNetworkDialog;
+            toolsMenu.Items.Add(networkMenuItem);
+            restoreNetworkMenuItem = new ToolStripMenuItem(); restoreNetworkMenuItem.Click += delegate { QueueNetworkOperation(true); };
+            toolsMenu.Items.Add(restoreNetworkMenuItem);
             toolsMenu.Items.Add(new ToolStripSeparator());
 
             panicMenuItem = new ToolStripMenuItem();

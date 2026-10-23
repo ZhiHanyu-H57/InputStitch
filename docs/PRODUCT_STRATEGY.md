@@ -1,5 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Authorized optional tools beta — 2026-10-23
+
+The user explicitly requested a corner-cut square ring, a customizable timer
+with optional RTSS output, and a reversible application/computer network hotkey.
+Keep these optional and disabled by default. Preserve the lightweight macro
+workflow and the published 1.5.2 baseline. A parametric ring addresses the concrete
+crosshair request; a complete drawing editor is outside this beta. Deliver a
+local beta with impact-selected automated evidence, not a new Stable publication.
+
 ## 1.5.2 Stable released and verified — 2026-10-23
 
 Published v1.5.2 at 2278a55730e05beebd2f6a63f51a9f1552567499 after complete

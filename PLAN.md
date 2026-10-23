@@ -1,5 +1,24 @@
 # PLAN.md
 
+## Overlay tools beta — user authorized 2026-10-23
+
+Completed local 1.6.0-beta.1: configurable corner-cut ring, desktop/RTSS timer,
+reversible WFP network toggle. 16 selected suites pass; tool UI 29933/32 views,
+macro journey 142, density 3328, packaged x64/x86 pass. Desktop timer 77 checks
+per architecture; actual D3D9 both architectures, one-pixel shift and unchanged
+independent client pass. Network live IPv4 TCP/UDP, existing flows, negative
+control and crash recovery pass. IPv6 live/whole-host disconnect and OBS capture
+remain outside executed scope. Stable 1.5.2 unchanged. See
+docs/OVERLAY_TOOLS_1_6_0_BETA1.md for commands, hashes and limits.
+
+Local beta: corner-cut square crosshair, configurable desktop/optional RTSS
+stopwatch, reversible computer/application network hotkey. Published 1.5.2 stays
+unchanged. No arbitrary drawing editor or Stable publication in this scope.
+Keep optional tools separate from macro runtime; elevate only a temporary WFP
+helper. Root integrates isolated modules and runs impact-selected acceptance,
+legacy settings and packaged smoke. Actual network probes target a dedicated
+executable; never interrupt this host's entire connection. No manual-trial gate.
+
 ## 1.5.2 Stable released and verified — 2026-10-23
 
 Published v1.5.2 at 2278a55730e05beebd2f6a63f51a9f1552567499 after complete

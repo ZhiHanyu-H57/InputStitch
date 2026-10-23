@@ -17,6 +17,13 @@ Before changing code in this repository, restore project context in this order:
 
 ## Development rules
 
+- The user authorized optional crosshair/timer/network tools on 2026-10-23.
+  Local 1.6.0-beta.1 is separate from published Stable 1.5.2. Keep tools opt-in;
+  timer starts paused, and application startup must never block the network.
+  Only the disposable WFP helper elevates. Native timer/RTSS and executable-only
+  network acceptance commands and environment limits are documented in
+  `docs/OVERLAY_TOOLS_1_6_0_BETA1.md`; do not replace them with manual-trial gates.
+
 - Production source files are listed once in `scripts/production-sources.txt`; add or rename files there.
   `build.ps1`, `tests/Run-Tests.ps1` and `tools/InputLab/build-acceptance.ps1` consume that manifest, and
   `tests/SourceManifestTests.cs` fails when the `InputStitch.csproj` list or a root-level `.cs` file diverges.

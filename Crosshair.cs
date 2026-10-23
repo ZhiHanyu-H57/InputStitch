@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -8,14 +8,29 @@ using System.Xml.Serialization;
 
 namespace InputStitch
 {
-    public enum CrosshairStyle { Dot, Square, Cross, CrossDot, Ring, RingDot, TShape, Diagonal }
+    public enum CrosshairStyle { Dot, Square, Cross, CrossDot, Ring, RingDot, TShape, Diagonal, CornerCutSquare }
 
     [Serializable]
     public sealed class CrosshairOptions
     {
         public bool Enabled;
         public bool Visible = true;
-        public CrosshairStyle Style = CrosshairStyle.CrossDot;
+        [XmlIgnore] public CrosshairStyle Style = CrosshairStyle.CrossDot;
+        private bool cornerCutVariant;
+        // Old versions understand every value written to Style; the optional variant
+        // preserves the new shape in this version and degrades to a ring on rollback.
+        [XmlElement("Style")]
+        public CrosshairStyle SerializedStyle
+        {
+            get { return Style == CrosshairStyle.CornerCutSquare ? CrosshairStyle.Ring : Style; }
+            set { Style = cornerCutVariant ? CrosshairStyle.CornerCutSquare : value; }
+        }
+        public string StyleVariant
+        {
+            get { return Style == CrosshairStyle.CornerCutSquare ? "CornerCutSquare" : ""; }
+            set { cornerCutVariant = value == "CornerCutSquare"; if (cornerCutVariant) Style = CrosshairStyle.CornerCutSquare; }
+        }
+        public bool ShouldSerializeStyleVariant() { return Style == CrosshairStyle.CornerCutSquare; }
         public int Size = 24;
         public int LineWidth = 2;
         public int Gap = 4;
@@ -92,6 +107,17 @@ namespace InputStitch
                     path.AddEllipse(c - half, c - half, o.Size, o.Size);
                     float inside = o.Size - width * 2;
                     if (inside > 0) path.AddEllipse(c - inside / 2, c - inside / 2, inside, inside);
+                }
+                else if (o.Style == CrosshairStyle.CornerCutSquare)
+                {
+                    // Gap is measured inward from each outer corner along both adjoining sides.
+                    // Keep a side segment at least one line-width long when an imported gap is large.
+                    float cut = Math.Min(o.Gap, Math.Max(0, (o.Size - width) / 2F));
+                    float length = o.Size - cut * 2;
+                    path.AddRectangle(new RectangleF(c - half + cut, c - half, length, width));
+                    path.AddRectangle(new RectangleF(c - half + cut, c + half - width, length, width));
+                    path.AddRectangle(new RectangleF(c - half, c - half + cut, width, length));
+                    path.AddRectangle(new RectangleF(c + half - width, c - half + cut, width, length));
                 }
                 else
                 {
