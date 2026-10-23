@@ -14,4 +14,3 @@ values=[score(p) for p in sorted(frames.glob('*.png'))];desktop=[score(R/'eviden
 checks={'frameCount':len(values)>=10,'gameBlue':all(v['blue']>256000 for v in values),'greenPresent':all(v['green']>100 for v in values),'greenMoves':len(set(v['greenX'] for v in values))>=3,'framesChange':len(set(v['hash'] for v in values))>=3}
 report={'pass':all(checks.values()),'checks':checks,'frames':values,'physicalDesktop':desktop};(R/'evidence/detours-baseline-analysis.json').write_text(json.dumps(report,indent=2),encoding='utf8');print(json.dumps({'pass':report['pass'],'checks':checks,'first':values[0],'last':values[-1],'desktop':desktop}),flush=True)
 raise SystemExit(0 if report['pass'] else 1)
-

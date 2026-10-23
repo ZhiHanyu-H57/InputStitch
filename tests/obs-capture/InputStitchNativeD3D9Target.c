@@ -203,4 +203,3 @@ cleanup:
     ReleaseD3D(); LogNumber("exitCode", exitCode); if (logFile != INVALID_HANDLE_VALUE) CloseHandle(logFile);
     return exitCode;
 }
-

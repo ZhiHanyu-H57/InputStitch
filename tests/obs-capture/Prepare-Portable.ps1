@@ -66,4 +66,3 @@ $userConfig=Join-Path $env:APPDATA 'obs-studio'
 $snapshot=@(if(Test-Path -LiteralPath $userConfig){Get-ChildItem -LiteralPath $userConfig -Recurse -File | Where-Object {$_.Extension -in @('.ini','.json')} | ForEach-Object {[pscustomobject]@{Path=$_.FullName;Hash=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}})
 $snapshot | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $base 'evidence\user-config-before.json') -Encoding UTF8
 Write-Output ('Portable configuration prepared; existing user configuration files: '+$snapshot.Count)
-

@@ -1,5 +1,48 @@
 ﻿# HANDOFF.md
 
+## Overlay acceptance follow-up completed — 2026-10-24
+
+Verified production/test implementation commit: 9c2f1d56387582918761cd6cd283cd707ee65bd3.
+
+Local 1.6.0-beta.2 on feature/overlay-tools. No push or publication requested.
+Only ReleaseInfo and timer capture-help text changed among 66 production files;
+all timer/network/macro implementation is identical to beta.1. EXE sizes stay
+2117120 bytes x64 / 1947136 x86. Eight selected suites pass; after the metadata/help
+stamp, SourceManifest/ReleasePolicy/ToolIntegration, UI 29933/32 and both packaged
+smokes pass. No full 42-suite formal-release gate in this follow-up.
+
+Actual OBS 32.2.2 game_capture, native x64 D3D9: four MKV recordings/48 decoded
+frames pass. RTSS included with capture_overlays on, desktop excluded; overlays-off
+and desktop-only controls pass; changing yellow text 12 distinct masks. Default
+RTSS hooking froze even the native no-timer baseline; Microsoft Detours fixed it.
+Dedicated temporary profile removed, existing RTSS and 17 OBS configuration hashes
+unchanged; native target/producer/portable OBS exited. See docs/OBS_TIMER_ACCEPTANCE.md.
+
+Native isolated network: QEMU TCG Windows Server 2022 guest, external nonce echo
+through 10.0.3.2/fec1::2. Application A-only/B connected, then four EntireComputer
+restore/normal-exit/actual parent TerminateProcess/actual helper TerminateProcess
+cases pass 299 assertions in 99.6 seconds. Both independent executables, IPv4+IPv6,
+TCP+UDP, new+existing flows and same UDP sockets after recovery. Helper-kill recovery
+verified while parent still alive. Five host HTTPS checks returned 200 during guest
+blocks; host-wide blocks=0. Guest guard firmware/WMI match, host self-test15 / guest14.
+
+The TCG fixture required guest-only NGEN /NoDependencies to fit extra test identity
+checks/JIT into the unchanged production 10-second startup deadline. Prior cold-start
+failures are retained with evidence. Production timeout/code was not altered.
+The probe now has explicit READY and bounded socket startup; unexpected exceptions
+are ERROR rather than successful blocking. See docs/ISOLATED_NETWORK_ACCEPTANCE.md.
+
+Windows guest and loopback echo peer exited normally. User InputStitch/RTSS remained
+running; config.xml/devices.xml hashes unchanged. Automatic approval review rejected
+deleting remaining guest disks/portable test tools (policy block, no detailed reason).
+Those temporary files remain offline; no cleanup approval is pending. Evidence and
+reproduction scripts are retained in the chat output/work folders, not the repository.
+
+HIDMaestro author guidance from issue6 is recorded in ROADMAP: retain held state and
+submit full frames on Send; xbox-360-wired / dualshock-4-v2 profiles. No adapter work
+or GitHub reply was included. Stable remains 1.5.2; further features or publication
+require a separate request. Report: docs/OVERLAY_TOOLS_1_6_0_BETA2.md.
+
 ## Overlay tools local beta completed — 2026-10-23
 
 Verified production commit: 9040343736a316507099bbc5e219acec00bd69b2.

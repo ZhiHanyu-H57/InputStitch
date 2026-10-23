@@ -59,4 +59,3 @@ if __name__=='__main__':
             print(json.dumps(obs.call('SaveSourceScreenshot',{'sourceName':'GameOnly','imageFormat':'png','imageFilePath':str(ROOT/'evidence'/sys.argv[2]),'imageWidth':800,'imageHeight':400})))
         else: print(json.dumps(obs.call(command),ensure_ascii=False))
     finally: obs.close()
-

@@ -33,4 +33,3 @@ report={'videoCases':results,'desktopPositive':positive,'desktopPositivePass':po
 (ROOT/'evidence/detours-frame-analysis.json').write_text(json.dumps(report,indent=2),encoding='utf8')
 print('PASS' if report['pass'] else 'FAIL')
 raise SystemExit(0 if report['pass'] else 1)
-

@@ -49,4 +49,3 @@ finally:
         try:
             if obs.call('GetRecordStatus')['outputActive']:obs.call('StopRecord')
         finally:obs.close()
-
