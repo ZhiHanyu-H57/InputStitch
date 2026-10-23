@@ -55,69 +55,99 @@ namespace InputStitch
         private readonly TimerOptions draft;
         private readonly TimerController controller;
         private readonly Func<TimerOptions, string> validate;
+        private readonly System.Collections.Generic.List<TimerPart> parts;
         private readonly CheckBox enabled, visible, bold, italic, outline;
-        private readonly ComboBox backend, format, monitor;
-        private readonly NumericUpDown size, border, spacing, opacity, x, y;
-        private readonly TextBox template;
+        private readonly ComboBox backend, preset, partKind, monitor;
+        private readonly NumericUpDown size, border, spacing, opacity, partOpacity, digits, x, y;
+        private readonly TextBox partText;
         private readonly Button font, color, outlineColor, save, start;
         private readonly Label feedback;
         private readonly Control preview;
+        private readonly ListView partList;
+        private readonly TableLayoutPanel detail;
+        private readonly int textRow, digitsRow;
+        private int selectedIndex;
+        private bool loading, partsEdited;
         internal TimerOptions Result { get; private set; }
         private static string T(string zh, string en) { return ToolFields.T(zh, en); }
+        private TimerPart SelectedPart { get { return selectedIndex >= 0 && selectedIndex < parts.Count ? parts[selectedIndex] : null; } }
 
         internal TimerSettingsDialog(TimerOptions options, TimerController timer, Func<TimerOptions, string> validator)
         {
             draft = (options ?? new TimerOptions()).Clone(); draft.Normalize(); controller = timer; validate = validator;
+            parts = TimerText.CreateParts(draft);
             Font = EditorTheme.BodyFont(); AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
             Text = T("屏幕计时器", "Screen timer"); StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(820, 650); MinimumSize = new Size(700, 530); MinimizeBox = MaximizeBox = false;
+            ClientSize = new Size(920, 700); MinimumSize = new Size(800, 560); MinimizeBox = MaximizeBox = false;
             EditorTabs tabs = new EditorTabs { Dock = DockStyle.Fill };
-            TabPage appearance = new TabPage(T("外观与文字", "Appearance & text")), position = new TabPage(T("位置", "Position")), keys = new TabPage(T("控制与快捷键", "Controls & hotkeys"));
-            tabs.TabPages.AddRange(new[] { appearance, position, keys });
-            TableLayoutPanel look = ToolFields.Page(appearance), place = ToolFields.Page(position), hotkeys = ToolFields.Page(keys);
+            TabPage content = new TabPage(T("内容与样式", "Content & style")), position = new TabPage(T("显示与位置", "Output & position")), keys = new TabPage(T("快捷键", "Hotkeys"));
+            tabs.TabPages.AddRange(new[] { content, position, keys });
+            TableLayoutPanel place = ToolFields.Page(position), hotkeys = ToolFields.Page(keys);
             enabled = ToolFields.Check(T("启用计时器", "Enable timer")); enabled.Checked = draft.Enabled;
             visible = ToolFields.Check(T("显示计时器", "Show timer")); visible.Checked = draft.Visible;
             start = ToolFields.Button(T("开始 / 暂停", "Start / pause")); start.Name = "timerStartPause";
-            Button reset = ToolFields.Button(T("归零", "Reset")); reset.Name = "timerReset";
-            start.Click += delegate { if (controller != null) { enabled.Checked = visible.Checked = true; controller.StartPause(); Changed(); } };
-            reset.Click += delegate { if (controller != null) { controller.Reset(); Changed(); } };
-            ToolFields.Row(hotkeys, T("开始 / 暂停", "Start / pause"), ToolFields.Shortcut(this, "timerStartHotkey", () => draft.StartPauseHotkey, v => draft.StartPauseHotkey = v, Changed));
-            ToolFields.Row(hotkeys, T("归零", "Reset"), ToolFields.Shortcut(this, "timerResetHotkey", () => draft.ResetHotkey, v => draft.ResetHotkey = v, Changed));
-            ToolFields.Row(hotkeys, T("显示 / 隐藏", "Show / hide"), ToolFields.Shortcut(this, "timerVisibilityHotkey", () => draft.VisibilityHotkey, v => draft.VisibilityHotkey = v, Changed));
-            ToolFields.Row(hotkeys, "", ToolFields.Help(T("启动软件时从零暂停；外观、文字、位置和快捷键会保存。归零保持当前运行或暂停状态。", "The timer starts paused at zero on launch. Appearance, text, position and hotkeys are saved. Reset keeps the current running or paused state.")));
+            start.Click += delegate { if (controller != null) controller.StartPause(); Changed(); };
+            Button reset = ToolFields.Button(T("归零", "Reset")); reset.Click += delegate { if (controller != null) controller.Reset(); Changed(); };
 
-            backend = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, Name = "timerBackend" };
-            backend.Items.AddRange(new object[] { T("普通置顶窗口", "Desktop overlay"), T("RTSS 游戏内绘制", "RTSS in-game overlay") }); backend.SelectedIndex = (int)draft.Backend;
-            ToolFields.Row(look, T("显示方式", "Output"), backend);
-            ToolFields.Row(look, "", ToolFields.Help(T("普通置顶窗口不进入 OBS“游戏捕获”。RTSS 7.3.7+ 需先运行。录制 RTSS：在 OBS 开启“捕获第三方叠加层”，在 RTSS 设置中开启“Use Microsoft Detours API hooking”。", "Desktop overlays stay outside OBS Game Capture. Run RTSS 7.3.7+. To record RTSS, enable Capture third-party overlays in OBS and Use Microsoft Detours API hooking in RTSS Setup.")));
-            font = ToolFields.Button(draft.FontFamily); font.Name = "timerFont";
+            TableLayoutPanel editor = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Padding = new Padding(10) };
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45)); editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 94)); content.Controls.Add(editor);
+            TableLayoutPanel listPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Margin = new Padding(0, 0, 12, 0) };
+            listPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); listPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            preset = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 210, Name = "timerPreset" };
+            preset.Items.AddRange(new object[] { T("选择预设…", "Choose preset…"), T("分:秒.毫秒", "Minutes:seconds.ms"), T("时:分:秒.毫秒", "Hours:minutes:seconds.ms"), T("秒.毫秒", "Seconds.ms") }); preset.SelectedIndex = 0;
+            listPanel.Controls.Add(ToolFields.Flow(new Label { Text = T("预设", "Preset"), AutoSize = true, Anchor = AnchorStyles.Left }, preset), 0, 0);
+            partList = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = false, CheckBoxes = true, Name = "timerParts" };
+            partList.Columns.Add(T("部分", "Part")); partList.Columns.Add(T("内容", "Content")); listPanel.Controls.Add(partList, 0, 1);
+            Button add = ToolFields.Button(T("添加文字", "Add text")), remove = ToolFields.Button(T("删除", "Delete"));
+            add.Name = "timerAddPart"; remove.Name = "timerDeletePart";
+            add.Click += delegate { AddPart(); }; remove.Click += delegate { RemovePart(); };
+            Button up = ToolFields.Button("↑"), down = ToolFields.Button("↓");
+            up.MinimumSize = down.MinimumSize = new Size(38, 32);
+            up.AutoSize = down.AutoSize = false; up.Size = down.Size = new Size(38, 32);
+            up.AccessibleName = T("上移", "Move up"); down.AccessibleName = T("下移", "Move down");
+            ToolTip orderTips = new ToolTip(); orderTips.SetToolTip(up, T("上移（Alt + ↑）", "Move up (Alt + ↑)")); orderTips.SetToolTip(down, T("下移（Alt + ↓）", "Move down (Alt + ↓)")); Disposed += delegate { orderTips.Dispose(); };
+            up.Name = "timerPartUp"; down.Name = "timerPartDown";
+            up.Click += delegate { MovePart(-1); }; down.Click += delegate { MovePart(1); };
+            listPanel.Controls.Add(ToolFields.Flow(add, remove, up, down), 0, 2);
+            listPanel.Controls.Add(ToolFields.Help(T("勾选决定是否显示，选中后在右侧编辑。", "Check parts to show them; select one to edit its style.")), 0, 3);
+            editor.Controls.Add(listPanel, 0, 0);
+            Panel stylePanel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            detail = ToolFields.Page(stylePanel); editor.Controls.Add(stylePanel, 1, 0);
+            partKind = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 165, Name = "timerPartKind" };
+            partKind.Items.AddRange(new object[] { T("时", "Hours"), T("分", "Minutes"), T("秒", "Seconds"), T("毫秒", "Milliseconds"), T("自定义文字", "Custom text") });
+            ToolFields.Row(detail, T("内容类型", "Part type"), partKind);
+            partText = new TextBox { Multiline = true, Height = 45, Dock = DockStyle.Top, MaxLength = 512, ScrollBars = ScrollBars.Vertical, Name = "timerPartText" };
+            textRow = detail.RowCount; ToolFields.Row(detail, T("文字", "Text"), partText);
+            digits = ToolFields.Number(1, 6, 2, 0, "timerPartDigits"); digitsRow = detail.RowCount; ToolFields.Row(detail, T("显示位数", "Digits"), digits);
+            font = ToolFields.Button(""); font.Name = "timerFont"; font.AutoEllipsis = true; font.Anchor = AnchorStyles.Left;
             font.Click += delegate
             {
-                FontStyle selectedStyle = (bold.Checked ? FontStyle.Bold : FontStyle.Regular) | (italic.Checked ? FontStyle.Italic : FontStyle.Regular);
-                using (Font initial = TimerRenderer.CreateFont(draft.FontFamily, (float)size.Value, selectedStyle))
-                using (FontDialog picker = new FontDialog { Font = initial, FontMustExist = true, ShowEffects = false, MinSize = 6, MaxSize = 120 })
+                TimerPart part = SelectedPart; if (part == null) return;
+                using (Font initial = TimerRenderer.CreateFont(part.Style.FontFamily, part.Style.FontSize, (part.Style.Bold ? FontStyle.Bold : FontStyle.Regular) | (part.Style.Italic ? FontStyle.Italic : FontStyle.Regular)))
+                using (FontDialog picker = new FontDialog { Font = initial, MinSize = 6, MaxSize = 120, ShowEffects = false })
                     if (picker.ShowDialog(this) == DialogResult.OK) ApplySelectedFont(picker.Font);
             };
-            ToolFields.Row(look, T("字体", "Font"), font);
-            size = ToolFields.Number(8, 160, (decimal)draft.FontSize, 1, "timerFontSize"); ToolFields.Row(look, T("字号（像素）", "Font size (px)"), size);
-            bold = ToolFields.Check(T("加粗", "Bold")); bold.Checked = draft.Bold;
-            italic = ToolFields.Check(T("斜体", "Italic")); italic.Checked = draft.Italic;
-            ToolFields.Row(look, T("字形", "Style"), ToolFields.Flow(bold, italic));
-            outline = ToolFields.Check(T("描边", "Outline")); outline.Checked = draft.Outline;
-            border = ToolFields.Number(0, 12, (decimal)draft.OutlineWidth, 1, "timerOutlineWidth"); ToolFields.Row(look, T("描边厚度（像素）", "Outline width (px)"), ToolFields.Flow(outline, border));
-            spacing = ToolFields.Number(-4, 40, (decimal)draft.LetterSpacing, 1, "timerLetterSpacing"); ToolFields.Row(look, T("字距（像素）", "Letter spacing (px)"), spacing);
-            color = ColorButton(false); outlineColor = ColorButton(true); ToolFields.Row(look, T("颜色", "Colors"), ToolFields.Flow(color, outlineColor));
-            opacity = ToolFields.Number(0, 100, draft.Opacity, 0, "timerOpacity"); ToolFields.Row(look, T("不透明度（%）", "Opacity (%)"), opacity);
-            format = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, Name = "timerFormat" };
-            format.Items.AddRange(new object[] { "00:00.000", "00:00:00.000", "0.000" }); format.SelectedIndex = (int)draft.TimeFormat;
-            ToolFields.Row(look, T("时间格式", "Time format"), format);
-            template = new TextBox { Text = draft.TextTemplate, Multiline = true, Height = 64, Dock = DockStyle.Top, MaxLength = 512, ScrollBars = ScrollBars.Vertical, Name = "timerTemplate" };
-            ToolFields.Row(look, T("显示文字", "Text"), template);
-            ToolFields.Row(look, "", ToolFields.Help(T("{time} 代表当前时间；支持中英文和换行，例如：本次用时 {time}。", "Use {time} for elapsed time. Add text in any language or multiple lines, for example: Run time {time}.")));
-            preview = new Panel { Height = 84, Dock = DockStyle.Top, BackColor = Color.FromArgb(32, 40, 52), Name = "timerPreview" };
-            preview.Paint += PaintPreview; ToolFields.Row(look, "", preview);
+            ToolFields.Row(detail, T("字体", "Font"), font);
+            size = ToolFields.Number(8, 160, 28, 1, "timerFontSize"); bold = ToolFields.Check(T("加粗", "Bold")); italic = ToolFields.Check(T("斜体", "Italic"));
+            ToolFields.Row(detail, T("字号（像素）", "Size (px)"), ToolFields.Flow(size, bold, italic));
+            outline = ToolFields.Check(T("启用", "On")); border = ToolFields.Number(0, 12, 2, 1, "timerOutlineWidth");
+            ToolFields.Row(detail, T("描边（像素）", "Outline (px)"), ToolFields.Flow(outline, border));
+            color = ColorButton(false); outlineColor = ColorButton(true); ToolFields.Row(detail, T("颜色", "Colors"), ToolFields.Flow(color, outlineColor));
+            spacing = ToolFields.Number(-4, 40, 0, 1, "timerLetterSpacing"); ToolFields.Row(detail, T("字距（像素）", "Spacing (px)"), spacing);
+            partOpacity = ToolFields.Number(0, 100, 100, 0, "timerPartOpacity"); ToolFields.Row(detail, T("本段不透明度", "Part opacity (%)"), partOpacity);
+            foreach (Control field in detail.Controls) field.Margin = new Padding(field.Margin.Left, 3, field.Margin.Right, 3);
+            preview = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(32, 40, 52), Name = "timerPreview", Margin = new Padding(0, 8, 0, 0) };
+            preview.Paint += PaintPreview; editor.Controls.Add(preview, 0, 1); editor.SetColumnSpan(preview, 2);
 
-            monitor = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, Name = "timerMonitor" };
+            backend = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240, Name = "timerBackend" };
+            backend.Items.AddRange(new object[] { T("普通置顶窗口", "Desktop overlay"), T("RTSS 游戏内绘制", "RTSS in-game overlay") }); backend.SelectedIndex = (int)draft.Backend;
+            ToolFields.Row(place, T("显示方式", "Output"), backend);
+            ToolFields.Row(place, "", ToolFields.Help(T("普通置顶窗口不进入 OBS“游戏捕获”。录制 RTSS：先运行 RTSS 7.3.7+，在 OBS 开启“捕获第三方叠加层”，在 RTSS Setup 开启“Use Microsoft Detours API hooking”。", "Desktop overlays stay outside OBS Game Capture. To record RTSS, run RTSS 7.3.7+, enable Capture third-party overlays in OBS and Use Microsoft Detours API hooking in RTSS Setup.")));
+            opacity = ToolFields.Number(0, 100, draft.Opacity, 0, "timerOpacity"); ToolFields.Row(place, T("整体不透明度（%）", "Overall opacity (%)"), opacity);
+            monitor = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240, Name = "timerMonitor" };
             monitor.Items.Add(T("主显示器", "Primary display")); foreach (Screen screen in Screen.AllScreens) monitor.Items.Add(screen.DeviceName);
             if (draft.MonitorDevice.Length > 0 && !monitor.Items.Contains(draft.MonitorDevice)) monitor.Items.Add(draft.MonitorDevice);
             monitor.SelectedIndex = 0; for (int i = 1; i < monitor.Items.Count; i++) if ((string)monitor.Items[i] == draft.MonitorDevice) monitor.SelectedIndex = i;
@@ -125,8 +155,11 @@ namespace InputStitch
             x = ToolFields.Number(-16384, 16384, draft.X, 0, "timerX"); y = ToolFields.Number(-16384, 16384, draft.Y, 0, "timerY");
             ToolFields.Row(place, T("水平位置（像素）", "X position (px)"), PositionSlider(x, 7680, "timerXSlider"));
             ToolFields.Row(place, T("垂直位置（像素）", "Y position (px)"), PositionSlider(y, 4320, "timerYSlider"));
-            ToolFields.Row(place, "", ToolFields.Help(T("以左上角为原点；滑块用于粗调，数字框每次微调 1 像素。RTSS 位置以游戏画面为准。", "Positions start at the top-left. Use sliders for coarse adjustment and numbers for one-pixel changes. RTSS coordinates refer to the game frame.")));
+            ToolFields.Row(place, "", ToolFields.Help(T("左上角为原点；滑块粗调，数字框每次微调 1 像素。RTSS 以游戏画面为准。", "Positions start at the top-left. Sliders move coarsely; numbers adjust by one pixel. RTSS uses game-frame coordinates.")));
             Button home = ToolFields.Button(T("回到左上角", "Reset position")); home.Click += delegate { x.Value = y.Value = 24; }; ToolFields.Row(place, "", home);
+            ToolFields.Row(hotkeys, T("开始 / 暂停", "Start / pause"), ToolFields.Shortcut(this, "timerStartHotkey", () => draft.StartPauseHotkey, v => draft.StartPauseHotkey = v, Changed));
+            ToolFields.Row(hotkeys, T("归零并暂停", "Reset & pause"), ToolFields.Shortcut(this, "timerResetHotkey", () => draft.ResetHotkey, v => draft.ResetHotkey = v, Changed));
+            ToolFields.Row(hotkeys, T("显示 / 隐藏", "Show / hide"), ToolFields.Shortcut(this, "timerVisibilityHotkey", () => draft.VisibilityHotkey, v => draft.VisibilityHotkey = v, Changed));
             feedback = ToolFields.Help(""); feedback.Name = "timerFeedback";
             TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); body.RowStyles.Add(new RowStyle(SizeType.AutoSize)); body.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -134,17 +167,105 @@ namespace InputStitch
             save = EditorDialogs.Button(T("保存", "Save"), DialogResult.None); save.Name = "timerSave";
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };
             Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel); AcceptButton = save; CancelButton = cancel;
-            EditorDialogs.Frame(this, body, EditorDialogs.Actions(save, cancel), T("计时、外观和位置", "Stopwatch, appearance and position"), null);
-            foreach (CheckBox control in new[] { enabled, visible, bold, italic, outline }) control.CheckedChanged += delegate { Changed(); };
-            foreach (NumericUpDown control in new[] { size, border, spacing, opacity, x, y }) control.ValueChanged += delegate { Changed(); };
-            foreach (ComboBox control in new[] { backend, format, monitor }) control.SelectedIndexChanged += delegate { Changed(); };
-            template.TextChanged += delegate { Changed(); }; Changed();
+            EditorDialogs.Frame(this, body, EditorDialogs.Actions(save, cancel), T("分段编辑计时内容和样式", "Edit timer parts and their styles"), null);
+            partList.Resize += delegate { FitColumns(); };
+            partList.SelectedIndexChanged += delegate { if (!loading && partList.SelectedIndices.Count > 0) { selectedIndex = partList.SelectedIndices[0]; LoadPart(); } };
+            partList.ItemChecked += delegate(object sender, ItemCheckedEventArgs e) { if (!loading) { parts[e.Item.Index].Visible = e.Item.Checked; partsEdited = true; Changed(); } };
+            partList.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Delete) { RemovePart(); e.Handled = true; } else if (e.Alt && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)) { MovePart(e.KeyCode == Keys.Up ? -1 : 1); e.Handled = true; } };
+            preset.SelectedIndexChanged += delegate { if (preset.SelectedIndex > 0) ApplyPreset((TimerTimeFormat)(preset.SelectedIndex - 1)); };
+            partKind.SelectedIndexChanged += delegate { if (loading || SelectedPart == null) return; SelectedPart.Kind = (TimerPartKind)partKind.SelectedIndex; partsEdited = true; LoadPart(); RebuildList(); Changed(); };
+            partText.TextChanged += delegate { if (!loading && SelectedPart != null) { SelectedPart.Text = partText.Text.Replace("\r\n", "\n"); partsEdited = true; UpdateItem(); Changed(); } };
+            digits.ValueChanged += delegate { if (!loading && SelectedPart != null) { SelectedPart.Digits = (int)digits.Value; partsEdited = true; UpdateItem(); Changed(); } };
+            foreach (CheckBox control in new[] { bold, italic, outline }) control.CheckedChanged += delegate { EditStyle(); };
+            foreach (NumericUpDown control in new[] { size, border, spacing, partOpacity }) control.ValueChanged += delegate { EditStyle(); };
+            foreach (CheckBox control in new[] { enabled, visible }) control.CheckedChanged += delegate { Changed(); };
+            foreach (NumericUpDown control in new[] { opacity, x, y }) control.ValueChanged += delegate { Changed(); };
+            foreach (ComboBox control in new[] { backend, monitor }) control.SelectedIndexChanged += delegate { Changed(); };
+            selectedIndex = parts.Count == 0 ? -1 : 0; RebuildList(); LoadPart(); Changed();
+        }
+        private void FitColumns()
+        { if (partList.Columns.Count < 2) return; int first = Math.Min(partList.ClientSize.Width / 2, (int)Math.Ceiling(145 * partList.Font.Height / 16F)); partList.Columns[0].Width = Math.Max(70, first); partList.Columns[1].Width = Math.Max(40, partList.ClientSize.Width - first - SystemInformation.VerticalScrollBarWidth - 4); }
+        private static string PartName(TimerPart part)
+        { switch (part.Kind) { case TimerPartKind.Hours: return T("时", "Hours"); case TimerPartKind.Minutes: return T("分", "Minutes"); case TimerPartKind.Seconds: return T("秒", "Seconds"); case TimerPartKind.Milliseconds: return T("毫秒", "Milliseconds"); default: return T("文字", "Text"); } }
+        private static string PartContent(TimerPart part) { return part.Kind == TimerPartKind.Text ? part.Text.Replace("\n", " ↵ ") : new string('0', part.Digits); }
+        private void RebuildList()
+        {
+            loading = true; partList.BeginUpdate(); partList.Items.Clear();
+            foreach (TimerPart part in parts) { ListViewItem item = new ListViewItem(PartName(part)) { Checked = part.Visible }; item.SubItems.Add(PartContent(part)); partList.Items.Add(item); }
+            if (selectedIndex >= 0 && selectedIndex < partList.Items.Count) { partList.Items[selectedIndex].Selected = true; partList.Items[selectedIndex].EnsureVisible(); }
+            partList.EndUpdate(); loading = false; FitColumns();
+        }
+        private void UpdateItem() { if (SelectedPart == null || selectedIndex >= partList.Items.Count) return; partList.Items[selectedIndex].Text = PartName(SelectedPart); partList.Items[selectedIndex].SubItems[1].Text = PartContent(SelectedPart); }
+        private void LoadPart()
+        {
+            loading = true; TimerPart part = SelectedPart; detail.Enabled = part != null;
+            if (part != null)
+            {
+                TimerPartStyle style = part.Style; partKind.SelectedIndex = (int)part.Kind; partText.Text = part.Text.Replace("\n", "\r\n");
+                digits.Maximum = part.Kind == TimerPartKind.Milliseconds ? 3 : 6; digits.Value = Math.Min(digits.Maximum, Math.Max(digits.Minimum, part.Digits));
+                bool text = part.Kind == TimerPartKind.Text; partText.Visible = detail.GetControlFromPosition(0, textRow).Visible = text;
+                digits.Visible = detail.GetControlFromPosition(0, digitsRow).Visible = !text;
+                font.Text = style.FontFamily; size.Value = (decimal)style.FontSize; bold.Checked = style.Bold; italic.Checked = style.Italic;
+                outline.Checked = style.Outline; border.Value = (decimal)style.OutlineWidth; spacing.Value = (decimal)style.LetterSpacing; partOpacity.Value = style.Opacity;
+                border.Enabled = outlineColor.Enabled = style.Outline;
+            }
+            loading = false;
+        }
+        private void AddPart()
+        {
+            if (parts.Count >= 32) return;
+            TimerPartStyle style = SelectedPart == null ? TimerPartStyle.FromOptions(draft) : SelectedPart.Style.Clone(); style.Opacity = 100;
+            parts.Add(new TimerPart { Kind = TimerPartKind.Text, Text = T("文字", "Text"), Style = style }); selectedIndex = parts.Count - 1; partsEdited = true; RebuildList(); LoadPart(); Changed();
+        }
+        private void RemovePart() { if (SelectedPart == null) return; parts.RemoveAt(selectedIndex); selectedIndex = Math.Min(selectedIndex, parts.Count - 1); partsEdited = true; RebuildList(); LoadPart(); Changed(); }
+        private void MovePart(int delta)
+        { int target = selectedIndex + delta; if (SelectedPart == null || target < 0 || target >= parts.Count) return; TimerPart part = parts[selectedIndex]; parts.RemoveAt(selectedIndex); parts.Insert(target, part); selectedIndex = target; partsEdited = true; RebuildList(); Changed(); }
+        private void ApplyPreset(TimerTimeFormat value)
+        { parts.Clear(); parts.AddRange(TimerText.CreatePreset(value, draft)); draft.TimeFormat = value; selectedIndex = 0; partsEdited = true; RebuildList(); LoadPart(); Changed(); }
+        private void EditStyle()
+        {
+            if (loading || SelectedPart == null) return; TimerPartStyle style = SelectedPart.Style;
+            style.FontSize = (float)size.Value; style.Bold = bold.Checked; style.Italic = italic.Checked; style.Outline = outline.Checked; style.OutlineWidth = (float)border.Value;
+            style.LetterSpacing = (float)spacing.Value; style.Opacity = (int)partOpacity.Value; partsEdited = true; border.Enabled = outlineColor.Enabled = outline.Checked; Changed();
         }
         private void ApplySelectedFont(Font selected)
         {
-            draft.FontFamily = selected.FontFamily.Name; font.Text = draft.FontFamily;
-            size.Value = Math.Max(size.Minimum, Math.Min(size.Maximum, (decimal)(selected.SizeInPoints * 96F / 72F)));
-            bold.Checked = selected.Bold; italic.Checked = selected.Italic; Changed();
+            if (SelectedPart == null) return; SelectedPart.Style.FontFamily = selected.FontFamily.Name; font.Text = selected.FontFamily.Name;
+            loading = true; size.Value = Math.Max(size.Minimum, Math.Min(size.Maximum, (decimal)(selected.SizeInPoints * 96F / 72F))); bold.Checked = selected.Bold; italic.Checked = selected.Italic; loading = false; EditStyle();
+        }
+        private Button ColorButton(bool stroke)
+        {
+            Button button = ToolFields.Button(stroke ? T("描边颜色…", "Outline…") : T("文字颜色…", "Text color…"));
+            button.Click += delegate { if (SelectedPart == null) return; TimerPartStyle style = SelectedPart.Style; using (ColorDialog picker = new ColorDialog { FullOpen = true, Color = CrosshairOptions.ParseColor(stroke ? style.OutlineColor : style.Color, "#FFFFFF") })
+                if (picker.ShowDialog(this) == DialogResult.OK) { if (stroke) style.OutlineColor = CrosshairOptions.Hex(picker.Color); else style.Color = CrosshairOptions.Hex(picker.Color); partsEdited = true; Changed(); } }; return button;
+        }
+        private TimerOptions CaptureOptions()
+        {
+            TimerOptions o = draft.Clone(); o.Enabled = enabled.Checked; o.Visible = visible.Checked; o.Backend = (TimerBackend)backend.SelectedIndex;
+            o.Opacity = (int)opacity.Value; o.X = (int)x.Value; o.Y = (int)y.Value; o.MonitorDevice = monitor.SelectedIndex <= 0 ? "" : (string)monitor.SelectedItem;
+            if (partsEdited || draft.Parts != null)
+            {
+                o.Parts = new System.Collections.Generic.List<TimerPart>(); foreach (TimerPart part in parts) o.Parts.Add(part.Clone());
+                System.Text.StringBuilder fallback = new System.Text.StringBuilder();
+                foreach (TimerPart part in parts) if (part.Visible) fallback.Append(part.Kind == TimerPartKind.Text ? part.Text.Replace("{", "{{").Replace("}", "}}") : part.Kind == TimerPartKind.Hours ? "{hh}" : part.Kind == TimerPartKind.Minutes ? "{mm}" : part.Kind == TimerPartKind.Seconds ? "{ss}" : "{fff}");
+                o.TextTemplate = fallback.ToString();
+            }
+            o.Normalize(); return o;
+        }
+        private void Changed()
+        {
+            if (save == null || loading) return; TimerOptions o = CaptureOptions();
+            string error = !ToolFields.ValidShortcut(draft.StartPauseHotkey) || !ToolFields.ValidShortcut(draft.ResetHotkey) || !ToolFields.ValidShortcut(draft.VisibilityHotkey)
+                ? T("请选择包含普通键的键盘组合键。", "Choose a keyboard shortcut that includes a regular key.") : validate == null ? "" : validate(o);
+            save.Enabled = error.Length == 0; feedback.ForeColor = error.Length == 0 ? EditorTheme.Muted : Color.Firebrick;
+            monitor.Enabled = backend.SelectedIndex == 0; preview.Invalidate(); if (controller != null && error.Length == 0) controller.Apply(o);
+            start.Text = controller != null && controller.IsRunning ? T("暂停", "Pause") : T("开始", "Start"); feedback.Text = error.Length > 0 ? error : controller == null ? "" : StatusText(controller.Status);
+        }
+        private void PaintPreview(object sender, PaintEventArgs e)
+        {
+            if (save == null) return;
+            using (Bitmap image = TimerTextRenderer.Render(CaptureOptions(), TimeSpan.FromMilliseconds(123456)))
+            { float scale = Math.Min(1F, Math.Min(Math.Max(1, preview.Width - 16) / (float)image.Width, Math.Max(1, preview.Height - 16) / (float)image.Height)); e.Graphics.DrawImage(image, new Rectangle(8, 8, Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale)))); }
         }
         private Control PositionSlider(NumericUpDown number, int max, string name)
         {
@@ -155,35 +276,6 @@ namespace InputStitch
             slider.ValueChanged += delegate { if (synchronizing) return; synchronizing = true; number.Value = slider.Value; synchronizing = false; };
             number.ValueChanged += delegate { if (synchronizing) return; synchronizing = true; slider.Value = (int)Math.Max(0, Math.Min(max, number.Value)); synchronizing = false; };
             row.Controls.Add(number, 0, 0); row.Controls.Add(slider, 1, 0); return row;
-        }
-        private Button ColorButton(bool isOutline)
-        {
-            Button button = ToolFields.Button(isOutline ? T("描边颜色…", "Outline color…") : T("文字颜色…", "Text color…"));
-            button.Click += delegate
-            {
-                using (ColorDialog picker = new ColorDialog { FullOpen = true, Color = CrosshairOptions.ParseColor(isOutline ? draft.OutlineColor : draft.Color, "#FFFFFF") })
-                    if (picker.ShowDialog(this) == DialogResult.OK) { if (isOutline) draft.OutlineColor = CrosshairOptions.Hex(picker.Color); else draft.Color = CrosshairOptions.Hex(picker.Color); Changed(); }
-            }; return button;
-        }
-        private TimerOptions CaptureOptions()
-        {
-            TimerOptions o = draft.Clone(); o.Enabled = enabled.Checked; o.Visible = visible.Checked; o.Backend = (TimerBackend)backend.SelectedIndex;
-            o.FontSize = (float)size.Value; o.Bold = bold.Checked; o.Italic = italic.Checked; o.Outline = outline.Checked; o.OutlineWidth = (float)border.Value;
-            o.LetterSpacing = (float)spacing.Value; o.Opacity = (int)opacity.Value; o.X = (int)x.Value; o.Y = (int)y.Value;
-            o.MonitorDevice = monitor.SelectedIndex <= 0 ? "" : (string)monitor.SelectedItem; o.TextTemplate = template.Text; o.TimeFormat = (TimerTimeFormat)format.SelectedIndex; o.Normalize(); return o;
-        }
-        private void Changed()
-        {
-            if (save == null) return;
-            TimerOptions o = CaptureOptions();
-            string error = !ToolFields.ValidShortcut(draft.StartPauseHotkey) || !ToolFields.ValidShortcut(draft.ResetHotkey) || !ToolFields.ValidShortcut(draft.VisibilityHotkey)
-                ? T("请选择包含普通键的键盘组合键。", "Choose a keyboard shortcut that includes a regular key.") : validate == null ? "" : validate(o);
-            save.Enabled = error.Length == 0;
-            feedback.ForeColor = error.Length == 0 ? EditorTheme.Muted : Color.Firebrick;
-            border.Enabled = outlineColor.Enabled = outline.Checked; monitor.Enabled = backend.SelectedIndex == 0; preview.Invalidate();
-            if (controller != null && error.Length == 0) controller.Apply(o);
-            start.Text = controller != null && controller.IsRunning ? T("暂停", "Pause") : T("开始", "Start");
-            feedback.Text = error.Length > 0 ? error : controller == null ? "" : StatusText(controller.Status);
         }
         private static string StatusText(string status)
         {
@@ -200,65 +292,72 @@ namespace InputStitch
                 default: return status ?? "";
             }
         }
-        private void PaintPreview(object sender, PaintEventArgs e)
-        {
-            if (save == null) return;
-            // The preview shares the production glyph renderer with both output backends.
-            using (Bitmap image = TimerTextRenderer.Render(CaptureOptions(), TimeSpan.FromMilliseconds(123456)))
-            {
-                float scale = Math.Min(1F, Math.Min(Math.Max(1, preview.Width - 16) / (float)image.Width, Math.Max(1, preview.Height - 16) / (float)image.Height));
-                e.Graphics.DrawImage(image, new Rectangle(8, 8, Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale))));
-            }
-        }
+
     }
 
     internal sealed class NetworkSettingsDialog : Form
     {
         private readonly NetworkControlOptions draft;
-        private readonly CheckBox enabled;
+        private readonly CheckBox enabled, blockSound, restoreSound;
         private readonly ComboBox mode;
         private readonly TextBox path;
         private readonly Button save, browse;
-        private readonly Label feedback;
+        private readonly Label feedback, shortcutHint;
         private readonly Func<NetworkControlOptions, string> validate;
         internal NetworkControlOptions Result { get; private set; }
         private static string T(string zh, string en) { return ToolFields.T(zh, en); }
         internal NetworkSettingsDialog(NetworkControlOptions options, Func<NetworkControlOptions, string> validator)
         {
             draft = (options ?? new NetworkControlOptions()).Clone(); validate = validator;
+            TriggerSpec oldBlock = draft.BlockShortcut, oldRestore = draft.RestoreShortcut;
+            draft.BlockHotkey = oldBlock == null ? null : oldBlock.Clone(); draft.RestoreHotkey = oldRestore == null ? null : oldRestore.Clone(); draft.Hotkey = null;
             Font = EditorTheme.BodyFont(); AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
-            Text = T("网络开关", "Network toggle"); ClientSize = new Size(720, 420); MinimumSize = new Size(620, 380);
+            Text = T("断网与恢复", "Network control"); ClientSize = new Size(740, 570); MinimumSize = new Size(650, 460);
             StartPosition = FormStartPosition.CenterParent; MinimizeBox = MaximizeBox = false;
             Panel page = new Panel(); TableLayoutPanel fields = ToolFields.Page(page); page.Dock = DockStyle.Fill;
-            enabled = ToolFields.Check(T("启用网络开关快捷键", "Enable network toggle hotkey")); enabled.Checked = draft.Enabled;
+            enabled = ToolFields.Check(T("启用网络控制快捷键", "Enable network hotkeys")); enabled.Checked = draft.Enabled;
             ToolFields.Row(fields, "", enabled);
-            mode = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, Name = "networkMode" };
+            mode = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left, Width = 220, Name = "networkMode" };
             mode.Items.AddRange(new object[] { T("指定程序", "Selected application"), T("整台电脑", "Whole computer") }); mode.SelectedIndex = draft.Mode == NetworkBlockMode.EntireComputer ? 1 : 0;
             ToolFields.Row(fields, T("断网范围", "Block scope"), mode);
             path = new TextBox { Text = draft.ExecutablePath, Dock = DockStyle.Top, Name = "networkExecutable" };
             browse = ToolFields.Button(T("选择程序…", "Choose app…")); browse.Click += delegate
             { using (OpenFileDialog picker = new OpenFileDialog { Filter = T("应用程序 (*.exe)|*.exe", "Applications (*.exe)|*.exe"), CheckFileExists = true }) if (picker.ShowDialog(this) == DialogResult.OK) path.Text = picker.FileName; };
-            ToolFields.Row(fields, T("程序路径", "Application path"), path); ToolFields.Row(fields, "", browse);
-            ToolFields.Row(fields, T("断开 / 恢复", "Block / restore"), ToolFields.Shortcut(this, "networkHotkey", () => draft.Hotkey, v => draft.Hotkey = v, Changed));
-            ToolFields.Row(fields, "", ToolFields.Help(T("按一次断网，再按一次恢复。指定程序包含该路径的所有运行实例；整机模式包含所有应用。首次断网需要 Windows 管理员授权。", "Press once to block, again to restore. Application mode covers all instances at that path; whole-computer mode covers all apps. Windows administrator approval is required to block traffic.")));
-            ToolFields.Row(fields, "", ToolFields.Help(T("设置菜单可点“恢复网络”，紧急停止键也会恢复网络。退出 InputStitch 或网络助手结束后自动恢复。启动软件不会自动断网。", "Use Restore network in the settings menu or Emergency Stop to restore traffic. Closing InputStitch or its network helper also restores traffic. Launching the app does not block it.")));
+            TableLayoutPanel app = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
+            app.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); app.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            app.Controls.Add(path, 0, 0); app.Controls.Add(browse, 1, 0); ToolFields.Row(fields, T("程序路径", "Application path"), app);
+            ToolFields.Row(fields, T("断开网络", "Block traffic"), ToolFields.Shortcut(this, "networkBlockHotkey", () => draft.BlockHotkey, v => draft.BlockHotkey = v, Changed));
+            ToolFields.Row(fields, T("恢复网络", "Restore traffic"), ToolFields.Shortcut(this, "networkRestoreHotkey", () => draft.RestoreHotkey, v => draft.RestoreHotkey = v, Changed));
+            shortcutHint = ToolFields.Help(""); ToolFields.Row(fields, "", shortcutHint);
+            blockSound = ToolFields.Check(T("断开音效", "Block sound")); blockSound.Name = "networkBlockSound"; blockSound.Checked = draft.BlockSound;
+            restoreSound = ToolFields.Check(T("恢复音效", "Restore sound")); restoreSound.Name = "networkRestoreSound"; restoreSound.Checked = draft.RestoreSound;
+            Button hearBlock = ToolFields.Button(T("试听断开", "Preview block")), hearRestore = ToolFields.Button(T("试听恢复", "Preview restore"));
+            hearBlock.Name = "networkBlockSoundPreview"; hearRestore.Name = "networkRestoreSoundPreview";
+            hearBlock.Click += delegate { NetworkSounds.Play(NetworkSoundKind.Blocked); }; hearRestore.Click += delegate { NetworkSounds.Play(NetworkSoundKind.Restored); };
+            ToolFields.Row(fields, T("状态音效", "Sound cues"), ToolFields.Flow(blockSound, restoreSound, hearBlock, hearRestore));
+            ToolFields.Row(fields, "", ToolFields.Help(T("指定程序包含同一路径的所有实例。首次断网需管理员授权。", "Application mode covers all instances at that path. First use requires administrator approval.")));
+            ToolFields.Row(fields, "", ToolFields.Help(T("紧急停止、设置菜单中的“恢复网络”和退出程序都可以恢复连接。", "Emergency Stop, Restore network in Settings, and closing the app all restore traffic.")));
             feedback = ToolFields.Help(""); feedback.Name = "networkFeedback"; ToolFields.Row(fields, "", feedback);
             save = EditorDialogs.Button(T("保存", "Save"), DialogResult.None); save.Name = "networkSave";
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };
             Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel); AcceptButton = save; CancelButton = cancel;
-            EditorDialogs.Frame(this, page, EditorDialogs.Actions(save, cancel), T("选择范围和快捷键", "Choose the scope and hotkey"), null);
-            enabled.CheckedChanged += delegate { Changed(); }; mode.SelectedIndexChanged += delegate { Changed(); }; path.TextChanged += delegate { Changed(); }; Changed();
+            EditorDialogs.Frame(this, page, EditorDialogs.Actions(save, cancel), T("选择范围、快捷键和音效", "Choose the scope, hotkeys and sound cues"), null);
+            enabled.CheckedChanged += delegate { Changed(); }; blockSound.CheckedChanged += delegate { Changed(); }; restoreSound.CheckedChanged += delegate { Changed(); };
+            mode.SelectedIndexChanged += delegate { Changed(); }; path.TextChanged += delegate { Changed(); }; Changed();
         }
         private NetworkControlOptions CaptureOptions()
-        { NetworkControlOptions o = draft.Clone(); o.Enabled = enabled.Checked; o.Mode = mode.SelectedIndex == 1 ? NetworkBlockMode.EntireComputer : NetworkBlockMode.Executable; o.ExecutablePath = path.Text.Trim(); o.Normalize(); return o; }
+        { NetworkControlOptions o = draft.Clone(); o.Enabled = enabled.Checked; o.Mode = mode.SelectedIndex == 1 ? NetworkBlockMode.EntireComputer : NetworkBlockMode.Executable; o.ExecutablePath = path.Text.Trim(); o.BlockSound = blockSound.Checked; o.RestoreSound = restoreSound.Checked; o.Normalize(); return o; }
         private void Changed()
         {
             if (save == null) return;
             NetworkControlOptions o = CaptureOptions(); path.Enabled = browse.Enabled = mode.SelectedIndex == 0;
             string error = o.Enabled && o.Mode == NetworkBlockMode.Executable && (!Path.IsPathRooted(o.ExecutablePath) || !File.Exists(o.ExecutablePath) || !string.Equals(Path.GetExtension(o.ExecutablePath), ".exe", StringComparison.OrdinalIgnoreCase)) ? T("请选择存在的程序文件。", "Choose an existing application file.") : "";
-            if (error.Length == 0 && !ToolFields.ValidShortcut(draft.Hotkey)) error = T("请选择包含普通键的键盘组合键。", "Choose a keyboard shortcut that includes a regular key.");
+            if (error.Length == 0 && (!ToolFields.ValidShortcut(draft.BlockHotkey) || !ToolFields.ValidShortcut(draft.RestoreHotkey))) error = T("请选择包含普通键的键盘组合键。", "Choose a keyboard shortcut that includes a regular key.");
             if (error.Length == 0 && validate != null) error = validate(o);
             feedback.Text = error; feedback.ForeColor = Color.Firebrick; save.Enabled = error.Length == 0;
+            bool same = o.BlockShortcut != null && o.RestoreShortcut != null && InputNames.FormatTrigger(o.BlockShortcut) == InputNames.FormatTrigger(o.RestoreShortcut);
+            shortcutHint.Text = same ? T("两个快捷键相同：按一次断开，再按一次恢复。", "Same shortcut: press once to block, again to restore.")
+                : T("断开与恢复分别使用上面的快捷键。", "Use the separate shortcuts above to block and restore traffic.");
         }
     }
 }

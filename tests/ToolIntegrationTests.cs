@@ -63,7 +63,7 @@ internal static class ToolIntegrationTests
         c.Macros.Clear(); c.MappingLayers.Clear();
         c.Crosshair = new CrosshairOptions { Enabled = true, Visible = false, Hotkey = Hotkey(Keys.F5) };
         c.Timer = new TimerOptions { Enabled = true, Visible = false, StartPauseHotkey = Hotkey(Keys.F6), ResetHotkey = Hotkey(Keys.F7), VisibilityHotkey = Hotkey(Keys.F8) };
-        c.NetworkControl = new NetworkControlOptions { Enabled = true, Mode = NetworkBlockMode.EntireComputer, Hotkey = Hotkey(Keys.F9) };
+        c.NetworkControl = new NetworkControlOptions { Enabled = true, Mode = NetworkBlockMode.EntireComputer, Hotkey = Hotkey(Keys.F9), BlockSound = false, RestoreSound = false };
         return c;
     }
     private static string Xml<T>(T data)
@@ -75,7 +75,7 @@ internal static class ToolIntegrationTests
         try
         {
             bool core = !args.Contains("--ui") || args.Contains("--core");
-            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); }
+            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); }
             if (args.Contains("--ui")) { DialogLayouts(); ModalWorkflow(); }
             string summary = "PASS tool integration: " + checks + " checks; " + windows + " dialog views; core=" + core + "; ui=" + args.Contains("--ui");
             File.WriteAllText(Path.Combine(root, core && args.Contains("--ui") ? "all-summary.txt" : core ? "core-summary.txt" : "ui-summary.txt"), summary);
@@ -122,6 +122,78 @@ internal static class ToolIntegrationTests
             Check(restored.Timer.StartPauseHotkey == null && restored.Timer.ResetHotkey == null && restored.Timer.VisibilityHotkey == null && restored.NetworkControl.Hotkey == null, "cleared hotkeys stay cleared " + language);
         }
     }
+    private static void IndependentNetworkControls()
+    {
+        MacroConfig config = Config(); config.NetworkControl.Hotkey = null;
+        config.NetworkControl.BlockHotkey = Hotkey(Keys.F9); config.NetworkControl.RestoreHotkey = Hotkey(Keys.F10);
+        config.NetworkControl.BlockSound = config.NetworkControl.RestoreSound = true;
+        using (DelayedFactory factory = new DelayedFactory())
+        using (MainForm main = new MainForm(config, Path.Combine(root, "separate-network"), new NoOutput()))
+        {
+            IntPtr handle = main.Handle; NetworkController network = new NetworkController(factory); Set(main, "networkController", network);
+            List<NetworkSoundKind> cues = new List<NetworkSoundKind>(); Set(main, "networkStateSounds", new NetworkStateSounds(cues.Add));
+            Check((bool)Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.RestoreHotkey)), "restore key accepted while connected");
+            Until(() => Field<int>(main, "networkOperationPending") == 0, "connected restore settles");
+            Check(factory.Starts == 0, "restore while connected prompted elevation");
+            Check((bool)Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.BlockHotkey)), "separate block admitted");
+            Check(factory.Started.WaitOne(2000), "block worker did not enter elevation");
+            Set(main, "uiSafetyModalDepth", 1);
+            Check((bool)Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.RestoreHotkey)), "restore admitted through modal protection during pending elevation");
+            factory.Release.Set(); Until(() => Field<int>(main, "networkOperationPending") == 0, "pending restore settles after elevation");
+            Check(!network.IsBlocked, "restore requested during elevation was lost");
+            Set(main, "uiSafetyModalDepth", 0); cues.Clear();
+            Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.BlockHotkey));
+            Until(() => Field<int>(main, "networkOperationPending") == 0, "separate block settles"); Check(network.IsBlocked, "separate block failed");
+            Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.BlockHotkey));
+            Until(() => Field<int>(main, "networkOperationPending") == 0, "repeated block settles");
+            Check(network.IsBlocked && cues.Count == 1 && cues[0] == NetworkSoundKind.Blocked, "repeated block toggled or replayed sound");
+            Set(main, "pauseHotkeys", true); Set(main, "uiSafetyPauseRequested", true); Set(main, "uiSafetyModalDepth", 1);
+            Check((bool)Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.RestoreHotkey)), "separate restore survives all edit guards");
+            Until(() => Field<int>(main, "networkOperationPending") == 0, "separate restore settles");
+            Check(!network.IsBlocked && cues.Count == 2 && cues[1] == NetworkSoundKind.Restored, "restore did not confirm sound/state");
+            Set(main, "pauseHotkeys", false); Set(main, "uiSafetyPauseRequested", false); Set(main, "uiSafetyModalDepth", 0);
+            config.NetworkControl.RestoreHotkey = config.NetworkControl.BlockHotkey.Clone();
+            for (int i = 0; i < 2; i++) { Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.BlockHotkey)); Until(() => Field<int>(main, "networkOperationPending") == 0, "same-key toggle settles"); Check(network.IsBlocked == (i == 0), "same-key option no longer toggles"); }
+            config.NetworkControl.RestoreHotkey = config.Timer.ResetHotkey.Clone();
+            Check(((string)Call(main, "NetworkShortcutConflict", config.NetworkControl)).Length > 0, "restore key conflicts not checked");
+            TimerOptions candidate = config.Timer.Clone(); candidate.StartPauseHotkey = config.NetworkControl.BlockHotkey.Clone();
+            Check(((string)Call(main, "TimerShortcutConflict", candidate)).Length > 0, "timer ignored separate block key reservation");
+        }
+    }
+    private static void PartEditing()
+    {
+        TimerOptions legacy = new TimerOptions { TextTemplate = "原样 / Legacy {time}", FontSize = 35, Opacity = 62 };
+        using (TimerSettingsDialog dialog = new TimerSettingsDialog(legacy, null, null))
+        {
+            Field<NumericUpDown>(dialog, "x").Value = -12;
+            TimerOptions positionOnly = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(positionOnly.Parts == null && positionOnly.TextTemplate == legacy.TextTemplate && positionOnly.FontSize == 35 && positionOnly.Opacity == 62, "position-only edit migrated legacy appearance");
+            Call(dialog, "ApplyPreset", TimerTimeFormat.MinutesSecondsMilliseconds);
+            TimerOptions preset = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(preset.Parts.All(p => p.Kind != TimerPartKind.Hours) && TimerText.Format(TimeSpan.FromMilliseconds(3661123), preset) == "61:01.123", "minutes-only preset loses elapsed hour");
+            Call(dialog, "AddPart"); Field<TextBox>(dialog, "partText").Text = " 赛段 / Split ";
+            Field<NumericUpDown>(dialog, "size").Value = 21.5M; Field<NumericUpDown>(dialog, "partOpacity").Value = 74;
+            Field<CheckBox>(dialog, "italic").Checked = true;
+            Call(dialog, "MovePart", -1);
+            TimerOptions edited = (TimerOptions)Call(dialog, "CaptureOptions");
+            TimerPart text = edited.Parts[edited.Parts.Count - 2];
+            Check(text.Text == " 赛段 / Split " && text.Style.FontSize == 21.5F && text.Style.Italic && text.Style.Opacity == 74 && edited.Opacity == 62, "custom part style/reorder failed");
+            Check(edited.Parts.First().Style.FontSize == 35, "editing text style changed numeric parts");
+            Check(legacy.Parts == null && legacy.TextTemplate == "原样 / Legacy {time}", "draft mutated original timer");
+            Field<ComboBox>(dialog, "partKind").SelectedIndex = (int)TimerPartKind.Milliseconds;
+            Field<NumericUpDown>(dialog, "digits").Value = 1;
+            TimerOptions converted = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(converted.Parts[converted.Parts.Count - 2].Kind == TimerPartKind.Milliseconds && converted.Parts[converted.Parts.Count - 2].Digits == 1, "part kind/precision edit failed");
+            Call(dialog, "RemovePart"); Check(((TimerOptions)Call(dialog, "CaptureOptions")).Parts.Count == preset.Parts.Count, "part deletion failed");
+            MacroConfig config = Config(); config.Timer = edited; config.NetworkControl.Hotkey = null;
+            config.NetworkControl.BlockHotkey = Hotkey(Keys.F9); config.NetworkControl.RestoreHotkey = Hotkey(Keys.F10); config.NetworkControl.BlockSound = false; config.NetworkControl.RestoreSound = true;
+            string path = Path.Combine(root, "parts-and-network.xml"); new ConfigStore().Save(path, config);
+            MacroConfig reopened = ConfigPackageSerializer.DeserializeConfigFromFile(path);
+            Check(Xml(config.Timer) == Xml(reopened.Timer) && Xml(config.NetworkControl) == Xml(reopened.NetworkControl), "combined part/new shortcut settings failed real file roundtrip");
+            MacroConfig clone = ConfigPackageSerializer.CloneConfig(reopened); clone.Timer.Parts[0].Style.FontSize = 110; clone.NetworkControl.RestoreHotkey.VirtualKey = 40;
+            Check(reopened.Timer.Parts[0].Style.FontSize == 35 && reopened.NetworkControl.RestoreHotkey.VirtualKey == (int)Keys.F10, "config clone aliases nested styles/shortcuts");
+        }
+    }
     private static void ShortcutValidation()
     {
         Check(!ToolFields.ValidShortcut(new TriggerSpec { Kind = InputKind.MouseX1 }), "tool shortcuts reject mouse before normalization");
@@ -139,7 +211,7 @@ internal static class ToolIntegrationTests
         }
         using (NetworkSettingsDialog dialog = new NetworkSettingsDialog(new NetworkControlOptions(), null))
         {
-            Field<NetworkControlOptions>(dialog, "draft").Hotkey = new TriggerSpec { Kind = InputKind.MouseLeft };
+            Field<NetworkControlOptions>(dialog, "draft").BlockHotkey = new TriggerSpec { Kind = InputKind.MouseLeft };
             Call(dialog, "Changed"); Check(!((Button)dialog.AcceptButton).Enabled, "invalid network shortcut cannot silently disappear on save");
         }
     }
@@ -280,7 +352,9 @@ internal static class ToolIntegrationTests
             {
                 if (timer)
                 {
-                    Field<TextBox>(dialog, "template").Text = "本次 / Run {time}\r\n测试 / Test";
+                    Call(dialog, "ApplyPreset", TimerTimeFormat.MinutesSecondsMilliseconds);
+                    Call(dialog, "AddPart");
+                    Field<TextBox>(dialog, "partText").Text = "本次 / Run\r\n测试 / Test";
                     Field<NumericUpDown>(dialog, "x").Value = -37; Field<NumericUpDown>(dialog, "y").Value = 99;
                     Field<NumericUpDown>(dialog, "size").Value = 39.5M;
                     Check(Field<NumericUpDown>(dialog, "x").Value == -37, "precise negative position survives coarse slider clamping " + name);
@@ -305,12 +379,28 @@ internal static class ToolIntegrationTests
                 dialog.Show(); Pump(20); windows++;
                 Size chrome = new Size(dialog.Width - dialog.ClientSize.Width, dialog.Height - dialog.ClientSize.Height);
                 Existing("SyntheticSize", dialog, new Size(requested.Width + chrome.Width, requested.Height + chrome.Height));
+                if (scale == 1F)
+                {
+                    if (timer)
+                    {
+                        ScrollableControl stylePage = (ScrollableControl)Field<TableLayoutPanel>(dialog, "detail").Parent;
+                        Check(!stylePage.VerticalScroll.Visible, "default selected part exposes every style control without scrolling " + name);
+                        ListView list = Field<ListView>(dialog, "partList");
+                        Check(list.Items[list.Items.Count - 1].Bounds.Bottom <= list.ClientSize.Height, "default content list shows the full preset and custom text " + name);
+                    }
+                    else Check(!All(dialog).OfType<ScrollableControl>().Any(c => c.Visible && c.AutoScroll && c.VerticalScroll.Visible), "default network settings fit without page scrolling " + name);
+                }
                 AuditAllTabs(dialog);
                 Size original = dialog.Size;
                 Existing("SyntheticSize", dialog, new Size((int)(original.Width * .90), (int)(original.Height * .90))); Pump(10); AuditAllTabs(dialog);
                 Existing("SyntheticSize", dialog, original); Pump(10); AuditAllTabs(dialog);
-                if (save && scale == 1F) using (Bitmap image = new Bitmap(dialog.Width, dialog.Height))
-                { dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(root, name + ".png")); }
+                if (save && scale == 1F)
+                {
+                    foreach (TabControl tabs in All(dialog).OfType<TabControl>()) tabs.SelectedIndex = 0;
+                    Pump(5);
+                    using (Bitmap image = new Bitmap(dialog.Width, dialog.Height))
+                    { dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(root, name + ".png")); }
+                }
                 if (save) ((Button)dialog.AcceptButton).PerformClick(); else { dialog.DialogResult = DialogResult.Cancel; dialog.Close(); }
                 Check(Xml(source.Timer) == timerBefore && Xml(source.NetworkControl) == networkBefore, "draft editing leaves saved source untouched " + name);
                 if (timer)
@@ -320,7 +410,8 @@ internal static class ToolIntegrationTests
                     if (save)
                     {
                         Check(result.MonitorDevice == "UNPLUGGED-DISPLAY", "saving preserves disconnected monitor choice " + name);
-                        Check(result.TextTemplate == "本次 / Run {time}\n测试 / Test" && result.X == -37 && result.Y == 99 && result.FontSize == 39.5F, "timer captures bilingual text and precise appearance/position " + name);
+                        TimerPart custom = result.Parts.Last();
+                        Check(custom.Text == "本次 / Run\n测试 / Test" && result.X == -37 && result.Y == 99 && custom.Style.FontSize == 39.5F, "timer captures bilingual text and precise appearance/position " + name);
                     }
                 }
                 else
@@ -358,7 +449,7 @@ internal static class ToolIntegrationTests
                     try
                     {
                         Check(Field<int>(main, "uiSafetyModalDepth") > 0, "actual tool dialog enters macro edit protection");
-                        if (timer) Field<TextBox>(dialog, "template").Text = "保存 / Saved {time}";
+                        if (timer) { Call(dialog, "AddPart"); Field<TextBox>(dialog, "partText").Text = "保存 / Saved"; }
                         else Field<ComboBox>(dialog, "mode").SelectedIndex = 1;
                         if (save) ((Button)dialog.AcceptButton).PerformClick(); else { dialog.DialogResult = DialogResult.Cancel; dialog.Close(); }
                     }
@@ -367,7 +458,7 @@ internal static class ToolIntegrationTests
                 close.Start(); Call(main, timer ? "ShowTimerDialog" : "ShowNetworkDialog", null, EventArgs.Empty);
                 if (callbackFailure != null) throw callbackFailure;
                 Check(found && Field<int>(main, "uiSafetyModalDepth") == 0, "actual tool dialog exits edit protection after save/cancel");
-                Check(timer ? (config.Timer.TextTemplate == "保存 / Saved {time}") == save : (config.NetworkControl.Mode == NetworkBlockMode.EntireComputer) == save, "actual tool dialog applies settings only after save");
+                Check(timer ? (config.Timer.Parts != null && config.Timer.Parts.Last().Text == "保存 / Saved") == save : (config.NetworkControl.Mode == NetworkBlockMode.EntireComputer) == save, "actual tool dialog applies settings only after save");
             }
         }
     }

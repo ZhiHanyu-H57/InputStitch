@@ -13,6 +13,51 @@ namespace InputStitch
 {
     public enum TimerBackend { Desktop, Rtss }
     public enum TimerTimeFormat { MinutesSecondsMilliseconds, HoursMinutesSecondsMilliseconds, SecondsMilliseconds }
+    public enum TimerPartKind { Hours, Minutes, Seconds, Milliseconds, Text }
+
+    [Serializable]
+    public sealed class TimerPartStyle
+    {
+        public string FontFamily = "Microsoft YaHei UI";
+        public float FontSize = 28;
+        public bool Bold, Italic;
+        public bool Outline = true;
+        public float OutlineWidth = 2, LetterSpacing;
+        public string Color = "#FFFFFF", OutlineColor = "#000000";
+        public int Opacity = 100;
+        public TimerPartStyle Clone() { return (TimerPartStyle)MemberwiseClone(); }
+        internal TimerOptions ToOptions()
+        { return new TimerOptions { FontFamily = FontFamily, FontSize = FontSize, Bold = Bold, Italic = Italic, Outline = Outline, OutlineWidth = OutlineWidth, LetterSpacing = LetterSpacing, Color = Color, OutlineColor = OutlineColor, Opacity = Opacity }; }
+        public static TimerPartStyle FromOptions(TimerOptions value)
+        {
+            TimerOptions o = value ?? new TimerOptions();
+            return new TimerPartStyle { FontFamily = o.FontFamily, FontSize = o.FontSize, Bold = o.Bold, Italic = o.Italic, Outline = o.Outline, OutlineWidth = o.OutlineWidth, LetterSpacing = o.LetterSpacing, Color = o.Color, OutlineColor = o.OutlineColor, Opacity = o.Opacity };
+        }
+        public void Normalize()
+        {
+            TimerOptions o = ToOptions(); o.Normalize();
+            FontFamily = o.FontFamily; FontSize = o.FontSize; Bold = o.Bold; Italic = o.Italic; Outline = o.Outline; OutlineWidth = o.OutlineWidth; LetterSpacing = o.LetterSpacing; Color = o.Color; OutlineColor = o.OutlineColor; Opacity = o.Opacity;
+        }
+        internal bool Same(TimerPartStyle other) { return other != null && ToOptions().SameRendering(other.ToOptions()); }
+    }
+
+    [Serializable]
+    public sealed class TimerPart
+    {
+        public TimerPartKind Kind;
+        public bool Visible = true;
+        public string Text = "";
+        public int Digits = 2;
+        public TimerPartStyle Style = new TimerPartStyle();
+        public TimerPart Clone() { TimerPart p = (TimerPart)MemberwiseClone(); p.Style = (Style ?? new TimerPartStyle()).Clone(); return p; }
+        public void Normalize()
+        {
+            if (!Enum.IsDefined(typeof(TimerPartKind), Kind)) Kind = TimerPartKind.Text;
+            Text = (Text ?? "").Replace("\r\n", "\n").Replace('\r', '\n'); if (Text.Length > 512) Text = Text.Substring(0, 512);
+            Digits = CrosshairOptions.Limit(Digits, 1, Kind == TimerPartKind.Milliseconds ? 3 : 6);
+            if (Style == null) Style = new TimerPartStyle(); Style.Normalize();
+        }
+    }
 
     [Serializable]
     public sealed class TimerOptions
@@ -38,6 +83,14 @@ namespace InputStitch
         [XmlElement(IsNullable = true)] public TriggerSpec StartPauseHotkey;
         [XmlElement(IsNullable = true)] public TriggerSpec ResetHotkey;
         [XmlElement(IsNullable = true)] public TriggerSpec VisibilityHotkey;
+        [XmlIgnore] public List<TimerPart> Parts;
+        [XmlArray("Parts", IsNullable = false), XmlArrayItem("Part")]
+        public TimerPart[] SerializedParts
+        {
+            get { return Parts == null ? null : Parts.ToArray(); }
+            set { Parts = value == null ? null : new List<TimerPart>(value); }
+        }
+        public bool ShouldSerializeSerializedParts() { return Parts != null; }
 
         public TimerOptions Clone()
         {
@@ -45,13 +98,21 @@ namespace InputStitch
             copy.StartPauseHotkey = StartPauseHotkey == null ? null : StartPauseHotkey.Clone();
             copy.ResetHotkey = ResetHotkey == null ? null : ResetHotkey.Clone();
             copy.VisibilityHotkey = VisibilityHotkey == null ? null : VisibilityHotkey.Clone();
+            if (Parts != null) { copy.Parts = new List<TimerPart>(); foreach (TimerPart p in Parts) if (p != null) copy.Parts.Add(p.Clone()); }
             return copy;
         }
         internal bool SameRendering(TimerOptions other)
         {
             return other != null && FontFamily == other.FontFamily && FontSize == other.FontSize && Bold == other.Bold && Italic == other.Italic &&
                 Outline == other.Outline && OutlineWidth == other.OutlineWidth && LetterSpacing == other.LetterSpacing && Color == other.Color &&
-                OutlineColor == other.OutlineColor && Opacity == other.Opacity && TextTemplate == other.TextTemplate && TimeFormat == other.TimeFormat;
+                OutlineColor == other.OutlineColor && Opacity == other.Opacity && TextTemplate == other.TextTemplate && TimeFormat == other.TimeFormat && SameParts(Parts, other.Parts);
+        }
+        private static bool SameParts(List<TimerPart> a, List<TimerPart> b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++) { TimerPart x = a[i], y = b[i]; if (x == null || y == null) { if (x != y) return false; continue; } if (x.Kind != y.Kind || x.Visible != y.Visible || x.Text != y.Text || x.Digits != y.Digits || !x.Style.Same(y.Style)) return false; }
+            return true;
         }
         internal void Normalize()
         {
@@ -72,6 +133,16 @@ namespace InputStitch
             if (!ValidHotkey(StartPauseHotkey)) StartPauseHotkey = null;
             if (!ValidHotkey(ResetHotkey)) ResetHotkey = null;
             if (!ValidHotkey(VisibilityHotkey)) VisibilityHotkey = null;
+            if (Parts != null)
+            {
+                List<TimerPart> normalized = new List<TimerPart>(); int remaining = 512;
+                foreach (TimerPart part in Parts)
+                {
+                    if (part == null) continue; if (normalized.Count == 32) break; part.Normalize();
+                    if (part.Text.Length > remaining) part.Text = part.Text.Substring(0, remaining); remaining -= part.Text.Length; normalized.Add(part);
+                }
+                Parts = normalized;
+            }
         }
         private static float Limit(float value, float min, float max, float fallback)
         { return float.IsNaN(value) || float.IsInfinity(value) ? fallback : Math.Max(min, Math.Min(max, value)); }
@@ -120,6 +191,7 @@ namespace InputStitch
     {
         internal static string Format(TimeSpan elapsed, TimerOptions options)
         {
+            if (options.Parts != null) { StringBuilder joined = new StringBuilder(); foreach (TimerPart part in options.Parts) if (part != null && part.Visible) joined.Append(FormatPart(elapsed, part, options.Parts)); return joined.ToString(); }
             long milliseconds = Math.Max(0, elapsed.Ticks / TimeSpan.TicksPerMillisecond);
             long totalSeconds = milliseconds / 1000, totalMinutes = totalSeconds / 60;
             string hours = (totalSeconds / 3600).ToString("00", CultureInfo.InvariantCulture);
@@ -153,12 +225,54 @@ namespace InputStitch
             }
             return result.ToString();
         }
+        internal static string FormatPart(TimeSpan elapsed, TimerPart part, List<TimerPart> all)
+        {
+            if (part.Kind == TimerPartKind.Text) return part.Text ?? "";
+            long ms = Math.Max(0, elapsed.Ticks / TimeSpan.TicksPerMillisecond), seconds = ms / 1000;
+            bool hours = false, minutes = false;
+            foreach (TimerPart p in all) if (p != null && p.Visible) { hours |= p.Kind == TimerPartKind.Hours; minutes |= p.Kind == TimerPartKind.Minutes; }
+            long value = part.Kind == TimerPartKind.Hours ? seconds / 3600 : part.Kind == TimerPartKind.Minutes ? (hours ? seconds / 60 % 60 : seconds / 60) : part.Kind == TimerPartKind.Seconds ? (hours || minutes ? seconds % 60 : seconds) : ms % 1000;
+            int digits = Math.Max(1, Math.Min(part.Kind == TimerPartKind.Milliseconds ? 3 : 6, part.Digits));
+            if (part.Kind == TimerPartKind.Milliseconds) { if (digits == 1) value /= 100; else if (digits == 2) value /= 10; }
+            return value.ToString(new string('0', digits), CultureInfo.InvariantCulture);
+        }
+        internal static List<TimerPart> CreatePreset(TimerTimeFormat format, TimerOptions styleSource)
+        {
+            List<TimerPart> parts = new List<TimerPart>(); TimerPartStyle style = TimerPartStyle.FromOptions(styleSource); style.Opacity = 100;
+            if (format == TimerTimeFormat.HoursMinutesSecondsMilliseconds) { Add(parts, TimerPartKind.Hours, "", 2, style); Add(parts, TimerPartKind.Text, ":", 2, style); }
+            if (format != TimerTimeFormat.SecondsMilliseconds) { Add(parts, TimerPartKind.Minutes, "", 2, style); Add(parts, TimerPartKind.Text, ":", 2, style); }
+            Add(parts, TimerPartKind.Seconds, "", format == TimerTimeFormat.SecondsMilliseconds ? 1 : 2, style); Add(parts, TimerPartKind.Text, ".", 2, style); Add(parts, TimerPartKind.Milliseconds, "", 3, style); return parts;
+        }
+        private static void Add(List<TimerPart> parts, TimerPartKind kind, string text, int digits, TimerPartStyle style)
+        { parts.Add(new TimerPart { Kind = kind, Text = text, Digits = digits, Style = style.Clone() }); }
+        internal static List<TimerPart> CreateParts(TimerOptions legacy)
+        {
+            TimerOptions o = legacy ?? new TimerOptions(); List<TimerPart> parts = new List<TimerPart>();
+            if (o.Parts != null) { foreach (TimerPart part in o.Parts) if (part != null) parts.Add(part.Clone()); return parts; }
+            TimerPartStyle style = TimerPartStyle.FromOptions(o); style.Opacity = 100; StringBuilder literal = new StringBuilder(); string template = o.TextTemplate ?? "{time}";
+            for (int i = 0; i < template.Length; i++)
+            {
+                if (i + 1 < template.Length && template[i] == '{' && template[i + 1] == '{') { literal.Append('{'); i++; continue; }
+                if (i + 1 < template.Length && template[i] == '}' && template[i + 1] == '}') { literal.Append('}'); i++; continue; }
+                int end = template[i] == '{' ? template.IndexOf('}', i + 1) : -1;
+                string token = end >= 0 ? template.Substring(i + 1, end - i - 1) : "";
+                if (token == "time" || token == "hh" || token == "mm" || token == "ss" || token == "fff")
+                {
+                    if (literal.Length > 0) { Add(parts, TimerPartKind.Text, literal.ToString(), 2, style); literal.Length = 0; }
+                    if (token == "time") parts.AddRange(CreatePreset(o.TimeFormat, o));
+                    else Add(parts, token == "hh" ? TimerPartKind.Hours : token == "mm" ? TimerPartKind.Minutes : token == "ss" ? TimerPartKind.Seconds : TimerPartKind.Milliseconds, "", token == "fff" ? 3 : 2, style);
+                    i = end;
+                }
+                else literal.Append(template[i]);
+            }
+            if (literal.Length > 0) Add(parts, TimerPartKind.Text, literal.ToString(), 2, style); return parts;
+        }
     }
 
     internal static class TimerTextRenderer
     {
         internal static Bitmap Render(TimerOptions options, TimeSpan elapsed)
-        { return TimerRenderer.Render(options, TimerText.Format(elapsed, options)); }
+        { if (options.Parts == null) return TimerRenderer.Render(options, TimerText.Format(elapsed, options)); using (TimerPartsFrameCache cache = new TimerPartsFrameCache(options)) return cache.Render(elapsed); }
     }
 
     internal static class TimerRenderer
@@ -287,10 +401,15 @@ namespace InputStitch
         private readonly StringFormat format;
         private readonly int padding;
         private readonly float lineHeight;
-        internal int CachedParts { get { return parts.Count; } }
-        internal TimerFrameCache(TimerOptions value)
+        private readonly TimerPartsFrameCache compound;
+        private readonly bool perGlyph;
+        internal int CachedParts { get { return compound == null ? parts.Count : compound.CachedParts; } }
+        internal TimerFrameCache(TimerOptions value) : this(value, false) { }
+        internal TimerFrameCache(TimerOptions value, bool glyphLayout)
         {
+            perGlyph = glyphLayout;
             options = value.Clone(); options.Normalize();
+            if (options.Parts != null) { compound = new TimerPartsFrameCache(options); return; }
             FontStyle style = (options.Bold ? FontStyle.Bold : FontStyle.Regular) | (options.Italic ? FontStyle.Italic : FontStyle.Regular);
             font = TimerRenderer.CreateFont(options.FontFamily, options.FontSize, style);
             measure = Graphics.FromImage(probe); format = (StringFormat)StringFormat.GenericTypographic.Clone();
@@ -310,6 +429,7 @@ namespace InputStitch
         private List<Part> Line(string text)
         {
             List<Part> line = new List<Part>(); int start = 0;
+            if (perGlyph) { TextElementEnumerator elements = StringInfo.GetTextElementEnumerator(text); while (elements.MoveNext()) line.Add(Get(elements.GetTextElement())); return line; }
             for (int i = 0; i < text.Length; i++)
             {
                 if (text[i] < '0' || text[i] > '9') continue;
@@ -348,7 +468,100 @@ namespace InputStitch
             }
             catch { bitmap.Dispose(); throw; }
         }
+        internal Bitmap Render(TimeSpan elapsed) { return compound == null ? Render(TimerText.Format(elapsed, options)) : compound.Render(elapsed); }
+        internal float Measure(string text)
+        { float width = 0; List<Part> line = Line(text); foreach (Part p in line) width += p.Advance + options.LetterSpacing; return Math.Max(0, width - (line.Count > 0 ? options.LetterSpacing : 0)); }
         public void Dispose()
-        { foreach (Part part in parts.Values) part.Image.Dispose(); parts.Clear(); format.Dispose(); measure.Dispose(); probe.Dispose(); font.Dispose(); }
+        { if (compound != null) compound.Dispose(); foreach (Part part in parts.Values) part.Image.Dispose(); parts.Clear(); if (format != null) format.Dispose(); if (measure != null) measure.Dispose(); probe.Dispose(); if (font != null) font.Dispose(); }
+    }
+
+    internal sealed class TimerPartMetrics
+    {
+        internal readonly TimerOptions Style;
+        internal readonly int Padding;
+        internal readonly float Baseline, Height;
+        internal TimerPartMetrics(TimerPart part)
+        {
+            Style = part.Style.ToOptions(); Style.Normalize();
+            Padding = (int)Math.Ceiling(Style.Outline ? Style.OutlineWidth : 0) + (int)Math.Ceiling(Style.FontSize * .25f) + 2;
+            FontStyle flags = (Style.Bold ? FontStyle.Bold : FontStyle.Regular) | (Style.Italic ? FontStyle.Italic : FontStyle.Regular);
+            using (Font font = TimerRenderer.CreateFont(Style.FontFamily, Style.FontSize, flags))
+            {
+                FontStyle actual = font.Style;
+                Baseline = Padding + font.Size * font.FontFamily.GetCellAscent(actual) / font.FontFamily.GetEmHeight(actual);
+                Height = font.GetHeight(96) + Padding * 2;
+            }
+        }
+    }
+
+    // Each changing number reuses its digit surfaces. One short-lived composition surface
+    // per visible part avoids rerasterizing fonts and outlines on animation ticks.
+    internal sealed class TimerPartsFrameCache : IDisposable
+    {
+        private sealed class Entry : IDisposable
+        {
+            internal TimerPart Part; internal TimerPartMetrics Metrics; internal TimerFrameCache Cache; internal ImageAttributes Alpha; internal bool OwnCache;
+            public void Dispose() { if (OwnCache) Cache.Dispose(); if (Alpha != null) Alpha.Dispose(); }
+        }
+        private sealed class Sprite { internal Bitmap Image; internal Entry Entry; internal float X, Y; }
+        private readonly TimerOptions options;
+        private readonly List<Entry> entries = new List<Entry>();
+        private readonly int padding;
+        private readonly float baseline, lineHeight;
+        internal int CachedParts { get { int count = 0; foreach (Entry e in entries) if (e.OwnCache) count += e.Cache.CachedParts; return count; } }
+        internal TimerPartsFrameCache(TimerOptions source)
+        {
+            options = source.Clone(); options.Normalize();
+            try
+            {
+                foreach (TimerPart part in options.Parts)
+                {
+                    if (!part.Visible) continue; TimerPartMetrics metrics = new TimerPartMetrics(part);
+                    Entry e = new Entry { Part = part, Metrics = metrics };
+                    foreach (Entry prior in entries) if (prior.Part.Style.Same(part.Style)) { e.Cache = prior.Cache; break; }
+                    if (e.Cache == null) { e.Cache = new TimerFrameCache(metrics.Style, true); e.OwnCache = true; } entries.Add(e);
+                    if (part.Style.Opacity < 100) { e.Alpha = new ImageAttributes(); ColorMatrix matrix = new ColorMatrix(); matrix.Matrix33 = part.Style.Opacity / 100f; e.Alpha.SetColorMatrix(matrix); }
+                    padding = Math.Max(padding, metrics.Padding); baseline = Math.Max(baseline, metrics.Baseline);
+                }
+                foreach (Entry e in entries) lineHeight = Math.Max(lineHeight, baseline - e.Metrics.Baseline + e.Metrics.Height);
+            }
+            catch { Dispose(); throw; }
+        }
+        internal Bitmap Render(TimeSpan elapsed)
+        {
+            List<Sprite> sprites = new List<Sprite>(); float x = 0, width = 1; int line = 0;
+            try
+            {
+                foreach (Entry e in entries)
+                {
+                    string[] lines = TimerText.FormatPart(elapsed, e.Part, options.Parts).Split('\n');
+                    for (int n = 0; n < lines.Length && line < 8; n++)
+                    {
+                        if (n > 0) { width = Math.Max(width, x); x = 0; line++; if (line == 8) break; }
+                        if (lines[n].Length == 0 || x >= 4096 || line * lineHeight >= 2048) continue;
+                        sprites.Add(new Sprite { Image = e.Cache.Render(lines[n]), Entry = e, X = x + padding - e.Metrics.Padding, Y = line * lineHeight + baseline - e.Metrics.Baseline });
+                        x += e.Cache.Measure(lines[n]) + e.Part.Style.LetterSpacing; width = Math.Max(width, x);
+                    }
+                }
+                Bitmap result = new Bitmap(Math.Min(4096, Math.Max(1, (int)Math.Ceiling(width) + padding * 2)), Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight * Math.Min(8, line + 1)))), PixelFormat.Format32bppPArgb);
+                try
+                {
+                    using (Graphics g = Graphics.FromImage(result))
+                    {
+                        g.Clear(System.Drawing.Color.Transparent);
+                        foreach (Sprite s in sprites)
+                        {
+                            int left = (int)Math.Round(s.X), top = (int)Math.Round(s.Y);
+                            if (s.Entry.Alpha == null) g.DrawImageUnscaled(s.Image, left, top);
+                            else g.DrawImage(s.Image, new Rectangle(left, top, s.Image.Width, s.Image.Height), 0, 0, s.Image.Width, s.Image.Height, GraphicsUnit.Pixel, s.Entry.Alpha);
+                        }
+                    }
+                    return result;
+                }
+                catch { result.Dispose(); throw; }
+            }
+            finally { foreach (Sprite s in sprites) s.Image.Dispose(); }
+        }
+        public void Dispose() { foreach (Entry e in entries) e.Dispose(); entries.Clear(); }
     }
 }

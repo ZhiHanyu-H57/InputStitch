@@ -838,7 +838,7 @@ namespace InputStitch
             if (settingsMenuItem != null) settingsMenuItem.Text = Localizer.T("设置...");
             if (crosshairButton != null) crosshairButton.Text = EditorDialogs.T("准星…", "Crosshair…");
             if (timerButton != null) timerButton.Text = EditorDialogs.T("计时器…", "Timer…");
-            if (networkMenuItem != null) networkMenuItem.Text = EditorDialogs.T("网络开关…", "Network toggle…");
+            if (networkMenuItem != null) networkMenuItem.Text = EditorDialogs.T("断网与恢复…", "Network control…");
             if (restoreNetworkMenuItem != null) restoreNetworkMenuItem.Text = EditorDialogs.T("恢复网络", "Restore network");
             RefreshNetworkStateUi();
             if (suspendTriggersMenuItem != null) suspendTriggersMenuItem.Text = Localizer.T("暂停全局宏触发");

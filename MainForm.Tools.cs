@@ -8,6 +8,7 @@ namespace InputStitch
     {
         private TimerController timerController;
         private NetworkController networkController;
+        private NetworkStateSounds networkStateSounds = new NetworkStateSounds(NetworkSounds.Play);
         private Button timerButton;
         private ToolStripMenuItem networkMenuItem, restoreNetworkMenuItem;
         private int networkOperationPending;
@@ -62,8 +63,9 @@ namespace InputStitch
             if (includeTimer && config.Timer != null && config.Timer.Enabled)
                 foreach (TriggerSpec other in new[] { config.Timer.StartPauseHotkey, config.Timer.ResetHotkey, config.Timer.VisibilityHotkey })
                     if (SameShortcut(key, other)) return EditorDialogs.T("快捷键已用于计时器。", "Shortcut used by timer.");
-            if (includeNetwork && config.NetworkControl != null && config.NetworkControl.Enabled && SameShortcut(key, config.NetworkControl.Hotkey))
-                return EditorDialogs.T("快捷键已用于网络开关。", "Shortcut used by network toggle.");
+            if (includeNetwork && config.NetworkControl != null && config.NetworkControl.Enabled)
+                foreach (TriggerSpec other in new[] { config.NetworkControl.BlockShortcut, config.NetworkControl.RestoreShortcut })
+                    if (SameShortcut(key, other)) return EditorDialogs.T("快捷键已用于网络控制。", "Shortcut used by network control.");
             return "";
         }
         private string TimerShortcutConflict(TimerOptions options)
@@ -77,8 +79,11 @@ namespace InputStitch
         private string NetworkShortcutConflict(NetworkControlOptions options)
         {
             if (!options.Enabled) return "";
-            if (options.Hotkey == null) return EditorDialogs.T("请选择断开和恢复网络的快捷键。", "Choose a shortcut to block and restore traffic.");
-            return ToolShortcutConflict(options.Hotkey, null, true, true, false);
+            if (options.BlockShortcut == null || options.RestoreShortcut == null)
+                return EditorDialogs.T("请分别选择断开和恢复网络的快捷键。", "Choose both block and restore shortcuts.");
+            foreach (TriggerSpec key in new[] { options.BlockShortcut, options.RestoreShortcut })
+            { string error = ToolShortcutConflict(key, null, true, true, false); if (error.Length > 0) return error; }
+            return "";
         }
         private static bool MatchesToolShortcut(TriggerSpec key, InputEventInfo e)
         {
@@ -86,7 +91,8 @@ namespace InputStitch
         }
         private bool HandleScreenToolShortcut(InputEventInfo e)
         {
-            if (networkController != null && networkController.IsBlocked && config.NetworkControl != null && MatchesToolShortcut(config.NetworkControl.Hotkey, e))
+            if (((networkController != null && networkController.IsBlocked) || Volatile.Read(ref networkOperationPending) != 0) &&
+                config.NetworkControl != null && MatchesToolShortcut(config.NetworkControl.RestoreShortcut, e))
             { QueueNetworkOperation(true); return true; }
             if (uiSafetyModalDepth > 0 || pauseHotkeys || uiSafetyPauseRequested) return false;
             TimerOptions timer = config.Timer;
@@ -112,8 +118,12 @@ namespace InputStitch
                 }
             }
             NetworkControlOptions network = config.NetworkControl;
-            if (network != null && network.Enabled && MatchesToolShortcut(network.Hotkey, e) && NetworkShortcutConflict(network).Length == 0)
-            { QueueNetworkOperation(false); return true; }
+            if (network != null && network.Enabled && NetworkShortcutConflict(network).Length == 0)
+            {
+                if (MatchesToolShortcut(network.RestoreShortcut, e) && !SameShortcut(network.BlockShortcut, network.RestoreShortcut))
+                { QueueNetworkOperation(true); return true; }
+                if (MatchesToolShortcut(network.BlockShortcut, e)) { QueueNetworkOperation(false); return true; }
+            }
             return false;
         }
         private void QueueNetworkOperation(bool restore)
@@ -138,6 +148,7 @@ namespace InputStitch
                             NetworkController observed = networkController;
                             observed.StateChanged += delegate
                             {
+                                ObserveNetworkSounds(observed);
                                 try { BeginInvoke((MethodInvoker)delegate
                                 {
                                     if (IsDisposed) return;
@@ -151,9 +162,10 @@ namespace InputStitch
                     bool requestedRestore = Interlocked.Exchange(ref networkRestorePending, 0) != 0;
                     bool restoreNow = restore || requestedRestore;
                     if (!restoreNow && (uiSafetyModalDepth > 0 || pauseHotkeys || uiSafetyPauseRequested || recordingActive || captureMode != CaptureMode.None)) return;
-                    bool okay = restoreNow ? network.Restore() : network.Toggle(options);
+                    bool okay = restoreNow ? network.Restore() : SameShortcut(options.BlockShortcut, options.RestoreShortcut) ? network.Toggle(options) : network.Block(options);
                     if (Interlocked.Exchange(ref networkRestorePending, 0) != 0) okay = network.Restore();
-                    message = okay ? network.IsBlocked ? EditorDialogs.T("网络已断开；再次按快捷键恢复。", "Traffic blocked; press the shortcut again to restore.")
+                    ObserveNetworkSounds(network);
+                    message = okay ? network.IsBlocked ? EditorDialogs.T("网络已断开。", "Traffic blocked.")
                         : EditorDialogs.T("网络已恢复。", "Traffic restored.") : network.LastError == "Administrator approval was cancelled."
                         ? EditorDialogs.T("已取消管理员授权，网络保持连接。", "Administrator approval cancelled; traffic remains connected.")
                         : EditorDialogs.T("无法切换网络：", "Cannot change network state: ") + network.LastError;
@@ -166,6 +178,16 @@ namespace InputStitch
                 }
                 try { BeginInvoke((MethodInvoker)delegate { if (!IsDisposed) { RefreshNetworkStateUi(); SetStatusSafe(message); } }); } catch (InvalidOperationException) { }
             });
+        }
+        private void ObserveNetworkSounds(NetworkController network)
+        {
+            NetworkStateSounds sounds; NetworkControlOptions options;
+            lock (screenToolsGate)
+            {
+                if (screenToolsDisposed || !ReferenceEquals(networkController, network)) return;
+                sounds = networkStateSounds; options = config.NetworkControl;
+            }
+            sounds.Observe(network.IsBlocked, options);
         }
         private void ShowTimerDialog(object sender, EventArgs e)
         {

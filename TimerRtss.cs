@@ -99,11 +99,18 @@ namespace InputStitch
         internal string FilePath { get; private set; }
         internal float LineHeight { get; private set; }
         private readonly TimerOptions options;
+        private readonly TimerPartsGlyphAtlas compound;
         internal TimerGlyphAtlas(TimerOptions source, string root)
         {
             options = source.Clone(); options.Normalize();
             directory = Path.Combine(root ?? Path.GetTempPath(), "InputStitch.Timer." + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture) + "." + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory); FilePath = Path.Combine(directory, "glyphs.png");
+            if (options.Parts != null)
+            {
+                try { compound = new TimerPartsGlyphAtlas(options, FilePath); LineHeight = compound.LineHeight; }
+                catch { Dispose(); throw; }
+                return;
+            }
             List<Bitmap> images = new List<Bitmap>();
             try
             {
@@ -171,11 +178,100 @@ namespace InputStitch
             }
             return tags.Append("<S><A><C>").ToString();
         }
+        internal string Hypertext(TimeSpan elapsed, int zoom) { return compound == null ? Hypertext(TimerText.Format(elapsed, options), zoom) : compound.Hypertext(elapsed, zoom); }
         internal void SetPosition(int x, int y) { options.X = x; options.Y = y; }
         public void Dispose()
         {
             try { if (FilePath != null && File.Exists(FilePath)) File.Delete(FilePath); if (Directory.Exists(directory)) Directory.Delete(directory, false); }
             catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    internal sealed class TimerPartsGlyphAtlas
+    {
+        private sealed class Glyph { internal Rectangle Source; internal float Advance; }
+        private readonly Dictionary<string, Glyph> glyphs = new Dictionary<string, Glyph>(StringComparer.Ordinal);
+        private readonly TimerOptions options;
+        private readonly TimerPartMetrics[] metrics;
+        private readonly int[] styleIndices;
+        private readonly string filePath;
+        private readonly int padding;
+        private readonly float baseline;
+        internal readonly float LineHeight;
+        private static string Key(int index, string text) { return index.ToString(CultureInfo.InvariantCulture) + ":" + text; }
+        internal TimerPartsGlyphAtlas(TimerOptions source, string path)
+        {
+            options = source; filePath = path; metrics = new TimerPartMetrics[options.Parts.Count]; styleIndices = new int[options.Parts.Count];
+            List<Bitmap> images = new List<Bitmap>(); List<Glyph> order = new List<Glyph>(); List<float> alpha = new List<float>();
+            try
+            {
+                int x = 0, y = 0, row = 0;
+                for (int i = 0; i < options.Parts.Count; i++)
+                {
+                    TimerPart p = options.Parts[i]; if (!p.Visible) continue;
+                    TimerPartMetrics m = metrics[i] = new TimerPartMetrics(p); padding = Math.Max(padding, m.Padding); baseline = Math.Max(baseline, m.Baseline);
+                    styleIndices[i] = i;
+                    for (int j = 0; j < i; j++) if (metrics[j] != null && metrics[j].Style.SameRendering(m.Style)) { styleIndices[i] = styleIndices[j]; break; }
+                    FontStyle flags = (m.Style.Bold ? FontStyle.Bold : FontStyle.Regular) | (m.Style.Italic ? FontStyle.Italic : FontStyle.Regular);
+                    using (Font font = TimerRenderer.CreateFont(m.Style.FontFamily, m.Style.FontSize, flags))
+                    using (StringFormat format = (StringFormat)StringFormat.GenericTypographic.Clone())
+                    using (Bitmap probe = new Bitmap(1, 1))
+                    using (Graphics measure = Graphics.FromImage(probe))
+                    {
+                        format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.NoClip;
+                        TextElementEnumerator elements = StringInfo.GetTextElementEnumerator(p.Kind == TimerPartKind.Text ? p.Text : "0123456789");
+                        while (elements.MoveNext())
+                        {
+                            string element = elements.GetTextElement(), key = Key(styleIndices[i], element); if (element == "\n" || glyphs.ContainsKey(key)) continue;
+                            Bitmap image = TimerRenderer.Render(m.Style, element); images.Add(image);
+                            if (x + image.Width + 14 > 1024) { x = 0; y += row; row = 0; }
+                            if (y + image.Height + 14 > 8192) throw new InvalidOperationException("Timer part atlas exceeds its bound.");
+                            Glyph glyph = new Glyph { Source = new Rectangle(x + 7, y + 7, image.Width, image.Height), Advance = measure.MeasureString(element, font, int.MaxValue, format).Width };
+                            glyphs.Add(key, glyph); order.Add(glyph); alpha.Add(options.Opacity * p.Style.Opacity / 10000f);
+                            x += image.Width + 14; row = Math.Max(row, image.Height + 14);
+                        }
+                    }
+                }
+                foreach (TimerPartMetrics m in metrics) if (m != null) LineHeight = Math.Max(LineHeight, baseline - m.Baseline + m.Height);
+                int height = 512; while (height < y + row) height *= 2;
+                using (Bitmap atlas = new Bitmap(1024, height, PixelFormat.Format32bppPArgb))
+                using (Graphics g = Graphics.FromImage(atlas))
+                {
+                    g.Clear(System.Drawing.Color.Transparent);
+                    for (int i = 0; i < images.Count; i++)
+                    using (ImageAttributes attributes = new ImageAttributes())
+                    {
+                        ColorMatrix matrix = new ColorMatrix(); matrix.Matrix33 = alpha[i]; attributes.SetColorMatrix(matrix);
+                        Bitmap image = images[i]; g.DrawImage(image, order[i].Source, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
+                    }
+                    atlas.Save(filePath, ImageFormat.Png);
+                }
+            }
+            finally { foreach (Bitmap image in images) image.Dispose(); }
+        }
+        internal string Hypertext(TimeSpan elapsed, int zoom)
+        {
+            StringBuilder tags = new StringBuilder(); tags.Append("<LI=\"").Append(filePath).Append("\"><C=FFFFFF><A=0><S=100>");
+            float x = 0; int line = 0, layer = 0;
+            for (int i = 0; i < options.Parts.Count && line < 8; i++)
+            {
+                TimerPart p = options.Parts[i]; TimerPartMetrics m = metrics[i]; if (m == null) continue;
+                float partStart = x, local = 0;
+                TextElementEnumerator elements = StringInfo.GetTextElementEnumerator(TimerText.FormatPart(elapsed, p, options.Parts));
+                while (elements.MoveNext())
+                {
+                    string element = elements.GetTextElement(); if (element == "\n") { x = partStart = local = 0; if (++line == 8) break; continue; }
+                    if (x >= 4096 || line * LineHeight >= 2048) continue;
+                    Glyph glyph; if (!glyphs.TryGetValue(Key(styleIndices[i], element), out glyph)) throw new InvalidDataException("A timer part glyph is absent from the atlas.");
+                    Rectangle r = glyph.Source;
+                    int px = options.X + (int)Math.Round(partStart + padding - m.Padding) + (int)Math.Round(local), py = options.Y + (int)Math.Round(line * LineHeight + baseline - m.Baseline);
+                    int cx = (int)Math.Floor((double)px / zoom), cy = (int)Math.Floor((double)py / zoom), phaseX = px - cx * zoom, phaseY = py - cy * zoom;
+                    int width = ((r.Width + phaseX + zoom - 1) / zoom) * zoom, height = ((r.Height + phaseY + zoom - 1) / zoom) * zoom;
+                    tags.Append("<P=").Append(cx.ToString(CultureInfo.InvariantCulture)).Append(',').Append(cy.ToString(CultureInfo.InvariantCulture)).Append("><L").Append(layer++).Append("><I=").Append(width / zoom).Append(',').Append(height / zoom).Append(',').Append(r.X - phaseX).Append(',').Append(r.Y - phaseY).Append(',').Append(width).Append(',').Append(height).Append('>');
+                    local += glyph.Advance + p.Style.LetterSpacing; x = partStart + local;
+                }
+            }
+            return tags.Append("<S><A><C>").ToString();
         }
     }
 
@@ -232,6 +328,10 @@ namespace InputStitch
             catch (InvalidOperationException) { return false; }
         }
         internal bool Present(string text)
+        { return PresentCore(text, TimeSpan.Zero, false); }
+        internal bool Present(TimeSpan elapsed)
+        { return options.Parts == null ? Present(TimerText.Format(elapsed, options)) : PresentCore(null, elapsed, true); }
+        private bool PresentCore(string text, TimeSpan elapsed, bool parts)
         {
             if (disposed) return false;
             try
@@ -241,7 +341,7 @@ namespace InputStitch
                 int offset, size, count, version;
                 if (!Layout(out offset, out size, out count, out version)) { memory.Dispose(); memory = null; slot = -1; return false; }
                 if (atlas == null) atlas = new TimerGlyphAtlas(options, atlasRoot);
-                string hypertext = atlas.Hypertext(text, ReadZoom());
+                string hypertext = parts ? atlas.Hypertext(elapsed, ReadZoom()) : atlas.Hypertext(text, ReadZoom());
                 Encoding encoding = (Encoding)Encoding.Default.Clone(); encoding.EncoderFallback = EncoderFallback.ExceptionFallback;
                 byte[] payload = encoding.GetBytes(hypertext);
                 int textOffset = 512, capacity = 4096;

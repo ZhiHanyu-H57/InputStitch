@@ -99,8 +99,17 @@ internal static class TimerD3DAcceptance
                 while (!markerVisible && markerReady.ElapsedMilliseconds < 15000);
                 if (!markerVisible) { Console.WriteLine("BLOCKED: RTSS did not render the independent baseline; product output was not started."); return 2; }
                 TimerOptions options = new TimerOptions { Enabled = true, Visible = true, Backend = TimerBackend.Rtss, FontSize = 36, Color = "#FFE020", Outline = true, X = 40, Y = 70, TextTemplate = "计时 Timer {time}", Bold = true, Italic = true, LetterSpacing = 2 };
+                options.Parts = TimerText.CreateParts(options);
+                foreach (TimerPart part in options.Parts) if (part.Kind == TimerPartKind.Milliseconds) { part.Style.FontSize = 18; part.Style.Color = "#22FFFF"; part.Style.Bold = false; }
                 timer.Apply(options); timer.Start(); frames(3000);
                 int shown = Pixels(form, Path.Combine(output, "shown.png")); string status = timer.Status;
+                using (Bitmap styled = new Bitmap(Path.Combine(output, "shown.png")))
+                {
+                    int cyan = 0; for (int yy = 50; yy < 140; yy++) for (int xx = 30; xx < 750; xx++)
+                    { Color pixel = styled.GetPixel(xx, yy); if (pixel.R < 100 && pixel.G > 170 && pixel.B > 170) cyan++; }
+                    Console.WriteLine("PARTS smaller cyan milliseconds pixels=" + cyan);
+                    if (cyan < 20) throw new Exception("RTSS did not render independently styled millisecond part");
+                }
                 using (Bitmap beforeMarker = new Bitmap(Path.Combine(output, "marker-before.png")))
                 using (Bitmap afterMarker = new Bitmap(Path.Combine(output, "shown.png")))
                 {

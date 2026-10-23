@@ -137,13 +137,13 @@ namespace InputStitch
                 if (rtss != null && !rtss.Hide()) { displayTimer.Enabled = true; Status = rtss.Status; return; }
                 lastText = null; Status = ""; return;
             }
-            string text = TimerText.Format(engine.Elapsed, options);
+            TimeSpan elapsed = engine.Elapsed; string text = TimerText.Format(elapsed, options);
             if (options.Backend == TimerBackend.Rtss)
             {
                 if (window != null) window.Hide();
                 if (DateTime.UtcNow < nextRetry) return;
                 if (rtss == null) rtss = rtssFactory(options);
-                if (!rtss.Present(text)) { Status = rtss.Status; nextRetry = Status == "RtssBusy" ? DateTime.MinValue : DateTime.UtcNow.AddSeconds(1); return; }
+                if (!(options.Parts == null ? rtss.Present(text) : rtss.Present(elapsed))) { Status = rtss.Status; nextRetry = Status == "RtssBusy" ? DateTime.MinValue : DateTime.UtcNow.AddSeconds(1); return; }
                 Status = ""; lastText = text;
             }
             else
@@ -156,7 +156,7 @@ namespace InputStitch
                 if (selected == null) return;
                 if (window == null) window = new TimerOverlay();
                 if (frames == null) frames = new TimerFrameCache(options);
-                using (Bitmap bitmap = frames.Render(text)) window.Present(bitmap, new Point(selected.Bounds.Left + options.X, selected.Bounds.Top + options.Y), options.Opacity);
+                using (Bitmap bitmap = options.Parts == null ? frames.Render(text) : frames.Render(elapsed)) window.Present(bitmap, new Point(selected.Bounds.Left + options.X, selected.Bounds.Top + options.Y), options.Opacity);
                 lastText = text; Status = "";
             }
         }

@@ -23,6 +23,7 @@ namespace InputStitch
         public string Error = "";
         public int ParentId, HelperId;
         public long ParentStartTicks, HelperStartTicks;
+        public bool RepeatedBlockStayedBlocked;
     }
     [Serializable]
     public sealed class GuestAcceptanceResult
@@ -164,6 +165,7 @@ namespace InputStitch
                             state = ReadXml<GuestFixtureState>(Path.Combine(directory, "state.xml"));
                             if (state.State != "BLOCKED") throw new Exception("Application-scope block failed: " + state.Error);
                             Assert(state.Scope == "Executable", "appscope committed only the Executable scope");
+                            Assert(state.RepeatedBlockStayedBlocked, "appscope repeated independent block remains blocked");
                             Assert(state.ParentId == fixture.Id && state.ParentStartTicks == fixture.StartTime.ToUniversalTime().Ticks, "appscope fixture parent identity");
                             Log("ACTIVE appscope target=GuestNetworkProbeA.exe parent=" + state.ParentId + " helper=" + state.HelperId);
                             CheckNew(a, false, "appscope/blocked-A"); CheckExisting(a, false, "appscope/existing-blocked-A");
@@ -216,6 +218,7 @@ namespace InputStitch
                     state = ReadXml<GuestFixtureState>(Path.Combine(directory, "state.xml"));
                     if (state.State != "BLOCKED") throw new Exception("Fixture could not block: " + state.Error);
                     Assert(state.Scope == "EntireComputer", "fixture committed EntireComputer scope");
+                    Assert(state.RepeatedBlockStayedBlocked, "repeated independent block remains blocked");
                     Assert(state.ParentId == fixture.Id && state.ParentStartTicks == fixture.StartTime.ToUniversalTime().Ticks, "fixture parent identity");
                     Log("ACTIVE parent=" + state.ParentId + " helper=" + state.HelperId + " scenario=" + scenario);
                     // Both distinct executable paths must be blocked, including flows opened before the change.
@@ -275,7 +278,9 @@ namespace InputStitch
                 {
                     using (NetworkController controller = new NetworkController())
                     {
-                        if (!controller.Toggle(Options(applicationScope)) || !controller.IsBlocked) throw new Exception(controller.LastError);
+                        if (!controller.Block(Options(applicationScope)) || !controller.IsBlocked) throw new Exception(controller.LastError);
+                        state.RepeatedBlockStayedBlocked = controller.Block(Options(applicationScope)) && controller.IsBlocked;
+                        if (!state.RepeatedBlockStayedBlocked) throw new Exception("Repeated independent block restored the connection.");
                         Process helper = HelperProcess(controller);
                         state.ParentId = current.Id; state.ParentStartTicks = current.StartTime.ToUniversalTime().Ticks;
                         state.HelperId = helper.Id; state.HelperStartTicks = helper.StartTime.ToUniversalTime().Ticks;

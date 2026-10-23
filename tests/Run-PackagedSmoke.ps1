@@ -64,6 +64,22 @@ $config.Timer.TextTemplate = 'Timer {time}'
 $config.Timer.FontSize = 32
 $config.Timer.X = 31
 $config.Timer.Y = 43
+$timerPart = New-Object InputStitch.TimerPart
+$timerPart.Kind = 'Minutes'
+$timerPart.Style.FontSize = 31
+$timerPart2 = New-Object InputStitch.TimerPart
+$timerPart2.Kind = 'Milliseconds'
+$timerPart2.Style.FontSize = 17
+$timerPart2.Style.Color = '#22FFFF'
+$timerPart2.Digits = 3
+$config.Timer.SerializedParts = [InputStitch.TimerPart[]]@($timerPart,$timerPart2)
+$config.NetworkControl.Enabled = $true
+$blockKey = New-Object InputStitch.TriggerSpec
+$blockKey.Kind = 'Keyboard'; $blockKey.VirtualKey = 120; $blockKey.Ctrl = $true; $blockKey.Alt = $true
+$restoreKey = New-Object InputStitch.TriggerSpec
+$restoreKey.Kind = 'Keyboard'; $restoreKey.VirtualKey = 121; $restoreKey.Ctrl = $true; $restoreKey.Alt = $true
+$config.NetworkControl.BlockHotkey = $blockKey; $config.NetworkControl.RestoreHotkey = $restoreKey
+$config.NetworkControl.BlockSound = $false; $config.NetworkControl.RestoreSound = $true
 $macro = New-Object InputStitch.MacroDefinition
 $macro.Name = 'Packaged startup check'
 $macro.Enabled = $false
@@ -99,6 +115,9 @@ $timer.add_Tick({
         $script:timerWindow = $timerController.GetType().GetProperty('Window',$privateFlags).GetValue($timerController)
         if ($null -eq $script:timerWindow -or !$script:timerWindow.GetType().GetProperty('Visible',$privateFlags).GetValue($script:timerWindow)) { throw 'Packaged timer window is not visible.' }
         if ($null -ne $form.GetType().GetField('networkController',$privateFlags).GetValue($form)) { throw 'Network controller must remain unused at startup.' }
+        $restored = $form.GetType().GetField('config',$privateFlags).GetValue($form)
+        if ($restored.Timer.Parts.Count -ne 2 -or $restored.Timer.Parts[0].Style.FontSize -ne 31 -or $restored.Timer.Parts[1].Style.FontSize -ne 17 -or $restored.Timer.Parts[1].Style.Color -ne '#22FFFF') { throw 'Packaged timer part styles did not restore.' }
+        if ($restored.NetworkControl.BlockHotkey.VirtualKey -ne 120 -or $restored.NetworkControl.RestoreHotkey.VirtualKey -ne 121 -or $restored.NetworkControl.BlockSound -or -not $restored.NetworkControl.RestoreSound) { throw 'Packaged independent network controls did not restore.' }
         $bitmap = New-Object Drawing.Bitmap($form.Width,$form.Height)
         try { $form.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$bitmap.Width,$bitmap.Height))); $bitmap.Save((Join-Path $output 'startup.png')) } finally { $bitmap.Dispose() }
         [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; timerRestored=$true; timerStartsPaused=$true; networkUnusedAtStartup=$true; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9; compressedManagedDependencyLoaded=$true; compressedSdlColdExtraction=$true; verifiedCacheReused=$true; corruptedCacheRepaired=$true; actualSdlInitialized=$true } |

@@ -6,6 +6,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
@@ -39,8 +40,9 @@ internal static class TimerTests
         try
         {
             if (args.Length > 0 && args[0] == "--performance") { Performance(); return 0; }
+            if (args.Length > 0 && args[0] == "--parts-performance") { Performance(true); return 0; }
             if (args.Length > 0 && args[0] == "--rtss-live") { RtssLive(); return 0; }
-            Core(); Options(); Rendering(); Protocol(); Atomic(); Reuse();
+            Core(); Options(); Rendering(); Protocol(); Atomic(); Reuse(); Parts();
             if (args.Length > 0 && args[0] == "--desktop") Desktop();
             Console.WriteLine("PASS TimerTests " + passed + " checks"); return 0;
         }
@@ -95,6 +97,122 @@ internal static class TimerTests
         long sum = 0;
         for (int y = 0; y < bitmap.Height; y++) for (int x = 0; x < bitmap.Width; x++) sum += bitmap.GetPixel(x, y).A;
         return sum;
+    }
+    private static string Xml(object value, Type type)
+    { using (StringWriter writer = new StringWriter()) { new XmlSerializer(type, new XmlRootAttribute("TimerOptions")).Serialize(writer, value); return writer.ToString(); } }
+    private static int ColorBottom(Bitmap bitmap, bool red)
+    {
+        int bottom = -1;
+        for (int y = 0; y < bitmap.Height; y++) for (int x = 0; x < bitmap.Width; x++)
+        { Color c = bitmap.GetPixel(x, y); if (c.A > 100 && (red ? c.R > 150 && c.G < 80 : c.G > 150 && c.R < 80)) bottom = y; }
+        return bottom;
+    }
+    private static void Parts()
+    {
+        TimerOptions legacy = new TimerOptions();
+        Check(Xml(legacy, typeof(TimerOptions)) == Xml(new LegacyTimerOptionsFixture(), typeof(LegacyTimerOptionsFixture)), "null Parts XML is byte-identical to the pre-parts configuration fixture");
+        Check(!Xml(legacy, typeof(TimerOptions)).Contains("<Parts"), "legacy XML does not gain an empty or nil Parts element");
+        using (StringReader reader = new StringReader(Xml(legacy, typeof(TimerOptions))))
+        {
+            TimerOptions reopened = (TimerOptions)new XmlSerializer(typeof(TimerOptions)).Deserialize(reader);
+            Check(reopened.Parts == null && TimerText.Format(TimeSpan.FromMilliseconds(1234), reopened) == "00:01.234", "missing serialized Parts remains null and legacy timer stays visible after reopen");
+            Check(Xml(reopened, typeof(TimerOptions)) == Xml(legacy, typeof(TimerOptions)), "old timer XML remains byte-identical across deserialize and serialize");
+        }
+        string legacyFile = Path.Combine(output, "timer-legacy-config-roundtrip.xml"); MacroConfig legacyConfig = new MacroConfig();
+        legacyConfig.Timer = new TimerOptions { TextTemplate = "用时 Time {time}", Enabled = true };
+        string timerBefore = Xml(legacyConfig.Timer, typeof(TimerOptions)); new ConfigStore().Save(legacyFile, legacyConfig);
+        MacroConfig reopenedConfig = ConfigPackageSerializer.DeserializeConfigFromFile(legacyFile);
+        Check(reopenedConfig.Timer.Parts == null && Xml(reopenedConfig.Timer, typeof(TimerOptions)) == timerBefore, "real MacroConfig save and load preserve legacy null Parts and exact timer XML");
+        Check(TimerText.Format(TimeSpan.FromMilliseconds(1234), reopenedConfig.Timer) == "用时 Time 00:01.234", "real old macro configuration still formats its bilingual timer after reopen");
+        Check(ConfigPackageSerializer.CloneConfig(legacyConfig).Timer.Parts == null, "real configuration clone does not activate empty timer parts");
+        legacyConfig.Timer.Parts = new System.Collections.Generic.List<TimerPart>(); new ConfigStore().Save(legacyFile, legacyConfig); reopenedConfig = ConfigPackageSerializer.DeserializeConfigFromFile(legacyFile);
+        Check(reopenedConfig.Timer.Parts != null && reopenedConfig.Timer.Parts.Count == 0 && TimerText.Format(elapsed: TimeSpan.Zero, options: reopenedConfig.Timer) == "", "explicit empty Parts survives real configuration save and load");
+        TimerOptions o = new TimerOptions { Parts = TimerText.CreatePreset(TimerTimeFormat.HoursMinutesSecondsMilliseconds, legacy) };
+        TimeSpan elapsed = TimeSpan.FromMilliseconds(3723456);
+        Check(TimerText.Format(elapsed, o) == "01:02:03.456", "ordered hour preset formats all four numeric parts");
+        o.Parts[0].Visible = false; o.Parts[1].Visible = false;
+        Check(TimerText.Format(elapsed, o) == "62:03.456", "hidden hour rolls elapsed hours into visible minutes");
+        o.Parts[2].Visible = false; o.Parts[3].Visible = false;
+        Check(TimerText.Format(elapsed, o) == "3723.456", "hidden hours and minutes roll into visible seconds");
+        o.Parts[6].Digits = 1; Check(TimerText.Format(elapsed, o) == "3723.4", "millisecond precision truncates to tenths");
+        o.Parts[6].Digits = 2; Check(TimerText.Format(elapsed, o) == "3723.45", "millisecond precision truncates to hundredths");
+        legacy.Opacity = 50; legacy.TextTemplate = "用时 {{literal}} {time} {unknown}";
+        o.Parts = TimerText.CreateParts(legacy);
+        Check(TimerText.Format(elapsed, o) == "用时 {literal} 62:03.456 {unknown}", "template conversion keeps bilingual text escaped braces and unknown tokens");
+        Check(legacy.Parts == null && legacy.TextTemplate == "用时 {{literal}} {time} {unknown}" && o.Parts[0].Style.Opacity == 100, "conversion leaves legacy source and whole-layer opacity unchanged");
+        TimerOptions clone = o.Clone(); clone.Parts[0].Style.FontSize = 72; clone.Parts[0].Text = "changed";
+        Check(o.Parts[0].Style.FontSize == 28 && o.Parts[0].Text != "changed", "part style and part text are deeply cloned");
+        string xml = Xml(o, typeof(TimerOptions)); TimerOptions read;
+        using (StringReader reader = new StringReader(xml)) read = (TimerOptions)new XmlSerializer(typeof(TimerOptions)).Deserialize(reader);
+        Check(TimerText.Format(elapsed, read) == TimerText.Format(elapsed, o) && read.Parts[0].Style.FontFamily == o.Parts[0].Style.FontFamily, "ordered parts and independent styles survive XML save and reopen");
+        TimerOptions bounded = new TimerOptions { Parts = new System.Collections.Generic.List<TimerPart>() };
+        for (int i = 0; i < 100; i++) bounded.Parts.Add(new TimerPart { Kind = TimerPartKind.Text, Text = new string('A', 100), Style = new TimerPartStyle { FontSize = float.NaN, Opacity = 500 } });
+        bounded.Normalize(); int length = 0; foreach (TimerPart p in bounded.Parts) length += p.Text.Length;
+        Check(bounded.Parts.Count == 32 && length == 512 && bounded.Parts[0].Style.FontSize == 28 && bounded.Parts[0].Style.Opacity == 100, "parts text style and count bounds normalize malformed configuration");
+        o = new TimerOptions { Parts = new System.Collections.Generic.List<TimerPart> {
+            new TimerPart { Kind = TimerPartKind.Text, Text = "88", Style = new TimerPartStyle { FontSize = 72, Outline = false, Color = "#FF0000" } },
+            new TimerPart { Kind = TimerPartKind.Text, Text = "88", Style = new TimerPartStyle { FontSize = 24, Outline = false, Color = "#00FF00" } } } };
+        using (Bitmap image = TimerTextRenderer.Render(o, elapsed))
+        {
+            image.Save(Path.Combine(output, "timer-parts-baseline.png"), ImageFormat.Png);
+            int red = ColorBottom(image, true), green = ColorBottom(image, false);
+            Check(red > 0 && green > 0 && Math.Abs(red - green) <= 3, "different sized numeric parts share a baseline red=" + red + " green=" + green);
+        }
+        TimerOptions parity = new TimerOptions { X = 0, Y = 0, Parts = new System.Collections.Generic.List<TimerPart> {
+            new TimerPart { Kind = TimerPartKind.Text, Text = "用时 Time ", Style = new TimerPartStyle { FontSize = 30, Color = "#2288FF", Italic = true } },
+            new TimerPart { Kind = TimerPartKind.Minutes, Style = new TimerPartStyle { FontSize = 56, Color = "#FF3333", Bold = true } },
+            new TimerPart { Kind = TimerPartKind.Text, Text = ":", Style = new TimerPartStyle { FontSize = 24 } },
+            new TimerPart { Kind = TimerPartKind.Seconds, Style = new TimerPartStyle { FontSize = 36, Color = "#22FF66" } } } };
+        using (Bitmap desktop = TimerTextRenderer.Render(parity, elapsed))
+        using (TimerGlyphAtlas atlas = new TimerGlyphAtlas(parity, output))
+        using (Bitmap texture = (Bitmap)Image.FromFile(atlas.FilePath))
+        using (Bitmap sampled = new Bitmap(desktop.Width, desktop.Height, PixelFormat.Format32bppPArgb))
+        {
+            string tags = atlas.Hypertext(elapsed, 1);
+            using (Graphics g = Graphics.FromImage(sampled))
+            foreach (Match match in Regex.Matches(tags, @"<P=(-?\d+),(-?\d+)><L\d+><I=(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)>"))
+            {
+                int[] n = new int[8]; for (int j = 0; j < n.Length; j++) n[j] = int.Parse(match.Groups[j + 1].Value);
+                g.DrawImage(texture, new Rectangle(n[0], n[1], n[2], n[3]), n[4], n[5], n[6], n[7], GraphicsUnit.Pixel);
+            }
+            int mismatch = 0, visible = 0;
+            for (int y = 0; y < desktop.Height; y++) for (int x = 0; x < desktop.Width; x++) { bool a = desktop.GetPixel(x, y).A > 30, b = sampled.GetPixel(x, y).A > 30; if (a || b) visible++; if (a != b) mismatch++; }
+            desktop.Save(Path.Combine(output, "timer-parts-desktop.png"), ImageFormat.Png); sampled.Save(Path.Combine(output, "timer-parts-rtss-sampled.png"), ImageFormat.Png);
+            Check(visible > 1000 && mismatch <= visible * .01, "desktop and sampled RTSS multistyle glyph layout agree mismatch=" + mismatch + "/" + visible);
+        }
+        long opaque;
+        using (Bitmap image = TimerTextRenderer.Render(o, elapsed)) opaque = Alpha(image);
+        foreach (TimerPart p in o.Parts) p.Style.Opacity = 50;
+        using (Bitmap image = TimerTextRenderer.Render(o, elapsed)) Check(Alpha(image) > opaque * .45 && Alpha(image) < opaque * .55, "desktop independent part alpha is applied once");
+        o = new TimerOptions { Opacity = 50, Parts = TimerText.CreatePreset(TimerTimeFormat.MinutesSecondsMilliseconds, new TimerOptions { FontSize = 36 }) };
+        foreach (TimerPart p in o.Parts) p.Style.Opacity = 50;
+        FakeMemory memory = new FakeMemory(); memory.Owner(2, "Other.Client"); byte[] other = memory.Read(128 + 299520 * 2, 299520); string path;
+        using (TimerRtss client = new TimerRtss(o, delegate { return memory; }, output))
+        {
+            Check(client.Present(elapsed), "multi-style RTSS time-based publish succeeds"); path = client.AtlasPath; DateTime modified = File.GetLastWriteTimeUtc(path);
+            Check(memory.Text(1).StartsWith("<LI=") && !memory.Text(1).Contains("<FNT"), "part atlas uses image tags without changing shared RTSS fonts");
+            using (Bitmap atlas = (Bitmap)Image.FromFile(path))
+            {
+                int maximum = 0; for (int y = 0; y < atlas.Height; y++) for (int x = 0; x < atlas.Width; x++) maximum = Math.Max(maximum, atlas.GetPixel(x, y).A);
+                Check(maximum >= 60 && maximum <= 65, "RTSS opacity multiplies layer and part alpha to one quarter");
+                atlas.Save(Path.Combine(output, "timer-parts-atlas.png"), ImageFormat.Png);
+            }
+            bool updates = true; for (int i = 0; i < 100; i++) updates &= client.Present(elapsed + TimeSpan.FromMilliseconds(i * 50));
+            Check(updates && client.AtlasPath == path && File.GetLastWriteTimeUtc(path) == modified && Directory.GetFiles(Path.GetDirectoryName(path), "*.png").Length == 1, "part animation reuses exactly one unchanged PNG atlas for 100 ticks");
+            Check(Convert.ToBase64String(other) == Convert.ToBase64String(memory.Read(128 + 299520 * 2, 299520)), "part publish preserves another RTSS client byte for byte");
+        }
+        Check(!File.Exists(path), "multi-style RTSS atlas is deleted on disposal");
+        using (TimerFrameCache cache = new TimerFrameCache(o))
+        {
+            for (int i = 0; i < 150; i++) using (Bitmap image = cache.Render(elapsed + TimeSpan.FromMilliseconds(i * 50))) { }
+            Check(cache.CachedParts <= 64, "part digit cache remains bounded across changing elapsed times");
+        }
+        o.Parts.Clear(); using (Bitmap empty = TimerTextRenderer.Render(o, elapsed)) Check(Alpha(empty) == 0, "empty explicit part list renders transparent instead of reviving legacy text");
+        int directories = Directory.GetDirectories(output, "InputStitch.Timer.*").Length;
+        o.Parts = new System.Collections.Generic.List<TimerPart>();
+        for (int i = 0; i < 32; i++) o.Parts.Add(new TimerPart { Kind = TimerPartKind.Minutes, Style = new TimerPartStyle { FontSize = 160, OutlineWidth = 12, Color = "#" + (0x123000 + i).ToString("X6") } });
+        using (TimerRtss client = new TimerRtss(o, delegate { return new FakeMemory(); }, output)) Check(!client.Present(elapsed) && client.Status == "RtssRenderError", "oversized part atlas fails at its explicit bound");
+        Check(Directory.GetDirectories(output, "InputStitch.Timer.*").Length == directories, "failed part atlas construction leaves no temporary directory");
     }
     private static void Rendering()
     {
@@ -224,31 +342,37 @@ internal static class TimerTests
             Check(mapped, "RTSS zoom one through eight preserves one physical pixel per source pixel");
         }
     }
-    private static void Performance()
+    private static void Performance() { Performance(false); }
+    private static void Performance(bool parts)
     {
         TimerOptions[] styles = new TimerOptions[] { new TimerOptions(), new TimerOptions { FontSize = 96, Bold = true, Italic = true, OutlineWidth = 6, LetterSpacing = 2, TextTemplate = "任务计时 Mission timer {time}\n当前阶段 Stage 2" } };
+        if (parts)
+        {
+            foreach (TimerOptions o in styles) o.Parts = TimerText.CreateParts(o);
+            foreach (TimerPart p in styles[1].Parts) if (p.Kind == TimerPartKind.Milliseconds) { p.Style.FontSize = 36; p.Style.Color = "#22FFAA"; }
+        }
         for (int sample = 0; sample < styles.Length; sample++)
         {
             TimerOptions options = styles[sample]; Process process = Process.GetCurrentProcess();
             using (TimerFrameCache cache = new TimerFrameCache(options))
             {
-                for (int i = 0; i < 20; i++) using (Bitmap image = cache.Render(TimerText.Format(TimeSpan.FromMilliseconds(i * 50), options))) { }
+                for (int i = 0; i < 20; i++) using (Bitmap image = parts ? cache.Render(TimeSpan.FromMilliseconds((i % 10) * 3661111L)) : cache.Render(TimerText.Format(TimeSpan.FromMilliseconds(i * 50), options))) { }
                 process.Refresh(); TimeSpan cpu = process.TotalProcessorTime; long privateStart = process.PrivateMemorySize64, privatePeak = privateStart;
                 int handlesStart = GetGuiResources(process.Handle, 0), gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2), frames = 0;
                 Stopwatch elapsed = Stopwatch.StartNew(); double rendering = 0;
                 while (elapsed.ElapsedMilliseconds < 30000)
                 {
-                    long start = Stopwatch.GetTimestamp(); using (Bitmap image = cache.Render(TimerText.Format(elapsed.Elapsed, options))) { }
+                    long start = Stopwatch.GetTimestamp(); using (Bitmap image = parts ? cache.Render(elapsed.Elapsed) : cache.Render(TimerText.Format(elapsed.Elapsed, options))) { }
                     rendering += (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency; frames++;
                     if (frames % 20 == 0) { process.Refresh(); privatePeak = Math.Max(privatePeak, process.PrivateMemorySize64); }
                     int sleep = (int)(frames * 50 - elapsed.ElapsedMilliseconds); if (sleep > 0) Thread.Sleep(sleep);
                 }
                 process.Refresh(); double cpuMs = (process.TotalProcessorTime - cpu).TotalMilliseconds;
-                Console.WriteLine("PERF " + (sample == 0 ? "default" : "large_bilingual") + " duration_ms=" + elapsed.ElapsedMilliseconds + " frames=" + frames + " cpu_one_core_percent=" + (cpuMs / elapsed.Elapsed.TotalMilliseconds * 100).ToString("F3") +
+                Console.WriteLine("PERF " + (parts ? "parts_" : "") + (sample == 0 ? "default" : "large_bilingual") + " duration_ms=" + elapsed.ElapsedMilliseconds + " frames=" + frames + " cpu_one_core_percent=" + (cpuMs / elapsed.Elapsed.TotalMilliseconds * 100).ToString("F3") +
                     " render_ms_per_frame=" + (rendering / frames).ToString("F3") + " private_start=" + privateStart + " private_end=" + process.PrivateMemorySize64 + " private_peak=" + privatePeak +
                     " gdi_start=" + handlesStart + " gdi_end=" + GetGuiResources(process.Handle, 0) + " gen0=" + (GC.CollectionCount(0) - gen0) + " gen1=" + (GC.CollectionCount(1) - gen1) + " gen2=" + (GC.CollectionCount(2) - gen2) + " cached_parts=" + cache.CachedParts);
                 Check(GetGuiResources(process.Handle, 0) <= handlesStart + 5, "sustained cache rendering does not accumulate GDI resources");
-                Check(cache.CachedParts < 32, "sustained text cache stays bounded");
+                Check(cache.CachedParts < (parts ? 128 : 32), "sustained text cache stays bounded");
             }
         }
         Console.WriteLine("PASS 60-second timer cache performance without forced GC");
@@ -285,6 +409,11 @@ internal static class TimerTests
             for (int i = 0; i < 50; i++) { controller.Reset(); controller.Refresh(); }
             controller.SetVisible(false); Check(!controller.Window.Visible, "hide removes native timer overlay");
             controller.SetVisible(true); Check(controller.Window.Visible, "show restores native timer overlay");
+            TimerOptions parts = new TimerOptions { Enabled = true, X = 60, Y = 60, TextTemplate = "分段 Parts {time}", FontSize = 32 };
+            parts.Parts = TimerText.CreateParts(parts);
+            foreach (TimerPart part in parts.Parts) if (part.Kind == TimerPartKind.Milliseconds) { part.Style.FontSize = 17; part.Style.Color = "#22FFFF"; }
+            controller.Apply(parts); Application.DoEvents();
+            Check(controller.Window != null && controller.Window.Visible && GetForegroundWindow() == foreground, "segmented native overlay keeps nonactivating display behavior");
             Rectangle screen = Screen.PrimaryScreen.Bounds;
             using (Bitmap desktop = new Bitmap(600, 160))
             using (Graphics graphics = Graphics.FromImage(desktop))
@@ -332,4 +461,18 @@ internal static class TimerTests
         Check(preserved, "actual RTSS prior occupied slots preserved byte for byte"); shared.Dispose();
         Console.WriteLine("PASS RTSS live shared memory tests " + passed + " checks; graphics composition is a separate D3D capture check");
     }
+}
+
+// Frozen public-field shape from the pre-parts TimerOptions model. XmlSerializer
+// emits the same root, allowing a byte-level legacy configuration comparison.
+public sealed class LegacyTimerOptionsFixture
+{
+    public bool Enabled; public bool Visible = true; public TimerBackend Backend;
+    public string FontFamily = "Microsoft YaHei UI"; public float FontSize = 28;
+    public bool Bold, Italic; public bool Outline = true; public float OutlineWidth = 2, LetterSpacing;
+    public string Color = "#FFFFFF", OutlineColor = "#000000"; public int Opacity = 100;
+    public string MonitorDevice = ""; public int X = 24, Y = 24; public string TextTemplate = "{time}"; public TimerTimeFormat TimeFormat;
+    [XmlElement(IsNullable = true)] public TriggerSpec StartPauseHotkey;
+    [XmlElement(IsNullable = true)] public TriggerSpec ResetHotkey;
+    [XmlElement(IsNullable = true)] public TriggerSpec VisibilityHotkey;
 }

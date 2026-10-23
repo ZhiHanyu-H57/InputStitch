@@ -58,6 +58,50 @@ namespace InputStitch
                     FakeFactory f = new FakeFactory(); using (NetworkController c = new NetworkController(f))
                     { Check(c.Toggle(Options()) && c.IsBlocked, "first block"); Check(c.Toggle(Options()) && !c.IsBlocked, "toggle restore"); Check(c.Toggle(Options()) && c.IsBlocked && f.Starts == 1, "reuse helper"); Check(c.Restore() && c.Restore() && !c.IsBlocked, "idempotent restore"); }
                 });
+                Test("independent block is idempotent and restore never starts a helper", delegate
+                {
+                    FakeFactory f = new FakeFactory(); using (NetworkController c = new NetworkController(f))
+                    {
+                        Check(c.Restore() && f.Starts == 0, "connected restore requested elevation");
+                        Check(c.Block(Options()) && c.Block(Options()) && c.IsBlocked, "repeated block toggled to connected");
+                        Check(f.Starts == 1 && f.Connection.Commands.Count == 1, "repeated block submitted duplicate request");
+                        Check(c.Restore() && !c.IsBlocked && c.Block(Options()) && c.IsBlocked && f.Starts == 1, "separate commands cannot reuse helper");
+                    }
+                });
+                Test("new hotkeys and independent sound preferences preserve legacy toggle", delegate
+                {
+                    NetworkControlOptions o = Options(); o.Hotkey = new TriggerSpec { VirtualKey = 75, Ctrl = true };
+                    Check(o.BlockShortcut == o.Hotkey && o.RestoreShortcut == o.Hotkey, "legacy chord changed");
+                    o.BlockHotkey = new TriggerSpec { VirtualKey = 76 }; Check(o.RestoreShortcut == null, "partial new config used legacy chord");
+                    o.RestoreHotkey = new TriggerSpec { VirtualKey = 77, Alt = true }; o.BlockSound = false;
+                    XmlSerializer xml = new XmlSerializer(typeof(NetworkControlOptions)); NetworkControlOptions reopened;
+                    using (StringWriter w = new StringWriter()) { xml.Serialize(w, o); using (StringReader r = new StringReader(w.ToString())) reopened = (NetworkControlOptions)xml.Deserialize(r); }
+                    Check(reopened.BlockShortcut.VirtualKey == 76 && reopened.RestoreShortcut.VirtualKey == 77 && !reopened.BlockSound && reopened.RestoreSound, "settings did not roundtrip");
+                    NetworkControlOptions copy = reopened.Clone(); copy.BlockHotkey.VirtualKey = 78; copy.RestoreHotkey.VirtualKey = 79;
+                    Check(reopened.BlockHotkey.VirtualKey == 76 && reopened.RestoreHotkey.VirtualKey == 77, "new shortcuts share references");
+                    reopened.BlockHotkey.VirtualKey = 17; reopened.Normalize(); Check(reopened.BlockShortcut == null, "invalid block chord survived");
+                });
+                Test("sounds follow confirmed edges once and respect each mute preference", delegate
+                {
+                    List<NetworkSoundKind> cues = new List<NetworkSoundKind>(); NetworkStateSounds sounds = new NetworkStateSounds(cues.Add);
+                    NetworkControlOptions o = Options(); sounds.Observe(false, o); sounds.Observe(true, o); sounds.Observe(true, o); sounds.Observe(false, o); sounds.Observe(false, o);
+                    Check(cues.Count == 2 && cues[0] == NetworkSoundKind.Blocked && cues[1] == NetworkSoundKind.Restored, "duplicate or false startup sound");
+                    o.BlockSound = false; sounds.Observe(true, o); o.BlockSound = true; sounds.Observe(true, o);
+                    Check(cues.Count == 2, "unmuting played a stale transition");
+                    o.RestoreSound = false; sounds.Observe(false, o); Check(cues.Count == 2, "restore mute ignored");
+                    new NetworkStateSounds(delegate { throw new InvalidOperationException("no audio device"); }).Observe(true, o);
+                });
+                Test("embedded cues are small valid PCM waves with opposite pitch direction", delegate
+                {
+                    byte[] down = NetworkSounds.Wave(NetworkSoundKind.Blocked), up = NetworkSounds.Wave(NetworkSoundKind.Restored);
+                    foreach (byte[] wave in new[] { down, up })
+                    {
+                        Check(wave.Length == 4204 && Encoding.ASCII.GetString(wave, 0, 4) == "RIFF" && Encoding.ASCII.GetString(wave, 8, 8) == "WAVEfmt ", "wave header/size");
+                        Check(BitConverter.ToInt32(wave, 4) == wave.Length - 8 && BitConverter.ToInt16(wave, 20) == 1 && BitConverter.ToInt16(wave, 22) == 1 && BitConverter.ToInt32(wave, 24) == 16000 && BitConverter.ToInt16(wave, 34) == 16, "PCM parameters");
+                    }
+                    Check(Crossings(down, 0) > Crossings(down, 1120) && Crossings(up, 0) < Crossings(up, 1120), "cues have no distinct pitch direction");
+                    using (System.Media.SoundPlayer player = new System.Media.SoundPlayer(new MemoryStream(down))) { player.Load(); Check(player.IsLoadCompleted, "native WAV parser refused cue"); }
+                });
                 Test("false reply/request failure closes connection", delegate
                 {
                     foreach (string response in new string[] { "READY", "ERROR\n" + Convert.ToBase64String(Encoding.UTF8.GetBytes("native permission failed")) })
@@ -206,6 +250,8 @@ namespace InputStitch
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
         }
+        private static int Crossings(byte[] wave, int start)
+        { int count = 0; short last = 0; for (int i = start; i < start + 960; i++) { short next = BitConverter.ToInt16(wave, 44 + i * 2); if (last < 0 && next >= 0) count++; last = next; } return count; }
         private static int PipeProbe(string[] args)
         {
             FakeDisposable block = new FakeDisposable();
