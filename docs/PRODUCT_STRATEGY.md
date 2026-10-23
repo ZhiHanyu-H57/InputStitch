@@ -1,5 +1,12 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Optional tools evidence follow-up — 2026-10-24
+
+Local beta.2 completes actual OBS recording and isolated whole-computer IPv4/IPv6
+recovery checks. Preserve beta.1 functionality and the lightweight distribution;
+production edits only update capture instructions and version metadata.
+See [verification](OVERLAY_TOOLS_1_6_0_BETA2.md). Published Stable remains 1.5.2.
+
 ## Authorized optional tools beta — 2026-10-23
 
 The user explicitly requested a corner-cut square ring, a customizable timer

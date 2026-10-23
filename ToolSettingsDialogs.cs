@@ -89,7 +89,7 @@ namespace InputStitch
             backend = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top, Name = "timerBackend" };
             backend.Items.AddRange(new object[] { T("普通置顶窗口", "Desktop overlay"), T("RTSS 游戏内绘制", "RTSS in-game overlay") }); backend.SelectedIndex = (int)draft.Backend;
             ToolFields.Row(look, T("显示方式", "Output"), backend);
-            ToolFields.Row(look, "", ToolFields.Help(T("普通窗口穿透鼠标，不进入 OBS 的“游戏捕获”。RTSS 7.3.7+ 需已安装并运行；OBS 请开启“捕获第三方叠加层”，录制结果取决于游戏兼容性。", "The desktop overlay passes clicks through and stays outside OBS Game Capture. RTSS 7.3.7+ must be installed and running. In OBS, enable Capture third-party overlays; capture depends on game compatibility.")));
+            ToolFields.Row(look, "", ToolFields.Help(T("普通置顶窗口不进入 OBS“游戏捕获”。RTSS 7.3.7+ 需先运行。录制 RTSS：在 OBS 开启“捕获第三方叠加层”，在 RTSS 设置中开启“Use Microsoft Detours API hooking”。", "Desktop overlays stay outside OBS Game Capture. Run RTSS 7.3.7+. To record RTSS, enable Capture third-party overlays in OBS and Use Microsoft Detours API hooking in RTSS Setup.")));
             font = ToolFields.Button(draft.FontFamily); font.Name = "timerFont";
             font.Click += delegate
             {

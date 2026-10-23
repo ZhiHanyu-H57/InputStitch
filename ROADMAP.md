@@ -1,5 +1,13 @@
 ﻿# ROADMAP.md
 
+## Overlay acceptance follow-up completed — 2026-10-24
+
+Local 1.6.0-beta.2 adds executed OBS Game Capture and isolated native dual-stack
+disconnect/recovery evidence to beta.1. Four actual recordings/48 frames and
+299 guest-network assertions pass, including actual parent/helper termination.
+Only version/capture-help production edits; executable sizes unchanged.
+See docs/OVERLAY_TOOLS_1_6_0_BETA2.md. Keep Stable 1.5.2 and the current feature scope.
+
 ## Authorized overlay tools beta — 2026-10-23
 
 Completed as local 1.6.0-beta.1 with selected automated acceptance and both
@@ -291,6 +299,14 @@ Completed on `refactor/no-functional-change-1` as a no-feature-change refactor. 
 Regression coverage uses an injected fake backend to verify first connection, same-type reuse, Xbox→DS4 switching, unchanged `InputSpec` forwarding, neutralization, send-failure fail-closed disconnect and `VirtualGamepadTypes.None` refusal without creating a real ViGEm device. Full regression and x64/x86 Release verification pass with ViGEm still the sole shipped backend.
 
 Do not add a second backend merely to prove the interface exists. When a concrete need justifies it, evaluate alternatives such as HIDMaestro or VIIPER's standalone server/API with deployment, signing/security, x86/x64 support and licensing considered alongside device features.
+
+HIDMaestro's author confirmed the adapter contract in
+[issue #6](https://github.com/ZhiHanyu-H57/InputStitch/issues/6) on 2026-10-24:
+`SubmitState` submits a whole controller frame, so an eventual adapter must retain
+held state and submit the complete state on every `Send`. Profiles are
+`xbox-360-wired` and `dualshock-4-v2`. Future acceptance must cover overlapping
+held inputs, independent macro ownership, and neutral state on stop/disconnect.
+This is integration guidance; the current production backend remains ViGEm.
 
 ### Completed foundation — Persistent Device Identity / Device Manager stage 1
 

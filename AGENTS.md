@@ -17,6 +17,12 @@ Before changing code in this repository, restore project context in this order:
 
 ## Development rules
 
+- Local 1.6.0-beta.2 completed actual OBS Game Capture and isolated whole-guest
+  IPv4/IPv6 recovery acceptance. See `docs/OVERLAY_TOOLS_1_6_0_BETA2.md` and the
+  two dedicated acceptance guides. EntireComputer tests must stay inside the
+  identity-gated Windows guest; never run them on this host. TCG fixture
+  precompilation is guest-only and does not change production helper deadlines.
+
 - The user authorized optional crosshair/timer/network tools on 2026-10-23.
   Local 1.6.0-beta.1 is separate from published Stable 1.5.2. Keep tools opt-in;
   timer starts paused, and application startup must never block the network.

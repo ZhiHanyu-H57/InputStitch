@@ -3,8 +3,8 @@
     // Build scripts and release workflows read these constants as the release source of truth.
     public static class ReleaseInfo
     {
-        public const string Version = "1.6.0-beta.1";
-        public const string FileVersion = "1.6.0.1";
+        public const string Version = "1.6.0-beta.2";
+        public const string FileVersion = "1.6.0.2";
         public const bool IsPrerelease = true;
         public static bool AutomaticChecksAllowed { get { return !IsPrerelease; } }
         public const string ReleasesUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases";

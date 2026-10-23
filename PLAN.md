@@ -1,5 +1,15 @@
 # PLAN.md
 
+## Overlay capture and isolated recovery acceptance — 2026-10-24
+
+Local 1.6.0-beta.2 closes actual OBS Game Capture and guest-wide IPv4/IPv6
+TCP/UDP acceptance. OBS four recordings/48 decoded frames pass; native WFP
+application scope and four whole-guest restore/exit/TerminateProcess scenarios
+pass 299 assertions. Production changes are version metadata and capture help
+only. Eight selected suites, 29933/32 tool UI views and both packaged architectures
+pass; sizes unchanged. Stable 1.5.2 remains published. No further feature work or
+publication authorized. See docs/OVERLAY_TOOLS_1_6_0_BETA2.md.
+
 ## Overlay tools beta — user authorized 2026-10-23
 
 Completed local 1.6.0-beta.1: configurable corner-cut ring, desktop/RTSS timer,
