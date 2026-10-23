@@ -1,5 +1,50 @@
 ﻿# HANDOFF.md
 
+## Independent network commands and styled timer parts — 2026-10-24
+
+Verified implementation: 30f99034988ee6a6a081adf3b79a380cdf0aae31.
+Local 1.6.0-beta.3 on feature/overlay-tools; no push/publication. Eight of 66
+production files changed, no new source or dependency. Macro engine, ownership,
+stop and WFP privilege-helper implementation unchanged.
+
+Network has independent block/restore keys, repeat-block idempotence and two
+optional generated PCM cues. Same-key and legacy Hotkey configurations toggle.
+Restore works through editing guards/pending elevation. Cues follow confirmed
+state edges; repeats/cancelled UAC/startup silent. Timer supports ordered visible
+parts, individual font/style/color/alpha, cumulative minutes/seconds and precision.
+Old templates retain Parts=null. XmlSerializer needs an explicit array proxy:
+a public List alone changed absent old Parts to empty on reload. Actual
+ConfigStore/clone/null/empty tests cover this. Baseline-aligned desktop glyph
+cache and single RTSS PNG atlas retain bounded storage and no tick disk writes.
+
+Nine selected suites and SettingsSmoke pass: timer 97, network 29, integration 153.
+Tool UI 37689/32 views, zh/en 100-200% plus compact sizes; default controls/list
+fully visible. Macro journey 142, desktop 109 per x64/x86 and packaged actual
+startup/style/shortcut restoration/shutdown pass. Cache 60s: default 1.019ms/frame,
+large 4.122ms/frame, GDI 3->3, no forced GC.
+
+Current styled-parts OBS native x64 D3D9 Game Capture: four recordings/48 frames
+pass, smaller italic milliseconds included by RTSS, desktop excluded, overlays
+off/desktop-only controls pass; yellow masks 12/12 change. A direct D3D9 independent
+marker did not render and remains BLOCKED; actual native OBS capture plus desktop
+positive control establishes the pass. ffmpeg path corrected before final full
+recording run. Dedicated UseDetours test profile removed; RTSS 2/OBS 17 unchanged.
+
+Fresh marked QEMU guest 304 passes in 100.7s: app A-only/B negative control, whole
+guest Restore/normal close/actual parent/helper TerminateProcess, IPv4+IPv6 TCP/UDP
+new/existing flows; repeat Block stays blocked in all 5 cases. Host blocks 0,
+HTTPS 200. Guest-only NGEN, unchanged production deadline. Guest, loopback peer,
+portable OBS, timer producer/native target and elevated profile helper exited;
+existing user Stable remains running. Retained offline guest disks/tools reused;
+no delete retry or new cleanup approval. Some legacy host settings snapshots
+predate the user's beta.2 use; do not present them as this turn's before hashes.
+All tests redirect settings to isolated paths.
+
+Outputs: chat outputs/beta160-3; x64 2188288B / x86 2003968B, fixed InputStitch.exe.
+Report/hashes: docs/OVERLAY_TOOLS_1_6_0_BETA3.md. Sanitized evidence ZIPs exclude
+permission tokens and OBS credentials. Further work or Stable release needs a
+separate request; no manual-trial gate. Full 42-suite gate reserved for release.
+
 ## Overlay acceptance follow-up completed — 2026-10-24
 
 Verified production/test implementation commit: 9c2f1d56387582918761cd6cd283cd707ee65bd3.

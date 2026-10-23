@@ -1,5 +1,14 @@
 # PLAN.md
 
+## Independent network commands and timer parts completed — 2026-10-24
+
+Local 1.6.0-beta.3 implements separate disconnect/restore hotkeys, individually
+optional confirmation sounds and ordered styled timer parts. Legacy toggle and
+template behavior survives reload; defaults stay opt-in. Nine selected suites,
+SettingsSmoke, tool UI 37689/32, macro journey 142, desktop 109 per architecture,
+actual OBS 48 frames, guest dual-stack network 304 and both packages pass.
+See docs/OVERLAY_TOOLS_1_6_0_BETA3.md. No Stable publication or further work authorized.
+
 ## Overlay capture and isolated recovery acceptance — 2026-10-24
 
 Local 1.6.0-beta.2 closes actual OBS Game Capture and guest-wide IPv4/IPv6

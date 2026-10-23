@@ -1,5 +1,13 @@
 ﻿# ROADMAP.md
 
+## Network shortcuts and timer customization completed — 2026-10-24
+
+Local beta.3 adds independent block/restore chords and sounds, plus styled
+hours/minutes/seconds/milliseconds/custom text parts. Old settings, macro
+workflow, bilingual/DPI layouts, both packages, native drawing, OBS capture and
+guest-wide crash recovery verified. See docs/OVERLAY_TOOLS_1_6_0_BETA3.md.
+Keep Stable 1.5.2 unchanged; no follow-on feature or publication scope implied.
+
 ## Overlay acceptance follow-up completed — 2026-10-24
 
 Local 1.6.0-beta.2 adds executed OBS Game Capture and isolated native dual-stack
