@@ -2,7 +2,7 @@
 
 ## Overlay tools local beta completed — 2026-10-23
 
-Verified production commit: 8105ee5e06532f1815860085304bcb1478e7851c.
+Verified production commit: 9040343736a316507099bbc5e219acec00bd69b2.
 
 1.6.0-beta.1 on feature/overlay-tools, based on main 4e32bce. All 66 production
 sources integrated. No remote publication. Defaults opt in; timer starts paused
