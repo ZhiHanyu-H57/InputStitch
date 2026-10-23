@@ -131,6 +131,9 @@ internal static class ToolIntegrationTests
         {
             Field<TimerOptions>(dialog, "draft").StartPauseHotkey = new TriggerSpec { Kind = InputKind.MouseLeft };
             Call(dialog, "Changed"); Check(!((Button)dialog.AcceptButton).Enabled, "invalid timer shortcut cannot silently disappear on save");
+            using (Font selected = new Font("Segoe UI", 24, FontStyle.Bold | FontStyle.Italic, GraphicsUnit.Point)) Call(dialog, "ApplySelectedFont", selected);
+            Check(Math.Abs((double)Field<NumericUpDown>(dialog, "size").Value - 32) < .01, "font dialog point size converts to physical pixels");
+            Check(Field<CheckBox>(dialog, "bold").Checked && Field<CheckBox>(dialog, "italic").Checked, "font dialog preserves selected bold and italic");
             for (Control parent = Field<Button>(dialog, "start").Parent; parent != null; parent = parent.Parent)
                 Check(!(parent is TabPage), "start control is visible outside tabs");
         }

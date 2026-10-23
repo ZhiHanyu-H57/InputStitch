@@ -93,8 +93,10 @@ namespace InputStitch
             font = ToolFields.Button(draft.FontFamily); font.Name = "timerFont";
             font.Click += delegate
             {
-                using (FontDialog picker = new FontDialog { Font = new Font(draft.FontFamily, Math.Max(6, (float)size.Value), FontStyle.Regular, GraphicsUnit.Pixel), FontMustExist = true, ShowEffects = false })
-                    if (picker.ShowDialog(this) == DialogResult.OK) { draft.FontFamily = picker.Font.FontFamily.Name; font.Text = draft.FontFamily; Changed(); }
+                FontStyle selectedStyle = (bold.Checked ? FontStyle.Bold : FontStyle.Regular) | (italic.Checked ? FontStyle.Italic : FontStyle.Regular);
+                using (Font initial = TimerRenderer.CreateFont(draft.FontFamily, (float)size.Value, selectedStyle))
+                using (FontDialog picker = new FontDialog { Font = initial, FontMustExist = true, ShowEffects = false, MinSize = 6, MaxSize = 120 })
+                    if (picker.ShowDialog(this) == DialogResult.OK) ApplySelectedFont(picker.Font);
             };
             ToolFields.Row(look, T("字体", "Font"), font);
             size = ToolFields.Number(8, 160, (decimal)draft.FontSize, 1, "timerFontSize"); ToolFields.Row(look, T("字号（像素）", "Font size (px)"), size);
@@ -137,6 +139,12 @@ namespace InputStitch
             foreach (NumericUpDown control in new[] { size, border, spacing, opacity, x, y }) control.ValueChanged += delegate { Changed(); };
             foreach (ComboBox control in new[] { backend, format, monitor }) control.SelectedIndexChanged += delegate { Changed(); };
             template.TextChanged += delegate { Changed(); }; Changed();
+        }
+        private void ApplySelectedFont(Font selected)
+        {
+            draft.FontFamily = selected.FontFamily.Name; font.Text = draft.FontFamily;
+            size.Value = Math.Max(size.Minimum, Math.Min(size.Maximum, (decimal)(selected.SizeInPoints * 96F / 72F)));
+            bold.Checked = selected.Bold; italic.Checked = selected.Italic; Changed();
         }
         private Control PositionSlider(NumericUpDown number, int max, string name)
         {
