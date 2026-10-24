@@ -1,0 +1,8 @@
+PRIVATE UI process bound: InputStitchTest-e9f903222c004e5792a04608c41e7274
+PASS tool layouts
+PASS shortcut rule layouts
+PASS modal workflows
+PASS dialog regressions: 76814 checks; 72 windows; hidden tabs, compact row heights, checkbox gestures and stable selection editor.
+PASS tool integration: 76814 checks; 72 dialog views; core=False; ui=True
+PASS private UI desktop; foreground test-window samples=0/5433; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

@@ -1,0 +1,59 @@
+PASS: formal defaults are disabled, 120 seconds, 150 ms
+PASS: formal default pulse is left stick down
+PASS: normalize limits and null pulse
+PASS: invalid control resets to formal default
+PASS: disabled never connects or sends
+PASS: wait full idle interval
+PASS: one down and exact minimum hold
+PASS: matching release at deadline
+PASS: next cycle timed from release
+PASS: repeated pulse after full new interval
+PASS: disable immediately releases active pulse
+PASS: disabled stays quiet
+PASS: clock rollback starts safe new interval
+PASS: manual activity restarts timer
+PASS: manual activity releases pulse immediately
+PASS: macro busy releases before macro output
+PASS: busy never pulses across elapsed interval
+PASS: macro completion waits a full interval
+PASS: macro completion permits later idle pulse
+PASS: configured input is cloned and isolated from caller mutations
+PASS: missing-target busy state suppresses idle pulses indefinitely
+PASS: target return starts a fresh full idle interval
+PASS: target return permits pulse only after the new full interval
+PASS: panic releases and suspends synchronously
+PASS: panic stays suspended
+PASS: ordinary configuration cannot resume panic
+PASS: explicit enable resumes after new interval
+PASS: dispose releases once and forbids future pulses
+PASS: connection failure stops retries and reports once
+PASS: partial down failure attempts matching release and stops
+PASS: explicit enable clears failure
+PASS: release failure faults without retry loop
+PASS: neutral Xbox input is idle
+PASS: Xbox deadzone and trigger threshold ignore jitter
+PASS: held extreme Xbox axis counts without overflow
+PASS: USB DS4 neutral
+PASS: USB counters and motion ignored
+PASS: USB held face button detected
+PASS: USB held stick detected
+PASS: Bluetooth DS4 neutral
+PASS: Bluetooth counters and motion ignored
+PASS: Bluetooth held face button detected
+PASS: Bluetooth held stick detected
+PASS: truncated DS4 report rejected
+PASS: unknown DS4 report rejected
+PASS: numeric Sony DS4 identity permits supported models only
+PASS: only Raw Input mouse reports count as physical mouse movement
+PASS: raw input registers mouse plus joystick and gamepad
+PASS: raw input usages are physical mouse, joystick, gamepad
+PASS: native HID info layout is correct
+PASS: concurrent busy handoff completes without deadlock
+PASS: concurrent macro waits for owned pulse release
+PASS: background deadline releases while UI ticks are stalled
+PASS: background timer only releases its owned pulse
+PASS: background deadline never starts an unattended new pulse
+PASS: stale release callback cannot release a newer pulse
+PASS: 10000 start/cancel cycles have exactly balanced down/up pairs
+PASS: 10000 cycles preserve ownership and output ordering
+PASS ALL: 58 assertions; injected clock/output; no real input or virtual device created.
