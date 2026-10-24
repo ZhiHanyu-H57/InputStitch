@@ -1,12 +1,14 @@
 # ROADMAP.md
 
-## Verification scope correction and Stable1.6.0 closure — 2026-10-24
+## Verification scope correction and Stable1.6.0 completed — 2026-10-24
 
 Current authorization: no product feature work. Replace unconditional full-suite
 release policy with cumulative impact selection and input-bound evidence reuse.
 Retain affected real-output/native/soak acceptance. No repeated macro soak for
-this promotion. Publish frozen1.6.0 after scoped gate and final package/update
-checks; user manual trial is not a prerequisite.
+this promotion. Frozen1.6.0 is published as latest Stable after the scoped gate,
+final package/update checks and GitHub/R2 byte verification. Run40105043990 passed
+with22 valid results reused and0 duplicate tests executed. See
+docs/RELEASE_1_6_0_VERIFICATION.md; no user manual trial is required.
 
 ## Automation spacing and non-disruptive UI verification completed — 2026-10-24
 
