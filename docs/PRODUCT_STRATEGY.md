@@ -9,6 +9,11 @@ source/assertion/dependency hashes and original context. Full runs and ten-minut
 soaks are no longer unconditional gates. Only metadata, rules and verification/
 publication flow change in this closure.
 
+Completed: v1.6.0 is published as latest Stable; GitHub and R2 assets match.
+Final CI reused22 valid cumulative checks, rebuilt/checked both packages and
+passed publication. No repeated soak or manual-trial prerequisite. See
+RELEASE_1_6_0_VERIFICATION.md for the final evidence and published artifact hashes.
+
 ## Optional tools evidence follow-up — 2026-10-24
 
 Local beta.2 completes actual OBS recording and isolated whole-computer IPv4/IPv6

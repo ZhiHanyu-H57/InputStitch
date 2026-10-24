@@ -1,14 +1,15 @@
 # HANDOFF.md
 
-## Stable1.6.0 scoped verification ready for publication — 2026-10-24
+## Stable1.6.0 published; impact-based verification complete — 2026-10-24
 
 User authorized workflow/rules correction and Stable release of frozen beta.7.
 Implementation f531daa plus documentation classification79ad6d4. Production
 feature sources match c4cd0bf; only ReleaseInfo is now1.6.0/1.6.0.8/Stable.
-No new product functionality. Protected main requires a normal merge PR.
+No new product functionality in this closure. PR #7 merged normally to protected
+main at41bf644eb4b56cc60de1dcc8b5e20d99486f0759; no protection bypass.
 
 Local cumulative v1.5.2->candidate selects22 checks:9 reused/13 fresh/all PASS;
-no soak. Fresh workflow24, manifest424, coreCrosshair162, corner1300, pipeline24,
+no soak. Final workflow29, manifest424, coreCrosshair162, corner1300, pipeline24,
 coordinator55, network36(no native mutation), productivity802, timer134,
 settings8864/8 synthetic and2208/2 native144-DPI, settings smoke and release policy.
 Actual x64/x86 startup/cache/save-reopen pass. Official143/150/151 packaged
@@ -18,15 +19,20 @@ Detailed record: docs/RELEASE_1_6_0_VERIFICATION.md.
 Receipts bind Git-normalized feature/test/helper/dependency inputs and original
 evidence hashes. Curated .log files are intentionally tracked under verification/
 evidence; raw artifacts stay ignored. Candidate records preserve original scope.
-Second selection reused all22/executed0. Final CI must reuse these records,
-not rerun large matrices. Docs-only follow-up should select0 product checks.
+Second selection and actual final publication CI reused all22/executed0.
+Do not rerun large matrices without affected inputs. Docs-only follow-up selects
+zero product checks.
 All new UI checks are private-process desktop checks; CrosshairTests --core and
 ProductivityTests now use that route. Actual native composition remains explicit.
 
-Next: push feature/overlay-tools; create/attach release PR; wait for selected CI;
-merge with [publish-stable] marker through normal merge API (preserve ancestors
-for recorded source commits); await release/mirror jobs; verify public1.6.0
-assets/latest/R2, then finish documentation and local delivery. User app untouched.
+Published Stable/latest v1.6.0 on2026-10-24 at23:03:31 Beijing time. Run40105043990
+passed verify(94seconds), publish-stable and mirror-stable-r2. All5 GitHub assets,
+four R2 aliases, R2 manifest/two pinned executables and66 frozen feature sources
+match. x642178560B, x862008576B; no size increase from beta.7. Website fallback
+release snapshot updated to1.6.0. See docs/RELEASE_1_6_0_VERIFICATION.md.
+Authorized work is complete; no further feature/architecture work pending.
+User app untouched. Future changes use actual-impact selection; future releases
+use cumulative changes since the previous published Stable and valid receipts.
 
 ## Automation spacing, PrintScreen and private desktop verification — 2026-10-24
 

@@ -1,14 +1,17 @@
 # PLAN.md
 
-## Impact-based verification and 1.6.0 Stable publication authorized — 2026-10-24
+## Impact-based verification and 1.6.0 Stable publication complete — 2026-10-24
 
 User authorized rules, test scripts and publication workflow changes, then
 Stable1.6.0 publication of frozen beta.7 functionality. No feature changes.
 Development selects actual changes; releases use previous published Stable1.5.2
 and reuse matching source/assertion/dependency evidence. Remove unconditional
 full runs and repeated soaks. Validate workflow changes and remaining release
-delta only, retain final package/update checks. Merge a protected-main PR,
-publish and verify GitHub/R2 assets, then record final results.
+delta only, retaining final package/update checks. PR #7 merged normally;
+Stable/latest v1.6.0 and R2 downloads are live and byte-verified. Publication
+run40105043990 reused22/22 selected records, built and checked both final packages,
+and passed publication/mirroring. No repeated soak, unrelated suite or manual gate.
+See docs/RELEASE_1_6_0_VERIFICATION.md. No further work authorized in this closure.
 
 ## Automation whitespace, PrintScreen and private UI verification — 2026-10-24
 
