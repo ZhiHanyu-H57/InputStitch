@@ -1,5 +1,15 @@
 # PLAN.md
 
+## Settings rendering and timer selection fixed — 2026-10-24
+
+Local 1.6.0-beta.6 fixes nested native DPI scaling, bloated sound/settings rows,
+Shift-selection visibility side effects and timer editor reflow. Batch editing
+is visible above the list. Final native144-DPI and100–200% settings matrices,
+relevant selection/layout regressions, old XML and both packages pass.
+Each executable adds512B with no dependency. See
+docs/UI_REGRESSIONS_1_6_0_BETA6.md. Local delivery complete; no publication scope.
+User Escape stopped Computer Use; no further desktop input or manual-trial gate.
+
 ## Dialog responsiveness and usability completed — 2026-10-24
 
 Local 1.6.0-beta.5 fixes repeated layout/text measurement during popup creation,

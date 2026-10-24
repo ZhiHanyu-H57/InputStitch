@@ -1,5 +1,51 @@
 # HANDOFF.md
 
+## Native DPI and timer selection regressions fixed — 2026-10-24
+
+Verified implementation: 7c99137300efca87365f6fb017420e200ad3e4dd.
+Local 1.6.0-beta.6, feature/overlay-tools, no push/publication.
+
+User reported Automation page rendering, bloated network Sounds rows, hard-to-find
+batch editing, Shift visibility changes and slow/flickering timer part selection.
+Root native144-DPI failure was nested IdleGamepadSettingsPanel Font autoscaling
+on top of the form's DPI scaling. Panel now uses AutoScaleMode.None, inherits
+one outer scale, has content-derived preferred height and no async height loop.
+Target row is bounded, analog wrapping accounts for available width. General
+settings rows shrink to content; target/run/profile settings now precede idle.
+Network sound table uses content column sizing; flows dock Top, labels align Top,
+sound panels cap400 logical pixels and small tool buttons min76 (text can grow).
+TimerPartList prevents native row-selection/double-click checkbox side effects;
+explicit state-icon/Space changes remain. Batch hint is above list. Deferred
+selection update coalesces deselect/select; one fixed-height content slot keeps
+format controls in place and retains preview cache. No model/runtime schema change.
+
+Impact checks: SourceManifest424, ToolIntegration205, UiSafety26, IdleGamepad58,
+ReleasePolicy pass. Tool full layout stage76374/72 passed before final small
+button/idle refinements; final relevant regression network120/8 (combined704/24),
+timer688/8 (320 selections with bound contents), settings216/8 pass.
+Current native144-DPI Settings2188/2 and scaled-font Settings8784/8 pass with
+zero issues (default/compact/restored/all tabs). Native first run caught237
+layout issues; fix and complete native rerun passed. Do not substitute synthetic
+scaled-font checks for native DPI acceptance. Timer selections~23.9–36.6ms each
+including message processing,32 layouts per40, no transient editor disable,
+unchanged preview identity. Selected checks only; no full formal release suite.
+SettingsSmoke and both final Release Verification/packaged startup+restore pass.
+No real output, network block or OBS rerun; macro/output/network/timer drawing
+backends unchanged. Existing user InputStitch untouched; configs isolated.
+
+Computer Use stopped immediately when the user pressed physical Escape during
+final native timer inspection. No further desktop input; no manual acceptance
+gate. The isolated inspector has a five-minute automatic close deadline and
+never loads/saves user configuration. Current development request complete.
+
+Outputs chat outputs/beta160-6: fixed InputStitch.exe, x642176000B
+E60CB6549F2E6801A707E54B9F9577E035FCF634132EB189BB5E7F5B51006835;
+x862006016B FED49EA39B41E399AAB69E9F0D367E970B424CE53FA97404BBCA80EDE8EEEFD8.
+Each +512B vs beta.5;67 production sources, no dependency or background polling.
+Use Windows PowerShell build compression as previous package: current pwsh
+compressor produces larger embedded gzip streams with identical dependencies.
+Report: docs/UI_REGRESSIONS_1_6_0_BETA6.md. No active task or publication request.
+
 ## Dialog responsiveness and usability completed — 2026-10-24
 
 Verified implementation: 7cfa5dd72ea01afd295846e1a9e51936ab1ffa9f.

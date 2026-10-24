@@ -1,5 +1,13 @@
 # ROADMAP.md
 
+## Native settings and timer editing corrections completed — 2026-10-24
+
+Local beta.6 addresses actual user-reported rendering/selection regressions.
+Keep native DPI verification alongside synthetic layouts; inspect content heights
+and selection semantics, not only control containment. Current targeted checks,
+configuration compatibility and both packaged architectures pass.
+See docs/UI_REGRESSIONS_1_6_0_BETA6.md. No additional feature/publication scope.
+
 ## Popup performance and settings usability completed — 2026-10-24
 
 Local beta.5 batches layout and caches unchanged label measurements, improving
