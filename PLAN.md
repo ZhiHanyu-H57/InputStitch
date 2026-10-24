@@ -1,5 +1,15 @@
 # PLAN.md
 
+## Impact-based verification and 1.6.0 Stable publication authorized — 2026-10-24
+
+User authorized rules, test scripts and publication workflow changes, then
+Stable1.6.0 publication of frozen beta.7 functionality. No feature changes.
+Development selects actual changes; releases use previous published Stable1.5.2
+and reuse matching source/assertion/dependency evidence. Remove unconditional
+full runs and repeated soaks. Validate workflow changes and remaining release
+delta only, retain final package/update checks. Merge a protected-main PR,
+publish and verify GitHub/R2 assets, then record final results.
+
 ## Automation whitespace, PrintScreen and private UI verification — 2026-10-24
 
 Local beta.7 removes inflated native numeric margins/section padding and nested

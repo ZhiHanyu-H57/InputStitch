@@ -39,7 +39,9 @@ internal static class ProductivityTests
         }
     }
     [STAThread]
-    private static void Main(string[] args)
+    private static int Main(string[] args)
+    { return IsolatedUiDesktop.Run(() => { MainCore(args); return Environment.ExitCode; }); }
+    private static void MainCore(string[] args)
     {
         Application.EnableVisualStyles();
         EmbeddedDependencyLoader.Register();

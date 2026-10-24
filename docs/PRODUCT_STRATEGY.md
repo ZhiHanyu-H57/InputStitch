@@ -1,5 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Current decision: scoped verification and Stable1.6.0 — 2026-10-24
+
+User authorized formal publication of frozen beta.7 functionality as1.6.0 after
+fixing verification flow. Development uses actual impact; formal releases use
+all changes since the last published Stable. Candidate evidence is reused with
+source/assertion/dependency hashes and original context. Full runs and ten-minute
+soaks are no longer unconditional gates. Only metadata, rules and verification/
+publication flow change in this closure.
+
 ## Optional tools evidence follow-up — 2026-10-24
 
 Local beta.2 completes actual OBS recording and isolated whole-computer IPv4/IPv6

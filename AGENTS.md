@@ -68,7 +68,8 @@ and stop desktop interaction as soon as the inspection finishes; do not leave it
 active until the conversation ends. Prefer private UI tests while the user is
 working. ToolIntegration interactive inspectors require `--allow-host-desktop`.
 
-Use impact-based verification during development (user instruction, 2026-10-22).
+Use impact-based verification in development AND formal releases (user instruction,
+2026-10-24). This supersedes older unconditional-full-suite/soak release rules.
 Select the suites and focused workflows affected by the actual change. List the
 selection and results in the handoff. Do not rerun unrelated layout, provider or
 update suites for every change. Examples:
@@ -86,12 +87,30 @@ manifest checks when files change; verify metadata/startup for packaged builds.
 Broaden only when dependencies or failures establish a reason. Targeted runs do
 not imply a full-suite pass. Tests use the same assertions in either mode.
 
-Before a formal release, run the entire suite (no selection), packaged smoke,
-release verification and applicable sustained/real-output acceptance:
+Development defaults select from the branch/working-tree changes; use -BaseRef
+when the boundary is known. Formal releases use the cumulative diff from the last
+published Stable tag, not merely the last commit. The selector prints the plan,
+deduplicates checks, and reuses PASS evidence only when its declared source,
+assertion, helper and dependency inputs match and its evidence hashes are intact.
+Unknown paths require classification; they do not silently skip or trigger all tests.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Tests.ps1
+./tests/Run-Tests.ps1 -BaseRef HEAD^ -PlanOnly
+./tests/Run-Verification.ps1 -Mode Release -BaseRef <previous-published-stable-tag>
 ```
+
+Full regression is an explicit diagnostic option (`Run-Tests.ps1 -Full`), never
+the default or an unconditional publication gate. Keep effective assertions.
+Reuse candidate evidence across metadata-only promotion; settings/channel tests
+and final packaged startup, metadata/hashes and applicable update/migration
+checks still run for the actual released artifacts. Record the reused source,
+coverage and original environment instead of claiming a new execution.
+
+Do not repeat sustained tests for wording, layout, packaging or a version bump.
+Run them for changed scheduling/concurrency/ownership/input-output/resource
+lifetimes, or a concrete time-dependent defect. Review relevant host lifecycle
+changes in InputStitch.cs and use -RequireSoak when they affect those guarantees.
+Choose duration for the defect; ten minutes is not a universal fixed gate.
 
 For ownership, keyboard/mouse output, Held Mapping concurrency, Emergency Stop, or virtual Xbox behavior, also run the Input Lab black-box acceptance when ViGEmBus is available:
 
@@ -117,7 +136,7 @@ normal merge API. Do not disable protection or use an administrator bypass to
 complete routine work. This single-maintainer repository requires zero external
 approvals; no other reviewer is needed. There is no unconditional desktop status
 check on every documentation/website PR. Formal software releases retain the
-complete verification gate in the existing release workflow.
+impact-selected cumulative verification gate in the release workflow.
 
 Use tag or workflow-dispatch publication as before. If publishing from a main
 commit marker, preserve `[publish-stable]` / `[publish-beta]` in the merge commit
@@ -139,8 +158,9 @@ Before switching development machines:
 - Stable 1.4.3 is a user-confirmed long-used baseline. Preserve its official behavior.
 - Routine UI/editing/runtime completion is determined by regression, automated workflow,
   output acceptance and sustained-run evidence. Do not require another user trial run.
-- Run `tests/Run-ProductAcceptance.ps1` for editor changes and the sustained variant for
-  runtime/release acceptance; report its actual duration and backend, never an assumed one.
+- Run focused editor workflows for affected editing behavior. Use sustained acceptance
+  only for the time-dependent runtime changes above, including during releases; report
+  its actual duration/backend and distinguish reused results from newly executed ones.
 - Specific physical-device/driver/game compatibility claims retain their own evidence
   scope and do not become blanket manual gates for the ordinary macro product.
 - Keep development history and compatibility adapters out of user-facing settings.

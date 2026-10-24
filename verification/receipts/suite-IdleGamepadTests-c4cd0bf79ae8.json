@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:IdleGamepadTests",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "28a1b44fb9ce35d3f9302824b649e7de643a7e62634f015119c42ff803b4fd81",
+  "qualification": "1.6.0-beta.7; original assertion counts and Windows context in log; feature inputs unchanged.",
+  "evidence": [
+    {
+      "sha256": "D3EAC20C879F65244BFC5F2C198A8FC9DCED20C473D4EA517D61CD70FF700626",
+      "path": "verification/evidence/suite-IdleGamepadTests-c4cd0bf79ae8.log"
+    }
+  ]
+}

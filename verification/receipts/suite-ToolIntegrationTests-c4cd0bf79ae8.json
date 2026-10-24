@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ToolIntegrationTests",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "0de6c8bfaeabd1c72d12ced84c05303c47a53322386e30dd4af2fb496bd3c332",
+  "qualification": "1.6.0-beta.7; original assertion counts and Windows context in log; feature inputs unchanged.",
+  "evidence": [
+    {
+      "sha256": "9D45FF5208C2AAA22898BE79AE2C1EB6910C68C1E12BFC2C9D84677131EAF0D9",
+      "path": "verification/evidence/suite-ToolIntegrationTests-c4cd0bf79ae8.log"
+    }
+  ]
+}

@@ -4,8 +4,14 @@ on:
   push:
     branches: [main]
     tags: ['inputlab-v*']
+    paths:
+      - 'tools/InputLab/**'
+      - '.github/workflows/inputlab-release.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'tools/InputLab/**'
+      - '.github/workflows/inputlab-release.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,6 +28,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Build, self-test and package Input Lab
         shell: powershell
         run: ./tools/InputLab/package.ps1
@@ -41,11 +49,10 @@ jobs:
               throw "Tag $env:GITHUB_REF_NAME does not match packaged Input Lab version $version (expected $expected)."
             }
           }
-      - name: Run repository regression
+      - name: Run relevant repository regression
         shell: powershell
         run: |
-          ./build.ps1
-          ./tests/Run-Tests.ps1
+          ./tests/Run-Tests.ps1 -Suite OutputOwnershipTests,InputPipelineIntegrationTests
       - uses: actions/upload-artifact@v4
         with:
           name: InputLab-${{ steps.version.outputs.version }}-Windows-x64

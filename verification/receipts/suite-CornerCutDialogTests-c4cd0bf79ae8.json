@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:CornerCutDialogTests",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "e7fb6783c5018b1fdc8cfaaa3fb0588656eb4f98b747532f1d2771461552ea37",
+  "qualification": "1.6.0-beta.7; original assertion counts and Windows context in log; feature inputs unchanged.",
+  "evidence": [
+    {
+      "sha256": "2324E15BB887083A2FFA993F4D48C65AC66878CD137D4E6D3621816804190F60",
+      "path": "verification/evidence/suite-CornerCutDialogTests-c4cd0bf79ae8.log"
+    }
+  ]
+}

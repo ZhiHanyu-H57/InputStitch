@@ -1,6 +1,6 @@
 ﻿# Automated product acceptance
 
-Updated: 2026-10-22
+Updated: 2026-10-24
 
 ## Completion policy
 
@@ -46,36 +46,49 @@ dependencies justify it, rather than repeating the whole suite each iteration.
 ./tests/Run-ProductAcceptance.ps1 -JourneyOnly
 ```
 
-`-Suite` accepts names or comma-separated names, rejects unknown names before
-compilation and runs unchanged assertions. Settings smoke requires a built
-package; selected runs include it only with `-SettingsSmoke`. No arguments still
-run all suites plus settings smoke, preserving the formal-release CI gate.
+`-Suite` accepts names or comma-separated names and rejects unknown names before
+compilation. With no selection, Run-Tests delegates to Run-Verification: changed
+paths select the checks. Use `-BaseRef` to choose the development boundary and
+`-PlanOnly` to inspect it. Unknown paths require classification, not a blind full
+run. A candidate's successful receipts can be reused with matching input hashes.
+`-Full` is an explicit diagnostic option, never an unconditional release gate.
+ProductAcceptanceTests defaults to its journey subset; CrosshairTests defaults
+to private-desktop core/editor coverage. Actual composition has its own native
+entry point and environment requirement. Existing assertions are retained.
 
-### Formal release: complete acceptance
+### Formal release: cumulative impact and reusable evidence
 
-Run from the repository in Windows PowerShell:
+Use the last **published Stable** tag as the baseline, including all changes
+since it. A feature validated earlier in the same candidate need not be tested
+again because its version/channel metadata was promoted:
 
 ```powershell
 ./build.ps1
-./tests/Run-Tests.ps1
-./tests/Run-ProductAcceptance.ps1
-./tests/Run-ProductAcceptance.ps1 -DialogsOnly
-./tests/Run-ProductAcceptance.ps1 -JourneyOnly
-./tests/Run-ProductAcceptance.ps1 -NativeJourney
-./tests/Run-ProductAcceptance.ps1 -FieldsOnly
-./tests/Run-ProductAcceptance.ps1 -NativeFields
-./tests/Run-SecondaryLayout.ps1
-./tests/Run-SecondaryLayout.ps1 -Native
-./tests/Run-SecondaryLayout.ps1 -ScaledFonts
-./tests/Run-SecondaryLayout.ps1 -ScaledFonts -Focus CrosshairSettingsDialog,QuickCreateDialog
-./tests/Run-ProductAcceptance.ps1 -SoakMinutes 480
-./tools/InputLab/run-acceptance.ps1 -AllowRealOutput
+./tests/Run-Verification.ps1 -Mode Release -BaseRef <previous-published-stable-tag> -PlanOnly
+./tests/Run-Verification.ps1 -Mode Release -BaseRef <previous-published-stable-tag>
+./tests/Run-IsolatedUiScript.ps1 -Path ./tests/Run-PackagedSmoke.ps1 -Architecture x64 -ScriptArguments @('-Architecture','x64')
+./tests/Run-IsolatedUiScript.ps1 -Path ./tests/Run-PackagedSmoke.ps1 -Architecture x86 -ScriptArguments @('-Architecture','x86')
 ```
 
-The build script verifies both x64/x86 artifacts, product/file versions, channel
-manifest and SHA-256. The full regression includes the fast product workflow;
-the standalone command is useful when editing the UI. The sustained run accepts
-1–1440 minutes. Use the actual reported duration when describing evidence.
+The build script verifies both x64/x86 artifacts, versions, channel manifest and
+SHA-256. Final packaged startup and applicable update/migration checks use the
+actual release files. Settings/channel-dependent coverage is fresh after a
+Stable promotion. Common feature/UI evidence excludes version metadata; this is
+paired with the separate metadata/settings checks, not an exemption for them.
+
+Receipts in verification/receipts and artifacts/verification/receipts bind a
+named check to Git-normalized source, assertion, helper and dependency inputs,
+plus SHA-256 of its original evidence. New assertions or changed inputs invalidate
+reuse. Record historical evidence with Record-VerificationEvidence.ps1 using the
+actual tested commit and its original environment/coverage. Reuse is reported as
+reuse, not as a fresh run. CI uploads its selected plan, results and logs.
+
+Long tests are selected for changed scheduling, workers, concurrency, ownership,
+output or a concrete lifetime/resource defect. Review host lifecycle changes in
+InputStitch.cs and explicitly request -RequireSoak when those guarantees change.
+UI wording/layout, packaging and version-only changes do not select a macro soak.
+Duration follows the failure mode; ten minutes is not a fixed ritual. The soak
+runner still accepts 1–1440 minutes when needed; report the actual duration/backend.
 The manual GitHub Actions `Product sustained acceptance` workflow runs the same
 host and uploads its reports; it does not publish a release.
 

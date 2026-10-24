@@ -1,5 +1,13 @@
 # ROADMAP.md
 
+## Verification scope correction and Stable1.6.0 closure — 2026-10-24
+
+Current authorization: no product feature work. Replace unconditional full-suite
+release policy with cumulative impact selection and input-bound evidence reuse.
+Retain affected real-output/native/soak acceptance. No repeated macro soak for
+this promotion. Publish frozen1.6.0 after scoped gate and final package/update
+checks; user manual trial is not a prerequisite.
+
 ## Automation spacing and non-disruptive UI verification completed — 2026-10-24
 
 Local beta.7 fixes actual144-DPI numeric margins, content-height feedback and

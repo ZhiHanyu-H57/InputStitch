@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "native:network",
+  "status": "PASS",
+  "sourceCommit": "38a14a0dd49e2fd227bd5921e00994dd231d5e2f",
+  "fingerprint": "d8fc7b834a5765acea622e49d0e826087a0a6eba84168fe61d28e46c2f0e9a10",
+  "qualification": "Isolated Windows guest native WFP330;whole-guest/multi-process IPv4/IPv6 TCP/UDP recovery, normal/abnormal exits; no host whole-network block.",
+  "evidence": [
+    {
+      "path": "verification/evidence/native-network-38a14a0dd49e.md",
+      "sha256": "F2EC5E82A8370505F74F0B116C6EBADEBE97ACE9696B2955206A3B844A6BFE69"
+    }
+  ]
+}

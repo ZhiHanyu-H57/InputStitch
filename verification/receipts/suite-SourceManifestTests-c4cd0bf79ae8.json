@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:SourceManifestTests",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "e0842f4289b794cc8f64e8cec0af42321cf0cd74db79438b4f7bc18863d6ff75",
+  "qualification": "Original beta.7 manifest checks; changed build/runner inputs require fresh validation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-SourceManifestTests-c4cd0bf79ae8.log",
+      "sha256": "B7150CA600D9E0675437B8FE0352F46EFC33B5778274FE873C9DE8B7CFEDEB3D"
+    }
+  ]
+}

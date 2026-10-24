@@ -51,6 +51,11 @@ internal static class CrosshairTests
     }
     [STAThread] private static int Main(string[] args)
     {
+        if(args.Contains("--core")) return IsolatedUiDesktop.Run(() => MainCore(args));
+        return MainCore(args);
+    }
+    private static int MainCore(string[] args)
+    {
         // Match the packaged PerMonitorV2 manifest before creating any controls or reading Screen bounds.
         SetProcessDpiAwarenessContext(new IntPtr(-4));
         Application.EnableVisualStyles(); EmbeddedDependencyLoader.Register();
@@ -77,8 +82,8 @@ internal static class CrosshairTests
             }
             if (args.Length == 1 && args[0] == "--native") NativeOverlay();
             else if (args.Length == 2 && args[0] == "--soak-minutes") Soak(int.Parse(args[1]));
-            else { Persistence(); Geometry(); Dialogs(); Workflow(); NativeOverlay(); }
-            Console.WriteLine("PASS crosshair: " + checks + " checks; isolated files, rendering, actual layered window and editor workflow."); return 0;
+            else { Persistence(); Geometry(); Dialogs(); Workflow(); if(!args.Contains("--core")) NativeOverlay(); }
+            Console.WriteLine("PASS crosshair: " + checks + (args.Contains("--core") ? " checks; core rendering/editor on private desktop; native composition is separate." : " checks; isolated files, rendering, actual layered window and editor workflow.")); return 0;
         }
         catch (Exception ex) { File.WriteAllText(Path.Combine(root, "failure.txt"), ex.ToString()); Console.Error.WriteLine(ex); return 1; }
     }

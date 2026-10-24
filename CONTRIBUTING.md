@@ -45,10 +45,17 @@ Build on Windows with the .NET Framework 4.7.2 Developer Pack and compatible Vis
 
 ```powershell
 .\build.ps1
-.\tests\Run-Tests.ps1
+.\tests\Run-Tests.ps1 -BaseRef HEAD^ -PlanOnly
+.\tests\Run-Tests.ps1 -BaseRef HEAD^
 ```
 
-Before submitting, verify at least / 提交前至少确认：
+Select checks by actual impact, including shared dependencies. Releases use the
+cumulative diff from the previous published Stable and reuse matching evidence.
+Full runs and sustained tests are explicit options, not unconditional gates.
+See docs/AUTOMATED_ACCEPTANCE.md.
+
+提交前按实际影响选择下面的检查；共享模块算入影响范围。正式发布按上一正式版以来的累计改动验收，
+复用输入未变的有效结果。全套和长期测试不作为每次提交、发布的固定要求。
 
 - The solution builds for the affected x64 or x86 target. / 受影响的 x64 或 x86 目标能够成功构建。
 - Simplified Chinese and English layouts remain readable at 100%, 125%, and 150% scaling. / 简体中文和 English 布局在 100%、125% 和 150% 缩放下仍然清晰可读。
