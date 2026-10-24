@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -33,7 +33,7 @@ namespace InputStitch
         public DateTime StartedUtc, FinishedUtc;
         public int Assertions;
         public string Error = "";
-        public string Coverage = "Executable A blocked/B remains connected, then EntireComputer; IPv4+IPv6 TCP+UDP new+existing flows; Restore+normal parent exit+TerminateProcess parent+TerminateProcess helper";
+        public string Coverage = "Executables A+B blocked/C remains connected, then EntireComputer; IPv4+IPv6 TCP+UDP new+existing flows; Restore+normal parent exit+TerminateProcess parent+TerminateProcess helper";
     }
     internal static class GuestNetworkAcceptance
     {
@@ -45,7 +45,8 @@ namespace InputStitch
         private static NetworkControlOptions Options(bool applicationScope)
         {
             return new NetworkControlOptions { Enabled = true, Mode = applicationScope ? NetworkBlockMode.Executable : NetworkBlockMode.EntireComputer,
-                ExecutablePath = applicationScope ? Path.Combine(GuestNetworkGuard.BaseDirectory, "GuestNetworkProbeA.exe") : "" };
+                ExecutablePath = applicationScope ? Path.Combine(GuestNetworkGuard.BaseDirectory, "GuestNetworkProbeA.exe") : "",
+                ExecutablePaths = applicationScope ? new List<string> { Path.Combine(GuestNetworkGuard.BaseDirectory, "GuestNetworkProbeA.exe"), Path.Combine(GuestNetworkGuard.BaseDirectory, "GuestNetworkProbeB.exe") } : null };
         }
 
         public static int Main(string[] args)
@@ -118,10 +119,11 @@ namespace InputStitch
                     Log("CONTROL local disk/stdin/stdout only; maximum fixture lifetime=" + permission.MaximumBlockSeconds + "s; production network sources unchanged");
                     using (Probe a = new Probe("GuestNetworkProbeA.exe", probeArguments))
                     using (Probe b = new Probe("GuestNetworkProbeB.exe", probeArguments))
+                    using (Probe c = new Probe("GuestNetworkProbeC.exe", probeArguments))
                     {
-                        Assert(a.ProcessId != b.ProcessId, "two independent probe process identities");
-                        Log("PROBES distinct executables/PIDs A=" + a.ProcessId + " B=" + b.ProcessId);
-                        RunApplicationScope(args[1], a, b, permission.MaximumBlockSeconds);
+                        Assert(a.ProcessId != b.ProcessId && a.ProcessId != c.ProcessId && b.ProcessId != c.ProcessId, "three independent probe process identities");
+                        Log("PROBES distinct executables/PIDs A=" + a.ProcessId + " B=" + b.ProcessId + " C=" + c.ProcessId);
+                        RunApplicationScope(args[1], a, b, c, permission.MaximumBlockSeconds);
                         foreach (string scenario in new string[] { "restore", "normal-parent-exit", "kill-parent", "kill-helper" })
                             RunScenario(args[1], scenario, a, b, permission.MaximumBlockSeconds);
                     }
@@ -138,16 +140,16 @@ namespace InputStitch
             }
         }
 
-        private static void RunApplicationScope(string token, Probe a, Probe b, int maximumSeconds)
+        private static void RunApplicationScope(string token, Probe a, Probe b, Probe c, int maximumSeconds)
         {
             using (StreamWriter separate = new StreamWriter(Path.Combine(RunsDirectory, "application-scope.log"), false))
             {
                 separate.AutoFlush = true; applicationEvidence = separate;
                 try
                 {
-                    Log("SCENARIO Executable only A; B is the negative control; external dual-stack peer");
-                    CheckNew(a, true, "appscope/baseline-A"); CheckNew(b, true, "appscope/baseline-B");
-                    OpenExisting(a, "appscope/open-A"); OpenExisting(b, "appscope/open-B");
+                    Log("SCENARIO Executables A+B; C is the negative control; external dual-stack peer");
+                    CheckNew(a, true, "appscope/baseline-A"); CheckNew(b, true, "appscope/baseline-B"); CheckNew(c, true, "appscope/baseline-C");
+                    OpenExisting(a, "appscope/open-A"); OpenExisting(b, "appscope/open-B"); OpenExisting(c, "appscope/open-C");
                     string id = Guid.NewGuid().ToString("N"), directory = FixtureDirectory(id); Directory.CreateDirectory(directory);
                     ProcessStartInfo launch = new ProcessStartInfo(ExecutablePath, "--fixture " + token + " " + id + " appscope");
                     launch.UseShellExecute = false; launch.CreateNoWindow = true; launch.WindowStyle = ProcessWindowStyle.Hidden;
@@ -167,20 +169,23 @@ namespace InputStitch
                             Assert(state.Scope == "Executable", "appscope committed only the Executable scope");
                             Assert(state.RepeatedBlockStayedBlocked, "appscope repeated independent block remains blocked");
                             Assert(state.ParentId == fixture.Id && state.ParentStartTicks == fixture.StartTime.ToUniversalTime().Ticks, "appscope fixture parent identity");
-                            Log("ACTIVE appscope target=GuestNetworkProbeA.exe parent=" + state.ParentId + " helper=" + state.HelperId);
+                            Log("ACTIVE appscope targets=GuestNetworkProbeA.exe+GuestNetworkProbeB.exe parent=" + state.ParentId + " helper=" + state.HelperId);
                             CheckNew(a, false, "appscope/blocked-A"); CheckExisting(a, false, "appscope/existing-blocked-A");
-                            CheckNew(b, true, "appscope/negative-new-B"); CheckExisting(b, true, "appscope/negative-existing-B");
+                            CheckNew(b, false, "appscope/blocked-B"); CheckExisting(b, false, "appscope/existing-blocked-B");
+                            CheckNew(c, true, "appscope/negative-new-C"); CheckExisting(c, true, "appscope/negative-existing-C");
                             WriteCommand(Path.Combine(directory, "command"), "RESTORE");
                             Assert(fixture.WaitForExit(15000) && fixture.ExitCode == 0, "appscope restore succeeds");
                             Assert(File.Exists(Path.Combine(directory, "normal-cleanup")), "appscope normal cleanup completed");
                             WaitForRecovery(a, "appscope/recovery-A");
-                            CheckNew(a, true, "appscope/restored-A"); CheckNew(b, true, "appscope/still-connected-B");
+                            CheckNew(a, true, "appscope/restored-A"); CheckNew(b, true, "appscope/restored-B"); CheckNew(c, true, "appscope/still-connected-C");
                             Require(a.Command("UDPHELD4"), true, "appscope/A-existing-UDP4-socket-restored");
                             Require(a.Command("UDPHELD6"), true, "appscope/A-existing-UDP6-socket-restored");
-                            CheckExisting(b, true, "appscope/B-existing-flows-remain-connected");
+                            Require(b.Command("UDPHELD4"), true, "appscope/B-existing-UDP4-socket-restored");
+                            Require(b.Command("UDPHELD6"), true, "appscope/B-existing-UDP6-socket-restored");
+                            CheckExisting(c, true, "appscope/C-existing-flows-remain-connected");
                             Assert(WaitForHelperExit(state, 10000), "appscope helper exits after restore/parent close");
                             Result.ApplicationScopePassed = true;
-                            Log("PASS SCENARIO Executable: only A blocked; B remained connected on new/existing IPv4+IPv6 TCP+UDP flows; A restored");
+                            Log("PASS SCENARIO Executable: A+B blocked atomically; C remained connected on new/existing IPv4+IPv6 TCP+UDP flows; A+B restored");
                         }
                         finally
                         {
@@ -287,7 +292,7 @@ namespace InputStitch
                         state.State = "BLOCKED"; state.Scope = applicationScope ? "Executable" : "EntireComputer";
                         WriteXml(Path.Combine(directory, "state.xml"), state);
                         while (!File.Exists(Path.Combine(directory, "command"))) Thread.Sleep(25);
-                        string command = File.ReadAllText(Path.Combine(directory, "command")).Trim();
+                        string command = ReadCommand(Path.Combine(directory, "command"));
                         if (command != "RESTORE" && command != "CLOSE") throw new Exception("Invalid disk fixture command.");
                         if (command == "RESTORE" && !controller.Restore()) throw new Exception(controller.LastError);
                         // CLOSE exercises the same Dispose path as a normally closing main window.
@@ -378,6 +383,16 @@ namespace InputStitch
         }
         private static T ReadXml<T>(string path)
         { using (FileStream stream = File.OpenRead(path)) return (T)new XmlSerializer(typeof(T)).Deserialize(stream); }
+        private static string ReadCommand(string path)
+        {
+            // The guest filesystem scanner can briefly retain a just-renamed fixture file.
+            Stopwatch wait = Stopwatch.StartNew();
+            while (true)
+            {
+                try { return File.ReadAllText(path).Trim(); }
+                catch (IOException) { if (wait.ElapsedMilliseconds >= 3000) throw; Thread.Sleep(25); }
+            }
+        }
         private static void WriteCommand(string path, string command)
         { string temporary = path + ".tmp"; File.WriteAllText(temporary, command); File.Move(temporary, path); }
         [DllImport("kernel32.dll", SetLastError = true)]

@@ -61,7 +61,7 @@ namespace InputStitch
             if (includeCrosshair && config.Crosshair != null && config.Crosshair.Enabled && SameShortcut(key, config.Crosshair.Hotkey))
                 return EditorDialogs.T("快捷键已用于准星。", "Shortcut used by crosshair.");
             if (includeTimer && config.Timer != null && config.Timer.Enabled)
-                foreach (TriggerSpec other in new[] { config.Timer.StartPauseHotkey, config.Timer.ResetHotkey, config.Timer.VisibilityHotkey })
+                foreach (TriggerSpec other in TimerControls.ActiveKeys(config.Timer))
                     if (SameShortcut(key, other)) return EditorDialogs.T("快捷键已用于计时器。", "Shortcut used by timer.");
             if (includeNetwork && config.NetworkControl != null && config.NetworkControl.Enabled)
                 foreach (TriggerSpec other in new[] { config.NetworkControl.BlockShortcut, config.NetworkControl.RestoreShortcut })
@@ -71,7 +71,7 @@ namespace InputStitch
         private string TimerShortcutConflict(TimerOptions options)
         {
             if (!options.Enabled) return "";
-            TriggerSpec[] keys = { options.StartPauseHotkey, options.ResetHotkey, options.VisibilityHotkey };
+            TriggerSpec[] keys = TimerControls.ActiveKeys(options);
             foreach (TriggerSpec key in keys)
             { string error = ToolShortcutConflict(key, keys, true, false, true); if (error.Length > 0) return error; }
             return "";
@@ -98,21 +98,14 @@ namespace InputStitch
             TimerOptions timer = config.Timer;
             if (timer != null && timer.Enabled && TimerShortcutConflict(timer).Length == 0)
             {
-                int command = MatchesToolShortcut(timer.StartPauseHotkey, e) ? 1 : MatchesToolShortcut(timer.ResetHotkey, e) ? 2 : MatchesToolShortcut(timer.VisibilityHotkey, e) ? 3 : 0;
+                int command = 0; TriggerSpec[] keys = TimerControls.ActiveKeys(timer);
+                for (int i = 0; i < keys.Length; i++) if (MatchesToolShortcut(keys[i], e)) { command = i + 1; break; }
                 if (command != 0)
                 {
                     try { BeginInvoke((MethodInvoker)delegate
                     {
                         if (IsDisposed || uiSafetyModalDepth > 0 || uiSafetyPauseRequested || pauseHotkeys || !config.Timer.Enabled) return;
-                        if (timerController == null) ApplyScreenTools();
-                        if (command == 1) timerController.StartPause();
-                        else if (command == 2) timerController.Reset();
-                        else
-                        {
-                            config.Timer.Visible = !config.Timer.Visible;
-                            if (!SaveConfig()) config.Timer.Visible = !config.Timer.Visible;
-                            timerController.Apply(config.Timer);
-                        }
+                        ExecuteTimerControl(command);
                     }); } catch (InvalidOperationException) { }
                     return true;
                 }
@@ -125,6 +118,15 @@ namespace InputStitch
                 if (MatchesToolShortcut(network.BlockShortcut, e)) { QueueNetworkOperation(false); return true; }
             }
             return false;
+        }
+        private void ExecuteTimerControl(int key)
+        {
+            if (timerController == null) ApplyScreenTools();
+            TimerControlStep action = TimerControls.Resolve(config.Timer, key, timerController.RunState);
+            bool previous = config.Timer.Visible, next = TimerControls.Visibility(action, previous);
+            if (previous != next)
+            { config.Timer.Visible = next; if (!SaveConfig()) { config.Timer.Visible = previous; return; } }
+            timerController.Execute(action);
         }
         private void QueueNetworkOperation(bool restore)
         {
@@ -214,8 +216,7 @@ namespace InputStitch
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
                     NetworkControlOptions previous = config.NetworkControl; config.NetworkControl = dialog.Result;
                     if (!SaveConfig()) config.NetworkControl = previous;
-                    bool scopeChanged = !config.NetworkControl.Enabled || previous.Mode != config.NetworkControl.Mode ||
-                        !string.Equals(previous.ExecutablePath, config.NetworkControl.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+                    bool scopeChanged = !config.NetworkControl.Enabled || !previous.SameTargets(config.NetworkControl);
                     if (scopeChanged && networkController != null && networkController.IsBlocked) QueueNetworkOperation(true);
                 }
             }

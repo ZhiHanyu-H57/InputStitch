@@ -75,8 +75,8 @@ internal static class ToolIntegrationTests
         try
         {
             bool core = !args.Contains("--ui") || args.Contains("--core");
-            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); }
-            if (args.Contains("--ui")) { DialogLayouts(); ModalWorkflow(); }
+            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); TimerCustomization(); NetworkCustomization(); }
+            if (args.Contains("--ui")) { DialogLayouts(); CustomRuleLayouts(); ModalWorkflow(); }
             string summary = "PASS tool integration: " + checks + " checks; " + windows + " dialog views; core=" + core + "; ui=" + args.Contains("--ui");
             File.WriteAllText(Path.Combine(root, core && args.Contains("--ui") ? "all-summary.txt" : core ? "core-summary.txt" : "ui-summary.txt"), summary);
             Console.WriteLine(summary); return 0;
@@ -131,7 +131,7 @@ internal static class ToolIntegrationTests
         using (MainForm main = new MainForm(config, Path.Combine(root, "separate-network"), new NoOutput()))
         {
             IntPtr handle = main.Handle; NetworkController network = new NetworkController(factory); Set(main, "networkController", network);
-            List<NetworkSoundKind> cues = new List<NetworkSoundKind>(); Set(main, "networkStateSounds", new NetworkStateSounds(cues.Add));
+            List<NetworkSoundKind> cues = new List<NetworkSoundKind>(); Set(main, "networkStateSounds", new NetworkStateSounds(delegate(NetworkSoundCue cue) { cues.Add(cue.Kind); }));
             Check((bool)Call(main, "HandleScreenToolShortcut", Event(config.NetworkControl.RestoreHotkey)), "restore key accepted while connected");
             Until(() => Field<int>(main, "networkOperationPending") == 0, "connected restore settles");
             Check(factory.Starts == 0, "restore while connected prompted elevation");
@@ -192,6 +192,81 @@ internal static class ToolIntegrationTests
             Check(Xml(config.Timer) == Xml(reopened.Timer) && Xml(config.NetworkControl) == Xml(reopened.NetworkControl), "combined part/new shortcut settings failed real file roundtrip");
             MacroConfig clone = ConfigPackageSerializer.CloneConfig(reopened); clone.Timer.Parts[0].Style.FontSize = 110; clone.NetworkControl.RestoreHotkey.VirtualKey = 40;
             Check(reopened.Timer.Parts[0].Style.FontSize == 35 && reopened.NetworkControl.RestoreHotkey.VirtualKey == (int)Keys.F10, "config clone aliases nested styles/shortcuts");
+        }
+    }
+    private static void TimerCustomization()
+    {
+        MacroConfig config = Config(); config.Timer.ControlMode = TimerControlMode.Custom;
+        config.Timer.ShortcutRules = new List<TimerShortcutRule> { new TimerShortcutRule { Hotkey = Hotkey(Keys.F6), Ready = new TimerControlStep { Run = TimerRunCommand.Start, Visibility = TimerVisibilityCommand.Show }, Running = new TimerControlStep { Run = TimerRunCommand.Pause, Visibility = TimerVisibilityCommand.Hide }, Paused = new TimerControlStep { Reset = true, Run = TimerRunCommand.Start, Visibility = TimerVisibilityCommand.Show } } };
+        NoOutput output = new NoOutput();
+        using (MainForm main = new MainForm(config, Path.Combine(root, "timer-custom-actions"), output))
+        {
+            IntPtr handle = main.Handle; Call(main, "ApplyScreenTools"); TimerController timer = Field<TimerController>(main, "timerController");
+            Check((string)Call(main, "TimerShortcutConflict", config.Timer) == "", "custom rule accepts its independent chord");
+            CrosshairOptions crosshair = config.Crosshair.Clone(); crosshair.Hotkey = config.Timer.ResetHotkey.Clone();
+            Check((string)Call(main, "CrosshairShortcutConflict", crosshair) == "", "inactive preset keys are not reserved by custom timer");
+            Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(config.Timer.VisibilityHotkey)), "inactive third preset key does not run a custom action");
+            for (int i = 0; i < 3; i++)
+            {
+                Check((bool)Call(main, "HandleScreenToolShortcut", Event(config.Timer.ShortcutRules[0].Hotkey)), "one custom key dispatches by current state"); Pump(20);
+                Check(timer.IsRunning == (i != 1) && config.Timer.Visible == (i != 1), "custom state actions and persisted visibility agree " + i);
+            }
+            Set(main, "uiSafetyModalDepth", 1); Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(config.Timer.ShortcutRules[0].Hotkey)), "custom controls obey editing protection"); Set(main, "uiSafetyModalDepth", 0);
+            config.Timer.ShortcutRules.Add(config.Timer.ShortcutRules[0].Clone()); Check(((string)Call(main, "TimerShortcutConflict", config.Timer)).Length > 0, "custom rules reject duplicate chords");
+            config.Timer.ShortcutRules[1].Hotkey = config.PanicTrigger.Clone(); Check(((string)Call(main, "TimerShortcutConflict", config.Timer)).Length > 0, "custom rules cannot replace emergency stop");
+            Check(output.Writes == 0 && Field<NetworkController>(main, "networkController") == null, "custom timer workflow has no macro output or network helper");
+        }
+        TimerOptions source = new TimerOptions { Parts = TimerText.CreatePreset(TimerTimeFormat.MinutesSecondsMilliseconds, new TimerOptions()) };
+        source.Parts[0].Style.Color = "#FF0000"; source.Parts[4].Style.Color = "#00FFFF"; source.Parts[4].Style.FontSize = 17;
+        using (TimerSettingsDialog dialog = new TimerSettingsDialog(source, null, null))
+        {
+            ListView list = Field<ListView>(dialog, "partList"); IntPtr listHandle = list.Handle;
+            foreach (ListViewItem item in list.Items) item.Selected = false;
+            list.Items[0].Selected = true; list.Items[4].Selected = true;
+            Field<NumericUpDown>(dialog, "size").Value = 42;
+            TimerOptions changed = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(changed.Parts[0].Style.FontSize == 42 && changed.Parts[4].Style.FontSize == 42 && changed.Parts[1].Style.FontSize == 28, "partial selection changes only selected style fields");
+            Check(changed.Parts[0].Style.Color == "#FF0000" && changed.Parts[4].Style.Color == "#00FFFF", "batch font size preserves mixed colors");
+            Check(!Field<ComboBox>(dialog, "partKind").Enabled && !Field<TextBox>(dialog, "partText").Enabled, "multi-selection format editor protects individual content");
+            Call(dialog, "SelectAllParts"); Call(dialog, "UnifySelectedStyles"); changed = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(changed.Parts.All(p => p.Style.FontSize == 42 && p.Style.Color == "#FF0000"), "select-all matches all text styles in one action");
+            Check(!ReferenceEquals(changed.Parts[0].Style, changed.Parts[1].Style), "matching style does not alias later independent edits");
+            Call(dialog, "AddTextPart", "\n"); Field<NumericUpDown>(dialog, "lineGap").Value = 13.5M; Field<NumericUpDown>(dialog, "updateInterval").Value = 250;
+            changed = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(changed.Parts.Last().Text == "\n" && changed.LineSpacing == 13.5F && changed.UpdateIntervalMs == 250, "line break spacing and refresh controls capture precisely");
+            Check(Field<TextBox>(dialog, "partText").AcceptsReturn, "multiline text accepts Enter instead of saving the dialog");
+            foreach (TimerControlMode mode in Enum.GetValues(typeof(TimerControlMode))) { Field<ComboBox>(dialog, "controlMode").SelectedIndex = (int)mode; Check(((TimerOptions)Call(dialog, "CaptureOptions")).ControlMode == mode, "all control modes can be selected " + mode); }
+            Check(source.Parts[0].Style.FontSize == 28 && source.Parts[4].Style.FontSize == 17 && source.LineSpacing == 0, "batch and layout edits remain draft-only");
+        }
+        TimerShortcutRule original = config.Timer.ShortcutRules[0].Clone();
+        using (TimerShortcutDialog dialog = new TimerShortcutDialog(original, null))
+        {
+            Field<ComboBox[]>(dialog, "run")[0].SelectedIndex = (int)TimerRunCommand.Toggle;
+            Field<CheckBox[]>(dialog, "reset")[0].Checked = true;
+            Field<ComboBox[]>(dialog, "visibility")[0].SelectedIndex = (int)TimerVisibilityCommand.Toggle;
+            TimerShortcutRule captured = (TimerShortcutRule)Call(dialog, "CaptureRule");
+            Check(captured.Ready.Reset && captured.Ready.Run == TimerRunCommand.Toggle && captured.Ready.Visibility == TimerVisibilityCommand.Toggle, "rule editor supports freely composed timing/reset/visibility actions");
+            Check(original.Ready.Run == TimerRunCommand.Start && original.Ready.Visibility == TimerVisibilityCommand.Show, "custom rule editing leaves saved source untouched");
+        }
+    }
+    private static void NetworkCustomization()
+    {
+        string wave = Path.Combine(root, "imported-cue.wav"); File.WriteAllBytes(wave, NetworkSounds.Wave(NetworkSoundKind.Blocked));
+        NetworkControlOptions source = new NetworkControlOptions { Enabled = true, ExecutablePath = Application.ExecutablePath };
+        using (NetworkSettingsDialog dialog = new NetworkSettingsDialog(source, null))
+        {
+            Call(dialog, "SetSoundFile", NetworkSoundKind.Blocked, wave);
+            Field<NumericUpDown>(dialog, "blockVolume").Value = 23; Field<NumericUpDown>(dialog, "restoreVolume").Value = 67;
+            NetworkControlOptions saved = (NetworkControlOptions)Call(dialog, "CaptureOptions");
+            Check(saved.BlockSoundPath == wave && saved.RestoreSoundPath == "" && saved.BlockSoundVolume == 23 && saved.RestoreSoundVolume == 67, "imported cue and separate volume capture from dialog");
+            typeof(Button).GetMethod("OnClick", Hidden).Invoke(All(dialog).Single(c => c.Name == "networkBlockSoundClear"), new object[] { EventArgs.Empty });
+            Check(((NetworkControlOptions)Call(dialog, "CaptureOptions")).BlockSoundPath == "", "clear imported cue returns to builtin");
+            ListBox apps = Field<ListBox>(dialog, "applications"); apps.Items.Add(Path.Combine(root, "GuestNetworkProbeB.exe"));
+            saved = (NetworkControlOptions)Call(dialog, "CaptureOptions");
+            Check(saved.ExecutablePaths.Count == 2 && saved.ExecutablePaths[0] == Application.ExecutablePath, "dialog captures every selected application");
+            Check(source.ExecutablePaths == null && source.BlockSoundPath == "" && source.BlockSoundVolume == 100, "network customization stays draft-only");
+            NetworkControlOptions changed = saved.Clone(); changed.ExecutablePaths[1] = Path.Combine(root, "GuestNetworkProbeC.exe");
+            Check(!changed.SameTargets(saved), "changing second application changes effective scope");
         }
     }
     private static void ShortcutValidation()
@@ -345,6 +420,8 @@ internal static class ToolIntegrationTests
         {
             Localizer.SetLanguage(language); MacroConfig source = Config(); source.Timer.MonitorDevice = "UNPLUGGED-DISPLAY";
             source.Timer.TextTemplate = "原始 / Original {time}";
+            source.Timer.ControlMode = TimerControlMode.Custom;
+            source.Timer.ShortcutRules = new List<TimerShortcutRule> { new TimerShortcutRule { Hotkey = Hotkey(Keys.F6), Ready = new TimerControlStep { Reset = true, Run = TimerRunCommand.Start, Visibility = TimerVisibilityCommand.Show } }, new TimerShortcutRule { Hotkey = Hotkey(Keys.F7) } };
             string timerBefore = Xml(source.Timer), networkBefore = Xml(source.NetworkControl);
             string name = (timer ? "timer" : "network") + "-" + language + "-" + (int)(scale * 100) + (save ? "-save" : "-cancel");
             typeof(SecondaryLayoutTests).GetField("context", StaticHidden).SetValue(null, name);
@@ -388,9 +465,26 @@ internal static class ToolIntegrationTests
                         ListView list = Field<ListView>(dialog, "partList");
                         Check(list.Items[list.Items.Count - 1].Bounds.Bottom <= list.ClientSize.Height, "default content list shows the full preset and custom text " + name);
                     }
-                    else Check(!All(dialog).OfType<ScrollableControl>().Any(c => c.Visible && c.AutoScroll && c.VerticalScroll.Visible), "default network settings fit without page scrolling " + name);
+                    else
+                    {
+                        using (Bitmap image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(root, name + "-scope.png")); }
+                        ComboBox scope = Field<ComboBox>(dialog, "mode");
+                        foreach (int selected in new[] { 0, 1 }) { scope.SelectedIndex = selected; Pump(5); using (Bitmap shot = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(shot, new Rectangle(Point.Empty, shot.Size)); shot.Save(Path.Combine(root, name + "-scope" + selected + ".png")); } Check(!All(dialog).OfType<ScrollableControl>().Any(c => c.Visible && c.AutoScroll && c.VerticalScroll.Visible), "default network scope fits without page scrolling " + name + selected); }
+                        scope.SelectedIndex = 1;
+                    }
                 }
                 AuditAllTabs(dialog);
+                if (timer)
+                {
+                    ComboBox modes = Field<ComboBox>(dialog, "controlMode"); int previousMode = modes.SelectedIndex;
+                    foreach (TabControl tabs in All(dialog).OfType<TabControl>()) tabs.SelectedIndex = 2;
+                    for (int m = 0; m < modes.Items.Count; m++)
+                    {
+                        modes.SelectedIndex = m; Pump(5); Existing("Audit", dialog);
+                        if (m == (int)TimerControlMode.Custom) { ListView rules = Field<ListView>(dialog, "ruleList"); Check(rules.Columns[0].Width >= TextRenderer.MeasureText(rules.Items[0].Text, rules.Font).Width + 8, "custom chord fits its list column at DPI " + name); }
+                    }
+                    modes.SelectedIndex = previousMode;
+                }
                 Size original = dialog.Size;
                 Existing("SyntheticSize", dialog, new Size((int)(original.Width * .90), (int)(original.Height * .90))); Pump(10); AuditAllTabs(dialog);
                 Existing("SyntheticSize", dialog, original); Pump(10); AuditAllTabs(dialog);
@@ -431,7 +525,44 @@ internal static class ToolIntegrationTests
         Existing("Audit", form);
         foreach (TabControl tabs in All(form).OfType<TabControl>())
             foreach (TabPage page in tabs.TabPages) { tabs.SelectedTab = page; Pump(5); Existing("Audit", form); }
+        if (form is NetworkSettingsDialog)
+        {
+            TabControl tabs = All(form).OfType<TabControl>().First(); tabs.SelectedIndex = 0;
+            ComboBox mode = Field<ComboBox>(form, "mode"); int previous = mode.SelectedIndex;
+            foreach (int scope in new[] { 0, 1 }) { mode.SelectedIndex = scope; Pump(5); Existing("Audit", form); } mode.SelectedIndex = previous;
+        }
         foreach (ComboBox choice in All(form).OfType<ComboBox>().Where(c => c.Visible)) Existing("ExerciseChoice", choice);
+    }
+    private static void CustomRuleLayouts()
+    {
+        int before = (int)typeof(SecondaryLayoutTests).GetField("checks", StaticHidden).GetValue(null);
+        foreach (string language in new[] { "zh-CN", "en-US" }) foreach (float scale in new[] { 1F, 1.25F, 1.5F, 2F }) foreach (bool save in new[] { true, false })
+        {
+            Localizer.SetLanguage(language); TimerShortcutRule source = new TimerShortcutRule { Hotkey = Hotkey(Keys.F6) }; string original = Xml(source);
+            string name = "timer-rule-" + language + "-" + (int)(scale * 100) + (save ? "-save" : "-cancel");
+            typeof(SecondaryLayoutTests).GetField("context", StaticHidden).SetValue(null, name);
+            using (TimerShortcutDialog dialog = new TimerShortcutDialog(source, null))
+            {
+                Field<ComboBox[]>(dialog, "run")[0].SelectedIndex = (int)TimerRunCommand.Toggle; Field<ComboBox[]>(dialog, "visibility")[0].SelectedIndex = (int)TimerVisibilityCommand.Show; Field<CheckBox[]>(dialog, "reset")[0].Checked = true;
+                dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-20000, -20000); dialog.ShowInTaskbar = false; Size requested = dialog.ClientSize;
+                if (scale != 1F)
+                {
+                    dialog.Scale(new SizeF(scale, scale)); Control[] controls = new[] { (Control)dialog }.Concat(All(dialog)).ToArray();
+                    Font[] fonts = controls.Select(c => new Font(c.Font.FontFamily, c.Font.Size * scale, c.Font.Style)).ToArray();
+                    for (int i = 0; i < controls.Length; i++) controls[i].Font = fonts[i]; dialog.Disposed += delegate { foreach (Font font in fonts) font.Dispose(); };
+                    requested = new Size((int)(requested.Width * scale), (int)(requested.Height * scale)); dialog.ClientSize = requested;
+                }
+                dialog.Show(); Pump(10); windows++; Size chrome = new Size(dialog.Width - dialog.ClientSize.Width, dialog.Height - dialog.ClientSize.Height);
+                Existing("SyntheticSize", dialog, new Size(requested.Width + chrome.Width, requested.Height + chrome.Height)); AuditAllTabs(dialog);
+                Size full = dialog.Size; Existing("SyntheticSize", dialog, new Size((int)(full.Width * .9), (int)(full.Height * .9))); AuditAllTabs(dialog); Existing("SyntheticSize", dialog, full);
+                if (scale == 1 && save) using (Bitmap image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(root, name + ".png")); }
+                if (save) ((Button)dialog.AcceptButton).PerformClick(); else { dialog.DialogResult = DialogResult.Cancel; dialog.Close(); }
+                Check(Xml(source) == original, "rule edit/cancel preserves source " + name);
+                Check(save ? dialog.Result != null && dialog.Result.Ready.Reset && dialog.Result.Ready.Run == TimerRunCommand.Toggle && dialog.Result.Ready.Visibility == TimerVisibilityCommand.Show : dialog.Result == null, "rule save/cancel captures composed actions " + name);
+            }
+        }
+        string[] failures = ((IEnumerable<string>)typeof(SecondaryLayoutTests).GetField("failures", StaticHidden).GetValue(null)).ToArray(); File.WriteAllLines(Path.Combine(root, "layout-issues.txt"), failures);
+        Check(failures.Length == 0, string.Join(Environment.NewLine, failures.Take(15))); checks += (int)typeof(SecondaryLayoutTests).GetField("checks", StaticHidden).GetValue(null) - before;
     }
     private static void ModalWorkflow()
     {

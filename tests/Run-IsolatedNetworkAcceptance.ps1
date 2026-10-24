@@ -13,6 +13,7 @@ $probe=Join-Path $OutputDirectory 'GuestNetworkProbeA.exe'
 & $compiler /nologo /warnaserror+ /target:exe /platform:x64 ("/out:$probe") (Join-Path $fixtures 'GuestNetworkProbe.cs')
 if($LASTEXITCODE -ne 0) { throw 'Isolated network probe compilation failed.' }
 Copy-Item -LiteralPath $probe -Destination (Join-Path $OutputDirectory 'GuestNetworkProbeB.exe') -Force
+Copy-Item -LiteralPath $probe -Destination (Join-Path $OutputDirectory 'GuestNetworkProbeC.exe') -Force
 $hostPath=Join-Path $OutputDirectory 'GuestNetworkAcceptance.exe'
 $sources=@('NetworkControl.cs','NetworkPrivilegeHelper.cs') | ForEach-Object { Join-Path $project $_ }
 $sources+=@('GuestNetworkGuard.cs','GuestNetworkModelStubs.cs','GuestNetworkAcceptance.cs') | ForEach-Object { Join-Path $fixtures $_ }

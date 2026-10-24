@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -83,7 +83,7 @@ namespace InputStitch
                 });
                 Test("sounds follow confirmed edges once and respect each mute preference", delegate
                 {
-                    List<NetworkSoundKind> cues = new List<NetworkSoundKind>(); NetworkStateSounds sounds = new NetworkStateSounds(cues.Add);
+                    List<NetworkSoundKind> cues = new List<NetworkSoundKind>(); NetworkStateSounds sounds = new NetworkStateSounds(delegate(NetworkSoundCue cue) { cues.Add(cue.Kind); });
                     NetworkControlOptions o = Options(); sounds.Observe(false, o); sounds.Observe(true, o); sounds.Observe(true, o); sounds.Observe(false, o); sounds.Observe(false, o);
                     Check(cues.Count == 2 && cues[0] == NetworkSoundKind.Blocked && cues[1] == NetworkSoundKind.Restored, "duplicate or false startup sound");
                     o.BlockSound = false; sounds.Observe(true, o); o.BlockSound = true; sounds.Observe(true, o);
@@ -102,7 +102,76 @@ namespace InputStitch
                     Check(Crossings(down, 0) > Crossings(down, 1120) && Crossings(up, 0) < Crossings(up, 1120), "cues have no distinct pitch direction");
                     using (System.Media.SoundPlayer player = new System.Media.SoundPlayer(new MemoryStream(down))) { player.Load(); Check(player.IsLoadCompleted, "native WAV parser refused cue"); }
                 });
-                Test("false reply/request failure closes connection", delegate
+                Test("legacy missing target array and default audio fields preserve XML", delegate
+                {
+                    NetworkControlOptions legacy = Deserialize("<NetworkControlOptions><ExecutablePath>" + System.Security.SecurityElement.Escape(executable) + "</ExecutablePath></NetworkControlOptions>");
+                    Check(legacy.ExecutablePaths == null && legacy.Targets().Length == 1 && legacy.Targets()[0] == executable, "missing array did not use legacy path");
+                    string xml = Serialize(legacy); Check(!xml.Contains("ExecutablePaths") && !xml.Contains("SoundPath") && !xml.Contains("SoundVolume"), "default new fields changed old XML");
+                    NetworkControlOptions empty = legacy.Clone(); empty.ExecutablePaths = new List<string>();
+                    NetworkControlOptions emptyAgain = Deserialize(Serialize(empty)); Check(emptyAgain.ExecutablePaths != null && emptyAgain.ExecutablePaths.Count == 0 && emptyAgain.Targets().Length == 0, "explicit empty array became legacy path");
+                    NetworkControlOptions many = legacy.Clone(); many.ExecutablePaths = new List<string> { executable, SecondExecutable() }; many.BlockSoundPath = "C:\\a.wav"; many.RestoreSoundPath = "C:\\b.mp3"; many.BlockSoundVolume = 31; many.RestoreSoundVolume = 62;
+                    NetworkControlOptions reopened = Deserialize(Serialize(many)); Check(reopened.ExecutablePaths.Count == 2 && reopened.BlockSoundPath == many.BlockSoundPath && reopened.RestoreSoundPath == many.RestoreSoundPath && reopened.BlockSoundVolume == 31 && reopened.RestoreSoundVolume == 62, "new fields did not roundtrip");
+                    NetworkControlOptions clone = reopened.Clone(); clone.ExecutablePaths[0] = "changed"; Check(reopened.ExecutablePaths[0] == executable, "target list clone shares storage");
+                    reopened.BlockSoundVolume = -1; reopened.RestoreSoundVolume = 999; reopened.Normalize(); Check(reopened.BlockSoundVolume == 0 && reopened.RestoreSoundVolume == 100, "volume normalization");
+                    NetworkControlOptions reversed = many.Clone(); reversed.ExecutablePaths.Reverse(); Check(many.SameTargets(reversed), "set comparison depends on order"); reversed.ExecutablePaths.RemoveAt(0); Check(!many.SameTargets(reversed), "target comparison ignored removed application");
+                });
+                Test("sound edge output snapshots file and independent volume", delegate
+                {
+                    List<NetworkSoundCue> cues = new List<NetworkSoundCue>(); NetworkStateSounds edges = new NetworkStateSounds(cues.Add); NetworkControlOptions o = Options();
+                    o.BlockSoundPath = "C:\\block.wav"; o.RestoreSoundPath = "C:\\restore.mp3"; o.BlockSoundVolume = 21; o.RestoreSoundVolume = 63;
+                    edges.Observe(true, o); o.BlockSoundPath = "changed"; edges.Observe(false, o);
+                    Check(cues.Count == 2 && cues[0].Path == "C:\\block.wav" && cues[0].Volume == 21 && cues[1].Path == "C:\\restore.mp3" && cues[1].Volume == 63, "cue snapshot lost settings");
+                });
+                Test("multiple applications validate before elevation and retain legacy single protocol", delegate
+                {
+                    NetworkControlOptions o = Options(); o.ExecutablePaths = new List<string> { executable, SecondExecutable() };
+                    FakeFactory f = new FakeFactory(); using (NetworkController c = new NetworkController(f)) { Check(c.Block(o) && f.Connection.Commands[0].StartsWith("BLOCKSET\n1\n") && f.Connection.Commands[0].Split('\n').Length == 4, "multi-app command not sent"); }
+                    foreach (string[] targets in new[] { new string[0], new[] { executable, "C:\\missing.exe" }, new string[17] })
+                    { FakeFactory bad = new FakeFactory(); o.ExecutablePaths = new List<string>(targets); using (NetworkController c = new NetworkController(bad)) Check(!c.Block(o) && bad.Starts == 0, "invalid batch requested elevation"); }
+                    FakeFactory single = new FakeFactory(); using (NetworkController c = new NetworkController(single)) { Check(c.Block(Options()) && single.Connection.Commands[0].StartsWith("BLOCK\n1\n"), "legacy protocol changed"); }
+                });
+                Test("multi-app protocol preserves complete batch and rejects malformed sets", delegate
+                {
+                    string valid = SetCommand(new[] { executable, SecondExecutable() }); Queue<string> commands = new Queue<string>(new[] { valid, "RESTORE", "QUIT" }); int received = 0;
+                    NetworkPrivilegeHelper.RunSessionMany(commands.Dequeue, delegate { }, delegate(NetworkBlockMode mode, string[] paths) { received = paths.Length; return new FakeDisposable(); }); Check(received == 2, "helper lost part of batch");
+                    foreach (string invalid in new[] { "BLOCKSET\n0\n", SetCommand(new[] { executable, "C:\\missing.exe" }), "BLOCKSET\n1\nnot-base64", SetCommand(new string[17]) })
+                    { commands = new Queue<string>(new[] { invalid, "QUIT" }); bool created = false; List<string> replies = new List<string>(); NetworkPrivilegeHelper.RunSessionMany(commands.Dequeue, replies.Add, delegate { created = true; return new FakeDisposable(); }); Check(!created && replies.Count == 1 && replies[0].StartsWith("ERROR\n"), "invalid batch created filters"); }
+                });
+                Test("all batch WFP filters share one transaction and release together", delegate
+                {
+                    FakeWfp api = new FakeWfp(); using (WfpNetworkSession block = WfpNetworkSession.CreateMany(api, NetworkBlockMode.Executable, new[] { executable, SecondExecutable() }))
+                    { Check(api.Filters.Count == 8 && api.AppBound == 8 && api.AppIds == 2 && api.AppFrees == 2 && api.Committed && !api.Closed, "batch not atomic / app allocation leak"); }
+                    Check(api.Closes == 1, "batch did not restore with one session close");
+                    foreach (string failure in new[] { "appid2", "filter5", "filter8", "commit" })
+                    { api = new FakeWfp { Failure = failure }; Throws(delegate { WfpNetworkSession.CreateMany(api, NetworkBlockMode.Executable, new[] { executable, SecondExecutable() }); }); Check(!api.Committed && (!api.Opened || api.Closed) && (!api.Begun || api.Aborted) && api.AppFrees == (failure == "appid2" ? 1 : 2), "batch rollback or app-id cleanup failed at " + failure); }
+                    api = new FakeWfp(); using (WfpNetworkSession duplicate = WfpNetworkSession.CreateMany(api, NetworkBlockMode.Executable, new[] { executable, executable.ToUpperInvariant() })) Check(api.Filters.Count == 4 && api.AppIds == 1, "duplicate executable added duplicate filters");
+                });
+                Test("audio aliases are bounded, independently controlled and cleaned on completion", delegate
+                {
+                    string wave = WriteSilentWave();
+                    try
+                    {
+                        FakeAudio api = new FakeAudio(); using (NetworkCuePlayer cues = new NetworkCuePlayer(api, delegate { return wave; }))
+                        { cues.Play(new NetworkSoundCue(NetworkSoundKind.Blocked, "", 21)); cues.Play(new NetworkSoundCue(NetworkSoundKind.Restored, wave, 63)); Check(cues.ActiveCount == 2 && cues.Volume(NetworkSoundKind.Blocked) == 210 && cues.Volume(NetworkSoundKind.Restored) == 630, "per-cue volume not independent"); cues.Play(new NetworkSoundCue(NetworkSoundKind.Blocked, wave, 9)); Check(cues.ActiveCount == 2 && api.Closed == 1 && cues.Volume(NetworkSoundKind.Restored) == 630, "replacement affected other cue"); api.Stopped = true; cues.Collect(); Check(cues.ActiveCount == 0 && api.Closed == 3, "completed audio aliases leaked"); cues.Play(new NetworkSoundCue(NetworkSoundKind.Blocked, wave, 0)); Check(cues.ActiveCount == 0, "muted cue opened device"); }
+                        api = new FakeAudio { FailVolume = true }; using (NetworkCuePlayer cues = new NetworkCuePlayer(api, delegate { return wave; })) { Throws(delegate { cues.Play(new NetworkSoundCue(NetworkSoundKind.Blocked, wave, 20)); }); Check(cues.ActiveCount == 0 && api.Closed == 1, "failed audio setup leaked alias"); }
+                        NetworkControlOptions o = Options(); o.BlockSoundPath = "C:\\missing.wav"; NetworkStateSounds edges = new NetworkStateSounds(delegate(NetworkSoundCue cue) { throw new IOException("missing audio"); }); FakeFactory f = new FakeFactory(); using (NetworkController c = new NetworkController(f)) { Check(c.Block(o), "block"); edges.Observe(c.IsBlocked, o); Check(c.Restore(), "audio error affected restore"); edges.Observe(c.IsBlocked, o); }
+                    }
+                    finally { File.Delete(wave); }
+                });
+                Test("native PCM WAV scaling, silent playback and per-cue resource cleanup", delegate
+                {
+                    byte[] source = NetworkSounds.Wave(NetworkSoundKind.Blocked), scaled = NativeNetworkAudio.Scale(source, 210), muted = NativeNetworkAudio.Scale(source, 0);
+                    for (int i = 44; i < source.Length; i += 2) { Check(BitConverter.ToInt16(scaled, i) == (short)(BitConverter.ToInt16(source, i) * 210 / 1000), "PCM gain mismatch"); Check(BitConverter.ToInt16(muted, i) == 0, "mute changed nonzero PCM sample"); }
+                    Check(BitConverter.ToInt32(scaled, 4) == source.Length - 8, "gain changed header");
+                    string wave = WriteSilentWave(); NativeNetworkAudio native = new NativeNetworkAudio(); string first = null, second = null;
+                    try { first = native.Open(wave); second = native.Open(wave); native.Volume(first, 210); native.Volume(second, 630); Check(native.OpenCount == 2 && native.Volume(first) == 210 && native.Volume(second) == 630, "independent cue volume/state"); native.Play(first); native.Play(second); Thread.Sleep(200); Check(native.Mode(first) == "stopped" && native.Mode(second) == "stopped", "silent PCM cue did not finish"); }
+                    finally { if (first != null) native.Close(first); if (second != null) native.Close(second); File.Delete(wave); }
+                    Check(native.OpenCount == 0, "PCM player/stream resources remained open");
+                    Console.WriteLine("AUDIO EVIDENCE PCM16 native parse/play=PASS; independent gains=210/630 per1000; silent fixture ended; player/stream slots=2->0; system/session volume setters=none");
+                    byte[] corrupt = (byte[])source.Clone(); corrupt[20] = 3; Throws(delegate { NativeNetworkAudio.Scale(corrupt, 100); }); corrupt = (byte[])source.Clone(); corrupt[40] = 255; corrupt[43] = 127; Throws(delegate { NativeNetworkAudio.Scale(corrupt, 100); });
+                    byte[] eight = new byte[48]; Array.Copy(source, eight, 44); Array.Copy(BitConverter.GetBytes(40), 0, eight, 4, 4); Array.Copy(BitConverter.GetBytes(16000), 0, eight, 28, 4); eight[32] = 1; eight[34] = 8; Array.Copy(BitConverter.GetBytes(4), 0, eight, 40, 4); eight[44] = 0; eight[45] = 128; eight[46] = 255; eight[47] = 64;
+                    byte[] half = NativeNetworkAudio.Scale(eight, 500); Check(half[44] == 64 && half[45] == 128 && half[46] == 191 && half[47] == 96, "unsigned PCM8 centered scaling");
+                });                Test("false reply/request failure closes connection", delegate
                 {
                     foreach (string response in new string[] { "READY", "ERROR\n" + Convert.ToBase64String(Encoding.UTF8.GetBytes("native permission failed")) })
                     {
@@ -313,6 +382,21 @@ namespace InputStitch
             }
         }
         private static string BlockCommand() { return "BLOCK\n1\n" + Convert.ToBase64String(Encoding.UTF8.GetBytes(executable)); }
+        private static string SetCommand(string[] paths) { return "BLOCKSET\n1\n" + string.Join("\n", Array.ConvertAll(paths, delegate(string path) { return Convert.ToBase64String(Encoding.UTF8.GetBytes(path ?? "")); })); }
+        private static string SecondExecutable() { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe"); }
+        private static string Serialize(NetworkControlOptions options) { using (StringWriter w = new StringWriter()) { new XmlSerializer(typeof(NetworkControlOptions)).Serialize(w, options); return w.ToString(); } }
+        private static NetworkControlOptions Deserialize(string xml) { using (StringReader r = new StringReader(xml)) return (NetworkControlOptions)new XmlSerializer(typeof(NetworkControlOptions)).Deserialize(r); }
+        private static string WriteSilentWave() { string path = Path.Combine(Path.GetTempPath(), "InputStitch-audio-test-" + Guid.NewGuid().ToString("N") + ".wav"); byte[] data = NetworkSounds.Wave(NetworkSoundKind.Blocked); Array.Clear(data, 44, data.Length - 44); File.WriteAllBytes(path, data); return path; }
+        private sealed class FakeAudio : INetworkAudio
+        {
+            private readonly Dictionary<string, int> aliases = new Dictionary<string, int>(); internal int Closed; internal bool Stopped, FailVolume;
+            public string Open(string path) { string alias = Guid.NewGuid().ToString("N"); aliases.Add(alias, 1000); return alias; }
+            public void Volume(string alias, int volume) { if (FailVolume) throw new IOException("no audio device"); aliases[alias] = volume; }
+            public int Volume(string alias) { return aliases[alias]; }
+            public void Play(string alias) { }
+            public string Mode(string alias) { return Stopped ? "stopped" : "playing"; }
+            public void Close(string alias) { aliases.Remove(alias); Closed++; }
+        }
 
         private sealed class FakeFactory : INetworkHelperFactory
         {
@@ -344,11 +428,11 @@ namespace InputStitch
         }
         private sealed class FakeWfp : INetworkWfpApi
         {
-            internal string Failure; internal bool AbortFailure; internal bool AppRequested, AppFreed, Opened, Closed, Begun, Aborted, Committed; internal int Closes, AppBound;
+            internal string Failure; internal bool AbortFailure; internal bool AppRequested, AppFreed, Opened, Closed, Begun, Aborted, Committed; internal int Closes, AppBound, AppIds, AppFrees;
             internal List<Guid> Filters = new List<Guid>();
             private void Maybe(string operation) { if (Failure == operation) throw new Win32Exception(5, operation); }
-            public IntPtr GetApplicationId(string path) { AppRequested = true; Maybe("appid"); return new IntPtr(22); }
-            public void FreeApplicationId(ref IntPtr appId) { AppFreed = true; appId = IntPtr.Zero; }
+            public IntPtr GetApplicationId(string path) { AppRequested = true; AppIds++; Maybe("appid"); Maybe("appid" + AppIds); return new IntPtr(22 + AppIds); }
+            public void FreeApplicationId(ref IntPtr appId) { AppFreed = true; AppFrees++; appId = IntPtr.Zero; }
             public IntPtr OpenDynamic() { Maybe("open"); Opened = true; return new IntPtr(11); }
             public void Begin(IntPtr engine) { Maybe("begin"); Begun = true; }
             public void AddSublayer(IntPtr engine, Guid key) { Maybe("sublayer"); Check(key != Guid.Empty, "empty sublayer"); }

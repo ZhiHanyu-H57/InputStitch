@@ -8,12 +8,63 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Forms;
 using System.Xml.Serialization;
+using System.ComponentModel;
 
 namespace InputStitch
 {
     public enum TimerBackend { Desktop, Rtss }
     public enum TimerTimeFormat { MinutesSecondsMilliseconds, HoursMinutesSecondsMilliseconds, SecondsMilliseconds }
     public enum TimerPartKind { Hours, Minutes, Seconds, Milliseconds, Text }
+    public enum TimerControlMode { Independent, SingleKeyCycle, StartFinishPause, StartPauseReset, Custom }
+    public enum TimerRunCommand { Keep, Start, Pause, Toggle }
+    public enum TimerVisibilityCommand { Keep, Show, Hide, Toggle }
+    public sealed class TimerControlStep
+    {
+        public bool Reset;
+        public TimerRunCommand Run;
+        public TimerVisibilityCommand Visibility;
+        public TimerControlStep Clone() { return (TimerControlStep)MemberwiseClone(); }
+        internal void Normalize() { if (!Enum.IsDefined(typeof(TimerRunCommand), Run)) Run = TimerRunCommand.Keep; if (!Enum.IsDefined(typeof(TimerVisibilityCommand), Visibility)) Visibility = TimerVisibilityCommand.Keep; }
+    }
+    public sealed class TimerShortcutRule
+    {
+        [XmlElement(IsNullable = true)] public TriggerSpec Hotkey;
+        public TimerControlStep Ready = new TimerControlStep(), Running = new TimerControlStep(), Paused = new TimerControlStep();
+        public TimerShortcutRule Clone() { return new TimerShortcutRule { Hotkey = Hotkey == null ? null : Hotkey.Clone(), Ready = (Ready ?? new TimerControlStep()).Clone(), Running = (Running ?? new TimerControlStep()).Clone(), Paused = (Paused ?? new TimerControlStep()).Clone() }; }
+        internal void Normalize() { if (Ready == null) Ready = new TimerControlStep(); if (Running == null) Running = new TimerControlStep(); if (Paused == null) Paused = new TimerControlStep(); Ready.Normalize(); Running.Normalize(); Paused.Normalize(); }
+    }
+    internal enum TimerRunState { Ready, Running, Paused }
+    internal enum TimerControlAction { None, ToggleRun, Reset, ToggleVisibility, StartShow, PauseShow, ResetHide, ToggleRunShow }
+
+    internal static class TimerControls
+    {
+        internal static TriggerSpec[] ActiveKeys(TimerOptions options)
+        { if (options.ControlMode == TimerControlMode.Custom) { List<TriggerSpec> keys = new List<TriggerSpec>(); if (options.ShortcutRules != null) foreach (TimerShortcutRule rule in options.ShortcutRules) keys.Add(rule == null ? null : rule.Hotkey); return keys.ToArray(); } return options.ControlMode == TimerControlMode.SingleKeyCycle ? new[] { options.StartPauseHotkey } : options.ControlMode == TimerControlMode.Independent ? new[] { options.StartPauseHotkey, options.ResetHotkey, options.VisibilityHotkey } : new[] { options.StartPauseHotkey, options.ResetHotkey }; }
+        internal static TimerControlStep Resolve(TimerOptions options, int key, TimerRunState state)
+        {
+            if (options.ControlMode == TimerControlMode.Custom)
+            {
+                if (options.ShortcutRules == null || key < 1 || key > options.ShortcutRules.Count) return new TimerControlStep();
+                TimerShortcutRule rule = options.ShortcutRules[key - 1];
+                return (state == TimerRunState.Ready ? rule.Ready : state == TimerRunState.Running ? rule.Running : rule.Paused).Clone();
+            }
+            TimerControlAction action = Resolve(options.ControlMode, key, state);
+            return new TimerControlStep { Reset = action == TimerControlAction.Reset || action == TimerControlAction.ResetHide,
+                Run = action == TimerControlAction.StartShow ? TimerRunCommand.Start : action == TimerControlAction.PauseShow ? TimerRunCommand.Pause : action == TimerControlAction.ToggleRun || action == TimerControlAction.ToggleRunShow ? TimerRunCommand.Toggle : TimerRunCommand.Keep,
+                Visibility = action == TimerControlAction.ToggleVisibility ? TimerVisibilityCommand.Toggle : action == TimerControlAction.ResetHide ? TimerVisibilityCommand.Hide : action == TimerControlAction.StartShow || action == TimerControlAction.PauseShow || action == TimerControlAction.ToggleRunShow ? TimerVisibilityCommand.Show : TimerVisibilityCommand.Keep };
+        }
+        internal static bool Visibility(TimerControlStep step, bool current)
+        { return step.Visibility == TimerVisibilityCommand.Keep ? current : step.Visibility == TimerVisibilityCommand.Toggle ? !current : step.Visibility == TimerVisibilityCommand.Show; }
+        internal static TimerControlAction Resolve(TimerControlMode mode, int key, TimerRunState state)
+        {
+            if (key < 1 || key > 3) return TimerControlAction.None;
+            if (mode == TimerControlMode.Independent) return key == 1 ? TimerControlAction.ToggleRun : key == 2 ? TimerControlAction.Reset : TimerControlAction.ToggleVisibility;
+            if (mode == TimerControlMode.SingleKeyCycle) return key != 1 ? TimerControlAction.None : state == TimerRunState.Ready ? TimerControlAction.StartShow : state == TimerRunState.Running ? TimerControlAction.PauseShow : TimerControlAction.ResetHide;
+            if (mode == TimerControlMode.StartFinishPause)
+                return key == 1 ? state == TimerRunState.Ready ? TimerControlAction.StartShow : TimerControlAction.ResetHide : key == 2 && state != TimerRunState.Ready ? TimerControlAction.ToggleRunShow : TimerControlAction.None;
+            return key == 1 ? TimerControlAction.ToggleRunShow : key == 2 ? TimerControlAction.ResetHide : TimerControlAction.None;
+        }
+    }
 
     [Serializable]
     public sealed class TimerPartStyle
@@ -80,6 +131,13 @@ namespace InputStitch
         public int Y = 24;
         public string TextTemplate = "{time}";
         public TimerTimeFormat TimeFormat;
+        [DefaultValue(TimerControlMode.Independent)] public TimerControlMode ControlMode;
+        [DefaultValue(50)] public int UpdateIntervalMs = 50;
+        [DefaultValue(0F)] public float LineSpacing;
+        [XmlIgnore] public List<TimerShortcutRule> ShortcutRules;
+        [XmlArray("ShortcutRules"), XmlArrayItem("Rule")]
+        public TimerShortcutRule[] SerializedShortcutRules { get { return ShortcutRules == null ? null : ShortcutRules.ToArray(); } set { ShortcutRules = value == null ? null : new List<TimerShortcutRule>(value); } }
+        public bool ShouldSerializeSerializedShortcutRules() { return ShortcutRules != null; }
         [XmlElement(IsNullable = true)] public TriggerSpec StartPauseHotkey;
         [XmlElement(IsNullable = true)] public TriggerSpec ResetHotkey;
         [XmlElement(IsNullable = true)] public TriggerSpec VisibilityHotkey;
@@ -99,13 +157,14 @@ namespace InputStitch
             copy.ResetHotkey = ResetHotkey == null ? null : ResetHotkey.Clone();
             copy.VisibilityHotkey = VisibilityHotkey == null ? null : VisibilityHotkey.Clone();
             if (Parts != null) { copy.Parts = new List<TimerPart>(); foreach (TimerPart p in Parts) if (p != null) copy.Parts.Add(p.Clone()); }
+            if (ShortcutRules != null) { copy.ShortcutRules = new List<TimerShortcutRule>(); foreach (TimerShortcutRule rule in ShortcutRules) if (rule != null) copy.ShortcutRules.Add(rule.Clone()); }
             return copy;
         }
         internal bool SameRendering(TimerOptions other)
         {
             return other != null && FontFamily == other.FontFamily && FontSize == other.FontSize && Bold == other.Bold && Italic == other.Italic &&
                 Outline == other.Outline && OutlineWidth == other.OutlineWidth && LetterSpacing == other.LetterSpacing && Color == other.Color &&
-                OutlineColor == other.OutlineColor && Opacity == other.Opacity && TextTemplate == other.TextTemplate && TimeFormat == other.TimeFormat && SameParts(Parts, other.Parts);
+                OutlineColor == other.OutlineColor && Opacity == other.Opacity && TextTemplate == other.TextTemplate && TimeFormat == other.TimeFormat && LineSpacing == other.LineSpacing && SameParts(Parts, other.Parts);
         }
         private static bool SameParts(List<TimerPart> a, List<TimerPart> b)
         {
@@ -118,6 +177,9 @@ namespace InputStitch
         {
             if (!Enum.IsDefined(typeof(TimerBackend), Backend)) Backend = TimerBackend.Desktop;
             if (!Enum.IsDefined(typeof(TimerTimeFormat), TimeFormat)) TimeFormat = TimerTimeFormat.MinutesSecondsMilliseconds;
+            if (!Enum.IsDefined(typeof(TimerControlMode), ControlMode)) ControlMode = TimerControlMode.Independent;
+            UpdateIntervalMs = CrosshairOptions.Limit(UpdateIntervalMs, 16, 5000);
+            LineSpacing = Limit(LineSpacing, -64, 160, 0);
             FontFamily = string.IsNullOrWhiteSpace(FontFamily) ? "Microsoft YaHei UI" : FontFamily;
             if (FontFamily.Length > 128) FontFamily = FontFamily.Substring(0, 128);
             FontSize = Limit(FontSize, 8, 160, 28);
@@ -133,6 +195,7 @@ namespace InputStitch
             if (!ValidHotkey(StartPauseHotkey)) StartPauseHotkey = null;
             if (!ValidHotkey(ResetHotkey)) ResetHotkey = null;
             if (!ValidHotkey(VisibilityHotkey)) VisibilityHotkey = null;
+            if (ShortcutRules != null) { ShortcutRules.RemoveAll(delegate(TimerShortcutRule rule) { return rule == null; }); if (ShortcutRules.Count > 16) ShortcutRules.RemoveRange(16, ShortcutRules.Count - 16); foreach (TimerShortcutRule rule in ShortcutRules) { rule.Normalize(); if (!ValidHotkey(rule.Hotkey)) rule.Hotkey = null; } }
             if (Parts != null)
             {
                 List<TimerPart> normalized = new List<TimerPart>(); int remaining = 512;
@@ -289,12 +352,12 @@ namespace InputStitch
                 format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.NoClip;
                 string[] lines = (text ?? "").Split('\n');
                 int lineCount = Math.Min(8, lines.Length);
-                float lineHeight = font.GetHeight(96);
+                float lineHeight = font.GetHeight(96), advance = Math.Max(1, lineHeight + o.LineSpacing);
                 float width = 1;
                 for (int i = 0; i < lineCount; i++) width = Math.Max(width, MeasureLine(measure, lines[i], font, format, o.LetterSpacing));
                 int padding = (int)Math.Ceiling(o.Outline ? o.OutlineWidth : 0) + (int)Math.Ceiling(o.FontSize * 0.25f) + 2;
                 int bitmapWidth = Math.Min(4096, Math.Max(1, (int)Math.Ceiling(width) + padding * 2));
-                int bitmapHeight = Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight * lineCount) + padding * 2));
+                int bitmapHeight = Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight + advance * (lineCount - 1)) + padding * 2));
                 Bitmap mask = new Bitmap(bitmapWidth, bitmapHeight, PixelFormat.Format32bppPArgb);
                 try
                 {
@@ -303,7 +366,7 @@ namespace InputStitch
                         graphics.Clear(System.Drawing.Color.Transparent);
                         graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
                         using (Brush white = new SolidBrush(System.Drawing.Color.White))
-                        for (int i = 0; i < lineCount; i++) DrawLine(graphics, lines[i], font, format, white, padding, padding + i * lineHeight, o.LetterSpacing);
+                        for (int i = 0; i < lineCount; i++) DrawLine(graphics, lines[i], font, format, white, padding, padding + i * advance, o.LetterSpacing);
                     }
                     PaintMask(mask, o);
                     return mask;
@@ -400,7 +463,7 @@ namespace InputStitch
         private readonly Graphics measure;
         private readonly StringFormat format;
         private readonly int padding;
-        private readonly float lineHeight;
+        private readonly float lineHeight, lineAdvance;
         private readonly TimerPartsFrameCache compound;
         private readonly bool perGlyph;
         internal int CachedParts { get { return compound == null ? parts.Count : compound.CachedParts; } }
@@ -414,7 +477,7 @@ namespace InputStitch
             font = TimerRenderer.CreateFont(options.FontFamily, options.FontSize, style);
             measure = Graphics.FromImage(probe); format = (StringFormat)StringFormat.GenericTypographic.Clone();
             format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.NoClip;
-            lineHeight = font.GetHeight(96); padding = (int)Math.Ceiling(options.Outline ? options.OutlineWidth : 0) + (int)Math.Ceiling(options.FontSize * .25f) + 2;
+            lineHeight = font.GetHeight(96); lineAdvance = Math.Max(1, lineHeight + options.LineSpacing); padding = (int)Math.Ceiling(options.Outline ? options.OutlineWidth : 0) + (int)Math.Ceiling(options.FontSize * .25f) + 2;
         }
         private Part Get(string text)
         {
@@ -451,7 +514,7 @@ namespace InputStitch
                 width = Math.Max(width, lineWidth);
             }
             Bitmap bitmap = new Bitmap(Math.Min(4096, Math.Max(1, (int)Math.Ceiling(width) + padding * 2)),
-                Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight * count) + padding * 2)), PixelFormat.Format32bppPArgb);
+                Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight + lineAdvance * (count - 1)) + padding * 2)), PixelFormat.Format32bppPArgb);
             try
             {
                 using (Graphics graphics = Graphics.FromImage(bitmap))
@@ -461,7 +524,7 @@ namespace InputStitch
                     {
                         float x = 0;
                         foreach (Part part in layout[i])
-                        { graphics.DrawImageUnscaled(part.Image, (int)Math.Round(x), (int)Math.Round(i * lineHeight)); x += part.Advance + options.LetterSpacing; }
+                        { graphics.DrawImageUnscaled(part.Image, (int)Math.Round(x), (int)Math.Round(i * lineAdvance)); x += part.Advance + options.LetterSpacing; }
                     }
                 }
                 return bitmap;
@@ -507,7 +570,7 @@ namespace InputStitch
         private readonly TimerOptions options;
         private readonly List<Entry> entries = new List<Entry>();
         private readonly int padding;
-        private readonly float baseline, lineHeight;
+        private readonly float baseline, lineHeight, lineAdvance;
         internal int CachedParts { get { int count = 0; foreach (Entry e in entries) if (e.OwnCache) count += e.Cache.CachedParts; return count; } }
         internal TimerPartsFrameCache(TimerOptions source)
         {
@@ -524,6 +587,7 @@ namespace InputStitch
                     padding = Math.Max(padding, metrics.Padding); baseline = Math.Max(baseline, metrics.Baseline);
                 }
                 foreach (Entry e in entries) lineHeight = Math.Max(lineHeight, baseline - e.Metrics.Baseline + e.Metrics.Height);
+                lineAdvance = Math.Max(1, lineHeight + options.LineSpacing);
             }
             catch { Dispose(); throw; }
         }
@@ -538,12 +602,12 @@ namespace InputStitch
                     for (int n = 0; n < lines.Length && line < 8; n++)
                     {
                         if (n > 0) { width = Math.Max(width, x); x = 0; line++; if (line == 8) break; }
-                        if (lines[n].Length == 0 || x >= 4096 || line * lineHeight >= 2048) continue;
-                        sprites.Add(new Sprite { Image = e.Cache.Render(lines[n]), Entry = e, X = x + padding - e.Metrics.Padding, Y = line * lineHeight + baseline - e.Metrics.Baseline });
+                        if (lines[n].Length == 0 || x >= 4096 || line * lineAdvance >= 2048) continue;
+                        sprites.Add(new Sprite { Image = e.Cache.Render(lines[n]), Entry = e, X = x + padding - e.Metrics.Padding, Y = line * lineAdvance + baseline - e.Metrics.Baseline });
                         x += e.Cache.Measure(lines[n]) + e.Part.Style.LetterSpacing; width = Math.Max(width, x);
                     }
                 }
-                Bitmap result = new Bitmap(Math.Min(4096, Math.Max(1, (int)Math.Ceiling(width) + padding * 2)), Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight * Math.Min(8, line + 1)))), PixelFormat.Format32bppPArgb);
+                Bitmap result = new Bitmap(Math.Min(4096, Math.Max(1, (int)Math.Ceiling(width) + padding * 2)), Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight + lineAdvance * Math.Min(7, line)))), PixelFormat.Format32bppPArgb);
                 try
                 {
                     using (Graphics g = Graphics.FromImage(result))

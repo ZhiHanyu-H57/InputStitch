@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -56,9 +57,9 @@ namespace InputStitch
                             string hello = NetworkPipeProtocol.Read(pipe, RequestTimeout);
                             if (hello != "HELLO\n" + args[4]) throw new UnauthorizedAccessException("Invalid network helper handshake.");
                             NetworkPipeProtocol.Write(pipe, "READY", RequestTimeout);
-                            RunSession(delegate { return NetworkPipeProtocol.Read(pipe, Timeout.Infinite); },
+                            RunSessionMany(delegate { return NetworkPipeProtocol.Read(pipe, Timeout.Infinite); },
                                 delegate(string reply) { NetworkPipeProtocol.Write(pipe, reply, RequestTimeout); },
-                                delegate(NetworkBlockMode mode, string path) { return WfpNetworkSession.Create(new NativeNetworkWfpApi(), mode, path); });
+                                delegate(NetworkBlockMode mode, string[] paths) { return WfpNetworkSession.CreateMany(new NativeNetworkWfpApi(), mode, paths); });
                         }
                         finally { parent.Exited -= parentExited; }
                     }
@@ -96,6 +97,19 @@ namespace InputStitch
             return full;
         }
 
+        internal const int MaximumApplications = 16;
+        internal static string[] ValidateExecutables(NetworkBlockMode mode, string[] paths)
+        {
+            if (!Enum.IsDefined(typeof(NetworkBlockMode), mode)) throw new ArgumentException("Invalid network scope.");
+            if (mode == NetworkBlockMode.EntireComputer) return new string[0];
+            if (paths == null || paths.Length == 0 || paths.Length > MaximumApplications)
+                throw new ArgumentException("Choose between 1 and 16 application files.");
+            List<string> result = new List<string>(); HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in paths)
+            { string full = ValidateExecutable(mode, path); if (seen.Add(full)) result.Add(full); }
+            return result.ToArray();
+        }
+
         internal static void RequireResponse(string response, string expected)
         {
             if (response == expected) return;
@@ -105,6 +119,12 @@ namespace InputStitch
         }
 
         internal static void RunSession(Func<string> read, Action<string> write, Func<NetworkBlockMode, string, IDisposable> create)
+        {
+            RunSessionMany(read, write, delegate(NetworkBlockMode mode, string[] paths)
+            { if (paths.Length > 1) throw new ArgumentException("This legacy session accepts one application."); return create(mode, paths.Length == 0 ? "" : paths[0]); });
+        }
+
+        internal static void RunSessionMany(Func<string> read, Action<string> write, Func<NetworkBlockMode, string[], IDisposable> create)
         {
             IDisposable block = null;
             try
@@ -124,12 +144,16 @@ namespace InputStitch
                         {
                             string[] parts = command.Split('\n');
                             int scope;
-                            if (parts.Length != 3 || parts[0] != "BLOCK" || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out scope) ||
+                            bool many = parts.Length >= 3 && parts[0] == "BLOCKSET";
+                            if ((!many && (parts.Length != 3 || parts[0] != "BLOCK")) || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out scope) ||
                                 !Enum.IsDefined(typeof(NetworkBlockMode), scope)) throw new ArgumentException("Invalid network command.");
                             if (block != null) throw new InvalidOperationException("Restore the existing block before changing scope.");
                             NetworkBlockMode mode = (NetworkBlockMode)scope;
-                            string path = ValidateExecutable(mode, Encoding.UTF8.GetString(Convert.FromBase64String(parts[2])));
-                            block = create(mode, path);
+                            if (many && (mode != NetworkBlockMode.Executable || parts.Length - 2 > MaximumApplications)) throw new ArgumentException("Invalid application set.");
+                            string[] requested = new string[parts.Length - 2];
+                            for (int i = 2; i < parts.Length; i++) requested[i - 2] = Encoding.UTF8.GetString(Convert.FromBase64String(parts[i]));
+                            string[] paths = ValidateExecutables(mode, requested);
+                            block = create(mode, paths);
                             if (block == null) throw new InvalidOperationException("The network block was not created.");
                             write("BLOCKED");
                         }
@@ -329,20 +353,24 @@ namespace InputStitch
         private WfpNetworkSession(INetworkWfpApi api, IntPtr engine) { this.api = api; this.engine = engine; }
 
         internal static WfpNetworkSession Create(INetworkWfpApi api, NetworkBlockMode mode, string path)
+        { return CreateMany(api, mode, new[] { path }); }
+        internal static WfpNetworkSession CreateMany(INetworkWfpApi api, NetworkBlockMode mode, string[] paths)
         {
             if (api == null) throw new ArgumentNullException("api");
-            path = NetworkPrivilegeHelper.ValidateExecutable(mode, path);
-            IntPtr engine = IntPtr.Zero, app = IntPtr.Zero;
+            paths = NetworkPrivilegeHelper.ValidateExecutables(mode, paths);
+            IntPtr engine = IntPtr.Zero;
+            List<IntPtr> applications = new List<IntPtr>();
             bool transaction = false;
             try
             {
-                if (mode == NetworkBlockMode.Executable) app = api.GetApplicationId(path);
+                foreach (string path in paths) applications.Add(api.GetApplicationId(path));
                 engine = api.OpenDynamic();
                 if (engine == IntPtr.Zero) throw new IOException("The filtering session could not be opened.");
                 api.Begin(engine); transaction = true;
                 Guid sublayer = Guid.NewGuid();
                 api.AddSublayer(engine, sublayer);
-                foreach (Guid layer in Layers) api.AddBlock(engine, layer, sublayer, app);
+                if (applications.Count == 0) foreach (Guid layer in Layers) api.AddBlock(engine, layer, sublayer, IntPtr.Zero);
+                else foreach (IntPtr app in applications) foreach (Guid layer in Layers) api.AddBlock(engine, layer, sublayer, app);
                 api.Commit(engine); transaction = false;
                 WfpNetworkSession result = new WfpNetworkSession(api, engine);
                 engine = IntPtr.Zero;
@@ -354,7 +382,7 @@ namespace InputStitch
                 finally
                 {
                     try { if (engine != IntPtr.Zero) api.Close(engine); }
-                    finally { if (app != IntPtr.Zero) api.FreeApplicationId(ref app); }
+                    finally { foreach (IntPtr application in applications) { IntPtr app = application; if (app != IntPtr.Zero) api.FreeApplicationId(ref app); } }
                 }
             }
         }

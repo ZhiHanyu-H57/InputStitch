@@ -124,7 +124,7 @@ namespace InputStitch
                 using (Graphics measure = Graphics.FromImage(probe))
                 {
                     format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.NoClip;
-                    LineHeight = font.GetHeight(96);
+                    LineHeight = Math.Max(1, font.GetHeight(96) + options.LineSpacing);
                     while (elements.MoveNext())
                     {
                         string element = elements.GetTextElement(); if (element == "\n" || glyphs.ContainsKey(element)) continue;
@@ -196,7 +196,7 @@ namespace InputStitch
         private readonly int[] styleIndices;
         private readonly string filePath;
         private readonly int padding;
-        private readonly float baseline;
+        private readonly float baseline, lineAdvance;
         internal readonly float LineHeight;
         private static string Key(int index, string text) { return index.ToString(CultureInfo.InvariantCulture) + ":" + text; }
         internal TimerPartsGlyphAtlas(TimerOptions source, string path)
@@ -233,6 +233,7 @@ namespace InputStitch
                     }
                 }
                 foreach (TimerPartMetrics m in metrics) if (m != null) LineHeight = Math.Max(LineHeight, baseline - m.Baseline + m.Height);
+                lineAdvance = Math.Max(1, LineHeight + options.LineSpacing);
                 int height = 512; while (height < y + row) height *= 2;
                 using (Bitmap atlas = new Bitmap(1024, height, PixelFormat.Format32bppPArgb))
                 using (Graphics g = Graphics.FromImage(atlas))
@@ -261,10 +262,10 @@ namespace InputStitch
                 while (elements.MoveNext())
                 {
                     string element = elements.GetTextElement(); if (element == "\n") { x = partStart = local = 0; if (++line == 8) break; continue; }
-                    if (x >= 4096 || line * LineHeight >= 2048) continue;
+                    if (x >= 4096 || line * lineAdvance >= 2048) continue;
                     Glyph glyph; if (!glyphs.TryGetValue(Key(styleIndices[i], element), out glyph)) throw new InvalidDataException("A timer part glyph is absent from the atlas.");
                     Rectangle r = glyph.Source;
-                    int px = options.X + (int)Math.Round(partStart + padding - m.Padding) + (int)Math.Round(local), py = options.Y + (int)Math.Round(line * LineHeight + baseline - m.Baseline);
+                    int px = options.X + (int)Math.Round(partStart + padding - m.Padding) + (int)Math.Round(local), py = options.Y + (int)Math.Round(line * lineAdvance + baseline - m.Baseline);
                     int cx = (int)Math.Floor((double)px / zoom), cy = (int)Math.Floor((double)py / zoom), phaseX = px - cx * zoom, phaseY = py - cy * zoom;
                     int width = ((r.Width + phaseX + zoom - 1) / zoom) * zoom, height = ((r.Height + phaseY + zoom - 1) / zoom) * zoom;
                     tags.Append("<P=").Append(cx.ToString(CultureInfo.InvariantCulture)).Append(',').Append(cy.ToString(CultureInfo.InvariantCulture)).Append("><L").Append(layer++).Append("><I=").Append(width / zoom).Append(',').Append(height / zoom).Append(',').Append(r.X - phaseX).Append(',').Append(r.Y - phaseY).Append(',').Append(width).Append(',').Append(height).Append('>');

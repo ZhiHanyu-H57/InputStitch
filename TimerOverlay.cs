@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Diagnostics;
 using Microsoft.Win32;
 
 namespace InputStitch
@@ -87,9 +88,12 @@ namespace InputStitch
         private TimerRtss rtss;
         private string lastText;
         private bool disposed;
+        private bool hasStarted;
+        private long nextFrame;
         private DateTime nextRetry;
         internal TimeSpan Elapsed { get { return engine.Elapsed; } }
         internal bool IsRunning { get { return engine.IsRunning; } }
+        internal TimerRunState RunState { get { return engine.IsRunning ? TimerRunState.Running : hasStarted ? TimerRunState.Paused : TimerRunState.Ready; } }
         internal string Status { get; private set; }
         internal bool Visible { get { return options.Enabled && options.Visible && options.Opacity > 0; } }
         internal TimerOverlay Window { get { return window; } }
@@ -108,7 +112,10 @@ namespace InputStitch
             bool renderingChanged = !options.SameRendering(next), backendChanged = options.Backend != next.Backend;
             bool placementChanged = options.X != next.X || options.Y != next.Y || options.MonitorDevice != next.MonitorDevice;
             bool visibilityChanged = options.Enabled != next.Enabled || options.Visible != next.Visible;
+            bool cadenceChanged = options.UpdateIntervalMs != next.UpdateIntervalMs;
             options = next;
+            displayTimer.Interval = options.UpdateIntervalMs;
+            if (cadenceChanged) nextFrame = 0;
             if (!renderingChanged && !backendChanged && !placementChanged && !visibilityChanged) return;
             if (renderingChanged || backendChanged)
             {
@@ -120,21 +127,34 @@ namespace InputStitch
             Refresh();
         }
         internal void StartPause() { if (engine.IsRunning) Pause(); else Start(); }
-        internal void Start() { if (disposed) return; engine.Start(); Refresh(); }
+        internal void Start() { if (disposed) return; engine.Start(); hasStarted = true; Refresh(); }
         internal void Pause() { if (disposed) return; engine.Pause(); Refresh(); }
-        internal void Reset() { if (disposed) return; engine.Reset(); lastText = null; Refresh(); }
+        internal void Reset() { if (disposed) return; engine.Reset(); hasStarted = false; lastText = null; Refresh(); }
+        internal void Execute(TimerControlStep step)
+        {
+            if (disposed || step == null) return;
+            options.Visible = TimerControls.Visibility(step, options.Visible);
+            if (step.Reset) { engine.Reset(); hasStarted = false; }
+            if (step.Run == TimerRunCommand.Start || step.Run == TimerRunCommand.Toggle && !engine.IsRunning) { engine.Start(); hasStarted = true; }
+            else if (step.Run == TimerRunCommand.Pause || step.Run == TimerRunCommand.Toggle) engine.Pause();
+            lastText = null; Refresh();
+        }
         internal void SetVisible(bool visible) { if (disposed) return; options.Visible = visible; lastText = null; Refresh(); }
         internal void ToggleVisible() { SetVisible(!options.Visible); }
-        private void Tick(object sender, EventArgs e) { Refresh(); }
+        private void Tick(object sender, EventArgs e) { RefreshScheduled(); }
+        private void RefreshScheduled()
+        { if (!Visible || !engine.IsRunning || Stopwatch.GetTimestamp() >= nextFrame) Refresh(); }
         internal void Refresh()
         {
             if (disposed) return;
+            nextFrame = Stopwatch.GetTimestamp() + (long)(options.UpdateIntervalMs * (double)Stopwatch.Frequency / 1000);
             bool visible = Visible;
+            displayTimer.Interval = visible ? options.UpdateIntervalMs : 50;
             displayTimer.Enabled = visible && engine.IsRunning;
             if (!visible)
             {
                 if (window != null) window.Hide();
-                if (rtss != null && !rtss.Hide()) { displayTimer.Enabled = true; Status = rtss.Status; return; }
+                if (rtss != null && !rtss.Hide()) { displayTimer.Interval = 50; displayTimer.Enabled = true; Status = rtss.Status; return; }
                 lastText = null; Status = ""; return;
             }
             TimeSpan elapsed = engine.Elapsed; string text = TimerText.Format(elapsed, options);
@@ -160,7 +180,7 @@ namespace InputStitch
                 lastText = text; Status = "";
             }
         }
-        internal void KeepOnTop() { if (options.Backend == TimerBackend.Rtss && Visible) Refresh(); else if (window != null) window.KeepOnTop(); }
+        internal void KeepOnTop() { if (options.Backend == TimerBackend.Rtss && Visible) RefreshScheduled(); else if (window != null) window.KeepOnTop(); }
         private void DisplaysChanged(object sender, EventArgs e)
         {
             if (!disposed && dispatcher != null && dispatcher.IsHandleCreated && !dispatcher.IsDisposed)

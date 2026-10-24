@@ -42,7 +42,7 @@ internal static class TimerTests
             if (args.Length > 0 && args[0] == "--performance") { Performance(); return 0; }
             if (args.Length > 0 && args[0] == "--parts-performance") { Performance(true); return 0; }
             if (args.Length > 0 && args[0] == "--rtss-live") { RtssLive(); return 0; }
-            Core(); Options(); Rendering(); Protocol(); Atomic(); Reuse(); Parts();
+            Core(); Options(); Rendering(); Protocol(); Atomic(); Reuse(); Parts(); ControlModes(); Cadence(); LineSpacing();
             if (args.Length > 0 && args[0] == "--desktop") Desktop();
             Console.WriteLine("PASS TimerTests " + passed + " checks"); return 0;
         }
@@ -106,6 +106,84 @@ internal static class TimerTests
         for (int y = 0; y < bitmap.Height; y++) for (int x = 0; x < bitmap.Width; x++)
         { Color c = bitmap.GetPixel(x, y); if (c.A > 100 && (red ? c.R > 150 && c.G < 80 : c.G > 150 && c.R < 80)) bottom = y; }
         return bottom;
+    }
+    private static void ControlModes()
+    {
+        foreach (TimerControlMode mode in new[] { TimerControlMode.SingleKeyCycle, TimerControlMode.StartFinishPause, TimerControlMode.StartPauseReset, TimerControlMode.Independent })
+        using (Control owner = new Control())
+        {
+            FakeMemory memory = new FakeMemory(); TimerOptions options = new TimerOptions { Enabled = true, Visible = false, Backend = TimerBackend.Rtss, ControlMode = mode };
+            using (TimerController controller = new TimerController(owner, value => new TimerRtss(value, () => memory, output)))
+            {
+                controller.Apply(options); Check(controller.RunState == TimerRunState.Ready, "mode starts ready " + mode);
+                controller.Execute(TimerControls.Resolve(options, 1, controller.RunState)); Thread.Sleep(2);
+                Check(controller.IsRunning && (mode == TimerControlMode.Independent || controller.Visible), "mode first key starts and grouped control shows " + mode);
+                int pauseKey = mode == TimerControlMode.StartFinishPause ? 2 : 1;
+                controller.Execute(TimerControls.Resolve(options, pauseKey, controller.RunState)); TimeSpan paused = controller.Elapsed;
+                Check(!controller.IsRunning && controller.RunState == TimerRunState.Paused && paused > TimeSpan.Zero, "mode pauses without resetting " + mode);
+                int resetKey = mode == TimerControlMode.StartFinishPause || mode == TimerControlMode.SingleKeyCycle ? 1 : 2;
+                controller.Execute(TimerControls.Resolve(options, resetKey, controller.RunState));
+                Check(controller.RunState == TimerRunState.Ready && controller.Elapsed == TimeSpan.Zero && !controller.Visible, "mode resets and grouped mode hides " + mode);
+            }
+        }
+        TimerOptions custom = new TimerOptions { ControlMode = TimerControlMode.Custom, UpdateIntervalMs = 123, LineSpacing = 17.5F, ShortcutRules = new System.Collections.Generic.List<TimerShortcutRule> {
+            new TimerShortcutRule { Hotkey = new TriggerSpec { VirtualKey = 117, Ctrl = true }, Ready = new TimerControlStep { Reset = true, Run = TimerRunCommand.Start, Visibility = TimerVisibilityCommand.Show }, Running = new TimerControlStep { Run = TimerRunCommand.Pause, Visibility = TimerVisibilityCommand.Hide }, Paused = new TimerControlStep { Run = TimerRunCommand.Start, Visibility = TimerVisibilityCommand.Toggle } } } };
+        using (Control owner = new Control())
+        using (TimerController controller = new TimerController(owner, value => new TimerRtss(value, () => new FakeMemory(), output)))
+        {
+            custom.Enabled = true; custom.Backend = TimerBackend.Rtss; controller.Apply(custom);
+            controller.Execute(TimerControls.Resolve(custom, 1, controller.RunState)); Check(controller.IsRunning && controller.Visible, "custom ready action resets starts and shows");
+            controller.Execute(TimerControls.Resolve(custom, 1, controller.RunState)); Check(!controller.IsRunning && !controller.Visible, "custom running action pauses and hides");
+            controller.Execute(TimerControls.Resolve(custom, 1, controller.RunState)); Check(controller.IsRunning && controller.Visible, "custom paused action resumes and toggles visibility");
+            controller.Execute(new TimerControlStep { Reset = true, Run = TimerRunCommand.Start }); Check(controller.IsRunning, "custom reset and start can restart without paused intermediate state");
+        }
+        MacroConfig config = new MacroConfig { Timer = custom }; string file = Path.Combine(output, "timer-custom-controls.xml"); new ConfigStore().Save(file, config);
+        MacroConfig read = ConfigPackageSerializer.DeserializeConfigFromFile(file);
+        Check(Xml(read.Timer, typeof(TimerOptions)) == Xml(custom, typeof(TimerOptions)), "custom actions cadence and spacing survive actual file roundtrip");
+        MacroConfig clone = ConfigPackageSerializer.CloneConfig(config); clone.Timer.ShortcutRules[0].Ready.Run = TimerRunCommand.Pause; clone.Timer.ShortcutRules[0].Hotkey.VirtualKey = 1;
+        Check(custom.ShortcutRules[0].Ready.Run == TimerRunCommand.Start && custom.ShortcutRules[0].Hotkey.VirtualKey == 117, "custom rule action and key clone independently");
+        TimerOptions normalized = new TimerOptions { UpdateIntervalMs = 1, LineSpacing = float.NaN, ControlMode = (TimerControlMode)100 }; normalized.Normalize();
+        Check(normalized.UpdateIntervalMs == 16 && normalized.LineSpacing == 0 && normalized.ControlMode == TimerControlMode.Independent, "new numeric and mode boundaries normalize");
+    }
+    private static void Cadence()
+    {
+        FakeMemory memory = new FakeMemory(); TimerOptions options = new TimerOptions { Enabled = true, Backend = TimerBackend.Rtss, UpdateIntervalMs = 1000 };
+        using (Control owner = new Control())
+        using (TimerController controller = new TimerController(owner, value => new TimerRtss(value, () => memory, output)))
+        {
+            controller.Apply(options); controller.Start(); string first = memory.Text(1), path = controller.Rtss.AtlasPath;
+            Stopwatch clock = Stopwatch.StartNew(); while (clock.ElapsedMilliseconds < 120) { controller.KeepOnTop(); Thread.Sleep(5); }
+            Check(memory.Text(1) == first && controller.Elapsed.TotalMilliseconds >= 100, "keep-on-top cannot bypass selected refresh interval while clock continues");
+            options.UpdateIntervalMs = 16; controller.Apply(options); controller.KeepOnTop(); Thread.Sleep(30); controller.KeepOnTop();
+            Check(memory.Text(1) != first && controller.Rtss.AtlasPath == path, "changing interval takes effect without rebuilding atlas");
+            controller.Pause(); TimeSpan paused = controller.Elapsed; Thread.Sleep(20); controller.KeepOnTop(); Check(controller.Elapsed == paused, "cadence changes do not advance paused time");
+        }
+    }
+    private static void LineSpacing()
+    {
+        foreach (bool parts in new[] { false, true })
+        {
+            TimerOptions options = new TimerOptions { TextTemplate = "88\n88", X = 0, Y = 0 };
+            if (parts) options.Parts = TimerText.CreateParts(options);
+            int initial; using (Bitmap image = TimerTextRenderer.Render(options, TimeSpan.Zero)) initial = image.Height;
+            options.LineSpacing = 24;
+            using (Bitmap image = TimerTextRenderer.Render(options, TimeSpan.Zero)) Check(image.Height == initial + 24, "positive line gap adds space between rows only parts=" + parts);
+            options.LineSpacing = -8;
+            using (Bitmap image = TimerTextRenderer.Render(options, TimeSpan.Zero)) Check(image.Height == initial - 8, "negative line gap reduces space without last-row clipping parts=" + parts);
+            options.LineSpacing = 24;
+            using (TimerFrameCache cache = new TimerFrameCache(options))
+            using (Bitmap image = cache.Render(TimeSpan.Zero))
+            using (TimerGlyphAtlas atlas = new TimerGlyphAtlas(options, output))
+            using (Bitmap texture = (Bitmap)Image.FromFile(atlas.FilePath))
+            using (Bitmap sampled = new Bitmap(image.Width, image.Height))
+            {
+                using (Graphics g = Graphics.FromImage(sampled)) foreach (Match match in Regex.Matches(parts ? atlas.Hypertext(TimeSpan.Zero, 1) : atlas.Hypertext(TimerText.Format(TimeSpan.Zero, options)), @"<P=(-?\d+),(-?\d+)><L\d+><I=(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)>"))
+                { int[] n = new int[8]; for (int j = 0; j < n.Length; j++) n[j] = int.Parse(match.Groups[j + 1].Value); g.DrawImage(texture, new Rectangle(n[0], n[1], n[2], n[3]), n[4], n[5], n[6], n[7], GraphicsUnit.Pixel); }
+                int mismatch = 0, pixels = 0; for (int yy = 0; yy < image.Height; yy++) for (int xx = 0; xx < image.Width; xx++) { bool a = image.GetPixel(xx, yy).A > 30, b = sampled.GetPixel(xx, yy).A > 30; if (a || b) pixels++; if (a != b) mismatch++; }
+                Check(pixels > 100 && mismatch <= pixels * .01, "multiline desktop and RTSS row spacing agree parts=" + parts + " mismatch=" + mismatch);
+                image.Save(Path.Combine(output, "timer-lines-" + parts + ".png"));
+            }
+        }
     }
     private static void Parts()
     {
@@ -412,6 +490,7 @@ internal static class TimerTests
             TimerOptions parts = new TimerOptions { Enabled = true, X = 60, Y = 60, TextTemplate = "分段 Parts {time}", FontSize = 32 };
             parts.Parts = TimerText.CreateParts(parts);
             foreach (TimerPart part in parts.Parts) if (part.Kind == TimerPartKind.Milliseconds) { part.Style.FontSize = 17; part.Style.Color = "#22FFFF"; }
+            parts.LineSpacing = 14; parts.Parts.Add(new TimerPart { Kind = TimerPartKind.Text, Text = "\n第二行 Line 2", Style = new TimerPartStyle { FontSize = 22, Color = "#22FFFF" } });
             controller.Apply(parts); Application.DoEvents();
             Check(controller.Window != null && controller.Window.Visible && GetForegroundWindow() == foreground, "segmented native overlay keeps nonactivating display behavior");
             Rectangle screen = Screen.PrimaryScreen.Bounds;
@@ -424,8 +503,9 @@ internal static class TimerTests
                 {
                     controller.SetVisible(true); Thread.Sleep(80); Application.DoEvents();
                     Capture(graphics, new Point(screen.Left + 40, screen.Top + 40), desktop.Size);
-                    int changed = 0; for (int y = 20; y < 80; y++) for (int x = 20; x < 500; x++) if (baseline.GetPixel(x, y) != desktop.GetPixel(x, y)) changed++;
+                    int changed = 0, second = 0; for (int y = 20; y < 155; y++) for (int x = 20; x < 500; x++) if (baseline.GetPixel(x, y) != desktop.GetPixel(x, y)) { changed++; if (y >= 95) second++; }
                     Check(changed > 100, "layered timer changes actual desktop pixels");
+                    Check(second > 50, "native layered display includes second line with configured row spacing");
                 }
                 desktop.Save(Path.Combine(output, "timer-native-desktop.png"));
             }

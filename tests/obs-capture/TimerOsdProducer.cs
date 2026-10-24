@@ -22,8 +22,8 @@ internal static class TimerOsdProducer
   using(TimerController desktop=new TimerController(owner))
   {
    IntPtr ignored=owner.Handle;
-   rtss.Apply(Parts(new TimerOptions {Enabled=true,Visible=false,Backend=TimerBackend.Rtss,FontSize=36,Color="#FFE020",X=40,Y=60,TextTemplate="RTSS 录入 {time}",Bold=true}));
-   desktop.Apply(Parts(new TimerOptions {Enabled=true,Visible=false,Backend=TimerBackend.Desktop,FontSize=36,Color="#FF28DF",X=origin.X+40,Y=origin.Y+230,TextTemplate="DESKTOP 顶层 {time}",Bold=true}));
+   rtss.Apply(Parts(new TimerOptions {Enabled=true,Visible=false,Backend=TimerBackend.Rtss,FontSize=36,Color="#FFE020",X=40,Y=60,TextTemplate="RTSS 录入\n{time}",Bold=true,LineSpacing=12,UpdateIntervalMs=100}));
+   desktop.Apply(Parts(new TimerOptions {Enabled=true,Visible=false,Backend=TimerBackend.Desktop,FontSize=36,Color="#FF28DF",X=origin.X+40,Y=origin.Y+230,TextTemplate="DESKTOP 顶层\n{time}",Bold=true,LineSpacing=12,UpdateIntervalMs=100}));
    rtss.Start();desktop.Start();Stopwatch clock=Stopwatch.StartNew();long nextRead=0,nextStatus=0;string mode="off";
    File.WriteAllText(Path.Combine(root,"detours-producer-ready.json"),"{\"pid\":"+Process.GetCurrentProcess().Id+",\"clientX\":"+origin.X+",\"clientY\":"+origin.Y+"}");
    while(clock.ElapsedMilliseconds<1200000)
