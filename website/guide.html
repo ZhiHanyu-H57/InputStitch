@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f8fb">
-  <meta name="description" content="InputStitch 使用指南：创建宏、设置触发键、编辑执行步骤、保存运行、屏幕准星、手柄与更新设置。">
+  <meta name="description" content="InputStitch 使用指南：创建和录制宏、批量编辑时间、设置计时器、断网快捷键与缺角方环准星。">
   <title>使用指南 — InputStitch</title>
   <link rel="canonical" href="https://inputstitch.zhihanyu.com/guide">
   <link rel="icon" type="image/svg+xml" href="/assets/diamond.svg">
   <link rel="alternate icon" href="/assets/InputStitch.ico">
-  <link rel="stylesheet" href="/assets/style.css?v=20261022b">
-  <script defer src="/assets/site.js?v=20261022"></script>
+  <link rel="stylesheet" href="/assets/style.css?v=20261024">
+  <script defer src="/assets/site.js?v=20261024"></script>
 </head>
-<body data-page="guide" data-title-zh="使用指南 — InputStitch" data-title-en="User guide — InputStitch" data-description-zh="InputStitch 使用指南：创建宏、设置触发键、编辑执行步骤、保存运行、屏幕准星、手柄与更新设置。" data-description-en="InputStitch guide: create macros, set shortcuts, edit actions, run and stop, configure crosshairs and controllers, and update existing settings.">
+<body data-page="guide" data-title-zh="使用指南 — InputStitch" data-title-en="User guide — InputStitch" data-description-zh="InputStitch 使用指南：创建和录制宏、批量编辑时间、设置计时器、断网快捷键与缺角方环准星。" data-description-en="InputStitch 1.6.0 guide: create and record macros, edit timing, set up timers, network shortcuts and the corner-cut crosshair.">
   <a class="skip-link" href="#main"><span class="lang-zh">跳到正文</span><span class="lang-en">Skip to content</span></a>
 <header class="site-header">
 <div class="wrap nav">
@@ -29,12 +29,12 @@
 </div>
 <h1><span class="lang-zh">使用指南</span><span class="lang-en">User guide</span>
 </h1>
-<p class="intro"><span class="lang-zh">从创建第一个宏开始，了解触发方式、步骤编辑、屏幕准星与手柄设置。</span><span class="lang-en">Create your first macro, then explore trigger behavior, action steps, crosshairs and controller settings.</span>
+<p class="intro"><span class="lang-zh">适用于 1.6.0。按下方步骤创建宏，或从目录直接查看准星、计时器和断网设置。</span><span class="lang-en">For version 1.6.0. Follow the first-macro example, or use the contents to jump to crosshairs, timers and network settings.</span>
 </p>
 </div>
 </section>
 <div class="wrap docs-layout">
-<nav class="docs-nav" aria-label="指南目录" data-aria-zh="指南目录" data-aria-en="Guide contents"><a href="#install" aria-current="true"><span class="lang-zh">下载与启动</span><span class="lang-en">Download & launch</span></a><a href="#first-macro"><span class="lang-zh">创建第一个宏</span><span class="lang-en">Create your first macro</span></a><a href="#triggers"><span class="lang-zh">设置触发方式</span><span class="lang-en">Choose trigger behavior</span></a><a href="#steps"><span class="lang-zh">编辑执行步骤</span><span class="lang-en">Edit action steps</span></a><a href="#modes"><span class="lang-zh">选择宏模板</span><span class="lang-en">Choose a macro template</span></a><a href="#crosshair"><span class="lang-zh">设置屏幕准星</span><span class="lang-en">Set up a screen crosshair</span></a><a href="#gamepad"><span class="lang-zh">手柄输入与输出</span><span class="lang-en">Controller input & output</span></a><a href="#layers"><span class="lang-zh">使用映射层</span><span class="lang-en">Use mapping layers</span></a><a href="#updates"><span class="lang-zh">更新与配置</span><span class="lang-en">Updates & configuration</span></a><a href="#troubleshooting"><span class="lang-zh">常见问题</span><span class="lang-en">Common questions</span></a>
+<nav class="docs-nav" aria-label="指南目录" data-aria-zh="指南目录" data-aria-en="Guide contents"><a href="#install" aria-current="true"><span class="lang-zh">下载与启动</span><span class="lang-en">Download & launch</span></a><a href="#first-macro"><span class="lang-zh">创建第一个宏</span><span class="lang-en">Create your first macro</span></a><a href="#triggers"><span class="lang-zh">设置触发方式</span><span class="lang-en">Choose trigger behavior</span></a><a href="#steps"><span class="lang-zh">编辑执行步骤</span><span class="lang-en">Edit action steps</span></a><a href="#modes"><span class="lang-zh">选择宏模板</span><span class="lang-en">Choose a macro template</span></a><a href="#crosshair"><span class="lang-zh">设置屏幕准星</span><span class="lang-en">Set up a screen crosshair</span></a><a href="#timer"><span class="lang-zh">设置计时器</span><span class="lang-en">Set up a timer</span></a><a href="#network"><span class="lang-zh">断网与恢复</span><span class="lang-en">Network control</span></a><a href="#gamepad"><span class="lang-zh">手柄输入与输出</span><span class="lang-en">Controller input & output</span></a><a href="#layers"><span class="lang-zh">使用映射层</span><span class="lang-en">Use mapping layers</span></a><a href="#updates"><span class="lang-zh">更新与配置</span><span class="lang-en">Updates & configuration</span></a><a href="#troubleshooting"><span class="lang-zh">常见问题</span><span class="lang-en">Common questions</span></a>
 </nav>
 <div class="docs-content">
 <section class="doc-section" id="install">
@@ -96,7 +96,7 @@
 </p>
 </li>
 </ol>
-<figure class="doc-image"><a class="screenshot-button" href="/assets/repeat-zh.webp" data-image-open data-aria-zh="放大查看软件界面" data-aria-en="Enlarge application screenshot"><img src="/assets/repeat-zh.webp" width="1160" height="780" data-image-zh="/assets/repeat-zh.webp" data-image-en="/assets/repeat-en.webp" alt="InputStitch 1.5.1 重复点击宏，触发键 F8，启用无限循环" data-alt-zh="InputStitch 1.5.1 重复点击宏，触发键 F8，启用无限循环" data-alt-en="InputStitch 1.5.1 repeated-click macro with F8 and continuous repeat" loading="lazy"></a><figcaption><span class="lang-zh">重复点击示例：F8 触发，无限循环，鼠标左键按一下。</span><span class="lang-en">Repeated-click example: F8 shortcut, continuous repeat and a left-click action.</span></figcaption>
+<figure class="doc-image"><a class="screenshot-button" href="/assets/repeat-zh.webp" data-image-open data-aria-zh="放大查看软件界面" data-aria-en="Enlarge application screenshot"><img src="/assets/repeat-zh.webp" width="1160" height="780" data-image-zh="/assets/repeat-zh.webp" data-image-en="/assets/repeat-en.webp" alt="InputStitch 重复点击宏，触发键 F8，启用无限循环" data-alt-zh="InputStitch 重复点击宏，触发键 F8，启用无限循环" data-alt-en="InputStitch repeated-click macro with F8 and continuous repeat" loading="lazy"></a><figcaption><span class="lang-zh">重复点击示例：F8 触发，无限循环，鼠标左键按一下。</span><span class="lang-en">Repeated-click example: F8 shortcut, continuous repeat and a left-click action.</span></figcaption>
 </figure>
 <div class="note">
 <p class=""><span class="lang-zh">默认紧急停止：<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F12</kbd>。用于停止正在运行的宏并释放输出。</span><span class="lang-en">Default Emergency Stop: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F12</kbd>. Stops active macros and releases their output.</span>
@@ -152,8 +152,9 @@
 </tbody>
 </table>
 </div>
-<p class=""><span class="lang-zh">选中步骤后可编辑、复制、删除或上下移动；“批量间隔”统一调整多个步骤的时间。“单步执行”按顺序逐个执行步骤。</span><span class="lang-en">Select steps to edit, duplicate, delete or move them. Bulk timing adjusts multiple steps. Single-step runs the sequence one step at a time.</span>
+<p class=""><span class="lang-zh">按 Ctrl 或 Shift 多选步骤，打开“批量时间”，可统一修改按住时长、等待时长，或同时修改两者。“单步执行”按顺序逐个执行步骤。</span><span class="lang-en">Use Ctrl or Shift to select steps, then open Batch timing to change hold times, delays or both. Single-step runs the sequence one step at a time.</span>
 </p>
+<p><span class="lang-zh">点击“录制宏”即可跨窗口记录键鼠操作。切到要操作的程序，完成后返回 InputStitch 点“停止录制”，再编辑步骤或批量修改时间。</span><span class="lang-en">Click Record Macro to capture keyboard and mouse actions across applications. Switch to the application, perform the actions, then return to InputStitch and click Stop Recording. You can then edit steps or change their timing in batches.</span></p>
 </section>
 <section class="doc-section" id="modes">
 <h2><span class="lang-zh">选择宏模板</span><span class="lang-en">Choose a macro template</span>
@@ -180,30 +181,69 @@
 </p>
 </section>
 <section class="doc-section" id="crosshair">
-<h2><span class="lang-zh">设置屏幕准星</span><span class="lang-en">Set up a screen crosshair</span>
-</h2>
+<h2><span class="lang-zh">设置屏幕准星</span><span class="lang-en">Set up a screen crosshair</span></h2>
 <ol class="instruction-list">
-<li>
-<h3><span class="lang-zh">打开准星设置</span><span class="lang-en">Open crosshair settings</span>
-</h3>
-<p class=""><span class="lang-zh">点击主界面左侧的<strong>“屏幕准星…”</strong>，开启绘制。</span><span class="lang-en">Click <strong>Screen crosshair…</strong> on the left and enable the overlay.</span>
-</p>
+<li><h3><span class="lang-zh">开启准星</span><span class="lang-en">Enable the crosshair</span></h3>
+<p><span class="lang-zh">点击主界面左侧<strong>“屏幕准星…”</strong>，勾选“开启屏幕准星”和“显示准星”。</span><span class="lang-en">Click <strong>Screen crosshair…</strong> on the left. Select Enable crosshair and Show crosshair.</span></p>
 </li>
-<li>
-<h3><span class="lang-zh">选择外观与位置</span><span class="lang-en">Choose appearance and position</span>
-</h3>
-<p class=""><span class="lang-zh">选择圆点、方块、十字、圆环等样式，调整大小、线宽、描边、颜色和透明度。准星默认居中，可用位置偏移进行精确微调。</span><span class="lang-en">Choose dot, square, cross, ring or another style. Set size, line width, outline, colors and opacity. The crosshair starts centered; use offsets for precise positioning.</span>
-</p>
+<li><h3><span class="lang-zh">选择样式并调整</span><span class="lang-en">Choose and adjust a style</span></h3>
+<p><span class="lang-zh">“准星样式”可选圆点、方块、十字、圆环等。新样式<strong>“缺角方环”</strong>是四角留有缺口的正方形环；用“大小”“线宽”和“四角缺口”调整形状，再设置颜色、描边和不透明度。</span><span class="lang-en">Choose a dot, square, cross, ring or another style. The new <strong>Corner-cut square</strong> leaves a gap at each corner. Adjust Size, Line width and Corner gap, then set colors, outline and opacity.</span></p>
 </li>
-<li>
-<h3><span class="lang-zh">保存并使用快捷键</span><span class="lang-en">Save and use the shortcut</span>
-</h3>
-<p class=""><span class="lang-zh">保存设置后，下一次开启准星时会恢复。默认使用 <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F10</kbd> 显示或隐藏。</span><span class="lang-en">Saved settings are restored when the crosshair is enabled again. The default show/hide shortcut is <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F10</kbd>.</span>
-</p>
+<li><h3><span class="lang-zh">微调位置并保存</span><span class="lang-en">Position and save</span></h3>
+<p><span class="lang-zh">选择显示器，以屏幕中央为起点调整 X/Y 偏移；需要重新居中时点“回到屏幕中央”。点击“保存准星设置”，下次启动恢复设置。默认显隐快捷键为 <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F10</kbd>。</span><span class="lang-en">Choose a display and adjust X/Y offsets from its center, or click Reset to center. Click Save crosshair to keep the settings for the next launch. The default show/hide shortcut is <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F10</kbd>.</span></p>
 </li>
 </ol>
-<p class=""><span class="lang-zh">准星用于窗口化和无边框窗口。游戏使用独占全屏时，在游戏的显示设置中切换到无边框窗口。</span><span class="lang-en">Use the crosshair in windowed or borderless mode. If a game uses exclusive fullscreen, change its display setting to borderless.</span>
-</p>
+<p><span class="lang-zh">游戏请使用窗口化或无边框窗口模式。</span><span class="lang-en">Set the game to windowed or borderless mode.</span></p>
+</section>
+<section class="doc-section" id="timer">
+<h2><span class="lang-zh">设置屏幕计时器</span><span class="lang-en">Set up a screen timer</span></h2>
+<ol class="instruction-list">
+<li><h3><span class="lang-zh">选好要显示的时间</span><span class="lang-en">Choose the time display</span></h3>
+<p><span class="lang-zh">点击主界面左侧<strong>“计时器…”</strong>，勾选“启用计时器”和“显示计时器”。在<strong>“内容与样式”</strong>选择“分:秒.毫秒”预设，即可显示类似 <span class="inline-code">01:23.456</span> 的时间。</span><span class="lang-en">Open <strong>Timer…</strong> on the left and select Enable timer and Show timer. In <strong>Content &amp; style</strong>, choose Minutes:seconds.ms for a display such as <span class="inline-code">01:23.456</span>.</span></p>
+</li>
+<li><h3><span class="lang-zh">设置显示位置</span><span class="lang-en">Set the output and position</span></h3>
+<p><span class="lang-zh">在<strong>“显示与位置”</strong>选择“普通置顶窗口”，再选择显示器。滑块用于粗调，X/Y 数字框可逐像素微调；左上角为原点。</span><span class="lang-en">In <strong>Output &amp; position</strong>, choose Desktop overlay and a display. Use the sliders for rough placement and the X/Y fields for one-pixel adjustments from the top-left corner.</span></p>
+</li>
+<li><h3><span class="lang-zh">设置快捷键并保存</span><span class="lang-en">Set shortcuts and save</span></h3>
+<p><span class="lang-zh">在<strong>“快捷键”</strong>选择控制方式，录入对应按键，点击“保存”。返回游戏后使用快捷键开始或暂停计时；也可以在设置窗口点“开始 / 暂停”和“归零”。</span><span class="lang-en">In <strong>Hotkeys</strong>, choose a control mode and assign its keys, then Save. Use the shortcuts in the game, or the Start / pause and Reset buttons in the settings window.</span></p>
+</li>
+</ol>
+<h3><span class="lang-zh">调整内容和格式</span><span class="lang-en">Edit content and formatting</span></h3>
+<ul>
+<li><span class="lang-zh">左侧勾选框决定是否显示该部分。选中“时”“分”“秒”“毫秒”或文字行，在右侧编辑该部分。取消勾选“时”即可隐藏小时。</span><span class="lang-en">Checkboxes on the left control which parts appear. Select an hour, minute, second, millisecond or text row to edit it on the right. Clear Hours to hide it.</span></li>
+<li><span class="lang-zh">按 Ctrl / Shift 多选，或点“全选”，再统一修改字体、字号、加粗、斜体、颜色、描边、字距和不透明度。“套用首项样式”可复制第一个选中部分的完整格式。</span><span class="lang-en">Use Ctrl / Shift to select several parts, or Select all, then change their font, size, bold, italic, colors, outline, spacing or opacity together. Use first style copies the first selected part’s complete formatting.</span></li>
+<li><span class="lang-zh">用“添加文字”加入中文、英文或标点，用箭头调整顺序；点“换行”分成多行，再到“显示与位置”调整“额外行距”。</span><span class="lang-en">Use Add text for Chinese, English or punctuation, and the arrows to reorder parts. Click New line for multiple lines, then adjust Extra line spacing under Output &amp; position.</span></li>
+<li><span class="lang-zh">“刷新间隔”默认为 50 毫秒，可在 16–5000 毫秒之间调整。数值越大，显示更新越少；计时精度不受影响。</span><span class="lang-en">Refresh interval defaults to 50 ms and accepts 16–5000 ms. Larger values update the display less often without changing elapsed-time accuracy.</span></li>
+</ul>
+<h3><span class="lang-zh">选择快捷键控制方式</span><span class="lang-en">Choose a shortcut mode</span></h3>
+<div class="table-wrap"><table><thead><tr><th><span class="lang-zh">控制方式</span><span class="lang-en">Mode</span></th><th><span class="lang-zh">按键效果</span><span class="lang-en">What the keys do</span></th></tr></thead><tbody>
+<tr><td><span class="lang-zh">三键独立</span><span class="lang-en">Three independent keys</span></td><td><span class="lang-zh">开始/暂停、归零并暂停、显示/隐藏各用一个键。</span><span class="lang-en">Separate keys for start/pause, reset/pause and show/hide.</span></td></tr>
+<tr><td><span class="lang-zh">单键循环</span><span class="lang-en">One-key cycle</span></td><td><span class="lang-zh">同一个键依次：开始并显示 → 暂停 → 归零并隐藏。</span><span class="lang-en">One key cycles through start/show → pause → reset/hide.</span></td></tr>
+<tr><td><span class="lang-zh">双键：开始结束 + 暂停继续</span><span class="lang-en">Two keys: start/finish + pause/resume</span></td><td><span class="lang-zh">第一键开始，或结束并归零隐藏；第二键暂停或继续。</span><span class="lang-en">The first key starts, or finishes, resets and hides. The second pauses or resumes.</span></td></tr>
+<tr><td><span class="lang-zh">双键：开始暂停 + 归零隐藏</span><span class="lang-en">Two keys: start/pause + reset/hide</span></td><td><span class="lang-zh">第一键开始或暂停并显示；第二键归零并隐藏。</span><span class="lang-en">The first key starts or pauses and shows the timer. The second resets and hides.</span></td></tr>
+<tr><td><span class="lang-zh">自定义</span><span class="lang-en">Custom</span></td><td><span class="lang-zh">点击“添加快捷键”，分别设置“未开始”“计时中”“已暂停”时的计时动作、是否先归零和显示动作。</span><span class="lang-en">Click Add hotkey and choose its timer action, reset-first option and display action separately for Ready, Running and Paused.</span></td></tr>
+</tbody></table></div>
+<h3><span class="lang-zh">用 OBS 录入计时器</span><span class="lang-en">Include the timer in OBS</span></h3>
+<p><span class="lang-zh">普通置顶窗口适合只在自己的屏幕上查看；OBS“游戏捕获”录入 RTSS 游戏内绘制。OBS 的“显示器捕获”会录入普通置顶窗口。</span><span class="lang-en">Use Desktop overlay to view the timer on your screen. For OBS Game Capture, use the RTSS in-game overlay. OBS Display Capture also records desktop overlays.</span></p>
+<ol>
+<li><span class="lang-zh">安装并启动 <a class="text-link" href="https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/" target="_blank" rel="noopener noreferrer">RivaTuner Statistics Server（RTSS）7.3.7+</a>，在 RTSS Setup 中开启 <strong>Use Microsoft Detours API hooking</strong>。</span><span class="lang-en">Install and start <a class="text-link" href="https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/" target="_blank" rel="noopener noreferrer">RivaTuner Statistics Server (RTSS) 7.3.7+</a> and enable <strong>Use Microsoft Detours API hooking</strong> in RTSS Setup.</span></li>
+<li><span class="lang-zh">在计时器“显示与位置”中选择<strong>“RTSS 游戏内绘制”</strong>。此时 X/Y 以游戏画面的左上角为原点。</span><span class="lang-en">Choose <strong>RTSS in-game overlay</strong> under Output &amp; position. X/Y now use the top-left of the game frame.</span></li>
+<li><span class="lang-zh">在 OBS“游戏捕获”的属性中开启<strong>“捕获第三方叠加层”</strong>。</span><span class="lang-en">Enable <strong>Capture third-party overlays</strong> in the OBS Game Capture source properties.</span></li>
+</ol></section>
+<section class="doc-section" id="network">
+<h2><span class="lang-zh">断网与恢复</span><span class="lang-en">Network control</span></h2>
+<ol class="instruction-list">
+<li><h3><span class="lang-zh">选择断网范围</span><span class="lang-en">Choose what to block</span></h3>
+<p><span class="lang-zh">打开主界面<strong>齿轮菜单 →“断网与恢复…”</strong>，勾选“启用网络控制快捷键”。选择“指定程序”，点“添加程序…”选择实际运行的 EXE，可添加多个；选择“整台电脑”则控制这台电脑的网络。</span><span class="lang-en">Open the <strong>gear menu → Network control…</strong> and select Enable network hotkeys. Choose Selected applications and Add apps… to select the EXE files that run the applications; you can add several. Whole computer controls network traffic for the entire PC.</span></p>
+</li>
+<li><h3><span class="lang-zh">设置断开与恢复按键</span><span class="lang-en">Assign block and restore keys</span></h3>
+<p><span class="lang-zh">在<strong>“范围与快捷键”</strong>分别选择“断开网络”和“恢复网络”的按键。两个按键相同时，按一次断开，再按一次恢复。点“保存”后，在要操作的窗口使用快捷键。首次断网时按 Windows 提示允许管理员授权。</span><span class="lang-en">In <strong>Scope &amp; hotkeys</strong>, assign Block traffic and Restore traffic. Using the same shortcut for both makes it toggle between blocking and restoring. Save, then use the shortcuts in the application. Allow the Windows administrator prompt on first use.</span></p>
+</li>
+<li><h3><span class="lang-zh">选择音效</span><span class="lang-en">Choose sound cues</span></h3>
+<p><span class="lang-zh">在<strong>“音效”</strong>分别开关断开、恢复提示音并调整音量。可“导入…”自己的 8/16 位 PCM WAV 文件，点“试听”确认；“使用内置”恢复默认声音。</span><span class="lang-en">In <strong>Sounds</strong>, enable or disable each cue and set its volume. Import… accepts 8/16-bit PCM WAV files. Use Preview to listen, or Use built-in to restore the default sound.</span></p>
+</li>
+</ol>
+<p><span class="lang-zh">需要恢复时，按恢复快捷键，或点齿轮菜单中的<strong>“恢复网络”</strong>。紧急停止和退出 InputStitch 也会解除断网；下次启动保持联网。</span><span class="lang-en">To reconnect, press the restore shortcut or choose <strong>Restore network</strong> from the gear menu. Emergency Stop and exiting InputStitch also remove the block. The next launch starts connected.</span></p>
 </section>
 <section class="doc-section" id="gamepad">
 <h2><span class="lang-zh">手柄输入与输出</span><span class="lang-en">Controller input & output</span>
@@ -244,7 +284,7 @@
 </h2>
 <p class=""><span class="lang-zh">在软件设置中检查更新。更新会保留宏和设置，并在替换前备份旧程序与配置。更新后的主程序文件名为 <span class="inline-code">InputStitch.exe</span>。</span><span class="lang-en">Check for updates in Settings. Updates keep macros and settings, backing up the program and configuration before replacement. The installed name is <span class="inline-code">InputStitch.exe</span>.</span>
 </p>
-<p class=""><span class="lang-zh">手动更新时，关闭旧程序后运行新版。1.4.3 和 1.5.0 的配置会自动读取。</span><span class="lang-en">For a manual update, close the old program and run the new EXE. Settings from 1.4.3 and 1.5.0 load automatically.</span>
+<p class=""><span class="lang-zh">手动更新时，关闭旧程序后运行新版。1.4.3 及 1.5.x 的宏与设置会自动读取。</span><span class="lang-en">For a manual update, close the old program and run the new EXE. Macros and settings from 1.4.3 and 1.5.x load automatically.</span>
 </p>
 <p class=""><span class="lang-zh">配置保存在 <span class="inline-code">%APPDATA%\InputStitch</span>。可通过左侧<strong>“导入与备份”</strong>导出宏或配置方案，便于备份和换电脑。</span><span class="lang-en">Configuration is stored in <span class="inline-code">%APPDATA%\InputStitch</span>. Use <strong>Import & backup</strong> on the left to export macros or profiles for backup or another computer.</span>
 </p>

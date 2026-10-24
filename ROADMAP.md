@@ -1,5 +1,12 @@
 # ROADMAP.md
 
+## 1.6.0 website and user guide update — 2026-10-24
+
+Document the released timer, network hotkeys and corner-cut square with concise
+bilingual setup steps and accurate static download metadata. Website/docs checks
+only; no software features, builds or renewed runtime acceptance in this request.
+See docs/WEBSITE.md and the public guide.
+
 ## Verification scope correction and Stable1.6.0 completed — 2026-10-24
 
 Current authorization: no product feature work. Replace unconditional full-suite

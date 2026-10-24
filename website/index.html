@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f8fb">
-  <meta name="description" content="InputStitch 是 Windows 输入映射与宏工具。设置触发键、编辑动作步骤，支持按住映射、重复操作和屏幕准星。">
+  <meta name="description" content="InputStitch 是 Windows 输入映射与宏工具。录制和编辑宏，设置屏幕准星、计时器与断网快捷键。">
   <title>InputStitch — Windows 键盘、鼠标与手柄宏</title>
   <link rel="canonical" href="https://inputstitch.zhihanyu.com/">
   <link rel="icon" type="image/svg+xml" href="/assets/diamond.svg">
   <link rel="alternate icon" href="/assets/InputStitch.ico">
-  <link rel="stylesheet" href="/assets/style.css?v=20261022b">
-  <script defer src="/assets/site.js?v=20261022"></script>
+  <link rel="stylesheet" href="/assets/style.css?v=20261024">
+  <script defer src="/assets/site.js?v=20261024"></script>
 </head>
-<body data-page="home" data-title-zh="InputStitch — Windows 键盘、鼠标与手柄宏" data-title-en="InputStitch — Keyboard, mouse &amp; controller macros" data-description-zh="InputStitch 是 Windows 输入映射与宏工具。设置触发键、编辑动作步骤，支持按住映射、重复操作和屏幕准星。" data-description-en="Input mapping and macros for Windows. Choose a shortcut, edit action sequences, create held mappings, repeat actions and add a screen crosshair.">
+<body data-page="home" data-title-zh="InputStitch — Windows 键盘、鼠标与手柄宏" data-title-en="InputStitch — Keyboard, mouse &amp; controller macros" data-description-zh="InputStitch 是 Windows 输入映射与宏工具。录制和编辑宏，设置屏幕准星、计时器与断网快捷键。" data-description-en="Input mapping and macros for Windows. Record and edit macros, set up crosshairs and timers, and control network access with shortcuts.">
   <a class="skip-link" href="#main"><span class="lang-zh">跳到正文</span><span class="lang-en">Skip to content</span></a>
 <header class="site-header">
 <div class="wrap nav">
@@ -38,14 +38,14 @@
 </div>
 <div class="hero-art">
 <figure class="app-frame">
-<a class="screenshot-button" href="/assets/app-zh.webp" data-image-open data-aria-zh="放大查看软件界面" data-aria-en="Enlarge application screenshot"><img src="/assets/app-zh.webp" width="1160" height="780" data-image-zh="/assets/app-zh.webp" data-image-en="/assets/app-en.webp" alt="InputStitch 1.5.1 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-zh="InputStitch 1.5.1 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-en="InputStitch 1.5.1 macro editor with a five-step sequence" fetchpriority="high"></a><figcaption><span>InputStitch</span><span><span class="lang-zh">点击放大界面</span><span class="lang-en">Click to enlarge</span> ↗</span></figcaption>
+<a class="screenshot-button" href="/assets/app-zh.webp" data-image-open data-aria-zh="放大查看软件界面" data-aria-en="Enlarge application screenshot"><img src="/assets/app-zh.webp" width="1160" height="780" data-image-zh="/assets/app-zh.webp" data-image-en="/assets/app-en.webp" alt="InputStitch 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-zh="InputStitch 宏编辑器，显示顺序执行示例和五个动作步骤" data-alt-en="InputStitch macro editor with a five-step sequence" fetchpriority="high"></a><figcaption><span>InputStitch</span><span><span class="lang-zh">点击放大界面</span><span class="lang-en">Click to enlarge</span> ↗</span></figcaption>
 </figure>
 </div>
 </div>
 <div class="hero-strip">
-<div><span class="release-dot"></span><strong>v<span data-release-version>1.5.1</span></strong><span><span class="lang-zh">正式版</span><span class="lang-en">Stable</span></span>
+<div><span class="release-dot"></span><strong>v<span data-release-version>1.6.0</span></strong><span><span class="lang-zh">正式版</span><span class="lang-en">Stable</span></span>
 </div>
-<div><strong data-release-size="x64">1.90 MiB</strong><span>Windows x64</span>
+<div><strong data-release-size="x64">2.08 MiB</strong><span>Windows x64</span>
 </div>
 <div><span><span class="lang-zh">界面语言</span><span class="lang-en">Interface</span></span><strong>简体中文 / English</strong>
 </div>
@@ -88,12 +88,21 @@
 </div>
 </div>
 </section>
+<section class="section tools-section"><div class="wrap"><h2><span class="lang-zh">计时器与网络控制</span><span class="lang-en">Timer and network controls</span></h2>
+<div class="tool-notes">
+<article><h3><span class="lang-zh">屏幕计时器</span><span class="lang-en">Screen timer</span></h3>
+<p><span class="lang-zh">在主界面点击“计时器…”。可只显示分、秒和毫秒，添加自己的文字，并分别调整字体、颜色和位置。快捷键可选单键、双键或自定义。</span><span class="lang-en">Open Timer… from the main window. Show minutes, seconds and milliseconds, add your own text and choose the formatting and position. Use one key, two keys or custom shortcut actions.</span></p>
+<a class="text-link" href="/guide#timer"><span class="lang-zh">设置计时器</span><span class="lang-en">Set up a timer</span> ↗</a></article>
+<article><h3><span class="lang-zh">断网与恢复</span><span class="lang-en">Network control</span></h3>
+<p><span class="lang-zh">在齿轮菜单打开“断网与恢复…”，选择需要断网的程序，或选择整台电脑。设置断开、恢复快捷键后保存；音效和音量可分别调整。</span><span class="lang-en">Open Network control… from the gear menu. Select applications or the whole computer, set block and restore shortcuts, then save. Each action has its own sound and volume settings.</span></p>
+<a class="text-link" href="/guide#network"><span class="lang-zh">设置断网快捷键</span><span class="lang-en">Set up network shortcuts</span> ↗</a></article>
+</div></div></section>
 <section class="section crosshair-section">
 <div class="wrap crosshair-layout">
 <div class="crosshair-copy">
 <h2><span class="lang-zh">屏幕准星</span><span class="lang-en">Screen crosshair</span>
 </h2>
-<p class=""><span class="lang-zh">在屏幕中央显示准星，支持窗口和无边框模式。可调整样式、位置和颜色，关闭软件后保留设置。</span><span class="lang-en">Add a crosshair to windowed and borderless games. Change its shape, position, color, size and opacity in InputStitch. Your settings are saved for next time.</span>
+<p class=""><span class="lang-zh">在窗口和无边框游戏中显示准星。圆点、十字、圆环和新增的缺角方环均可调整大小、颜色与描边；位置可按像素微调。</span><span class="lang-en">Choose a dot, cross, ring or the new corner-cut square for windowed and borderless games. Adjust its size, colors and outline, then fine-tune its position by the pixel.</span>
 </p>
 <div class="tags"><span class="tag"><span class="lang-zh">窗口化</span><span class="lang-en">Windowed</span></span><span class="tag"><span class="lang-zh">无边框窗口</span><span class="lang-en">Borderless</span></span>
 </div>
@@ -108,9 +117,9 @@
 </div>
 </div>
 <div class="preview-controls">
-<div class="style-controls" role="group" aria-label="准星样式和颜色" data-aria-zh="准星样式和颜色" data-aria-en="Crosshair style and color"><button class="style-option" type="button" data-reticle-style="cross" aria-pressed="false" aria-label="十字" data-aria-zh="十字" data-aria-en="Cross"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M24 4v11m0 18v11M4 24h11m18 0h11"/></svg></button><button class="style-option" type="button" data-reticle-style="dot" aria-pressed="false" aria-label="圆点" data-aria-zh="圆点" data-aria-en="Dot"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/></svg></button><button class="style-option" type="button" data-reticle-style="crossdot" aria-pressed="true" aria-label="十字加圆点" data-aria-zh="十字加圆点" data-aria-en="Cross with dot"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M24 4v11m0 18v11M4 24h11m18 0h11"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/></svg></button><button class="style-option" type="button" data-reticle-style="ring" aria-pressed="false" aria-label="圆环加圆点" data-aria-zh="圆环加圆点" data-aria-en="Ring with dot"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="24" cy="24" r="13"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/></svg></button><span class="control-divider"></span><button class="swatch" type="button" style="--swatch:#83f2bb" data-reticle-color="#83f2bb" aria-label="绿色" data-aria-zh="绿色" data-aria-en="Green" aria-pressed="true"></button><button class="swatch" type="button" style="--swatch:#cbb3ff" data-reticle-color="#cbb3ff" aria-label="紫色" data-aria-zh="紫色" data-aria-en="Purple" aria-pressed="false"></button><button class="swatch" type="button" style="--swatch:#ffffff" data-reticle-color="#ffffff" aria-label="白色" data-aria-zh="白色" data-aria-en="White" aria-pressed="false"></button>
+<div class="style-controls" role="group" aria-label="准星样式和颜色" data-aria-zh="准星样式和颜色" data-aria-en="Crosshair style and color"><button class="style-option" type="button" data-reticle-style="corners" aria-pressed="false" aria-label="缺角方环" data-aria-zh="缺角方环" data-aria-en="Corner-cut square"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M13 7h22M41 13v22M35 41H13M7 35V13"/></svg></button><button class="style-option" type="button" data-reticle-style="dot" aria-pressed="false" aria-label="圆点" data-aria-zh="圆点" data-aria-en="Dot"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/></svg></button><button class="style-option" type="button" data-reticle-style="crossdot" aria-pressed="true" aria-label="十字加圆点" data-aria-zh="十字加圆点" data-aria-en="Cross with dot"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M24 4v11m0 18v11M4 24h11m18 0h11"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/></svg></button><button class="style-option" type="button" data-reticle-style="ring" aria-pressed="false" aria-label="圆环加圆点" data-aria-zh="圆环加圆点" data-aria-en="Ring with dot"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="24" cy="24" r="13"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/></svg></button><span class="control-divider"></span><button class="swatch" type="button" style="--swatch:#83f2bb" data-reticle-color="#83f2bb" aria-label="绿色" data-aria-zh="绿色" data-aria-en="Green" aria-pressed="true"></button><button class="swatch" type="button" style="--swatch:#cbb3ff" data-reticle-color="#cbb3ff" aria-label="紫色" data-aria-zh="紫色" data-aria-en="Purple" aria-pressed="false"></button><button class="swatch" type="button" style="--swatch:#ffffff" data-reticle-color="#ffffff" aria-label="白色" data-aria-zh="白色" data-aria-en="White" aria-pressed="false"></button>
 </div>
-<div class="range-row"><label for="reticle-opacity"><span class="lang-zh">透明度</span><span class="lang-en">Opacity</span></label><input id="reticle-opacity" data-reticle-opacity type="range" min="10" max="100" value="100"><output data-opacity-value for="reticle-opacity">100%</output>
+<div class="range-row"><label for="reticle-opacity"><span class="lang-zh">不透明度</span><span class="lang-en">Opacity</span></label><input id="reticle-opacity" data-reticle-opacity type="range" min="10" max="100" value="100"><output data-opacity-value for="reticle-opacity">100%</output>
 </div>
 </div>
 </div>
