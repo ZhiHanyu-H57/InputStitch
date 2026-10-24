@@ -48,6 +48,11 @@ New-Item -ItemType Directory -Force -Path (Join-Path $fixture 'scripts'),(Join-P
 if($LASTEXITCODE -ne 0){throw 'Fixture git commit failed.'}
 $original=Get-VerificationFingerprint -Check 'suite:UiSafetyTests' -Root $fixture
 Check ($original -eq (Get-VerificationFingerprint -Check 'suite:UiSafetyTests' -Ref HEAD -Root $fixture)) 'Git-object fingerprints match clean working-tree inputs.'
+$savedEncoding=$OutputEncoding
+try{
+    $OutputEncoding=[Text.UTF8Encoding]::new($true)
+    Check ($original -eq (Get-VerificationFingerprint -Check 'suite:UiSafetyTests' -Root $fixture)) 'CI UTF-8 BOM/native-stdin settings do not alter path fingerprints.'
+}finally{$OutputEncoding=$savedEncoding}
 $metadata=Get-VerificationFingerprint -Check 'suite:ReleasePolicyTests' -Root $fixture
 'class ReleaseInfo { const string Version="stable"; }' | Set-Content (Join-Path $fixture 'ReleaseInfo.cs')
 Check ($original -eq (Get-VerificationFingerprint -Check 'suite:UiSafetyTests' -Root $fixture)) 'Metadata-only promotion reuses unchanged feature checks.'

@@ -106,7 +106,9 @@ function Get-VerificationFingerprint {
         foreach($path in $paths){$rows.Add($path+'='+$(if($tree.ContainsKey($path)){$tree[$path]}else{'missing'}))}
     }else{
         $existing=@($paths | Where-Object {Test-Path -LiteralPath (Join-Path $Root $_) -PathType Leaf})
-        $hashes=@($existing | & git -C $Root hash-object --stdin-paths)
+        # Native stdin encoding differs between Windows PowerShell hosts (CI can
+        # prepend UTF-8 BOM). Filename arguments keep the same Git normalization.
+        $hashes=@(& git -C $Root hash-object -- @existing)
         if($LASTEXITCODE -ne 0 -or $hashes.Count -ne $existing.Count){throw 'Cannot fingerprint verification inputs.'}
         $map=@{};for($i=0;$i -lt $existing.Count;$i++){$map[$existing[$i]]=$hashes[$i]}
         foreach($path in $paths){$rows.Add($path+'='+$(if($map.ContainsKey($path)){$map[$path]}else{'missing'}))}
