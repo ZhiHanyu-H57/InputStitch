@@ -1,5 +1,54 @@
 # HANDOFF.md
 
+## Automation spacing, PrintScreen and private desktop verification — 2026-10-24
+
+Verified implementation: c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9.
+Local 1.6.0-beta.7 on feature/overlay-tools; no push or publication.
+
+Automation target delay numeric had native144-DPI margins72/72, row178px;
+now4/7 and49px, width225->150, target section375->226px in both languages.
+Settings groups normalize padding; idle panel computes explicit leaf heights
+and wrapped analog/help content from available width. No model/runtime changes.
+Main InputSinkControl and runButton pass PrintScreen; ordinary key absorption,
+capture, global bindings and Emergency Stop remain.35 UI safety and214 integration
+checks cover local events and unbound global forwarding. No physical PrintScreen
+injection or OS Snipping Tool launch claim this turn.
+
+EditorChoice caches scale by Font/DeviceDpi, defers monitor clamp to opening and
+updates tooltips/accessibility only on change. Native144-DPI paired48 samples,
+beta6/current preparation medians(ms): settings1102.6/756.4, step497.3/381.5,
+crosshair578.8/480.7, timer952.4/753.1. Includes constructor+Show/Update+bitmap;
+not physical input-to-presentation latency or full-application CPU reduction.
+
+Six selected suites pass: source424, UiSafety35, Idle58, ToolIntegration214,
+CornerCutDialog65+4672, ReleasePolicy. Full secondary scaled-font125683/220,
+tool UI76814/72, native automation540/36, native settings2188/2 (zero issues),
+journey142, oldXML/settings smoke and final x64/x86 startup/restore/cache pass.
+Selected scope only; no full formal-release suite, OBS or native output/network
+rerun, since backends unchanged.67 production sources, no dependency/polling.
+
+Important verification fix: moving just one STA to a private desktop hung
+WinForms close cleanup in both baseline and current. IsolatedUiDesktop now
+restarts the entire test executable with STARTUPINFO.lpDesktop before framework
+threads/windows are created. No SwitchDesktop import or access. Child lower
+priority, bounded lifetime; parent samples foreground/input-desktop identity,
+waits for process exit and closes its desktop handle. All final tests pass with
+zero test-window foreground samples and successful desktop release. PowerShell
+smokes use architecture-matched UiScriptHost on that private desktop. Never run
+raw SettingsSmoke/packaged UI on user's active desktop during routine checks.
+Actual desktop/OBS composition checks still require their dedicated environment.
+
+No further Computer Use/desktop input during this continuation. Old app PID22984,
+started19:42, remained untouched. Announce CU start/stop; do not leave inspectors
+active until end of turn. A host-managed CU helper may remain resident; do not
+mistake residency for active control or repeatedly kill its automatic respawns.
+
+Outputs chat outputs/beta160-7: fixed InputStitch.exe, x642178560B
+10C01E1F6EA014C6DB564B0E105F95BC54C0EA1F289436921F23DE338C4C66C4;
+x862008576B 92E58DD160E1E18BC23F1A2AA367D72E939479A7AE7265A8A6A888121E4F2BFC.
+Each+2560B vs beta6; Windows PowerShell compression preserves native payload size.
+Report: docs/UI_LAYOUT_AND_INPUT_1_6_0_BETA7.md. This request complete.
+
 ## Native DPI and timer selection regressions fixed — 2026-10-24
 
 Verified implementation: 7c99137300efca87365f6fb017420e200ad3e4dd.

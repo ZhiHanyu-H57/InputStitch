@@ -1,5 +1,14 @@
 # ROADMAP.md
 
+## Automation spacing and non-disruptive UI verification completed — 2026-10-24
+
+Local beta.7 fixes actual144-DPI numeric margins, content-height feedback and
+PrintScreen swallowing at the main UI. Dropdown preparation caches scale and
+avoids repeated native queries. Whole-process private desktops isolate routine
+layout/workflow/smoke tests from the user's current work, with cleanup guards.
+All impact-selected checks and both packages pass. No new product capability.
+Results: docs/UI_LAYOUT_AND_INPUT_1_6_0_BETA7.md. No publication authorized.
+
 ## Native settings and timer editing corrections completed — 2026-10-24
 
 Local beta.6 addresses actual user-reported rendering/selection regressions.

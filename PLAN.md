@@ -1,5 +1,16 @@
 # PLAN.md
 
+## Automation whitespace, PrintScreen and private UI verification — 2026-10-24
+
+Local beta.7 removes inflated native numeric margins/section padding and nested
+auto-size height feedback. Main input sink/run button preserve PrintScreen.
+Cached dropdown scale/metadata reduces repeated preparation. Whole test processes
+start privately; no user desktop activation, leftover inspectors or manual gate.
+Six selected suites, 125683/220 secondary layouts, 76814/72 tool views, native
+automation540/36, native settings2188/2, journey142 and both final packages pass.
+Same-host48-sample preparation medians improve16.9–31.4%; binaries add2.5KiB each.
+See docs/UI_LAYOUT_AND_INPUT_1_6_0_BETA7.md. Local delivery, no publication scope.
+
 ## Settings rendering and timer selection fixed — 2026-10-24
 
 Local 1.6.0-beta.6 fixes nested native DPI scaling, bloated sound/settings rows,
