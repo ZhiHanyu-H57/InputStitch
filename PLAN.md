@@ -1,4 +1,15 @@
-﻿# PLAN.md
+# PLAN.md
+
+## Dialog responsiveness and usability completed — 2026-10-24
+
+Local 1.6.0-beta.5 fixes repeated layout/text measurement during popup creation,
+retains existing editing/stop guards, improves timer multi-selection/custom rule
+setup and network list/cue controls. Unchanged timer parts and preview reuse
+bounded surfaces. Dialog medians drop 66.7–84.8% for settings/step/crosshair/timer/
+network on this host. Relevant core/layout/journey/density, both packages,
+actual native desktop and OBS capture pass. See
+docs/USABILITY_AND_PERFORMANCE_1_6_0_BETA5.md.
+Current local delivery complete; no further architecture/feature/publication work.
 
 ## Custom timer actions and network customization completed — 2026-10-24
 

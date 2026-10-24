@@ -1,4 +1,59 @@
-﻿# HANDOFF.md
+# HANDOFF.md
+
+## Dialog responsiveness and usability completed — 2026-10-24
+
+Verified implementation: 7cfa5dd72ea01afd295846e1a9e51936ab1ffa9f.
+Local 1.6.0-beta.5 on feature/overlay-tools; no push/publication.
+67 production sources, no added dependency. Main macro runtime, ownership,
+Emergency Stop/editing guard, WFP filtering/helper and sound backend unchanged.
+
+Dialog construction now batches nested layouts, theme application and Frame;
+EditorChoice reuses label measurements while checking content/font changes.
+IdleGamepad.cs changes only settings-panel construction. Same-host zh/en
+3 samples each, constructor+Show/Update median: settings838->279ms,
+step editor610->138ms, crosshair704->160ms, timer1534->256ms,
+network784->120ms, virtual keyboard200->166ms. Raw logs retain all samples.
+The pre-batching comparison already has the beta.5 usability edits; metadata
+still read beta.4 during timing and was bumped after the final implementation.
+No persistent hidden dialog reuse or delayed editing-protection shortcut.
+
+Timer disabled actions now explain enablement; multi-selection moves together;
+first switch from a bound preset to Custom retains bound keys/state actions,
+without overwriting existing custom rules. Empty list/clear buttons follow state.
+Network UI shows filename before path, uses dirty width measurement and explicit
+Use built-in cue action. No serialized model change.
+
+Timer renderer keeps unchanged part/line surfaces with a 4MiB retained budget
+and temporary fallback. Preview reuses unchanged appearance. Actual beta.4 vs
+beta.5 binaries match28 raw pixel frames (multiline/mixed alpha/negative gap/
+rollover/rewind). Paired render medians: parts.247->.095ms,
+large multiline1.781->.756ms; unchanged preview17.348->.585ms.
+These are render microbenchmarks, not whole-process CPU reductions.
+Quiet final60s soak: default30.004s/600frames/.984ms/1.562% one core;
+large30.016s/600frames/3.140ms/6.559%; GDI3->3, no GC, bounds pass.
+
+Impact checks pass: source424, timer134, integration205, UI safety26,
+productivity802, corner dialog65+4672, release policy, input pipeline24,
+network core36 (no native network mutations), full secondary layout125667/220,
+tool layout75790/48, macro journey142, main density3328. SettingsSmoke,
+both Release Verification and final packaged startup/config restoration pass.
+Desktop native timer147 per x64/x86. Full42-suite formal release not run.
+
+Current native x64 D3D9 OBS32.2.2:4 recordings/48frames pass; RTSS included,
+desktop excluded,12 distinct timer masks. Current environment rechecked at
+16:49+08:00: OBS17 baseline config hashes and RTSS2 config hashes unchanged;
+test processes0, websocket disabled/password cleared, temp profile removed.
+Use newly generated output OBS-evidence.zip; old cleanup/final-result/hash
+files under the shared temporary OBS evidence directory were stale and excluded.
+Network backend untouched: no guest/whole-host block test this turn; beta.4
+native dual-stack330 remains historical evidence. Retained guests/tools preserved.
+
+Outputs chat outputs/beta160-5: x642175488B,
+SHA256 21510CFE5029405E08F81F746F7838D5D1E04ABF1444882DFCB44F11AAB8D6D3;
+x862005504B, SHA256 965AE5F33C02A8645452467EFAF86B0B86C7D36075FFE92A51326BFC82081E39.
+Each +4KiB vs beta.4, fixed InputStitch.exe names, sanitized evidence/screenshots.
+See docs/USABILITY_AND_PERFORMANCE_1_6_0_BETA5.md. Current request complete;
+no active task, no manual-trial prerequisite, no additional feature/release scope.
 
 ## Flexible timer and network customization — 2026-10-24
 

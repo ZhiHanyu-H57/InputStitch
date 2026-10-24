@@ -1,4 +1,13 @@
-﻿# ROADMAP.md
+# ROADMAP.md
+
+## Popup performance and settings usability completed — 2026-10-24
+
+Local beta.5 batches layout and caches unchanged label measurements, improving
+settings/editor/crosshair and tool window opening. Timer preview and part surfaces
+are reused within bounds; grouped moves and preset-to-custom editing are clearer.
+Impact-selected automation, bilingual/DPI layouts, existing macro journey,
+both packaged architectures, desktop display and actual OBS capture pass.
+See docs/USABILITY_AND_PERFORMANCE_1_6_0_BETA5.md. This request is complete.
 
 ## Flexible timer and multi-application controls completed — 2026-10-24
 
