@@ -9,7 +9,7 @@ foreach($file in @('scripts/Verification.psm1','tests/Run-Verification.ps1','tes
     $tokens=$null;$errors=$null;[Management.Automation.Language.Parser]::ParseFile((Join-Path $project $file),[ref]$tokens,[ref]$errors)|Out-Null
     Check ($errors.Count -eq 0) ('PowerShell parse: '+$file)
 }
-$p=Get-VerificationPlan -ChangedPaths @('docs/README.md')
+$p=Get-VerificationPlan -ChangedPaths @('docs/README.md','CONTRIBUTING.md','SECURITY.md')
 Check ($p.Checks.Count -eq 0) 'Docs-only development must not run product tests.'
 $p=Get-VerificationPlan -ChangedPaths @('EditorPresentation.cs')
 Check ('ui:secondary' -in $p.Checks -and !$p.SoakRequired -and 'suite:MacroRunCoordinatorTests' -notin $p.Checks) 'Shared UI needs layouts without macro/soak expansion.'

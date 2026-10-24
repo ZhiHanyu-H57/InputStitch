@@ -19,7 +19,7 @@ function Get-VerificationPlan {
         $path = $raw.Replace('\','/')
         if ($path -match '^tests/([^/]+Tests)\.cs$' -and $Matches[1] -in $suites) { [void]$checks.Add('suite:'+$Matches[1]); continue }
         if ($path -match '(^scripts/Verification\.psm1$|^tests/(Run-Tests|Run-Verification|VerificationWorkflowTests|Record-VerificationEvidence)\.ps1$|^verification/|^\.github/workflows/)') { [void]$checks.Add('workflow'); continue }
-        if ($path -match '^(AGENTS\.md|PLAN\.md|ROADMAP\.md|HANDOFF\.md|RELEASE_NOTES\.md|docs/|website/|README|LICENSE|\.gitignore)') { continue }
+        if ($path -match '^[^/]+\.md$|^(docs/|website/|LICENSE|\.gitignore)') { continue }
         if ($path -eq 'ReleaseInfo.cs') { foreach($id in @('suite:ReleasePolicyTests','ui:settings','ui:settings-native','ui:settings-smoke')){[void]$checks.Add($id)}; continue }
         if ($path -match '^(build\.ps1|app\.manifest|InputStitch\.csproj|InputStitch\.ico|Assets/|scripts/(Restore-|Get-|production-sources)|third-party/)') { [void]$checks.Add('suite:SourceManifestTests'); [void]$checks.Add('suite:ReleasePolicyTests'); continue }
         if ($path -match '^tests/(IsolatedUiDesktop\.cs|UiScriptHost\.cs|Run-IsolatedUiScript\.ps1)$') { foreach($id in @('suite:UiSafetyTests','ui:journey','ui:settings-smoke','workflow')){[void]$checks.Add($id)}; continue }
