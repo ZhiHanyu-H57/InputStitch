@@ -80,6 +80,7 @@
   const stage = document.querySelector('[data-reticle]');
   if (stage) {
     const paths = {
+      corners: '<path d="M13 7h22M41 13v22M35 41H13M7 35V13"/>',
       cross: '<path d="M24 4v11m0 18v11M4 24h11m18 0h11"/>',
       dot: '<circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/>',
       crossdot: '<path d="M24 4v11m0 18v11M4 24h11m18 0h11"/><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>',

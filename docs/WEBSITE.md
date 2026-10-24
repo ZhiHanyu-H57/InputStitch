@@ -4,6 +4,22 @@ The public static site is `https://inputstitch.zhihanyu.com/`; source is `websit
 It is deployed independently of the Windows executable. Website changes do not
 require rebuilding or republishing InputStitch.
 
+## 1.6.0 content update — 2026-10-24
+
+Overview, download page, guide and both READMEs now cover Stable1.6.0. The guide
+uses the released UI labels and includes timer presets/parts/batch styles,
+multiline and position settings, all shortcut modes, RTSS/OBS setup, selected
+applications/whole-computer network scope, restore controls, PCM WAV cues and
+corner-cut square size/line/gap settings. The homepage preview includes that style.
+Static version/date/sizes also work without JavaScript. Original macro example
+screenshots remain applicable to those unchanged steps.
+
+Website-only acceptance:246 static/resource/link/live-release assertions;
+295 browser assertions across40 bilingual responsive cases at320/390/768/1024/1440
+and device scales1/2;12 focused preview/content checks and46 README version/link
+checks. Representative mobile/desktop views inspected. No application
+build, desktop input, macro regression, network mutation or soak is selected.
+
 ## HTTPS and publication protection
 
 The custom website host declares `Strict-Transport-Security: max-age=31536000`

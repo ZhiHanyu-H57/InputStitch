@@ -1,5 +1,13 @@
 # PLAN.md
 
+## Website and user instructions for1.6.0 — 2026-10-24
+
+Update overview/download/guide and both READMEs for the released timer, network
+controls and corner-cut crosshair. Explain actual UI actions in zh/en, keep copy
+concise, and verify only website/documents. No application or release change.
+Website static, responsive/browser and focused content checks pass; product
+selector chooses0 checks. Publish through the normal main/Pages path.
+
 ## Impact-based verification and 1.6.0 Stable publication complete — 2026-10-24
 
 User authorized rules, test scripts and publication workflow changes, then

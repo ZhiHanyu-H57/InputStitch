@@ -1,5 +1,20 @@
 # HANDOFF.md
 
+## Website and user guide synchronized to1.6.0 — 2026-10-24
+
+Source baseline8d5ca9615cfd2b4ff191db4c1f1ae7233ebad0cd. Website overview/download/
+guide and zh/en READMEs explain timer controls, per-part/batch/multiline editing,
+RTSS/OBS setup, reversible multi-app/computer network shortcuts and sounds, and
+corner-cut crosshair settings. Copy uses released UI names and action steps;
+obsolete release tables and internal runtime essays removed from the READMEs.
+
+Website-only checks pass:246 static,46 README links/version,40 bilingual responsive
+cases,295 browser assertions and12 focused preview/content checks. Impact selection
+chooses0 product checks. No product sources, executable assets, application
+settings, input hooks, network state or release workflow changed. Publish through
+normal protected-main PR and Cloudflare Pages; no new desktop release needed.
+See docs/WEBSITE.md. Future work remains limited to new user authorization.
+
 ## Stable1.6.0 published; impact-based verification complete — 2026-10-24
 
 User authorized workflow/rules correction and Stable release of frozen beta.7.
