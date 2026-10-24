@@ -106,8 +106,10 @@ namespace InputStitch
         private Control SoundEditor(NetworkSoundKind kind, CheckBox enabledCue, NumericUpDown volume)
         {
             bool block = kind == NetworkSoundKind.Blocked;
-            TableLayoutPanel panel = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1, Margin = new Padding(0, 0, 0, 14) }; panel.SuspendLayout();
-            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); panel.Controls.Add(enabledCue);
+            TableLayoutPanel panel = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, ColumnCount = 1, RowCount = 4, MaximumSize = new Size(400, 0), Margin = new Padding(0, 0, 0, 14) }; panel.SuspendLayout();
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            for (int i = 0; i < 4; i++) panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.Controls.Add(enabledCue, 0, 0);
             TextBox file = new TextBox { ReadOnly = true, Dock = DockStyle.Top, Name = block ? "networkBlockSoundFile" : "networkRestoreSoundFile" };
             Button import = ToolFields.Button(T("导入…", "Import…")), clear = ToolFields.Button(T("使用内置", "Use built-in")), preview = ToolFields.Button(T("试听", "Preview"));
             import.Name = block ? "networkBlockSoundImport" : "networkRestoreSoundImport"; clear.Name = block ? "networkBlockSoundClear" : "networkRestoreSoundClear";
@@ -119,7 +121,7 @@ namespace InputStitch
                 file.Text = string.IsNullOrEmpty(value) ? T("内置音效", "Built-in cue") : FileName(value);
                 fileInfo.SetToolTip(file, value); file.AccessibleDescription = value; clear.Enabled = !string.IsNullOrEmpty(value);
             };
-            refresh(); panel.Controls.Add(file);
+            refresh(); panel.Controls.Add(file, 0, 1);
             import.Click += delegate
             {
                 using (OpenFileDialog picker = new OpenFileDialog { Filter = T("PCM WAV 音效 (*.wav)|*.wav", "PCM WAV files (*.wav)|*.wav"), CheckFileExists = true })
@@ -142,10 +144,10 @@ namespace InputStitch
                     try { BeginInvoke((Action)delegate { if (!IsDisposed) { audioFeedback.Text = error.Length == 0 ? "" : T("音效无法播放，请检查文件是否存在且为 8/16 位 PCM WAV。", "Could not play cue. Check that the file exists and uses 8/16-bit PCM WAV."); audioFeedback.ForeColor = Color.Firebrick; } }); } catch (InvalidOperationException) { }
                 });
             };
-            panel.Controls.Add(ToolFields.Flow(import, clear, preview));
+            panel.Controls.Add(ToolFields.Flow(import, clear, preview), 0, 2);
             TrackBar slider = new TrackBar { Minimum = 0, Maximum = 100, Value = (int)volume.Value, TickStyle = TickStyle.None, Width = 180, Height = 30, SmallChange = 1, LargeChange = 10, Name = block ? "networkBlockVolumeSlider" : "networkRestoreVolumeSlider" };
             slider.ValueChanged += delegate { volume.Value = slider.Value; }; volume.ValueChanged += delegate { slider.Value = (int)volume.Value; };
-            panel.Controls.Add(ToolFields.Flow(new Label { Text = T("音量", "Volume"), AutoSize = true, Margin = new Padding(3, 8, 6, 0) }, slider, volume, new Label { Text = "%", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }));
+            panel.Controls.Add(ToolFields.Flow(new Label { Text = T("音量", "Volume"), AutoSize = true, Margin = new Padding(3, 8, 6, 0) }, slider, volume, new Label { Text = "%", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }), 0, 3);
             return panel;
         }
         private static string FileName(string path)

@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
@@ -16,6 +17,9 @@ internal static class ToolIntegrationTests
     private const BindingFlags StaticHidden = BindingFlags.Static | BindingFlags.NonPublic;
     private static int checks, windows;
     private static string root;
+    [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr parameter, IntPtr value);
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr window, int message, IntPtr parameter, IntPtr value);
+    [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     private sealed class NoOutput : IOutputBackend
     {
         internal int Writes;
@@ -70,19 +74,142 @@ internal static class ToolIntegrationTests
     { using (StringWriter writer = new StringWriter()) { new XmlSerializer(typeof(T)).Serialize(writer, data); return writer.ToString(); } }
     [STAThread] private static int Main(string[] args)
     {
+        if (args.Contains("--native-dpi")) SetProcessDpiAwarenessContext(new IntPtr(-4));
         root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tool-integration-results"); Directory.CreateDirectory(root);
         Application.EnableVisualStyles(); EmbeddedDependencyLoader.Register();
         try
         {
+            if (args.Any(x => x.StartsWith("--inspect-", StringComparison.Ordinal))) { InspectDialog(args); return 0; }
+            if (args.Contains("--dialog-regressions")) { DialogRegressions(args.FirstOrDefault(x => x.StartsWith("--regression-focus=", StringComparison.Ordinal))); return 0; }
             if (args.Contains("--dialog-performance")) { DialogPerformance(); return 0; }
             bool core = !args.Contains("--ui") || args.Contains("--core");
             if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); TimerCustomization(); NetworkCustomization(); Usability(); }
-            if (args.Contains("--ui")) { DialogLayouts(); CustomRuleLayouts(); ModalWorkflow(); }
+            if (args.Contains("--modal-workflow")) { ModalWorkflow(); Console.WriteLine("PASS modal workflows: " + checks); return 0; }
+            if (args.Contains("--ui")) { DialogLayouts(); Console.WriteLine("PASS tool layouts"); CustomRuleLayouts(); Console.WriteLine("PASS shortcut rule layouts"); ModalWorkflow(); Console.WriteLine("PASS modal workflows"); DialogRegressions(); }
             string summary = "PASS tool integration: " + checks + " checks; " + windows + " dialog views; core=" + core + "; ui=" + args.Contains("--ui");
             File.WriteAllText(Path.Combine(root, core && args.Contains("--ui") ? "all-summary.txt" : core ? "core-summary.txt" : "ui-summary.txt"), summary);
             Console.WriteLine(summary); return 0;
         }
         catch (Exception ex) { File.WriteAllText(Path.Combine(root, "failure.txt"), ex.ToString()); Console.Error.WriteLine(ex); return 1; }
+    }
+    private static void InspectDialog(string[] args)
+    {
+        Localizer.SetLanguage(args.Contains("--en") ? Localizer.English : Localizer.Chinese);
+        MacroConfig config = Config();
+        using (Form dialog = args.Contains("--inspect-settings") ? (Form)new SettingsDialog(config) :
+            args.Contains("--inspect-network") ? (Form)new NetworkSettingsDialog(config.NetworkControl, null) : new TimerSettingsDialog(config.Timer, null, null))
+        using (System.Windows.Forms.Timer lifetime = new System.Windows.Forms.Timer { Interval = 300000 })
+        using (System.Windows.Forms.Timer snapshot = new System.Windows.Forms.Timer { Interval = 2000 })
+        {
+            dialog.Text += " [isolated UI check]";
+            snapshot.Tick += delegate
+            {
+                File.WriteAllLines(Path.Combine(root, "inspect-layout.txt"), All(dialog).Where(c => c.Visible).Select(c => c.GetType().Name + " " + c.Name + " " + c.Text.Replace("\r", "").Replace("\n", " ") + " bounds=" + c.Bounds + " preferred=" + c.GetPreferredSize(new Size(c.Width, 0)) + " parent=" + c.Parent.GetType().Name + (c is TableLayoutPanel ? " rows=" + string.Join(",", ((TableLayoutPanel)c).GetRowHeights()) : "")));
+            }; if (args.Contains("--layout-dump")) snapshot.Start();
+            lifetime.Tick += delegate { dialog.Close(); }; lifetime.Start();
+            dialog.ShowDialog();
+        }
+    }
+    private static void DialogRegressions(string focus = null)
+    {
+        List<string> timings = new List<string>();
+        foreach (string language in new[] { Localizer.Chinese, Localizer.English })
+        foreach (float scale in new[] { 1F, 1.25F, 1.5F, 2F })
+        {
+            Localizer.SetLanguage(language);
+            foreach (string kind in new[] { "settings", "network", "timer" })
+            {
+            if (focus != null && focus != "--regression-focus=" + kind) continue;
+            using (Form dialog = kind == "settings" ? (Form)new SettingsDialog(Config()) : kind == "network" ? (Form)new NetworkSettingsDialog(Config().NetworkControl, null) : new TimerSettingsDialog(Config().Timer, null, null))
+            {
+                Control[] controls = new[] { (Control)dialog }.Concat(All(dialog)).ToArray();
+                Font[] fonts = controls.Select(c => new Font(c.Font.FontFamily, c.Font.Size * scale, c.Font.Style)).ToArray();
+                dialog.Disposed += delegate { foreach (Font item in fonts) item.Dispose(); };
+                dialog.Scale(new SizeF(scale, scale)); for (int i = 0; i < controls.Length; i++) controls[i].Font = fonts[i];
+                dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-20000, -20000);
+                Size expected = new Size((int)((kind == "settings" ? 780 : kind == "network" ? 750 : 920) * scale), (int)((kind == "settings" ? 620 : kind == "network" ? 660 : 700) * scale));
+                dialog.ClientSize = expected; dialog.Show(); Pump(20);
+                Existing("SyntheticSize", dialog, new Size(expected.Width + dialog.Width - dialog.ClientSize.Width, expected.Height + dialog.Height - dialog.ClientSize.Height));
+                TabControl tabs = All(dialog).OfType<TabControl>().First();
+                for (int cycle = 0; cycle < 3; cycle++)
+                {
+                    tabs.SelectedIndex = 0; Pump(1); tabs.SelectedIndex = kind == "settings" ? 2 : kind == "network" ? 1 : 0; Pump(5);
+                    if (kind == "settings")
+                    {
+                        IdleGamepadSettingsPanel idle = Field<IdleGamepadSettingsPanel>(dialog, "idleSettings");
+                        Control target = Field<Label>(idle, "targetBox").Parent;
+                        Check(target.Height <= target.Controls.Cast<Control>().Max(c => c.GetPreferredSize(Size.Empty).Height + c.Margin.Vertical) + 8 * scale, "idle target row keeps content height after hidden-tab layout " + language + scale);
+                        Check(target.Height <= 65 * scale, "idle target row stays a single compact line " + language + scale);
+                        TableLayoutPanel fields = Field<TableLayoutPanel>(idle, "fields");
+                        for (int row = 0; row < fields.RowCount; row++)
+                        {
+                            Control[] cells = fields.Controls.Cast<Control>().Where(c => c.Visible && fields.GetRow(c) == row).ToArray();
+                            if (cells.Length > 0) Check(fields.GetRowHeights()[row] <= cells.Max(c => c.Height + c.Margin.Vertical) + 8 * scale, "automation row does not retain wrapped-height whitespace " + language + scale + " row " + row);
+                        }
+                        GroupBox[] groups = All(tabs.SelectedTab).OfType<GroupBox>().ToArray();
+                        Check(groups.Length == 2 && groups[0].Bottom <= groups[1].Top, "automation groups stay separate after tab switches " + language + scale);
+                        Check(Field<Label>(idle, "targetBox").Height >= idle.Font.Height, "idle target text retains its full height " + language + scale);
+                    }
+                    if (kind == "network")
+                    {
+                        Control first = All(dialog).Single(c => c.Name == "networkBlockSound").Parent;
+                        Control second = All(dialog).Single(c => c.Name == "networkRestoreSound").Parent;
+                        foreach (Control panel in new[] { first, second })
+                        {
+                            int bottom = panel.Controls.Cast<Control>().Max(c => c.Bottom + c.Margin.Bottom) + panel.Padding.Bottom;
+                            Check(panel.Height - bottom <= 16 * scale, "sound editor has no inflated trailing row " + language + scale + ": " + panel.Height + " vs " + bottom);
+                            Check(panel.Height <= 210 * scale, "sound editor retains compact content height " + language + scale);
+                        }
+                        Check(second.Top - first.Bottom <= 36 * scale, "sound groups have a normal gap " + language + scale);
+                    }
+                }
+                if (kind == "timer")
+                {
+                    TimerSelectionRegression((TimerSettingsDialog)dialog, language, scale, timings);
+                }
+                using (Bitmap bitmap = new Bitmap(dialog.Width, dialog.Height))
+                { dialog.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size)); bitmap.Save(Path.Combine(root, "regression-" + kind + "-" + language + "-" + (int)(scale * 100) + ".png")); }
+                dialog.Close(); windows++;
+            }
+            }
+        }
+        if (timings.Count > 0) File.WriteAllLines(Path.Combine(root, "selection-timings.csv"), new[] { "language,scale,selections,total_ms,layouts" }.Concat(timings));
+        string summary = "PASS dialog regressions: " + checks + " checks; " + windows + " windows; hidden tabs, compact row heights, checkbox gestures and stable selection editor.";
+        File.WriteAllText(Path.Combine(root, focus == null ? "regression-summary.txt" : "regression-" + focus.Replace("--regression-focus=", "") + "-summary.txt"), summary); Console.WriteLine(summary);
+    }
+    private static void TimerSelectionRegression(TimerSettingsDialog dialog, string language, float scale, List<string> timings)
+    {
+        ListView list = Field<ListView>(dialog, "partList"); TableLayoutPanel detail = Field<TableLayoutPanel>(dialog, "detail");
+        bool[] visibility = list.Items.Cast<ListViewItem>().Select(item => item.Checked).ToArray();
+        int layouts = 0, disabled = 0; detail.Layout += delegate { layouts++; }; detail.EnabledChanged += delegate { if (!detail.Enabled) disabled++; };
+        Bitmap preview = (Bitmap)Call(dialog, "GetPreviewImage");
+        int fontTop = Field<Button>(dialog, "font").Top;
+        Stopwatch elapsed = Stopwatch.StartNew();
+        for (int i = 0; i < 40; i++)
+        {
+            list.SelectedIndices.Clear(); list.Items[i % list.Items.Count].Selected = true; Pump(1);
+            Check(detail.Enabled && Field<Button>(dialog, "font").Top == fontTop, "text/time selection keeps style controls in place " + language + scale);
+            TimerPart selected = Field<List<TimerPart>>(dialog, "parts")[i % list.Items.Count];
+            Check(Field<ComboBox>(dialog, "partKind").SelectedIndex == (int)selected.Kind &&
+                (selected.Kind == TimerPartKind.Text ? Field<TextBox>(dialog, "partText").Text.Replace("\r\n", "\n") == selected.Text : Field<NumericUpDown>(dialog, "digits").Value == selected.Digits),
+                "settled selection displays its own content fields " + language + scale);
+        }
+        elapsed.Stop();
+        Check(disabled == 0, "selection transfer does not clear and disable the editor " + language + scale);
+        Check(ReferenceEquals(preview, Call(dialog, "GetPreviewImage")), "selection-only changes retain the preview raster " + language + scale);
+        Check(list.Items.Cast<ListViewItem>().Select(item => item.Checked).SequenceEqual(visibility), "selection-only changes preserve visibility " + language + scale);
+        timings.Add(language + "," + scale.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",40," + elapsed.Elapsed.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + "," + layouts);
+        list.SelectedIndices.Clear(); list.Items[0].Selected = true; Pump(1);
+        Point body = new Point(list.Columns[0].Width / 2, list.Items[3].Bounds.Top + list.Items[3].Bounds.Height / 2);
+        IntPtr location = new IntPtr(body.X | (body.Y << 16));
+        PostMessage(list.Handle, 0x201, new IntPtr(5), location); PostMessage(list.Handle, 0x202, new IntPtr(4), location); PostMessage(list.Handle, 0x1f, IntPtr.Zero, IntPtr.Zero); Pump(2);
+        Check(list.Items.Cast<ListViewItem>().Select(item => item.Checked).SequenceEqual(visibility), "Shift row click preserves every visibility checkbox " + language + scale);
+        PostMessage(list.Handle, 0x203, new IntPtr(1), location); PostMessage(list.Handle, 0x202, IntPtr.Zero, location); PostMessage(list.Handle, 0x1f, IntPtr.Zero, IntPtr.Zero); Pump(2);
+        Check(list.Items.Cast<ListViewItem>().Select(item => item.Checked).SequenceEqual(visibility), "row double-click edits selection without toggling visibility " + language + scale);
+        Point check = new Point((int)(8 * scale), list.Items[2].Bounds.Top + list.Items[2].Bounds.Height / 2);
+        location = new IntPtr(check.X | (check.Y << 16));
+        SendMessage(list.Handle, 0x201, new IntPtr(1), location); SendMessage(list.Handle, 0x202, IntPtr.Zero, location); Pump(2);
+        Check(list.Items[2].Checked != visibility[2] && list.Items[0].Checked == visibility[0], "checkbox click changes only its own visibility " + language + scale);
     }
     private static void DialogPerformance()
     {
@@ -670,7 +797,7 @@ internal static class ToolIntegrationTests
                 close.Interval = 20; close.Tick += delegate
                 {
                     Form dialog = Application.OpenForms.Cast<Form>().FirstOrDefault(f => timer ? f is TimerSettingsDialog : f is NetworkSettingsDialog);
-                    if (dialog == null) return; close.Stop(); found = true;
+                    if (dialog == null || !dialog.Visible || !dialog.IsHandleCreated || !((Button)dialog.AcceptButton).CanSelect) return; close.Stop(); found = true;
                     try
                     {
                         Check(Field<int>(main, "uiSafetyModalDepth") > 0, "actual tool dialog enters macro edit protection");

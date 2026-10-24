@@ -12,7 +12,7 @@ namespace InputStitch
         internal static TableLayoutPanel Page(ScrollableControl page)
         {
             page.BackColor = Color.White; page.Padding = new Padding(12); page.AutoScroll = true;
-            TableLayoutPanel grid = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2, RowCount = 0, Padding = new Padding(0, 0, 12, 12) }; grid.SuspendLayout();
+            TableLayoutPanel grid = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, ColumnCount = 2, RowCount = 0, Padding = new Padding(0, 0, 12, 12) }; grid.SuspendLayout();
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             page.Controls.Add(grid); return grid;
         }
@@ -23,7 +23,7 @@ namespace InputStitch
             if (text.Length == 0) { grid.Controls.Add(control, 0, row); grid.SetColumnSpan(control, 2); }
             else
             {
-                grid.Controls.Add(new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 5, 12, 5) }, 0, row);
+                grid.Controls.Add(new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Left, Margin = new Padding(3, 8, 12, 5) }, 0, row);
                 grid.Controls.Add(control, 1, row);
             }
         }
@@ -32,8 +32,9 @@ namespace InputStitch
         internal static NumericUpDown Number(decimal min, decimal max, decimal value, int decimals, string name)
         { return new NumericUpDown { Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, value)), DecimalPlaces = decimals, Increment = decimals == 0 ? 1 : .1M, Width = 105, AutoScaleMode = AutoScaleMode.None, Name = name }; }
         internal static FlowLayoutPanel Flow(params Control[] controls)
-        { FlowLayoutPanel flow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty }; flow.SuspendLayout(); flow.Controls.AddRange(controls); return flow; }
-        internal static Button Button(string text) { return EditorDialogs.Button(text, DialogResult.None); }
+        { FlowLayoutPanel flow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, Margin = Padding.Empty }; flow.SuspendLayout(); flow.Controls.AddRange(controls); return flow; }
+        internal static Button Button(string text)
+        { Button button = EditorDialogs.Button(text, DialogResult.None); button.MinimumSize = new Size(76, 32); return button; }
         internal static bool ValidShortcut(TriggerSpec key)
         { return key == null || (key.Kind == InputKind.Keyboard && key.VirtualKey > 0 && key.VirtualKey < 255 && !ModifierSafetyPolicy.IsModifierVirtualKey(key.VirtualKey)); }
         internal static TriggerSpec PickHotkey(IWin32Window owner, TriggerSpec value, string title)
@@ -51,6 +52,30 @@ namespace InputStitch
         }
     }
 
+    // Native checkbox ListViews can toggle the previous item during a Shift-click.
+    // Selection gestures may change selection only; a checkbox hit or Space changes visibility.
+    internal sealed class TimerPartList : ListView
+    {
+        private int checkTarget = -2;
+        protected override void OnItemCheck(ItemCheckEventArgs e)
+        {
+            if (checkTarget != -2 && e.Index != checkTarget) e.NewValue = e.CurrentValue;
+            base.OnItemCheck(e);
+        }
+        protected override void WndProc(ref Message message)
+        {
+            int previous = checkTarget;
+            if (message.Msg == 0x201 || message.Msg == 0x203)
+            {
+                long point = message.LParam.ToInt64();
+                ListViewHitTestInfo hit = HitTest((short)(point & 0xffff), (short)((point >> 16) & 0xffff));
+                checkTarget = hit.Item != null && (hit.Location & ListViewHitTestLocations.StateImage) != 0 ? hit.Item.Index : -1;
+            }
+            else if (message.Msg == 0x100 && (Keys)message.WParam.ToInt32() != Keys.Space) checkTarget = -1;
+            try { base.WndProc(ref message); } finally { checkTarget = previous; }
+        }
+    }
+
     internal sealed class TimerSettingsDialog : Form
     {
         private readonly TimerOptions draft;
@@ -65,16 +90,15 @@ namespace InputStitch
         private Button addShortcutRule, editShortcutRule, deleteShortcutRule;
         private TimerOptions previewOptions;
         private Bitmap previewImage;
-        private readonly Label feedback, selectionHelp, controlHelp;
+        private readonly Label feedback, selectionHelp, controlHelp, contentLabel;
         private readonly Control preview;
         private readonly ListView partList;
         private readonly TableLayoutPanel detail;
         private readonly TableLayoutPanel hotkeyFields;
         private readonly ListView ruleList;
         private readonly Control ruleEditor;
-        private readonly int textRow, digitsRow;
         private int selectedIndex;
-        private bool loading, partsEdited;
+        private bool loading, partsEdited, selectionRefreshPending;
         internal TimerOptions Result { get; private set; }
         private static string T(string zh, string en) { return ToolFields.T(zh, en); }
         private TimerPart SelectedPart { get { return selectedIndex >= 0 && selectedIndex < parts.Count ? parts[selectedIndex] : null; } }
@@ -101,13 +125,16 @@ namespace InputStitch
             editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 94)); content.Controls.Add(editor);
             TableLayoutPanel listPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Margin = new Padding(0, 0, 12, 0) }; listPanel.SuspendLayout();
             listPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); listPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            listPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             preset = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 210, Name = "timerPreset" };
             preset.Items.AddRange(new object[] { T("选择预设…", "Choose preset…"), T("分:秒.毫秒", "Minutes:seconds.ms"), T("时:分:秒.毫秒", "Hours:minutes:seconds.ms"), T("秒.毫秒", "Seconds.ms") }); preset.SelectedIndex = 0;
             listPanel.Controls.Add(ToolFields.Flow(new Label { Text = T("预设", "Preset"), AutoSize = true, Anchor = AnchorStyles.Left }, preset), 0, 0);
-            partList = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = true, CheckBoxes = true, Name = "timerParts" };
-            partList.Columns.Add(T("部分", "Part")); partList.Columns.Add(T("内容", "Content")); listPanel.Controls.Add(partList, 0, 1);
+            selectionHelp = ToolFields.Help(T("批量编辑：Ctrl / Shift 多选，或点“全选”。", "Batch edit: Ctrl / Shift to select parts, or Select all."));
+            selectionHelp.Name = "timerSelectionHelp"; selectionHelp.ForeColor = EditorTheme.Accent;
+            listPanel.Controls.Add(selectionHelp, 0, 1);
+            partList = new TimerPartList { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = true, CheckBoxes = true, Name = "timerParts" };
+            partList.Columns.Add(T("显示 · 部分", "Show · Part")); partList.Columns.Add(T("内容", "Content")); listPanel.Controls.Add(partList, 0, 2);
             Button add = ToolFields.Button(T("添加文字", "Add text")), remove = ToolFields.Button(T("删除", "Delete"));
             add.Name = "timerAddPart"; remove.Name = "timerDeletePart";
             add.Click += delegate { AddPart(); }; remove.Click += delegate { RemovePart(); };
@@ -122,8 +149,7 @@ namespace InputStitch
             orderTips.SetToolTip(unify, T("复制第一个选中部分的完整格式。", "Copy the first selected part's complete style."));
             matchStyles = unify; selectAll.Name = "timerSelectAll"; unify.Name = "timerMatchStyles"; newline.Name = "timerAddLineBreak";
             selectAll.Click += delegate { SelectAllParts(); }; unify.Click += delegate { UnifySelectedStyles(); }; newline.Click += delegate { AddTextPart("\n"); };
-            listPanel.Controls.Add(ToolFields.Flow(add, remove, up, down, selectAll, unify, newline), 0, 2);
-            selectionHelp = ToolFields.Help(""); listPanel.Controls.Add(selectionHelp, 0, 3);
+            listPanel.Controls.Add(ToolFields.Flow(add, remove, up, down, selectAll, unify, newline), 0, 3);
             editor.Controls.Add(listPanel, 0, 0);
             Panel stylePanel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty }; stylePanel.SuspendLayout();
             detail = ToolFields.Page(stylePanel); editor.Controls.Add(stylePanel, 1, 0);
@@ -131,8 +157,11 @@ namespace InputStitch
             partKind.Items.AddRange(new object[] { T("时", "Hours"), T("分", "Minutes"), T("秒", "Seconds"), T("毫秒", "Milliseconds"), T("自定义文字", "Custom text") });
             ToolFields.Row(detail, T("内容类型", "Part type"), partKind);
             partText = new TextBox { Multiline = true, AcceptsReturn = true, Height = 45, Dock = DockStyle.Top, MaxLength = 512, ScrollBars = ScrollBars.Vertical, Name = "timerPartText" };
-            textRow = detail.RowCount; ToolFields.Row(detail, T("文字", "Text"), partText);
-            digits = ToolFields.Number(1, 6, 2, 0, "timerPartDigits"); digitsRow = detail.RowCount; ToolFields.Row(detail, T("显示位数", "Digits"), digits);
+            digits = ToolFields.Number(1, 6, 2, 0, "timerPartDigits");
+            Panel valuePanel = new Panel { Dock = DockStyle.Top, Height = 45, Margin = Padding.Empty };
+            valuePanel.Controls.Add(partText); valuePanel.Controls.Add(digits);
+            int valueRow = detail.RowCount; ToolFields.Row(detail, T("显示位数", "Digits"), valuePanel);
+            contentLabel = (Label)detail.GetControlFromPosition(0, valueRow);
             font = ToolFields.Button(""); font.Name = "timerFont"; font.AutoEllipsis = true; font.Anchor = AnchorStyles.Left;
             font.Click += delegate
             {
@@ -198,7 +227,7 @@ namespace InputStitch
             Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel); AcceptButton = save; CancelButton = cancel;
             EditorDialogs.Frame(this, body, EditorDialogs.Actions(save, cancel), T("分段编辑计时内容和样式", "Edit timer parts and their styles"), null);
             partList.Resize += delegate { FitColumns(); };
-            partList.SelectedIndexChanged += delegate { if (!loading) { selectedIndex = partList.SelectedIndices.Count == 0 ? -1 : partList.SelectedIndices[0]; LoadPart(); } };
+            partList.SelectedIndexChanged += delegate { QueueSelectionRefresh(); };
             partList.ItemChecked += delegate(object sender, ItemCheckedEventArgs e) { if (!loading) { parts[e.Item.Index].Visible = e.Item.Checked; partsEdited = true; Changed(); } };
             partList.KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Delete) { RemovePart(); e.Handled = true; } else if (e.Alt && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)) { MovePart(e.KeyCode == Keys.Up ? -1 : 1); e.Handled = true; } };
             preset.SelectedIndexChanged += delegate { if (preset.SelectedIndex > 0) ApplyPreset((TimerTimeFormat)(preset.SelectedIndex - 1)); };
@@ -227,23 +256,37 @@ namespace InputStitch
             partList.EndUpdate(); loading = false; FitColumns();
         }
         private void UpdateItem() { if (SelectedPart == null || selectedIndex >= partList.Items.Count) return; partList.Items[selectedIndex].Text = PartName(SelectedPart); partList.Items[selectedIndex].SubItems[1].Text = PartContent(SelectedPart); }
+        private void QueueSelectionRefresh()
+        {
+            if (loading || selectionRefreshPending || !IsHandleCreated) return;
+            selectionRefreshPending = true;
+            BeginInvoke((MethodInvoker)delegate
+            {
+                selectionRefreshPending = false; if (IsDisposed || loading) return;
+                selectedIndex = partList.SelectedIndices.Count == 0 ? -1 : partList.SelectedIndices[0]; LoadPart();
+            });
+        }
         private void LoadPart()
         {
-            loading = true; TimerPart part = SelectedPart; detail.Enabled = part != null;
-            int count = StyleIndices().Count; matchStyles.Enabled = count > 1;
-            selectionHelp.Text = count > 1 ? T("已选 ", "Selected ") + count + T(" 项，右侧改动会批量应用；套用样式以首项为准。", " parts. Right-side edits apply to all; matching uses the first part.") : T("勾选控制显示，Ctrl / Shift 多选可批量改格式。", "Check to show. Ctrl / Shift selects parts for batch formatting.");
-            partKind.Enabled = partText.Enabled = digits.Enabled = count == 1;
-            if (part != null)
+            loading = true; detail.SuspendLayout();
+            try
             {
-                TimerPartStyle style = part.Style; partKind.SelectedIndex = (int)part.Kind; partText.Text = part.Text.Replace("\n", "\r\n");
-                digits.Maximum = part.Kind == TimerPartKind.Milliseconds ? 3 : 6; digits.Value = Math.Min(digits.Maximum, Math.Max(digits.Minimum, part.Digits));
-                bool text = part.Kind == TimerPartKind.Text; partText.Visible = detail.GetControlFromPosition(0, textRow).Visible = text;
-                digits.Visible = detail.GetControlFromPosition(0, digitsRow).Visible = !text;
-                font.Text = style.FontFamily; size.Value = (decimal)style.FontSize; bold.Checked = style.Bold; italic.Checked = style.Italic;
-                outline.Checked = style.Outline; border.Value = (decimal)style.OutlineWidth; spacing.Value = (decimal)style.LetterSpacing; partOpacity.Value = style.Opacity;
-                border.Enabled = outlineColor.Enabled = style.Outline;
+                TimerPart part = SelectedPart; detail.Enabled = part != null;
+                int count = StyleIndices().Count; matchStyles.Enabled = count > 1;
+                selectionHelp.Text = count > 1 ? T("批量编辑：已选 ", "Batch edit: ") + count + T(" 项，右侧格式应用到选中项。", " parts selected. Format the selection on the right.") : T("批量编辑：Ctrl / Shift 多选，或点“全选”。", "Batch edit: Ctrl / Shift to select parts, or Select all.");
+                partKind.Enabled = partText.Enabled = digits.Enabled = count == 1;
+                if (part != null)
+                {
+                    TimerPartStyle style = part.Style; partKind.SelectedIndex = (int)part.Kind; partText.Text = part.Text.Replace("\n", "\r\n");
+                    digits.Maximum = part.Kind == TimerPartKind.Milliseconds ? 3 : 6; digits.Value = Math.Min(digits.Maximum, Math.Max(digits.Minimum, part.Digits));
+                    bool text = part.Kind == TimerPartKind.Text; partText.Visible = text; digits.Visible = !text;
+                    contentLabel.Text = text ? T("文字", "Text") : T("显示位数", "Digits");
+                    font.Text = style.FontFamily; size.Value = (decimal)style.FontSize; bold.Checked = style.Bold; italic.Checked = style.Italic;
+                    outline.Checked = style.Outline; border.Value = (decimal)style.OutlineWidth; spacing.Value = (decimal)style.LetterSpacing; partOpacity.Value = style.Opacity;
+                    border.Enabled = outlineColor.Enabled = style.Outline;
+                }
             }
-            loading = false;
+            finally { detail.ResumeLayout(true); loading = false; }
         }
         private void AddPart()
         { AddTextPart(T("文字", "Text")); }

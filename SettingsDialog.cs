@@ -164,6 +164,7 @@ namespace InputStitch
             languageBox.SelectedIndex = string.Equals(config.Language, Localizer.English, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
             TableLayoutPanel languageRow = new TableLayoutPanel(); languageRow.SuspendLayout();
             languageRow.AutoSize = true;
+            languageRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             languageRow.Dock = DockStyle.Top;
             languageRow.ColumnCount = 2;
             languageRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -198,6 +199,7 @@ namespace InputStitch
             gamepad.Controls.Add(gamepadLayout);
             TableLayoutPanel gamepadTypeRow = new TableLayoutPanel(); gamepadTypeRow.SuspendLayout();
             gamepadTypeRow.AutoSize = true;
+            gamepadTypeRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             gamepadTypeRow.Dock = DockStyle.Top;
             gamepadTypeRow.ColumnCount = 2;
             gamepadTypeRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -345,6 +347,7 @@ namespace InputStitch
             targetLayout.Controls.Add(activateTargetBox);
             TableLayoutPanel delayRow = new TableLayoutPanel(); delayRow.SuspendLayout();
             delayRow.AutoSize = true;
+            delayRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             delayRow.Dock = DockStyle.Top;
             delayRow.ColumnCount = 3;
             delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -379,6 +382,7 @@ namespace InputStitch
             updates.Controls.Add(updatesLayout);
             TableLayoutPanel updateRow = new TableLayoutPanel(); updateRow.SuspendLayout();
             updateRow.AutoSize = true;
+            updateRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             updateRow.Dock = DockStyle.Top;
             updateRow.ColumnCount = 2;
             updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -427,7 +431,7 @@ namespace InputStitch
             tabs.Dock = DockStyle.Fill;
             AddSettingsTab(tabs, Localizer.T("常规"), general, updates);
             AddSettingsTab(tabs, Localizer.T("输入与安全"), input, gamepad);
-            AddSettingsTab(tabs, Localizer.IsEnglish ? "Automation" : "自动化", idleGroup, target);
+            AddSettingsTab(tabs, Localizer.IsEnglish ? "Automation" : "自动化", target, idleGroup);
             root.RowStyles.Clear();
             root.RowCount = 3;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -484,10 +488,12 @@ namespace InputStitch
             stack.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             stack.Dock = DockStyle.Top;
             stack.ColumnCount = 1;
+            stack.RowCount = groups.Length;
             stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             foreach (Control group in groups)
             {
-                group.Dock = DockStyle.Fill;
+                stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                group.Dock = DockStyle.Top;
                 group.Margin = new Padding(0, 0, 0, 10);
                 stack.Controls.Add(group);
             }

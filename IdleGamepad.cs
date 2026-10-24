@@ -337,11 +337,12 @@ namespace InputStitch
         public IdleGamepadSettingsPanel(IdleGamepadOptions value, Func<TargetWindowIdentity> recentTargetProvider = null)
         {
             SuspendLayout(); this.recentTargetProvider = recentTargetProvider;
+            AutoScaleMode = AutoScaleMode.None; // The owning form performs the DPI scaling once.
             IdleGamepadOptions current = (value ?? new IdleGamepadOptions()).CloneNormalized();
             targetProcessName = current.TargetProcessName;
             targetWindowTitle = current.TargetWindowTitle;
             targetWindowClass = current.TargetWindowClass;
-            AutoSize = false;
+            AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink;
             Dock = DockStyle.Top;
             Margin = new Padding(0);
             Padding = new Padding(4);
@@ -350,6 +351,8 @@ namespace InputStitch
             root.AutoSize = true;
             root.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             root.ColumnCount = 1;
+            root.RowCount = 4;
+            for (int row = 0; row < 4; row++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             enabledBox = new CheckBox();
             enabledBox.AutoSize = true;
@@ -359,8 +362,11 @@ namespace InputStitch
             root.Controls.Add(enabledBox, 0, 0);
             fields = new TableLayoutPanel(); fields.SuspendLayout();
             fields.AutoSize = true;
+            fields.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             fields.Dock = DockStyle.Top;
             fields.ColumnCount = 2;
+            fields.RowCount = 5;
+            for (int row = 0; row < 5; row++) fields.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             secondsBox = Number(10, 86400, current.IdleSeconds);
@@ -379,7 +385,7 @@ namespace InputStitch
             AddRow(fields, T("手柄操作：", "Gamepad input:"), controlBox, 1);
             analogRow = new FlowLayoutPanel(); analogRow.SuspendLayout();
             analogRow.AutoSize = true;
-            analogRow.Dock = DockStyle.Top;
+            analogRow.Dock = DockStyle.Top; analogRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             analogRow.WrapContents = true;
             angleLabel = Label(T("方向（度）：", "Angle (degrees):"));
             angleBox = Number(-180, 180, 0);
@@ -394,12 +400,22 @@ namespace InputStitch
             analogRow.Controls.Add(strengthBox);
             fields.Controls.Add(analogRow, 0, 2);
             fields.SetColumnSpan(analogRow, 2);
+            Action fitAnalogRow = delegate
+            {
+                if (fields.ClientSize.Width <= 1) return;
+                int width = Math.Min(Math.Max(1, fields.ClientSize.Width - analogRow.Margin.Horizontal),
+                    analogRow.GetPreferredSize(Size.Empty).Width);
+                if (analogRow.MinimumSize.Width != width) analogRow.MinimumSize = new Size(width, 0);
+            };
+            analogRow.Layout += delegate { fitAnalogRow(); }; fields.SizeChanged += delegate { fitAnalogRow(); };
             AddRow(fields, T("按住时间（毫秒）：", "Hold time (ms):"), holdBox, 3);
 
             TableLayoutPanel targetEditor = new TableLayoutPanel(); targetEditor.SuspendLayout();
-            targetEditor.AutoSize = true;
+            targetEditor.AutoSize = false;
+            targetEditor.Height = 43; targetEditor.MinimumSize = targetEditor.MaximumSize = new Size(0, 43);
             targetEditor.Dock = DockStyle.Top;
             targetEditor.ColumnCount = 3;
+            targetEditor.RowCount = 1; targetEditor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             targetEditor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             targetEditor.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             targetEditor.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -412,6 +428,7 @@ namespace InputStitch
             targetBox.Padding = new Padding(3, 0, 3, 0);
             targetBox.Dock = DockStyle.Fill;
             targetBox.MinimumSize = new Size(0, 23);
+            targetBox.MaximumSize = new Size(0, 23);
             targetBox.Margin = new Padding(0, 3, 8, 8);
             lockTargetButton = new Button();
             lockTargetButton.AutoSize = true;
@@ -430,35 +447,20 @@ namespace InputStitch
             AddRow(fields, T("挂机目标：", "Idle target:"), targetEditor, 4);
             root.Controls.Add(fields, 0, 1);
             Label explanation = Label(T(
-                "设置挂机目标后，只有目标程序前台时的键鼠操作会重新计时；在其他程序中打字或移动鼠标不会影响目标程序的挂机计时。若挂机目标当前不存在，本功能暂停且不会发送手柄输入；目标重新出现后会从完整空闲时间重新计时。未设置挂机目标时按全局键鼠活动计时。真实手柄活动和宏运行仍会重新计时；紧急停止会暂停本功能，需在此重新启用。",
-                "With an idle target configured, keyboard/mouse activity restarts the timer only while that target is foreground; typing or moving the mouse in other apps does not affect the target's idle timer. If the idle target is not currently available, this feature pauses and sends no controller pulse; when the target returns, a full new idle interval begins. Without an idle target, keyboard/mouse activity remains global. Physical gamepad activity and macros still restart the timer. Emergency Stop suspends this feature until you enable it again here."));
+                "未锁定目标时按全局键鼠活动计时；锁定后只统计目标程序前台时的操作。目标未运行时暂停发送。",
+                "Without a target, keyboard/mouse activity anywhere restarts the idle timer. With a target, only activity in that app counts. Sending pauses while the target is closed."));
             explanation.Dock = DockStyle.Top;
             explanation.Margin = new Padding(0, 12, 0, 6);
             explanation.ForeColor = Color.FromArgb(85, 96, 112);
             root.Controls.Add(explanation, 0, 2);
             Label background = Label(T(
-                "可在后台发送，不切换窗口。是否接收由游戏决定；其他接收同一手柄的程序也可能响应。开始游戏前连接手柄可提高兼容性。",
-                "Sends in the background without switching windows. The game decides whether it accepts background input; other apps using the same controller may also respond. Connect the controller before starting the game."));
+                "手柄活动和宏运行会重新计时。后台发送不切换窗口；紧急停止后需要重新启用。",
+                "Gamepad activity and macros also restart the timer. Sending keeps the current window active. Re-enable here after Emergency Stop."));
             background.Dock = DockStyle.Fill;
             background.Margin = new Padding(0, 4, 0, 6);
             background.ForeColor = Color.FromArgb(85, 96, 112);
             root.Controls.Add(background, 0, 3);
             explanation.Dock = DockStyle.Fill;
-            bool heightQueued = false;
-            EventHandler fitHeight = delegate
-            {
-                Height = root.Height + Padding.Vertical;
-                if (!IsHandleCreated || heightQueued) return;
-                heightQueued = true;
-                BeginInvoke((MethodInvoker)delegate
-                {
-                    heightQueued = false;
-                    Height = root.Height + Padding.Vertical;
-                    if (Parent != null) Parent.PerformLayout(this,"Size");
-                });
-            };
-            root.SizeChanged += fitHeight;
-            HandleCreated += fitHeight;
             Controls.Add(root);
             enabledBox.CheckedChanged += delegate { UpdateFields(); };
             controlBox.SelectedIndexChanged += delegate { UpdateFields(); };
@@ -471,6 +473,14 @@ namespace InputStitch
             UpdateTargetText();
             UpdateFields();
             EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
+        }
+
+        public override Size GetPreferredSize(Size proposedSize)
+        {
+            if (Controls.Count == 0) return base.GetPreferredSize(proposedSize);
+            int width = proposedSize.Width > Padding.Horizontal ? proposedSize.Width : Width;
+            Size content = Controls[0].GetPreferredSize(new Size(Math.Max(1, width - Padding.Horizontal), 0));
+            return new Size(content.Width + Padding.Horizontal, content.Height + Padding.Vertical);
         }
 
         private void CaptureRecentTarget()
