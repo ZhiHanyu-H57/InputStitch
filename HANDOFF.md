@@ -1,5 +1,33 @@
 # HANDOFF.md
 
+## Stable1.6.0 scoped verification ready for publication — 2026-10-24
+
+User authorized workflow/rules correction and Stable release of frozen beta.7.
+Implementation f531daa plus documentation classification79ad6d4. Production
+feature sources match c4cd0bf; only ReleaseInfo is now1.6.0/1.6.0.8/Stable.
+No new product functionality. Protected main requires a normal merge PR.
+
+Local cumulative v1.5.2->candidate selects22 checks:9 reused/13 fresh/all PASS;
+no soak. Fresh workflow24, manifest424, coreCrosshair162, corner1300, pipeline24,
+coordinator55, network36(no native mutation), productivity802, timer134,
+settings8864/8 synthetic and2208/2 native144-DPI, settings smoke and release policy.
+Actual x64/x86 startup/cache/save-reopen pass. Official143/150/151 packaged
+upgrades708; original143/150/151/152/current160 manifest parsers pass both arch.
+Detailed record: docs/RELEASE_1_6_0_VERIFICATION.md.
+
+Receipts bind Git-normalized feature/test/helper/dependency inputs and original
+evidence hashes. Curated .log files are intentionally tracked under verification/
+evidence; raw artifacts stay ignored. Candidate records preserve original scope.
+Second selection reused all22/executed0. Final CI must reuse these records,
+not rerun large matrices. Docs-only follow-up should select0 product checks.
+All new UI checks are private-process desktop checks; CrosshairTests --core and
+ProductivityTests now use that route. Actual native composition remains explicit.
+
+Next: push feature/overlay-tools; create/attach release PR; wait for selected CI;
+merge with [publish-stable] marker through normal merge API (preserve ancestors
+for recorded source commits); await release/mirror jobs; verify public1.6.0
+assets/latest/R2, then finish documentation and local delivery. User app untouched.
+
 ## Automation spacing, PrintScreen and private desktop verification — 2026-10-24
 
 Verified implementation: c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9.

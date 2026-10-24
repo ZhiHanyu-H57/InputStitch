@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:NetworkControlTests",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "5f1cd458e816049e45d82fdcc2ad16eb3e07b55311a63bd78d1e964dda2c14d1",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "DC0303EA0E0769E69B7A89BFD1F1A2C38374CEDA7FDC456B1D05217B82552B75",
+      "path": "verification/evidence/suite-NetworkControlTests-79ad6d4e88ca.log"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-smoke",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "3e295d9bc7b835e4089ae54d837aff41448bfc7fe06ce0d346185abfb61bbe35",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "6AA7C38F804746E247995BC84927F1E9294A3B42672DF8B47A38C9453E0F0DAC",
+      "path": "verification/evidence/ui-settings-smoke-79ad6d4e88ca.log"
+    }
+  ]
+}

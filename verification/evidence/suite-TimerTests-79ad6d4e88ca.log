@@ -1,0 +1,136 @@
+﻿PASS timer starts at zero paused
+PASS monotonic fractional precision
+PASS start is idempotent
+PASS pause excludes wall time
+PASS resume accumulates precisely
+PASS reset returns zero paused
+PASS long running seven days without display ticks
+PASS minute display does not wrap after one hour
+PASS hour minute second millisecond format
+PASS total seconds format
+PASS bilingual templates escape braces and retain unknown tokens
+PASS negative input is clamped
+PASS real Stopwatch precision within five milliseconds
+PASS hotkeys clone independently
+PASS enabled visibility backend XML roundtrip
+PASS font and outline XML roundtrip
+PASS position custom bilingual template XML roundtrip
+PASS colors three hotkeys XML roundtrip
+PASS absent fields preserve opt-in defaults
+PASS invalid numeric and color settings normalize
+PASS modifier-only timer hotkey rejected
+PASS Chinese English timer renders with transparency
+PASS outline adds visible alpha pixels
+PASS letter spacing changes measured width
+PASS multiline italic bilingual rendering
+PASS missing font falls back
+PASS minimum font size renders
+PASS maximum font size is bounded
+METRIC 100 timer renders ms=55
+PASS render throughput stays below one hundred milliseconds per frame
+PASS missing RTSS is optional
+PASS RTSS claims an unused nonprimary slot
+PASS RTSS commits frame and releases lock
+PASS RTSS custom Chinese text uses raster glyphs instead of ANSI text
+PASS RTSS glyph atlas exists
+PASS RTSS glyph texture has power-of-two dimensions preserving source coordinates
+PASS RTSS timer never changes the shared font zoom declaration
+PASS RTSS hundred successive updates
+PASS RTSS ticks do not rewrite atlas PNG
+PASS RTSS leaves foreign slot byte identical
+PASS RTSS busy lock is not stolen
+PASS RTSS write failure releases lock
+PASS RTSS dispose clears owned text owner and mapping
+PASS RTSS dispose removes temporary atlas
+PASS RTSS slot exhaustion preserves clients
+PASS RTSS old unsupported protocol rejected
+PASS RTSS protocol before 2.21 rejects fixed-pixel font override capability
+PASS RTSS malformed layout rejected
+PASS RTSS reclaims only terminated InputStitch owners
+PASS real native memory atomic lock claim
+PASS real native memory atomic contention
+PASS real native memory atomic lock release
+PASS native RTSS claim preserves unrelated busy bits
+PASS native RTSS release preserves unrelated busy bits
+PASS identical Apply skips RTSS output and cache rebuilding
+PASS hotkey-only Apply leaves timer rendering untouched
+PASS position slider reuses RTSS atlas without disk writes
+PASS position-only Apply updates RTSS image placement
+PASS hide releases RTSS owner while retaining atlas
+PASS show reuses unchanged RTSS atlas
+PASS enable toggle reuses unchanged RTSS atlas
+PASS font change rebuilds and cleans old RTSS atlas
+PASS busy RTSS reports temporary contention
+PASS busy RTSS retries next refresh without one-second backoff
+PASS RTSS reads target zoom and compensates position without changing other clients
+PASS paused foreground notification refreshes RTSS zoom using existing atlas
+PASS RTSS zoom one through eight preserves one physical pixel per source pixel
+PASS null Parts XML is byte-identical to the pre-parts configuration fixture
+PASS legacy XML does not gain an empty or nil Parts element
+PASS missing serialized Parts remains null and legacy timer stays visible after reopen
+PASS old timer XML remains byte-identical across deserialize and serialize
+PASS real MacroConfig save and load preserve legacy null Parts and exact timer XML
+PASS real old macro configuration still formats its bilingual timer after reopen
+PASS real configuration clone does not activate empty timer parts
+PASS explicit empty Parts survives real configuration save and load
+PASS ordered hour preset formats all four numeric parts
+PASS hidden hour rolls elapsed hours into visible minutes
+PASS hidden hours and minutes roll into visible seconds
+PASS millisecond precision truncates to tenths
+PASS millisecond precision truncates to hundredths
+PASS template conversion keeps bilingual text escaped braces and unknown tokens
+PASS conversion leaves legacy source and whole-layer opacity unchanged
+PASS part style and part text are deeply cloned
+PASS ordered parts and independent styles survive XML save and reopen
+PASS parts text style and count bounds normalize malformed configuration
+PASS different sized numeric parts share a baseline red=95 green=93
+PASS desktop and sampled RTSS multistyle glyph layout agree mismatch=0/6689
+PASS desktop independent part alpha is applied once
+PASS multi-style RTSS time-based publish succeeds
+PASS part atlas uses image tags without changing shared RTSS fonts
+PASS RTSS opacity multiplies layer and part alpha to one quarter
+PASS part animation reuses exactly one unchanged PNG atlas for 100 ticks
+PASS part publish preserves another RTSS client byte for byte
+PASS multi-style RTSS atlas is deleted on disposal
+PASS part digit cache remains bounded across changing elapsed times
+PASS empty explicit part list renders transparent instead of reviving legacy text
+PASS oversized part atlas fails at its explicit bound
+PASS failed part atlas construction leaves no temporary directory
+PASS mode starts ready SingleKeyCycle
+PASS mode first key starts and grouped control shows SingleKeyCycle
+PASS mode pauses without resetting SingleKeyCycle
+PASS mode resets and grouped mode hides SingleKeyCycle
+PASS mode starts ready StartFinishPause
+PASS mode first key starts and grouped control shows StartFinishPause
+PASS mode pauses without resetting StartFinishPause
+PASS mode resets and grouped mode hides StartFinishPause
+PASS mode starts ready StartPauseReset
+PASS mode first key starts and grouped control shows StartPauseReset
+PASS mode pauses without resetting StartPauseReset
+PASS mode resets and grouped mode hides StartPauseReset
+PASS mode starts ready Independent
+PASS mode first key starts and grouped control shows Independent
+PASS mode pauses without resetting Independent
+PASS mode resets and grouped mode hides Independent
+PASS custom ready action resets starts and shows
+PASS custom running action pauses and hides
+PASS custom paused action resumes and toggles visibility
+PASS custom reset and start can restart without paused intermediate state
+PASS custom actions cadence and spacing survive actual file roundtrip
+PASS custom rule action and key clone independently
+PASS new numeric and mode boundaries normalize
+PASS keep-on-top cannot bypass selected refresh interval while clock continues
+PASS changing interval takes effect without rebuilding atlas
+PASS cadence changes do not advance paused time
+PASS positive line gap adds space between rows only parts=False
+PASS negative line gap reduces space without last-row clipping parts=False
+PASS multiline desktop and RTSS row spacing agree parts=False mismatch=0
+PASS positive line gap adds space between rows only parts=True
+PASS negative line gap reduces space without last-row clipping parts=True
+PASS multiline desktop and RTSS row spacing agree parts=True mismatch=0
+PASS unchanged minutes retain their composition surface while milliseconds change
+PASS minute rollover replaces stale cached text
+PASS repeated part updates retain a bounded surface budget
+PASS disposing part cache releases retained surface accounting
+PASS oversized static layout preserves pixels through temporary-surface fallback
+PASS TimerTests 134 checks
