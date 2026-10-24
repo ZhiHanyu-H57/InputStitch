@@ -1,7 +1,8 @@
-# OBS Game Capture acceptance
+﻿# OBS Game Capture acceptance
 
 The automated recorder uses an isolated portable OBS copy, a native x64 D3D9
-target, and the current production `TimerController`. It uses only the
+target, and the current production `TimerController` with two lines, mixed part styles,
+100ms display updates and 12px extra line spacing. It uses only the
 `game_capture` source. Display Capture and Window Capture are not substitutes.
 The native target draws a blue game frame, a moving green marker and a changing
 frame number; it contains no CLR or WinForms. The timer producer is separate.

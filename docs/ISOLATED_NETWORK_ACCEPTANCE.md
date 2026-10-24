@@ -1,4 +1,4 @@
-# Isolated native network acceptance
+﻿# Isolated native network acceptance
 
 `tests/Run-IsolatedNetworkAcceptance.ps1` builds a guest-only fixture from the
 current production `NetworkControl.cs` and `NetworkPrivilegeHelper.cs`. It also
@@ -76,9 +76,9 @@ guest; they are not installed on the host or distributed with InputStitch.
 
 The automated sequence checks:
 
-1. Application scope: distinct executable A is blocked on new and existing
-   IPv4/IPv6 TCP/UDP flows; executable B remains connected; A reconnects after
-   restoration, including its original UDP sockets.
+1. Application scope: distinct executables A+B are blocked in one dynamic
+   session on new and existing IPv4/IPv6 TCP/UDP flows; executable C remains
+   connected. A+B reconnect after restoration, including their original UDP sockets.
 2. Whole guest: both distinct executables are blocked on all four protocols,
    including flows opened before blocking.
 3. Repeat whole-guest blocking for explicit restoration, normal parent exit,

@@ -1,4 +1,13 @@
-# PLAN.md
+﻿# PLAN.md
+
+## Custom timer actions and network customization completed — 2026-10-24
+
+Local 1.6.0-beta.4: four control presets plus fully composed per-hotkey/state
+rules, display cadence, batch styles and line spacing; PCM WAV import/independent
+volume and up to 16 application targets. Nine selected suites, tool UI 75790/48,
+macro journey 142, native desktop 142 per architecture, OBS 48 frames and guest
+network 330 pass. Both final packaged binaries pass. See
+docs/OVERLAY_TOOLS_1_6_0_BETA4.md. Local delivery complete; no publication scope.
 
 ## Independent network commands and timer parts completed — 2026-10-24
 

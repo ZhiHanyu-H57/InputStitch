@@ -1,5 +1,13 @@
 ﻿# ROADMAP.md
 
+## Flexible timer and multi-application controls completed — 2026-10-24
+
+Local beta.4 adds custom hotkey actions by timer state alongside presets,
+batch formatting, multiline spacing/cadence, imported PCM cues/volume and
+atomic multi-application WFP scope. Selected UI/runtime/config checks and actual
+OBS/isolated recovery pass. See docs/OVERLAY_TOOLS_1_6_0_BETA4.md.
+Stable 1.5.2 remains published. This requested follow-up is complete.
+
 ## Network shortcuts and timer customization completed — 2026-10-24
 
 Local beta.3 adds independent block/restore chords and sounds, plus styled

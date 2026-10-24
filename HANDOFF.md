@@ -1,5 +1,59 @@
 ﻿# HANDOFF.md
 
+## Flexible timer and network customization — 2026-10-24
+
+Verified implementation: 38a14a0dd49e2fd227bd5921e00994dd231d5e2f.
+Local 1.6.0-beta.4; feature/overlay-tools; no push/publication.
+67 production files, one new NetworkSettingsDialog source, no new dependency.
+Root owns repo; independent network agent snapshot integrated and frozen.
+
+Timer has four presets plus Custom: each hotkey maps Ready/Running/Paused to
+reset + Keep/Start/Pause/Toggle + Keep/Show/Hide/Toggle. Editing and Emergency
+Stop guards remain. Only active keys reserve/conflict/dispatch. Default settings
+preserve old XML. Display interval16–5000ms and line spacing−64–160px; cadence
+never counts elapsed time or rebuilds atlas. Ctrl/Shift style edits apply only
+the changed property; Match styles deep copies first selected style. Enter and
+Add line break support multiline. Presets are optional, not the custom limit.
+
+Network keeps separate/same/legacy chords, adds PCM8/16 mono/stereo WAV import
+and independent per-cue gains, no session/system volume changes. MCI WAV/MP3
+failed natively, so no MP3 promise or decoder dependency. At most16 exact paths,
+all validated before elevation; BLOCKSET uses one dynamic WFP transaction and
+session, unified rollback/release. Full target set comparison restores existing
+scope on any target change. Absent array retains legacy path; explicit empty
+stays empty. Network dialog split into scope/hotkeys and sounds; row spacing and
+populated lists verified at DPI. Startup never blocks; timer starts zero paused.
+
+Nine selected suites pass (not full42), SettingsSmoke; Timer129, Network36 per
+arch including native silent PCM/resource cleanup, integration186. Tool UI
+75790/48 views zh/en100/125/150/200% and compact; macro journey142. Native desktop
+142 per x64/x86. Both final package startup/reload/shutdown smokes pass with
+custom rules/cadence/line gap, multiple paths and cue path/volumes. Cache60s:
+default0.685ms/frame/1.145% one core, large3.561ms/7.395%, each600frames/GDI3->3.
+
+Actual OBS32.2.2 native x64 D3D9: four recordings48frames, two rows/mixed fonts,
+100ms updates/12px gap. RTSS included, desktop excluded, controls pass, yellow
+text12distinct masks. User OBS17config hashes unchanged, dedicated temporary
+RTSS profile removed. RTSS was started for acceptance and remains running;
+its Config file was rewritten by RTSS (not claimed hash-identical). Portable
+OBS/native target/producer all exited. Copy only this run's selected evidence;
+old detours-final-result/video-hash files in temporary obs directory were stale.
+Current OBS result/hashes regenerated in output archive.
+
+Fresh marked Windows guest native WFP330 passes in103.7sec: A+B blocked together,
+C stays connected for new/existing IPv4/IPv6 TCP/UDP; all four whole-guest
+Restore/normal close/parent/helper TerminateProcess cases recover. Initial run
+hit fixture command-file sharing contention; bounded3s fixture read retry fixed
+it, full rerun passed. Production helper deadlines unchanged; guest-only NGEN.
+Host whole-computer blocks0, host HTTPS200. Guest and loopback peer exited.
+Retained offline disks/tools not deleted; no retry of previously rejected cleanup.
+
+Outputs chat outputs/beta160-4: x642171392B/hash53C6E48A93CB3A5F021D8416CD02352DA358B72DC2AB42A150F6753AE355E4A5;
+x862001408B/hash209D6FF19E25B14665F8D26EF886F1620A446FC07616CB62A37868576BDD2404.
+Fixed InputStitch.exe names; sanitized evidence omits tokens and OBS credentials.
+See docs/OVERLAY_TOOLS_1_6_0_BETA4.md. Current scope complete, no manual-trial gate.
+Further feature work or formal release needs a new request.
+
 ## Independent network commands and styled timer parts — 2026-10-24
 
 Verified implementation: 30f99034988ee6a6a081adf3b79a380cdf0aae31.
