@@ -1,5 +1,352 @@
 # HANDOFF.md
 
+## Stable1.6.0 scoped verification ready for publication — 2026-10-24
+
+User authorized workflow/rules correction and Stable release of frozen beta.7.
+Implementation f531daa plus documentation classification79ad6d4. Production
+feature sources match c4cd0bf; only ReleaseInfo is now1.6.0/1.6.0.8/Stable.
+No new product functionality. Protected main requires a normal merge PR.
+
+Local cumulative v1.5.2->candidate selects22 checks:9 reused/13 fresh/all PASS;
+no soak. Fresh workflow24, manifest424, coreCrosshair162, corner1300, pipeline24,
+coordinator55, network36(no native mutation), productivity802, timer134,
+settings8864/8 synthetic and2208/2 native144-DPI, settings smoke and release policy.
+Actual x64/x86 startup/cache/save-reopen pass. Official143/150/151 packaged
+upgrades708; original143/150/151/152/current160 manifest parsers pass both arch.
+Detailed record: docs/RELEASE_1_6_0_VERIFICATION.md.
+
+Receipts bind Git-normalized feature/test/helper/dependency inputs and original
+evidence hashes. Curated .log files are intentionally tracked under verification/
+evidence; raw artifacts stay ignored. Candidate records preserve original scope.
+Second selection reused all22/executed0. Final CI must reuse these records,
+not rerun large matrices. Docs-only follow-up should select0 product checks.
+All new UI checks are private-process desktop checks; CrosshairTests --core and
+ProductivityTests now use that route. Actual native composition remains explicit.
+
+Next: push feature/overlay-tools; create/attach release PR; wait for selected CI;
+merge with [publish-stable] marker through normal merge API (preserve ancestors
+for recorded source commits); await release/mirror jobs; verify public1.6.0
+assets/latest/R2, then finish documentation and local delivery. User app untouched.
+
+## Automation spacing, PrintScreen and private desktop verification — 2026-10-24
+
+Verified implementation: c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9.
+Local 1.6.0-beta.7 on feature/overlay-tools; no push or publication.
+
+Automation target delay numeric had native144-DPI margins72/72, row178px;
+now4/7 and49px, width225->150, target section375->226px in both languages.
+Settings groups normalize padding; idle panel computes explicit leaf heights
+and wrapped analog/help content from available width. No model/runtime changes.
+Main InputSinkControl and runButton pass PrintScreen; ordinary key absorption,
+capture, global bindings and Emergency Stop remain.35 UI safety and214 integration
+checks cover local events and unbound global forwarding. No physical PrintScreen
+injection or OS Snipping Tool launch claim this turn.
+
+EditorChoice caches scale by Font/DeviceDpi, defers monitor clamp to opening and
+updates tooltips/accessibility only on change. Native144-DPI paired48 samples,
+beta6/current preparation medians(ms): settings1102.6/756.4, step497.3/381.5,
+crosshair578.8/480.7, timer952.4/753.1. Includes constructor+Show/Update+bitmap;
+not physical input-to-presentation latency or full-application CPU reduction.
+
+Six selected suites pass: source424, UiSafety35, Idle58, ToolIntegration214,
+CornerCutDialog65+4672, ReleasePolicy. Full secondary scaled-font125683/220,
+tool UI76814/72, native automation540/36, native settings2188/2 (zero issues),
+journey142, oldXML/settings smoke and final x64/x86 startup/restore/cache pass.
+Selected scope only; no full formal-release suite, OBS or native output/network
+rerun, since backends unchanged.67 production sources, no dependency/polling.
+
+Important verification fix: moving just one STA to a private desktop hung
+WinForms close cleanup in both baseline and current. IsolatedUiDesktop now
+restarts the entire test executable with STARTUPINFO.lpDesktop before framework
+threads/windows are created. No SwitchDesktop import or access. Child lower
+priority, bounded lifetime; parent samples foreground/input-desktop identity,
+waits for process exit and closes its desktop handle. All final tests pass with
+zero test-window foreground samples and successful desktop release. PowerShell
+smokes use architecture-matched UiScriptHost on that private desktop. Never run
+raw SettingsSmoke/packaged UI on user's active desktop during routine checks.
+Actual desktop/OBS composition checks still require their dedicated environment.
+
+No further Computer Use/desktop input during this continuation. Old app PID22984,
+started19:42, remained untouched. Announce CU start/stop; do not leave inspectors
+active until end of turn. A host-managed CU helper may remain resident; do not
+mistake residency for active control or repeatedly kill its automatic respawns.
+
+Outputs chat outputs/beta160-7: fixed InputStitch.exe, x642178560B
+10C01E1F6EA014C6DB564B0E105F95BC54C0EA1F289436921F23DE338C4C66C4;
+x862008576B 92E58DD160E1E18BC23F1A2AA367D72E939479A7AE7265A8A6A888121E4F2BFC.
+Each+2560B vs beta6; Windows PowerShell compression preserves native payload size.
+Report: docs/UI_LAYOUT_AND_INPUT_1_6_0_BETA7.md. This request complete.
+
+## Native DPI and timer selection regressions fixed — 2026-10-24
+
+Verified implementation: 7c99137300efca87365f6fb017420e200ad3e4dd.
+Local 1.6.0-beta.6, feature/overlay-tools, no push/publication.
+
+User reported Automation page rendering, bloated network Sounds rows, hard-to-find
+batch editing, Shift visibility changes and slow/flickering timer part selection.
+Root native144-DPI failure was nested IdleGamepadSettingsPanel Font autoscaling
+on top of the form's DPI scaling. Panel now uses AutoScaleMode.None, inherits
+one outer scale, has content-derived preferred height and no async height loop.
+Target row is bounded, analog wrapping accounts for available width. General
+settings rows shrink to content; target/run/profile settings now precede idle.
+Network sound table uses content column sizing; flows dock Top, labels align Top,
+sound panels cap400 logical pixels and small tool buttons min76 (text can grow).
+TimerPartList prevents native row-selection/double-click checkbox side effects;
+explicit state-icon/Space changes remain. Batch hint is above list. Deferred
+selection update coalesces deselect/select; one fixed-height content slot keeps
+format controls in place and retains preview cache. No model/runtime schema change.
+
+Impact checks: SourceManifest424, ToolIntegration205, UiSafety26, IdleGamepad58,
+ReleasePolicy pass. Tool full layout stage76374/72 passed before final small
+button/idle refinements; final relevant regression network120/8 (combined704/24),
+timer688/8 (320 selections with bound contents), settings216/8 pass.
+Current native144-DPI Settings2188/2 and scaled-font Settings8784/8 pass with
+zero issues (default/compact/restored/all tabs). Native first run caught237
+layout issues; fix and complete native rerun passed. Do not substitute synthetic
+scaled-font checks for native DPI acceptance. Timer selections~23.9–36.6ms each
+including message processing,32 layouts per40, no transient editor disable,
+unchanged preview identity. Selected checks only; no full formal release suite.
+SettingsSmoke and both final Release Verification/packaged startup+restore pass.
+No real output, network block or OBS rerun; macro/output/network/timer drawing
+backends unchanged. Existing user InputStitch untouched; configs isolated.
+
+Computer Use stopped immediately when the user pressed physical Escape during
+final native timer inspection. No further desktop input; no manual acceptance
+gate. The isolated inspector has a five-minute automatic close deadline and
+never loads/saves user configuration. Current development request complete.
+
+Outputs chat outputs/beta160-6: fixed InputStitch.exe, x642176000B
+E60CB6549F2E6801A707E54B9F9577E035FCF634132EB189BB5E7F5B51006835;
+x862006016B FED49EA39B41E399AAB69E9F0D367E970B424CE53FA97404BBCA80EDE8EEEFD8.
+Each +512B vs beta.5;67 production sources, no dependency or background polling.
+Use Windows PowerShell build compression as previous package: current pwsh
+compressor produces larger embedded gzip streams with identical dependencies.
+Report: docs/UI_REGRESSIONS_1_6_0_BETA6.md. No active task or publication request.
+
+## Dialog responsiveness and usability completed — 2026-10-24
+
+Verified implementation: 7cfa5dd72ea01afd295846e1a9e51936ab1ffa9f.
+Local 1.6.0-beta.5 on feature/overlay-tools; no push/publication.
+67 production sources, no added dependency. Main macro runtime, ownership,
+Emergency Stop/editing guard, WFP filtering/helper and sound backend unchanged.
+
+Dialog construction now batches nested layouts, theme application and Frame;
+EditorChoice reuses label measurements while checking content/font changes.
+IdleGamepad.cs changes only settings-panel construction. Same-host zh/en
+3 samples each, constructor+Show/Update median: settings838->279ms,
+step editor610->138ms, crosshair704->160ms, timer1534->256ms,
+network784->120ms, virtual keyboard200->166ms. Raw logs retain all samples.
+The pre-batching comparison already has the beta.5 usability edits; metadata
+still read beta.4 during timing and was bumped after the final implementation.
+No persistent hidden dialog reuse or delayed editing-protection shortcut.
+
+Timer disabled actions now explain enablement; multi-selection moves together;
+first switch from a bound preset to Custom retains bound keys/state actions,
+without overwriting existing custom rules. Empty list/clear buttons follow state.
+Network UI shows filename before path, uses dirty width measurement and explicit
+Use built-in cue action. No serialized model change.
+
+Timer renderer keeps unchanged part/line surfaces with a 4MiB retained budget
+and temporary fallback. Preview reuses unchanged appearance. Actual beta.4 vs
+beta.5 binaries match28 raw pixel frames (multiline/mixed alpha/negative gap/
+rollover/rewind). Paired render medians: parts.247->.095ms,
+large multiline1.781->.756ms; unchanged preview17.348->.585ms.
+These are render microbenchmarks, not whole-process CPU reductions.
+Quiet final60s soak: default30.004s/600frames/.984ms/1.562% one core;
+large30.016s/600frames/3.140ms/6.559%; GDI3->3, no GC, bounds pass.
+
+Impact checks pass: source424, timer134, integration205, UI safety26,
+productivity802, corner dialog65+4672, release policy, input pipeline24,
+network core36 (no native network mutations), full secondary layout125667/220,
+tool layout75790/48, macro journey142, main density3328. SettingsSmoke,
+both Release Verification and final packaged startup/config restoration pass.
+Desktop native timer147 per x64/x86. Full42-suite formal release not run.
+
+Current native x64 D3D9 OBS32.2.2:4 recordings/48frames pass; RTSS included,
+desktop excluded,12 distinct timer masks. Current environment rechecked at
+16:49+08:00: OBS17 baseline config hashes and RTSS2 config hashes unchanged;
+test processes0, websocket disabled/password cleared, temp profile removed.
+Use newly generated output OBS-evidence.zip; old cleanup/final-result/hash
+files under the shared temporary OBS evidence directory were stale and excluded.
+Network backend untouched: no guest/whole-host block test this turn; beta.4
+native dual-stack330 remains historical evidence. Retained guests/tools preserved.
+
+Outputs chat outputs/beta160-5: x642175488B,
+SHA256 21510CFE5029405E08F81F746F7838D5D1E04ABF1444882DFCB44F11AAB8D6D3;
+x862005504B, SHA256 965AE5F33C02A8645452467EFAF86B0B86C7D36075FFE92A51326BFC82081E39.
+Each +4KiB vs beta.4, fixed InputStitch.exe names, sanitized evidence/screenshots.
+See docs/USABILITY_AND_PERFORMANCE_1_6_0_BETA5.md. Current request complete;
+no active task, no manual-trial prerequisite, no additional feature/release scope.
+
+## Flexible timer and network customization — 2026-10-24
+
+Verified implementation: 38a14a0dd49e2fd227bd5921e00994dd231d5e2f.
+Local 1.6.0-beta.4; feature/overlay-tools; no push/publication.
+67 production files, one new NetworkSettingsDialog source, no new dependency.
+Root owns repo; independent network agent snapshot integrated and frozen.
+
+Timer has four presets plus Custom: each hotkey maps Ready/Running/Paused to
+reset + Keep/Start/Pause/Toggle + Keep/Show/Hide/Toggle. Editing and Emergency
+Stop guards remain. Only active keys reserve/conflict/dispatch. Default settings
+preserve old XML. Display interval16–5000ms and line spacing−64–160px; cadence
+never counts elapsed time or rebuilds atlas. Ctrl/Shift style edits apply only
+the changed property; Match styles deep copies first selected style. Enter and
+Add line break support multiline. Presets are optional, not the custom limit.
+
+Network keeps separate/same/legacy chords, adds PCM8/16 mono/stereo WAV import
+and independent per-cue gains, no session/system volume changes. MCI WAV/MP3
+failed natively, so no MP3 promise or decoder dependency. At most16 exact paths,
+all validated before elevation; BLOCKSET uses one dynamic WFP transaction and
+session, unified rollback/release. Full target set comparison restores existing
+scope on any target change. Absent array retains legacy path; explicit empty
+stays empty. Network dialog split into scope/hotkeys and sounds; row spacing and
+populated lists verified at DPI. Startup never blocks; timer starts zero paused.
+
+Nine selected suites pass (not full42), SettingsSmoke; Timer129, Network36 per
+arch including native silent PCM/resource cleanup, integration186. Tool UI
+75790/48 views zh/en100/125/150/200% and compact; macro journey142. Native desktop
+142 per x64/x86. Both final package startup/reload/shutdown smokes pass with
+custom rules/cadence/line gap, multiple paths and cue path/volumes. Cache60s:
+default0.685ms/frame/1.145% one core, large3.561ms/7.395%, each600frames/GDI3->3.
+
+Actual OBS32.2.2 native x64 D3D9: four recordings48frames, two rows/mixed fonts,
+100ms updates/12px gap. RTSS included, desktop excluded, controls pass, yellow
+text12distinct masks. User OBS17config hashes unchanged, dedicated temporary
+RTSS profile removed. RTSS was started for acceptance and remains running;
+its Config file was rewritten by RTSS (not claimed hash-identical). Portable
+OBS/native target/producer all exited. Copy only this run's selected evidence;
+old detours-final-result/video-hash files in temporary obs directory were stale.
+Current OBS result/hashes regenerated in output archive.
+
+Fresh marked Windows guest native WFP330 passes in103.7sec: A+B blocked together,
+C stays connected for new/existing IPv4/IPv6 TCP/UDP; all four whole-guest
+Restore/normal close/parent/helper TerminateProcess cases recover. Initial run
+hit fixture command-file sharing contention; bounded3s fixture read retry fixed
+it, full rerun passed. Production helper deadlines unchanged; guest-only NGEN.
+Host whole-computer blocks0, host HTTPS200. Guest and loopback peer exited.
+Retained offline disks/tools not deleted; no retry of previously rejected cleanup.
+
+Outputs chat outputs/beta160-4: x642171392B/hash53C6E48A93CB3A5F021D8416CD02352DA358B72DC2AB42A150F6753AE355E4A5;
+x862001408B/hash209D6FF19E25B14665F8D26EF886F1620A446FC07616CB62A37868576BDD2404.
+Fixed InputStitch.exe names; sanitized evidence omits tokens and OBS credentials.
+See docs/OVERLAY_TOOLS_1_6_0_BETA4.md. Current scope complete, no manual-trial gate.
+Further feature work or formal release needs a new request.
+
+## Independent network commands and styled timer parts — 2026-10-24
+
+Verified implementation: 30f99034988ee6a6a081adf3b79a380cdf0aae31.
+Local 1.6.0-beta.3 on feature/overlay-tools; no push/publication. Eight of 66
+production files changed, no new source or dependency. Macro engine, ownership,
+stop and WFP privilege-helper implementation unchanged.
+
+Network has independent block/restore keys, repeat-block idempotence and two
+optional generated PCM cues. Same-key and legacy Hotkey configurations toggle.
+Restore works through editing guards/pending elevation. Cues follow confirmed
+state edges; repeats/cancelled UAC/startup silent. Timer supports ordered visible
+parts, individual font/style/color/alpha, cumulative minutes/seconds and precision.
+Old templates retain Parts=null. XmlSerializer needs an explicit array proxy:
+a public List alone changed absent old Parts to empty on reload. Actual
+ConfigStore/clone/null/empty tests cover this. Baseline-aligned desktop glyph
+cache and single RTSS PNG atlas retain bounded storage and no tick disk writes.
+
+Nine selected suites and SettingsSmoke pass: timer 97, network 29, integration 153.
+Tool UI 37689/32 views, zh/en 100-200% plus compact sizes; default controls/list
+fully visible. Macro journey 142, desktop 109 per x64/x86 and packaged actual
+startup/style/shortcut restoration/shutdown pass. Cache 60s: default 1.019ms/frame,
+large 4.122ms/frame, GDI 3->3, no forced GC.
+
+Current styled-parts OBS native x64 D3D9 Game Capture: four recordings/48 frames
+pass, smaller italic milliseconds included by RTSS, desktop excluded, overlays
+off/desktop-only controls pass; yellow masks 12/12 change. A direct D3D9 independent
+marker did not render and remains BLOCKED; actual native OBS capture plus desktop
+positive control establishes the pass. ffmpeg path corrected before final full
+recording run. Dedicated UseDetours test profile removed; RTSS 2/OBS 17 unchanged.
+
+Fresh marked QEMU guest 304 passes in 100.7s: app A-only/B negative control, whole
+guest Restore/normal close/actual parent/helper TerminateProcess, IPv4+IPv6 TCP/UDP
+new/existing flows; repeat Block stays blocked in all 5 cases. Host blocks 0,
+HTTPS 200. Guest-only NGEN, unchanged production deadline. Guest, loopback peer,
+portable OBS, timer producer/native target and elevated profile helper exited;
+existing user Stable remains running. Retained offline guest disks/tools reused;
+no delete retry or new cleanup approval. Some legacy host settings snapshots
+predate the user's beta.2 use; do not present them as this turn's before hashes.
+All tests redirect settings to isolated paths.
+
+Outputs: chat outputs/beta160-3; x64 2188288B / x86 2003968B, fixed InputStitch.exe.
+Report/hashes: docs/OVERLAY_TOOLS_1_6_0_BETA3.md. Sanitized evidence ZIPs exclude
+permission tokens and OBS credentials. Further work or Stable release needs a
+separate request; no manual-trial gate. Full 42-suite gate reserved for release.
+
+## Overlay acceptance follow-up completed — 2026-10-24
+
+Verified production/test implementation commit: 9c2f1d56387582918761cd6cd283cd707ee65bd3.
+
+Local 1.6.0-beta.2 on feature/overlay-tools. No push or publication requested.
+Only ReleaseInfo and timer capture-help text changed among 66 production files;
+all timer/network/macro implementation is identical to beta.1. EXE sizes stay
+2117120 bytes x64 / 1947136 x86. Eight selected suites pass; after the metadata/help
+stamp, SourceManifest/ReleasePolicy/ToolIntegration, UI 29933/32 and both packaged
+smokes pass. No full 42-suite formal-release gate in this follow-up.
+
+Actual OBS 32.2.2 game_capture, native x64 D3D9: four MKV recordings/48 decoded
+frames pass. RTSS included with capture_overlays on, desktop excluded; overlays-off
+and desktop-only controls pass; changing yellow text 12 distinct masks. Default
+RTSS hooking froze even the native no-timer baseline; Microsoft Detours fixed it.
+Dedicated temporary profile removed, existing RTSS and 17 OBS configuration hashes
+unchanged; native target/producer/portable OBS exited. See docs/OBS_TIMER_ACCEPTANCE.md.
+
+Native isolated network: QEMU TCG Windows Server 2022 guest, external nonce echo
+through 10.0.3.2/fec1::2. Application A-only/B connected, then four EntireComputer
+restore/normal-exit/actual parent TerminateProcess/actual helper TerminateProcess
+cases pass 299 assertions in 99.6 seconds. Both independent executables, IPv4+IPv6,
+TCP+UDP, new+existing flows and same UDP sockets after recovery. Helper-kill recovery
+verified while parent still alive. Five host HTTPS checks returned 200 during guest
+blocks; host-wide blocks=0. Guest guard firmware/WMI match, host self-test15 / guest14.
+
+The TCG fixture required guest-only NGEN /NoDependencies to fit extra test identity
+checks/JIT into the unchanged production 10-second startup deadline. Prior cold-start
+failures are retained with evidence. Production timeout/code was not altered.
+The probe now has explicit READY and bounded socket startup; unexpected exceptions
+are ERROR rather than successful blocking. See docs/ISOLATED_NETWORK_ACCEPTANCE.md.
+
+Windows guest and loopback echo peer exited normally. User InputStitch/RTSS remained
+running; config.xml/devices.xml hashes unchanged. Automatic approval review rejected
+deleting remaining guest disks/portable test tools (policy block, no detailed reason).
+Those temporary files remain offline; no cleanup approval is pending. Evidence and
+reproduction scripts are retained in the chat output/work folders, not the repository.
+
+HIDMaestro author guidance from issue6 is recorded in ROADMAP: retain held state and
+submit full frames on Send; xbox-360-wired / dualshock-4-v2 profiles. No adapter work
+or GitHub reply was included. Stable remains 1.5.2; further features or publication
+require a separate request. Report: docs/OVERLAY_TOOLS_1_6_0_BETA2.md.
+
+## Overlay tools local beta completed — 2026-10-23
+
+Verified production commit: 9040343736a316507099bbc5e219acec00bd69b2.
+
+1.6.0-beta.1 on feature/overlay-tools, based on main 4e32bce. All 66 production
+sources integrated. No remote publication. Defaults opt in; timer starts paused
+at zero; only the WFP helper elevates. Parent/helper exit removes dynamic filters.
+16 impact-selected suites pass, including new render/serialization/shortcut/
+rollback/exit tests. Tool UI 29933/32, corner UI 65+4672, journey 142, density
+3328; packaged x64/x86 restore settings, show timer paused, release native windows
+and preserve normal config/devices. Desktop native 77/77 per architecture.
+Actual D3D9 x64/x86: bilingual 36px text, zero one-pixel shift mismatch, zero
+independent-client region changes. RTSS uses power-of-two atlas/gutters and
+read-only target zoom; no FNT or profile changes. D3D preflight waits for an
+independent visible marker, else BLOCKED/2; empty scenes need a real primitive.
+Native network IPv4 TCP/UDP and existing-flow reauth, other-exe negative control,
+parent/helper crash recovery pass. No whole-host interruption; no usable native
+IPv6 address; OBS not installed. Do not claim these three as live-tested.
+Source scopes from three isolated module agents were integrated by root.
+Only work-only test issues and acceptance-found product issues were repaired;
+all final feature behavior has automated evidence. Actual old Stable 1.5.2 reads
+new config/macros via the new shape's ring fallback. 60-second cache benchmark
+and binary hashes: docs/OVERLAY_TOOLS_1_6_0_BETA1.md. No manual trial gate.
+
+Published Stable remains v1.5.2. Further formal publication requires a separate
+request and the full release gate; this beta ran selected checks, not all 42.
+
 ## 1.5.2 Stable released and verified — 2026-10-23
 
 GitHub latest Stable v1.5.2, tag/source 2278a55730e05beebd2f6a63f51a9f1552567499.

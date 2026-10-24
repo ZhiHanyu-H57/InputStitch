@@ -1,0 +1,2 @@
+﻿{"version":"1.6.0","thresholdMs":150,"uiBlockedMs":400,"responsiveMs":160,"blockedMs":151,"backend":"isolated observer","note":"Delivered input edge, production scheduler and worker; output before UI resumes; no physical hooks or real output."}
+PASS input pipeline integration: 24 checks; idle UI work, worker reuse, source-local cancellation, bilingual progress diagnostics, configuration completion and UI-blocked long-press samples; isolated observer, no hooks or real output.

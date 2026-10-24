@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ReleasePolicyTests",
+  "status": "PASS",
+  "sourceCommit": "9fe269272411ac11b572a6b038fc4626e912d0a9",
+  "fingerprint": "1de5d38664cce56a774df21dd64115a1bb347b96c60c84ad00ffcecb69b7f130",
+  "qualification": "Stable1.6.0 channel/update metadata checks passed before receipt-path serialization failed; reused independently of the failed orchestration stage.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-ReleasePolicyTests-9fe269272411.log",
+      "sha256": "9253D7DA6BFD96ED7CA6988532EC847097D764353848D744C82BD7E0F4EEBE79"
+    }
+  ]
+}

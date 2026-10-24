@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "workflow",
+  "status": "PASS",
+  "sourceCommit": "9cdc12f78ed5dd7a899f1942c74eddb38aa2bfc0",
+  "fingerprint": "8b038b9409a3c1fe40111df5edf7936919c63dadcc15a5595c7672d91763dae8",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "path": "verification/evidence/workflow-9cdc12f78ed5.log",
+      "sha256": "BABDA7C5126DF4DF3FEA22ADD5176629315288102E89719C8507E24B1DB3F370"
+    }
+  ]
+}

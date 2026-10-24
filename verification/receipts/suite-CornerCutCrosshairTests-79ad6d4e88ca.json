@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:CornerCutCrosshairTests",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "cc0bd234fe84c1db12fd190970a4974e2e0ee8af673626b246c3be3eeb2ee1ba",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "4919F3E4C68ED0B64B9C940B4D172F9C63FCCA3D95DEB09AFBDFE5E1D0455D15",
+      "path": "verification/evidence/suite-CornerCutCrosshairTests-79ad6d4e88ca.log"
+    }
+  ]
+}

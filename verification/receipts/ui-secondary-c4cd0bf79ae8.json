@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:secondary",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "2ad2b4e62124ea040da68e84bdddef7e798d4f73c3faad54694078846e3dd880",
+  "qualification": "1.6.0-beta.7; zh/en 100/125/150/200% where applicable; whole-process private Windows desktop; metadata/settings are checked separately.",
+  "evidence": [
+    {
+      "sha256": "01DB7869CD13EDCA2F0A2017F6EC37B7CFA9109833978BCB1F430F6D3BC3F6EB",
+      "path": "verification/evidence/ui-secondary-c4cd0bf79ae8.log"
+    }
+  ]
+}

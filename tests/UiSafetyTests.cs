@@ -9,9 +9,12 @@ internal static class UiSafetyTests
     private static void Check(bool condition, string name) { if (!condition) throw new Exception(name); checks++; }
     [STAThread]
     public static int Main()
+    { return IsolatedUiDesktop.Run(MainCore); }
+    private static int MainCore()
     {
         try
         {
+            ScreenshotPassthrough();
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,false,false,false), "idle hover over a button/list must not reject hotkeys");
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,true,false,false), "hover over an editor is not editing");
             Check(!UiSafetyPolicy.ShouldPauseControl(true,false,false,false,false), "idle button/list focus can transfer to the input sink");
@@ -57,7 +60,27 @@ internal static class UiSafetyTests
             Console.WriteLine("PASS UI safety/diagnostics: " + checks + " checks; no real hooks, windows shown, input or user configuration.");
             return 0;
         }
-        catch(Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        catch(Exception ex) { Console.Error.WriteLine(ex.GetType().Name + ": " + ex.Message); return 1; }
+    }
+
+    private static void ScreenshotPassthrough()
+    {
+        System.Reflection.BindingFlags hidden = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        using (InputSinkControl sink = new InputSinkControl())
+        {
+            foreach (Keys modifiers in new[] { Keys.None, Keys.Control, Keys.Shift, Keys.Alt, Keys.Control | Keys.Alt })
+            {
+                KeyEventArgs screen = new KeyEventArgs(Keys.PrintScreen | modifiers);
+                typeof(InputSinkControl).GetMethod("OnKeyDown", hidden).Invoke(sink, new object[] { screen });
+                Check(!screen.Handled && !screen.SuppressKeyPress && UiSafetyPolicy.PassThroughUiKey(screen.KeyData), "PrintScreen reaches Windows from the focused input sink " + modifiers);
+            }
+            foreach (Keys key in new[] { Keys.Enter, Keys.Space, Keys.A, Keys.F8 })
+            {
+                KeyEventArgs ordinary = new KeyEventArgs(key);
+                typeof(InputSinkControl).GetMethod("OnKeyDown", hidden).Invoke(sink, new object[] { ordinary });
+                Check(ordinary.Handled && ordinary.SuppressKeyPress, "ordinary macro keys remain absorbed by the inert sink " + key);
+            }
+        }
     }
 
     private static void ContextMenuLifetime()

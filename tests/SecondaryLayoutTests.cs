@@ -67,6 +67,8 @@ internal static class SecondaryLayoutTests
         yield return () => new AboutForm();
         yield return () => new DiagnosticsForm(() => string.Join(Environment.NewLine, Enumerable.Range(0,40).Select(i => "Runtime / 运行状态 " + i + ": Ready")));
         yield return () => new CrosshairSettingsDialog(new CrosshairOptions(), null, null);
+        yield return () => new TimerSettingsDialog(new TimerOptions(), null, null);
+        yield return () => new NetworkSettingsDialog(new NetworkControlOptions(), null);
         yield return () => new NewMacroDialog();
         foreach (QuickTemplate template in Enum.GetValues(typeof(QuickTemplate)))
         { QuickTemplate selected = template; yield return () => new QuickCreateDialog(null,selected); }
@@ -215,6 +217,8 @@ internal static class SecondaryLayoutTests
     }
     [STAThread]
     private static int Main(string[] args)
+    { return IsolatedUiDesktop.Run(() => MainCore(args)); }
+    private static int MainCore(string[] args)
     {
         native = args.Contains("--native");
         if (native) SetProcessDpiAwarenessContext(new IntPtr(-4));

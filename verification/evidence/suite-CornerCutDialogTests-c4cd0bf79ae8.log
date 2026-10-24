@@ -1,0 +1,4 @@
+PRIVATE UI process bound: InputStitchTest-60eee7d6c0b24e82ba433839f01ecfeb
+PASS corner-cut dialog: 65 interaction checks + 4672 existing layout checks; zh/en; 100/125/150/200%; scaled fonts; default/compact/restored.
+PASS private UI desktop; foreground test-window samples=0/211; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

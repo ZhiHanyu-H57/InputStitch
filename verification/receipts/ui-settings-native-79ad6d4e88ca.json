@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-native",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "5580d3c426e824ca4b77d759b664718ee462a6c8719baee16f20a752c8f3d35b",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "BF6FAF817357AE154933FF64E53C64D0FAF028C134B7264C5FA2EC247D9CE736",
+      "path": "verification/evidence/ui-settings-native-79ad6d4e88ca.log"
+    }
+  ]
+}

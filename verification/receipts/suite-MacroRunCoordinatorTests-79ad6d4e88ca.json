@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:MacroRunCoordinatorTests",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "51996c06d2ef660777c7e1fcf62345c6664403bdbb885a48634d70cca69bdc30",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "787DC12FFDF16B084DB7B329944CD4166B587B7812938113FE14536CFF7BB46C",
+      "path": "verification/evidence/suite-MacroRunCoordinatorTests-79ad6d4e88ca.log"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:TimerTests",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "626187d8d85331c4158fafcbc7cd54e4631de4cc05f919b2bc11a84bd939cc9e",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "87971B7EE44E3E717E759E381A38822F788AABC480B67B9F2135596503F36B19",
+      "path": "verification/evidence/suite-TimerTests-79ad6d4e88ca.log"
+    }
+  ]
+}

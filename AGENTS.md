@@ -17,6 +17,19 @@ Before changing code in this repository, restore project context in this order:
 
 ## Development rules
 
+- Local 1.6.0-beta.2 completed actual OBS Game Capture and isolated whole-guest
+  IPv4/IPv6 recovery acceptance. See `docs/OVERLAY_TOOLS_1_6_0_BETA2.md` and the
+  two dedicated acceptance guides. EntireComputer tests must stay inside the
+  identity-gated Windows guest; never run them on this host. TCG fixture
+  precompilation is guest-only and does not change production helper deadlines.
+
+- The user authorized optional crosshair/timer/network tools on 2026-10-23.
+  Local 1.6.0-beta.1 is separate from published Stable 1.5.2. Keep tools opt-in;
+  timer starts paused, and application startup must never block the network.
+  Only the disposable WFP helper elevates. Native timer/RTSS and executable-only
+  network acceptance commands and environment limits are documented in
+  `docs/OVERLAY_TOOLS_1_6_0_BETA1.md`; do not replace them with manual-trial gates.
+
 - Production source files are listed once in `scripts/production-sources.txt`; add or rename files there.
   `build.ps1`, `tests/Run-Tests.ps1` and `tools/InputLab/build-acceptance.ps1` consume that manifest, and
   `tests/SourceManifestTests.cs` fails when the `InputStitch.csproj` list or a root-level `.cs` file diverges.
@@ -37,7 +50,26 @@ Before changing code in this repository, restore project context in this order:
 
 ## Verification before commit
 
-Use impact-based verification during development (user instruction, 2026-10-22).
+### Desktop use during UI verification
+
+Layout, editor journey and dialog tests use `IsolatedUiDesktop`: a whole child
+process starts on a private Windows desktop without activating it. Keep framework
+helper threads on that same desktop; moving only the test STA can hang WinForms
+cleanup. The parent checks foreground ownership and releases the desktop after
+the child exits. Do not weaken these checks or switch the desktop to get a pass.
+
+Run PowerShell UI smoke checks through `tests/Run-IsolatedUiScript.ps1`, including
+`SettingsSmoke.ps1` and architecture-matched `Run-PackagedSmoke.ps1`. Native DPI
+layout tests can run privately. Actual desktop composition/capture and real-input
+acceptance retain their explicitly authorized dedicated environment requirements.
+
+Announce before starting Computer Use and when it stops. Close test inspectors
+and stop desktop interaction as soon as the inspection finishes; do not leave it
+active until the conversation ends. Prefer private UI tests while the user is
+working. ToolIntegration interactive inspectors require `--allow-host-desktop`.
+
+Use impact-based verification in development AND formal releases (user instruction,
+2026-10-24). This supersedes older unconditional-full-suite/soak release rules.
 Select the suites and focused workflows affected by the actual change. List the
 selection and results in the handoff. Do not rerun unrelated layout, provider or
 update suites for every change. Examples:
@@ -55,12 +87,30 @@ manifest checks when files change; verify metadata/startup for packaged builds.
 Broaden only when dependencies or failures establish a reason. Targeted runs do
 not imply a full-suite pass. Tests use the same assertions in either mode.
 
-Before a formal release, run the entire suite (no selection), packaged smoke,
-release verification and applicable sustained/real-output acceptance:
+Development defaults select from the branch/working-tree changes; use -BaseRef
+when the boundary is known. Formal releases use the cumulative diff from the last
+published Stable tag, not merely the last commit. The selector prints the plan,
+deduplicates checks, and reuses PASS evidence only when its declared source,
+assertion, helper and dependency inputs match and its evidence hashes are intact.
+Unknown paths require classification; they do not silently skip or trigger all tests.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Tests.ps1
+./tests/Run-Tests.ps1 -BaseRef HEAD^ -PlanOnly
+./tests/Run-Verification.ps1 -Mode Release -BaseRef <previous-published-stable-tag>
 ```
+
+Full regression is an explicit diagnostic option (`Run-Tests.ps1 -Full`), never
+the default or an unconditional publication gate. Keep effective assertions.
+Reuse candidate evidence across metadata-only promotion; settings/channel tests
+and final packaged startup, metadata/hashes and applicable update/migration
+checks still run for the actual released artifacts. Record the reused source,
+coverage and original environment instead of claiming a new execution.
+
+Do not repeat sustained tests for wording, layout, packaging or a version bump.
+Run them for changed scheduling/concurrency/ownership/input-output/resource
+lifetimes, or a concrete time-dependent defect. Review relevant host lifecycle
+changes in InputStitch.cs and use -RequireSoak when they affect those guarantees.
+Choose duration for the defect; ten minutes is not a universal fixed gate.
 
 For ownership, keyboard/mouse output, Held Mapping concurrency, Emergency Stop, or virtual Xbox behavior, also run the Input Lab black-box acceptance when ViGEmBus is available:
 
@@ -86,7 +136,7 @@ normal merge API. Do not disable protection or use an administrator bypass to
 complete routine work. This single-maintainer repository requires zero external
 approvals; no other reviewer is needed. There is no unconditional desktop status
 check on every documentation/website PR. Formal software releases retain the
-complete verification gate in the existing release workflow.
+impact-selected cumulative verification gate in the release workflow.
 
 Use tag or workflow-dispatch publication as before. If publishing from a main
 commit marker, preserve `[publish-stable]` / `[publish-beta]` in the merge commit
@@ -108,8 +158,9 @@ Before switching development machines:
 - Stable 1.4.3 is a user-confirmed long-used baseline. Preserve its official behavior.
 - Routine UI/editing/runtime completion is determined by regression, automated workflow,
   output acceptance and sustained-run evidence. Do not require another user trial run.
-- Run `tests/Run-ProductAcceptance.ps1` for editor changes and the sustained variant for
-  runtime/release acceptance; report its actual duration and backend, never an assumed one.
+- Run focused editor workflows for affected editing behavior. Use sustained acceptance
+  only for the time-dependent runtime changes above, including during releases; report
+  its actual duration/backend and distinguish reused results from newly executed ones.
 - Specific physical-device/driver/game compatibility claims retain their own evidence
   scope and do not become blanket manual gates for the ordinary macro product.
 - Keep development history and compatibility adapters out of user-facing settings.

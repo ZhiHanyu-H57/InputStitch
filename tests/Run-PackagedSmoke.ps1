@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([ValidateSet('x64','x86')][string]$Architecture = 'x64')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -59,6 +59,44 @@ $config.Crosshair.Visible = $true
 $config.Crosshair.Size = 31
 $config.Crosshair.OffsetX = 7
 $config.Crosshair.OffsetY = -9
+$config.Timer.Enabled = $true
+$config.Timer.TextTemplate = 'Timer {time}'
+$config.Timer.FontSize = 32
+$config.Timer.X = 31
+$config.Timer.Y = 43
+$timerPart = New-Object InputStitch.TimerPart
+$timerPart.Kind = 'Minutes'
+$timerPart.Style.FontSize = 31
+$timerPart2 = New-Object InputStitch.TimerPart
+$timerPart2.Kind = 'Milliseconds'
+$timerPart2.Style.FontSize = 17
+$timerPart2.Style.Color = '#22FFFF'
+$timerPart2.Digits = 3
+$config.Timer.SerializedParts = [InputStitch.TimerPart[]]@($timerPart,$timerPart2)
+$config.Timer.UpdateIntervalMs = 250
+$config.Timer.LineSpacing = 12.5
+$config.Timer.ControlMode = 'Custom'
+$rule = New-Object InputStitch.TimerShortcutRule
+$ruleKey = New-Object InputStitch.TriggerSpec
+$ruleKey.Kind = 'Keyboard'; $ruleKey.VirtualKey = 117; $ruleKey.Ctrl = $true; $ruleKey.Alt = $true
+$rule.Hotkey = $ruleKey
+$rule.Ready.Reset = $true; $rule.Ready.Run = 'Start'; $rule.Ready.Visibility = 'Show'
+$rule.Running.Run = 'Pause'; $rule.Running.Visibility = 'Hide'
+$rule.Paused.Reset = $true; $rule.Paused.Run = 'Start'; $rule.Paused.Visibility = 'Show'
+$config.Timer.SerializedShortcutRules = [InputStitch.TimerShortcutRule[]]@($rule)
+$config.NetworkControl.Enabled = $true
+$blockKey = New-Object InputStitch.TriggerSpec
+$blockKey.Kind = 'Keyboard'; $blockKey.VirtualKey = 120; $blockKey.Ctrl = $true; $blockKey.Alt = $true
+$restoreKey = New-Object InputStitch.TriggerSpec
+$restoreKey.Kind = 'Keyboard'; $restoreKey.VirtualKey = 121; $restoreKey.Ctrl = $true; $restoreKey.Alt = $true
+$config.NetworkControl.BlockHotkey = $blockKey; $config.NetworkControl.RestoreHotkey = $restoreKey
+$config.NetworkControl.BlockSound = $false; $config.NetworkControl.RestoreSound = $true
+$config.NetworkControl.SerializedExecutablePaths = [string[]]@((Join-Path $env:WINDIR 'System32/notepad.exe'), (Join-Path $env:WINDIR 'System32/cmd.exe'))
+$config.NetworkControl.BlockSoundVolume = 23; $config.NetworkControl.RestoreSoundVolume = 67
+$cueFile = Join-Path $output 'imported-cue.wav'
+$wave = $assembly.GetType('InputStitch.NetworkSounds').GetMethod('Wave',$hidden).Invoke($null,@([Enum]::Parse($assembly.GetType('InputStitch.NetworkSoundKind'),'Blocked')))
+[IO.File]::WriteAllBytes($cueFile,$wave)
+$config.NetworkControl.BlockSoundPath = $cueFile
 $macro = New-Object InputStitch.MacroDefinition
 $macro.Name = 'Packaged startup check'
 $macro.Enabled = $false
@@ -88,9 +126,20 @@ $timer.add_Tick({
         if (($bounds.Left + [Math]::Floor($bounds.Width / 2)) -ne ($screen.Left + [Math]::Floor($screen.Width / 2) + 7) -or
             ($bounds.Top + [Math]::Floor($bounds.Height / 2)) -ne ($screen.Top + [Math]::Floor($screen.Height / 2) - 9)) { throw 'Packaged crosshair did not restore pixel offsets.' }
         $script:crosshairWindow = $window
+        $timerController = $form.GetType().GetField('timerController',$privateFlags).GetValue($form)
+        if ($null -eq $timerController -or !$timerController.GetType().GetProperty('Visible',$privateFlags).GetValue($timerController)) { throw 'Saved timer did not restore at startup.' }
+        if ($timerController.GetType().GetProperty('IsRunning',$privateFlags).GetValue($timerController)) { throw 'Timer must start paused at zero.' }
+        $script:timerWindow = $timerController.GetType().GetProperty('Window',$privateFlags).GetValue($timerController)
+        if ($null -eq $script:timerWindow -or !$script:timerWindow.GetType().GetProperty('Visible',$privateFlags).GetValue($script:timerWindow)) { throw 'Packaged timer window is not visible.' }
+        if ($null -ne $form.GetType().GetField('networkController',$privateFlags).GetValue($form)) { throw 'Network controller must remain unused at startup.' }
+        $restored = $form.GetType().GetField('config',$privateFlags).GetValue($form)
+        if ($restored.Timer.Parts.Count -ne 2 -or $restored.Timer.Parts[0].Style.FontSize -ne 31 -or $restored.Timer.Parts[1].Style.FontSize -ne 17 -or $restored.Timer.Parts[1].Style.Color -ne '#22FFFF') { throw 'Packaged timer part styles did not restore.' }
+        if ($restored.NetworkControl.BlockHotkey.VirtualKey -ne 120 -or $restored.NetworkControl.RestoreHotkey.VirtualKey -ne 121 -or $restored.NetworkControl.BlockSound -or -not $restored.NetworkControl.RestoreSound) { throw 'Packaged independent network controls did not restore.' }
+        if ($restored.Timer.ControlMode -ne 'Custom' -or $restored.Timer.UpdateIntervalMs -ne 250 -or $restored.Timer.LineSpacing -ne 12.5 -or $restored.Timer.ShortcutRules.Count -ne 1 -or -not $restored.Timer.ShortcutRules[0].Ready.Reset -or $restored.Timer.ShortcutRules[0].Running.Visibility -ne 'Hide') { throw 'Packaged custom timer actions and spacing/cadence did not restore.' }
+        if ($restored.NetworkControl.ExecutablePaths.Count -ne 2 -or $restored.NetworkControl.BlockSoundPath -ne $cueFile -or $restored.NetworkControl.BlockSoundVolume -ne 23 -or $restored.NetworkControl.RestoreSoundVolume -ne 67) { throw 'Packaged application list and imported audio/volumes did not restore.' }
         $bitmap = New-Object Drawing.Bitmap($form.Width,$form.Height)
         try { $form.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$bitmap.Width,$bitmap.Height))); $bitmap.Save((Join-Path $output 'startup.png')) } finally { $bitmap.Dispose() }
-        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9; compressedManagedDependencyLoaded=$true; compressedSdlColdExtraction=$true; verifiedCacheReused=$true; corruptedCacheRepaired=$true; actualSdlInitialized=$true } |
+        [pscustomobject]@{ status='PASS'; version=$info.Version; architecture=$Architecture; seconds=2.5; packagedAssembly=$exe; configRoot=$output; mainWindow=$form.Text; timerRestored=$true; customTimerRulesRestored=$true; timerCadenceAndLineSpacingRestored=$true; multiApplicationTargetsRestored=$true; importedCueAndVolumesRestored=$true; timerStartsPaused=$true; networkUnusedAtStartup=$true; crosshairRestored=$true; crosshairOffsetX=7; crosshairOffsetY=-9; compressedManagedDependencyLoaded=$true; compressedSdlColdExtraction=$true; verifiedCacheReused=$true; corruptedCacheRepaired=$true; actualSdlInitialized=$true } |
             ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding UTF8
     } catch { $script:smokeFailure = $_ }
     finally { $form.Close() }
@@ -99,4 +148,5 @@ $timer.Start()
 try { [Windows.Forms.Application]::Run($form) } finally { $timer.Dispose(); $form.Dispose() }
 if ($script:smokeFailure) { throw $script:smokeFailure }
 if ($script:crosshairWindow -and $script:crosshairWindow.Handle -ne [IntPtr]::Zero) { throw 'Crosshair native window survived application shutdown.' }
+if ($script:timerWindow -and $script:timerWindow.Handle -ne [IntPtr]::Zero) { throw 'Timer native window survived application shutdown.' }
 Write-Output ("PASS packaged {0} startup, live message loop and orderly shutdown; isolated configuration, disabled macros." -f $Architecture)

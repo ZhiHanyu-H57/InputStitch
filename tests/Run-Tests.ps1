@@ -1,12 +1,19 @@
 ﻿[CmdletBinding()]
-param([string[]]$Suite, [switch]$List, [switch]$SettingsSmoke)
+param([string[]]$Suite, [switch]$List, [switch]$SettingsSmoke, [switch]$Full, [switch]$CompileOnly,
+  [string]$BaseRef,[ValidateSet('Development','Release')][string]$Mode='Development',[switch]$PlanOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $allSuites = @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadenceTests','InputPipelineSchedulerTests','InputPipelineIntegrationTests','InputProviderSeamTests','Sdl3ProviderTests','CompositeInputProviderTests','Sdl3DeviceIdentityTests','KeyboardTests','IdleGamepadTests','XInputInputTests','DeviceIdentityTests','RouterSourcePolicyTests','AnalogTransformTests','ActivatorConditionTests','GamepadRouterTests','ControlledReplacementTests','SlotAcquisitionTests','VirtualGamepadPreferenceTests','LayerTests','LayerContextTests','MacroTimingTests','MacroWorkerPoolTests','MacroRunCoordinatorTests','ModifierSafetyPolicyTests','ReleasePolicyTests','UpdateInstallerTests','UpdateNetworkTests','UiSafetyTests','ProductivityTests','OutputOwnershipTests','ProductAcceptanceTests','CrosshairTests','SecondaryLayoutTests')
 $allSuites += 'AdvancedTriggerDispatchTests'
 $allSuites += 'RecordingEditingTests'
+$allSuites += @('CornerCutCrosshairTests','CornerCutDialogTests','TimerTests','NetworkControlTests','ToolIntegrationTests')
 if ($List) { $allSuites; return }
-$fullRun = -not $Suite
+$fullRun = $Full.IsPresent
+if($Full -and $Suite){throw 'Choose explicit -Full or selected -Suite, not both.'}
+if(!$Full -and !$Suite){
+  & (Join-Path $PSScriptRoot 'Run-Verification.ps1') -Mode $Mode -BaseRef $BaseRef -PlanOnly:$PlanOnly
+  return
+}
 $selectedSuites = @(if ($fullRun) { $allSuites } else { $Suite | ForEach-Object { $_.Split(',') } | Select-Object -Unique })
 foreach ($name in $selectedSuites) {
   if ($name -notin $allSuites) { throw "Unknown suite '$name'. Use -List to see accepted suite names." }
@@ -45,7 +52,8 @@ function Invoke-NativeCaptured([string]$file, [object[]]$arguments) {
 
 foreach($testSuite in $selectedSuites) {
   $exe=Join-Path $output ($testSuite+'.exe')
-  $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$testSuite","/out:$exe")
+  $entryPoint = if ($testSuite -eq 'NetworkControlTests') { 'InputStitch.NetworkControlTests' } else { $testSuite }
+  $arguments=@('/nologo','/noconfig','/nostdlib+','/target:exe','/platform:x64','/warnaserror+',"/main:$entryPoint","/out:$exe")
   foreach($name in @('mscorlib.dll','System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Xml.dll','Facades/netstandard.dll')) { $arguments += '/reference:'+(Join-Path $references $name) }
   $arguments += '/win32icon:' + (Join-Path $project 'InputStitch.ico')
 $arguments += '/reference:'+$client
@@ -53,18 +61,22 @@ $arguments += '/reference:'+$client
   $arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
   foreach($file in $productionSources) { $arguments += $file }
   $arguments += Join-Path $PSScriptRoot ($testSuite+'.cs')
+  $arguments += Join-Path $PSScriptRoot 'IsolatedUiDesktop.cs'
+  if ($testSuite -eq 'CornerCutCrosshairTests') { $arguments += Join-Path $PSScriptRoot 'Fixtures/LegacyCrosshair.cs' }
+  if ($testSuite -in @('CornerCutDialogTests','ToolIntegrationTests')) { $arguments += Join-Path $PSScriptRoot 'SecondaryLayoutTests.cs' }
   $compile = Invoke-NativeCaptured $compiler $arguments
   $compileReport = $compile.Output
   if($compile.ExitCode -ne 0) { $compileReport | Write-Output; Write-CiError "$testSuite compilation failed" $compileReport; throw "$testSuite compilation failed" }
-  $testArguments = if ($testSuite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } else { @() }
+  if($CompileOnly){Write-Output ('BUILT '+$testSuite+'; no test executed.');continue}
+  $testArguments = if ($testSuite -eq 'SecondaryLayoutTests') { @('--scaled-fonts') } elseif ($testSuite -eq 'ToolIntegrationTests') { if ($fullRun) { @('--core','--ui') } else { @('--core') } } elseif ($testSuite -eq 'ProductAcceptanceTests' -and !$fullRun) { @('--journey') } elseif ($testSuite -eq 'CrosshairTests' -and !$fullRun) { @('--core') } else { @() }
   $execution = Invoke-NativeCaptured $exe $testArguments
   $report = $execution.Output
   $report | Set-Content -LiteralPath (Join-Path $output ($testSuite+'.log')) -Encoding UTF8
   if($execution.ExitCode -ne 0) { $report | Write-Output; Write-CiError "$testSuite failed" $report; throw "$testSuite failed" }
   $report | Select-Object -Last 1 | Write-Output
 }
+if($CompileOnly){return}
 Write-Output ("PASS {0} selected regression suites. Tests use isolated observers/native target windows; real output acceptance is separate." -f $selectedSuites.Count)
 if ($fullRun -or $SettingsSmoke) {
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
-  if($LASTEXITCODE -ne 0) { Write-CiError 'Settings smoke tests failed' @('SettingsSmoke.ps1 returned a non-zero exit code.'); throw 'Settings smoke tests failed' }
+  & (Join-Path $PSScriptRoot 'Run-IsolatedUiScript.ps1') -Path (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
 }

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "native:obs",
+  "status": "PASS",
+  "sourceCommit": "7cfa5dd72ea01afd295846e1a9e51936ab1ffa9f",
+  "fingerprint": "f8b364549e58097c5d6f5352052958c0312a9ae31a35e4bb7fd86aabdf20977d",
+  "qualification": "OBS32.2.2 native x64 D3D9;4 recordings/48 frames; RTSS included/desktop excluded; original environment retained.",
+  "evidence": [
+    {
+      "path": "verification/evidence/native-obs-7cfa5dd72ea0.md",
+      "sha256": "34B028E7A68745BF80FF6A2470262D501ED12C14BF314E1E072FA9AF985C9DAF"
+    }
+  ]
+}

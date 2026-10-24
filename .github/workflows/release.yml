@@ -27,11 +27,15 @@ concurrency:
 jobs:
   verify:
     runs-on: windows-2022
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     outputs:
       version: ${{ steps.version.outputs.version }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Read version metadata
         id: version
         shell: powershell
@@ -39,24 +43,68 @@ jobs:
           $info = & ./scripts/Get-ReleaseInfo.ps1
           "version=$($info.Version)" >> $env:GITHUB_OUTPUT
           "prerelease=$($info.IsPrerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      - name: Select verification from actual or cumulative changes
+        id: plan
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_BETA: ${{ inputs.publish_beta }}
+          PUBLISH_STABLE: ${{ inputs.publish_stable }}
+        run: |
+          $event = Get-Content $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
+          $info = & ./scripts/Get-ReleaseInfo.ps1
+          $message = if ($event.head_commit) { $event.head_commit.message } else { '' }
+          $publishing = $env:GITHUB_REF -like 'refs/tags/v*' -or $env:PUBLISH_BETA -eq 'true' -or $env:PUBLISH_STABLE -eq 'true' -or $message -match '\[publish-(stable|beta)\]'
+          $mode = if ($publishing) { 'Release' } else { 'Development' }
+          if ($publishing) {
+            $stable = @(gh release list --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,isDraft --jq '.[] | select(.isPrerelease == false and .isDraft == false) | .tagName')
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve published Stable baseline.' }
+            $baseline = $stable | Where-Object { $_ -ne $info.Tag } | Select-Object -First 1
+            if (!$baseline) { throw 'A previous published Stable baseline is required.' }
+          } elseif ($event.pull_request) { $baseline = $event.pull_request.base.sha
+          } elseif ($event.before -and $event.before -notmatch '^0+$') { $baseline = $event.before
+          } else { $baseline = 'HEAD^' }
+          ./tests/Run-Verification.ps1 -Mode $mode -BaseRef $baseline -PlanOnly
+          $plan = Get-Content ./artifacts/verification/plan.json -Raw | ConvertFrom-Json
+          $build = $publishing -or 'ui:settings-smoke' -in $plan.Checks -or @($plan.ChangedPaths | Where-Object { $_ -match '^[^/]+\.cs$|^Assets/|^build\.ps1$|^app\.manifest$|^InputStitch\.ico$|^third-party/|^scripts/(Restore-|production-sources)' }).Count -gt 0
+          "mode=$mode" >> $env:GITHUB_OUTPUT
+          "baseline=$baseline" >> $env:GITHUB_OUTPUT
+          "build=$($build.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
       - name: Build and verify both Windows architectures
+        if: steps.plan.outputs.build == 'true'
         shell: powershell
         run: ./build.ps1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Verify R2 Stable manifest derivation
-        if: steps.version.outputs.prerelease == 'false'
+        if: steps.plan.outputs.build == 'true' && steps.version.outputs.prerelease == 'false'
         shell: powershell
         run: python scripts/Verify-R2-Manifest.py --manifest dist/InputStitch-update.xml --version '${{ steps.version.outputs.version }}'
-      - name: Run isolated regression and layout smoke tests
+      - name: Run selected checks and reuse matching evidence
         shell: powershell
-        run: ./tests/Run-Tests.ps1
+        env:
+          VERIFY_MODE: ${{ steps.plan.outputs.mode }}
+          VERIFY_BASELINE: ${{ steps.plan.outputs.baseline }}
+        run: ./tests/Run-Verification.ps1 -Mode $env:VERIFY_MODE -BaseRef $env:VERIFY_BASELINE
+      - name: Verify final packaged startup on both architectures
+        if: steps.plan.outputs.build == 'true'
+        shell: powershell
+        run: |
+          ./tests/Run-IsolatedUiScript.ps1 -Path ./tests/Run-PackagedSmoke.ps1 -Architecture x64 -ScriptArguments @('-Architecture','x64')
+          ./tests/Run-IsolatedUiScript.ps1 -Path ./tests/Run-PackagedSmoke.ps1 -Architecture x86 -ScriptArguments @('-Architecture','x86')
       - uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.build == 'true'
         with:
           name: InputStitch-${{ steps.version.outputs.version }}
           path: dist/*
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Verification-${{ github.sha }}
+          path: artifacts/verification/**
+          if-no-files-found: warn
 
   publish-beta:
     needs: verify

@@ -38,7 +38,7 @@ namespace InputStitch
         private readonly ComboBox style, monitor;
         private readonly NumericUpDown size, line, gap, dot, border, opacity, x, y;
         private readonly Button color, outlineColor, shortcut, save;
-        private readonly Label feedback;
+        private readonly Label feedback, gapLabel;
         private readonly CrosshairPreview preview;
         private bool loading;
         internal CrosshairOptions Result { get; private set; }
@@ -60,7 +60,7 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent; MinimizeBox = MaximizeBox = false;
             ClientSize = new Size(920, 700); MinimumSize = new Size(780, 590);
 
-            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 }; body.SuspendLayout();
             body.RowStyles.Add(new RowStyle(SizeType.Percent,100));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64)); body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
             EditorTabs tabs = new EditorTabs { Dock = DockStyle.Fill };
@@ -72,12 +72,16 @@ namespace InputStitch
             visible = Check(T("显示准星（也可用快捷键切换）", "Show crosshair (also controlled by hotkey)"));
             Row(look, "", enabled); Row(look, "", visible);
             style = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, Name = "crosshairStyle" };
-            style.Items.AddRange(Localizer.IsEnglish ? new object[] { "Dot", "Square", "Cross", "Cross + dot", "Ring", "Ring + dot", "T crosshair", "Diagonal cross" }
-                : new object[] { "圆点", "方块", "十字准星", "十字 + 中央圆点", "圆环", "圆环 + 中央圆点", "T 形准星", "斜十字" });
+            style.Items.AddRange(Localizer.IsEnglish ? new object[] { "Dot", "Square", "Cross", "Cross + dot", "Ring", "Ring + dot", "T crosshair", "Diagonal cross", "Corner-cut square" }
+                : new object[] { "圆点", "方块", "十字准星", "十字 + 中央圆点", "圆环", "圆环 + 中央圆点", "T 形准星", "斜十字", "缺角方环" });
             Row(look, T("准星样式", "Style"), style);
             size = Number(1, 200, "crosshairSize"); Row(look, T("大小（像素）", "Size (px)"), size);
             line = Number(1, 30, "crosshairLine"); Row(look, T("线宽（像素）", "Line width (px)"), line);
             gap = Number(0, 100, "crosshairGap"); Row(look, T("中心间隙", "Center gap (px)"), gap);
+            gapLabel = (Label)look.GetControlFromPosition(0, look.RowCount - 1);
+            gapLabel.TextChanged += delegate { SizeGapLabel(); };
+            gapLabel.FontChanged += delegate { SizeGapLabel(); };
+            SizeGapLabel();
             dot = Number(1, 50, "crosshairDot"); Row(look, T("中央圆点大小", "Center dot (px)"), dot);
             color = EditorDialogs.Button("", DialogResult.None); color.Name = "crosshairColor";
             color.Click += delegate { ChooseColor(false); }; Row(look, T("准星颜色", "Crosshair color"), color);
@@ -117,8 +121,8 @@ namespace InputStitch
             Row(place, "", Help(T("快捷键仅在开启准星后生效，会记住显隐状态。建议使用 Ctrl / Alt 组合；紧急停止键始终优先。", "The hotkey works while enabled and remembers visibility. Prefer a Ctrl/Alt combination. Emergency Stop always takes priority.")));
             Row(place, "", Help(T("显示器断开后暂时改用主显示器，重新连接后恢复原选择。", "A disconnected display falls back to the primary display until it returns.")));
 
-            Panel sideViewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            TableLayoutPanel side = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6, Padding = new Padding(12, 0, 0, 0) };
+            Panel sideViewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true }; sideViewport.SuspendLayout();
+            TableLayoutPanel side = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6, Padding = new Padding(12, 0, 0, 0) }; side.SuspendLayout();
             side.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             side.RowStyles.Add(new RowStyle(SizeType.AutoSize)); side.RowStyles.Add(new RowStyle(SizeType.Absolute, 240));
             for (int i = 2; i < 6; i++) side.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -146,13 +150,13 @@ namespace InputStitch
             foreach (NumericUpDown number in new[] { size, line, gap, dot, border, opacity, x, y }) number.ValueChanged += delegate { Changed(); };
             foreach (CheckBox check in new[] { enabled, visible, outline, livePreview }) check.CheckedChanged += delegate { Changed(); };
             style.SelectedIndexChanged += delegate { Changed(); }; monitor.SelectedIndexChanged += delegate { Changed(); };
-            ResumeLayout(true);
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
             Changed();
         }
         private static TableLayoutPanel Fields(TabPage page)
         {
             page.Padding = new Padding(10); page.AutoScroll = true; page.BackColor = Color.White;
-            TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 6, 12, 12) };
+            TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 6, 12, 12) }; fields.SuspendLayout();
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             fields.Layout += delegate
             {
@@ -176,6 +180,11 @@ namespace InputStitch
                 fields.Controls.Add(new Label { Text = title, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 4, 8, 4) }, 0, row);
                 fields.Controls.Add(input, 1, row);
             }
+        }
+        private void SizeGapLabel()
+        {
+            // AutoSize labels can retain their pre-scale width after a dynamic text change.
+            gapLabel.MinimumSize = TextRenderer.MeasureText(gapLabel.Text, gapLabel.Font);
         }
         private void LoadDraft()
         {
@@ -202,6 +211,7 @@ namespace InputStitch
         {
             if (loading) return;
             CrosshairOptions o = CaptureOptions(); preview.Options = o; preview.Invalidate();
+            gapLabel.Text = o.Style == CrosshairStyle.CornerCutSquare ? T("四角缺口", "Corner gap (px)") : T("中心间隙", "Center gap (px)");
             bool solid = o.Style == CrosshairStyle.Dot || o.Style == CrosshairStyle.Square;
             line.Enabled = !solid; gap.Enabled = !solid && o.Style != CrosshairStyle.Ring && o.Style != CrosshairStyle.RingDot;
             dot.Enabled = o.Style == CrosshairStyle.CrossDot || o.Style == CrosshairStyle.RingDot;
@@ -212,7 +222,7 @@ namespace InputStitch
             color.ForeColor = color.BackColor.GetBrightness() < .45 ? Color.White : EditorTheme.Ink;
             outlineColor.ForeColor = outlineColor.BackColor.GetBrightness() < .45 ? Color.White : EditorTheme.Ink;
             shortcut.Text = draft.Hotkey == null ? T("未设置", "Not assigned") : InputNames.FormatTrigger(draft.Hotkey);
-            string error = draft.Hotkey != null && ModifierSafetyPolicy.IsModifierVirtualKey(draft.Hotkey.VirtualKey)
+            string error = draft.Hotkey != null && (draft.Hotkey.Kind != InputKind.Keyboard || ModifierSafetyPolicy.IsModifierVirtualKey(draft.Hotkey.VirtualKey))
                 ? T("快捷键需包含一个普通键，例如 Ctrl + Alt + F10。", "Include a regular key, for example Ctrl + Alt + F10.")
                 : validate == null ? "" : validate(o);
             feedback.ForeColor = error.Length > 0 ? Color.Firebrick : EditorTheme.Muted;

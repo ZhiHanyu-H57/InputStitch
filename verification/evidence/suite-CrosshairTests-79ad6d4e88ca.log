@@ -1,0 +1,4 @@
+﻿PRIVATE UI process bound: InputStitchTest-67a4b8ae6a024baba1a5edd24411f835
+PASS crosshair: 162 checks; core rendering/editor on private desktop; native composition is separate.
+PASS private UI desktop; foreground test-window samples=0/311; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

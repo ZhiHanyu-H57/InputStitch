@@ -115,7 +115,7 @@ namespace InputStitch
         internal SettingsDialog(MacroConfig config, Func<TargetWindowIdentity> recentIdleTargetProvider,
             Func<DeviceInventorySnapshot> currentInventoryProvider)
         {
-            inventoryProvider = currentInventoryProvider;
+            SuspendLayout(); inventoryProvider = currentInventoryProvider;
             routerSourcePolicy = config.GamepadRouterSourcePolicy == null
                 ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -131,7 +131,7 @@ namespace InputStitch
             BackColor = Color.FromArgb(247, 249, 252);
             AutoScroll = true;
 
-            TableLayoutPanel root = new TableLayoutPanel();
+            TableLayoutPanel root = new TableLayoutPanel(); root.SuspendLayout();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(18);
             root.ColumnCount = 1;
@@ -162,8 +162,9 @@ namespace InputStitch
             languageBox.Items.Add("简体中文");
             languageBox.Items.Add("English");
             languageBox.SelectedIndex = string.Equals(config.Language, Localizer.English, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-            TableLayoutPanel languageRow = new TableLayoutPanel();
+            TableLayoutPanel languageRow = new TableLayoutPanel(); languageRow.SuspendLayout();
             languageRow.AutoSize = true;
+            languageRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             languageRow.Dock = DockStyle.Top;
             languageRow.ColumnCount = 2;
             languageRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -196,8 +197,9 @@ namespace InputStitch
             GroupBox gamepad = MakeGroup(Localizer.T("虚拟手柄输出"));
             TableLayoutPanel gamepadLayout = MakeStack();
             gamepad.Controls.Add(gamepadLayout);
-            TableLayoutPanel gamepadTypeRow = new TableLayoutPanel();
+            TableLayoutPanel gamepadTypeRow = new TableLayoutPanel(); gamepadTypeRow.SuspendLayout();
             gamepadTypeRow.AutoSize = true;
+            gamepadTypeRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             gamepadTypeRow.Dock = DockStyle.Top;
             gamepadTypeRow.ColumnCount = 2;
             gamepadTypeRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -339,37 +341,50 @@ namespace InputStitch
             RefreshGamepadStatus();
 
             GroupBox target = MakeGroup(Localizer.T("目标窗口与方案"));
-            TableLayoutPanel targetLayout = MakeStack();
+            FlowLayoutPanel targetLayout = new FlowLayoutPanel(); targetLayout.SuspendLayout();
+            targetLayout.AutoSize = true;
+            targetLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            targetLayout.Dock = DockStyle.Top;
+            targetLayout.FlowDirection = FlowDirection.TopDown;
+            targetLayout.WrapContents = false;
             target.Controls.Add(targetLayout);
             activateTargetBox = MakeCheck(Localizer.T("从界面运行时先切换到目标窗口"), config.ActivateTargetWindowOnUiRun);
             targetLayout.Controls.Add(activateTargetBox);
-            TableLayoutPanel delayRow = new TableLayoutPanel();
+            FlowLayoutPanel delayRow = new FlowLayoutPanel(); delayRow.SuspendLayout();
             delayRow.AutoSize = true;
+            delayRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             delayRow.Dock = DockStyle.Top;
-            delayRow.ColumnCount = 3;
-            delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            delayRow.WrapContents = false;
             Label delayLabel = new Label();
             delayLabel.Text = Localizer.T("切换后等待：");
             delayLabel.AutoSize = true;
-            delayLabel.Anchor = AnchorStyles.Left;
+            delayLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             delayLabel.Margin = new Padding(24, 5, 12, 5);
             delayBox = new NumericUpDown();
+            delayBox.AutoScaleMode = AutoScaleMode.None;
             delayBox.Minimum = 0;
             delayBox.Maximum = 5000;
             delayBox.Increment = 50;
             delayBox.Value = Math.Max(delayBox.Minimum, Math.Min(delayBox.Maximum, config.UiRunStartDelayMs));
             delayBox.Width = 100;
-            delayBox.Anchor = AnchorStyles.Left;
+            delayBox.Margin = new Padding(0, 3, 8, 5);
+            delayBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             Label ms = new Label();
             ms.Text = "ms";
             ms.AutoSize = true;
-            ms.Anchor = AnchorStyles.Left;
+            ms.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             ms.Margin = new Padding(8, 5, 0, 5);
-            delayRow.Controls.Add(delayLabel, 0, 0);
-            delayRow.Controls.Add(delayBox, 1, 0);
-            delayRow.Controls.Add(ms, 2, 0);
+            delayRow.Controls.Add(delayLabel);
+            delayRow.Controls.Add(delayBox);
+            delayRow.Controls.Add(ms);
+            delayRow.Layout += delegate
+            {
+                float scale = Math.Max(Font.GetHeight() / Font.GetHeight(96F), Font.Size / EditorTheme.BodyFontSize);
+                Padding margin = new Padding(0, (int)(3 * scale), (int)(8 * scale), (int)(5 * scale));
+                if (delayBox.Margin != margin) delayBox.Margin = margin;
+                int width = Math.Max(delayBox.MinimumSize.Width, (int)(100 * scale));
+                if (delayBox.Width != width) delayBox.Width = width;
+            };
             targetLayout.Controls.Add(delayRow);
             autoProfileBox = MakeCheck(Localizer.T("按前台程序自动切换已绑定方案"), config.AutoSwitchProfiles);
             targetLayout.Controls.Add(autoProfileBox);
@@ -377,8 +392,9 @@ namespace InputStitch
             GroupBox updates = MakeGroup(Localizer.T("软件更新"));
             TableLayoutPanel updatesLayout = MakeStack();
             updates.Controls.Add(updatesLayout);
-            TableLayoutPanel updateRow = new TableLayoutPanel();
+            TableLayoutPanel updateRow = new TableLayoutPanel(); updateRow.SuspendLayout();
             updateRow.AutoSize = true;
+            updateRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             updateRow.Dock = DockStyle.Top;
             updateRow.ColumnCount = 2;
             updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -427,7 +443,7 @@ namespace InputStitch
             tabs.Dock = DockStyle.Fill;
             AddSettingsTab(tabs, Localizer.T("常规"), general, updates);
             AddSettingsTab(tabs, Localizer.T("输入与安全"), input, gamepad);
-            AddSettingsTab(tabs, Localizer.IsEnglish ? "Automation" : "自动化", idleGroup, target);
+            AddSettingsTab(tabs, Localizer.IsEnglish ? "Automation" : "自动化", target, idleGroup);
             root.RowStyles.Clear();
             root.RowCount = 3;
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -435,7 +451,7 @@ namespace InputStitch
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.Controls.Add(tabs, 0, 1);
 
-            FlowLayoutPanel buttons = new FlowLayoutPanel();
+            FlowLayoutPanel buttons = new FlowLayoutPanel(); buttons.SuspendLayout();
             buttons.AutoSize = true;
             buttons.Dock = DockStyle.Fill;
             buttons.FlowDirection = FlowDirection.RightToLeft;
@@ -470,6 +486,7 @@ namespace InputStitch
             CancelButton = cancel;
             root.Padding = new Padding(0);
             EditorDialogs.Frame(this, root, buttons, EditorDialogs.T("常用选项保持默认即可。点击保存设置后生效，取消不会修改当前设置。", "Defaults work for most macros. Save settings to apply your changes, or cancel to keep your current setup."), hint);
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
 
         private static void AddSettingsTab(TabControl tabs, string title, params Control[] groups)
@@ -478,15 +495,17 @@ namespace InputStitch
             page.BackColor = Color.FromArgb(247, 249, 252);
             page.AutoScroll = true;
             page.Padding = new Padding(10);
-            TableLayoutPanel stack = new TableLayoutPanel();
+            TableLayoutPanel stack = new TableLayoutPanel(); stack.SuspendLayout();
             stack.AutoSize = true;
             stack.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             stack.Dock = DockStyle.Top;
             stack.ColumnCount = 1;
+            stack.RowCount = groups.Length;
             stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             foreach (Control group in groups)
             {
-                group.Dock = DockStyle.Fill;
+                stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                group.Dock = DockStyle.Top;
                 group.Margin = new Padding(0, 0, 0, 10);
                 stack.Controls.Add(group);
             }
@@ -561,20 +580,26 @@ namespace InputStitch
 
         private static GroupBox MakeGroup(string text)
         {
-            GroupBox box = new EditorSection();
+            GroupBox box = new EditorSection(); box.SuspendLayout();
             box.Text = text;
             box.Dock = DockStyle.Top;
             box.AutoSize = false;
             box.Padding = new Padding(12, 18, 12, 10);
             box.Margin = new Padding(0, 0, 0, 12);
             box.BackColor = Color.White;
+            box.Layout += delegate
+            {
+                float scale = Math.Max(box.Font.GetHeight() / box.Font.GetHeight(96F), box.Font.Size / EditorTheme.BodyFontSize);
+                Padding padding = new Padding((int)(12 * scale), (int)(18 * scale), (int)(12 * scale), (int)(10 * scale));
+                if (box.Padding != padding) box.Padding = padding;
+            };
             EditorDialogs.FitSection(box);
             return box;
         }
 
         private static TableLayoutPanel MakeStack()
         {
-            TableLayoutPanel panel = new TableLayoutPanel();
+            TableLayoutPanel panel = new TableLayoutPanel(); panel.SuspendLayout();
             panel.Dock = DockStyle.Top;
             panel.AutoSize = true;
             panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;

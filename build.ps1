@@ -186,6 +186,7 @@ function New-SourceArchive {
         'docs',
         'scripts',
         'tests',
+        'verification',
         'tools',
         # The optional SDL3 runtime is downloaded locally by scripts/Restore-Sdl3.ps1 and is intentionally
         # excluded from the source archive so release artifacts stay deterministic and small.

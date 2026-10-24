@@ -21,6 +21,8 @@ namespace InputStitch
         {
             if (!options.Enabled || options.Hotkey == null) return "";
             TriggerSpec key = options.Hotkey;
+            string toolConflict = ToolShortcutConflict(key, null, false, true, true);
+            if (toolConflict.Length > 0) return toolConflict;
             InputEventInfo candidate = new InputEventInfo { Input = new InputSpec { Kind = InputKind.Keyboard, VirtualKey = key.VirtualKey, Extended = key.Extended },
                 Ctrl = key.Ctrl, Shift = key.Shift, Alt = key.Alt, Win = key.Win };
             if (ModifierSafetyPolicy.TriggerRequiredModifiersMatch(config.PanicTrigger, candidate))

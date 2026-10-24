@@ -1,5 +1,94 @@
 # PLAN.md
 
+## Impact-based verification and 1.6.0 Stable publication authorized — 2026-10-24
+
+User authorized rules, test scripts and publication workflow changes, then
+Stable1.6.0 publication of frozen beta.7 functionality. No feature changes.
+Development selects actual changes; releases use previous published Stable1.5.2
+and reuse matching source/assertion/dependency evidence. Remove unconditional
+full runs and repeated soaks. Validate workflow changes and remaining release
+delta only, retain final package/update checks. Merge a protected-main PR,
+publish and verify GitHub/R2 assets, then record final results.
+
+## Automation whitespace, PrintScreen and private UI verification — 2026-10-24
+
+Local beta.7 removes inflated native numeric margins/section padding and nested
+auto-size height feedback. Main input sink/run button preserve PrintScreen.
+Cached dropdown scale/metadata reduces repeated preparation. Whole test processes
+start privately; no user desktop activation, leftover inspectors or manual gate.
+Six selected suites, 125683/220 secondary layouts, 76814/72 tool views, native
+automation540/36, native settings2188/2, journey142 and both final packages pass.
+Same-host48-sample preparation medians improve16.9–31.4%; binaries add2.5KiB each.
+See docs/UI_LAYOUT_AND_INPUT_1_6_0_BETA7.md. Local delivery, no publication scope.
+
+## Settings rendering and timer selection fixed — 2026-10-24
+
+Local 1.6.0-beta.6 fixes nested native DPI scaling, bloated sound/settings rows,
+Shift-selection visibility side effects and timer editor reflow. Batch editing
+is visible above the list. Final native144-DPI and100–200% settings matrices,
+relevant selection/layout regressions, old XML and both packages pass.
+Each executable adds512B with no dependency. See
+docs/UI_REGRESSIONS_1_6_0_BETA6.md. Local delivery complete; no publication scope.
+User Escape stopped Computer Use; no further desktop input or manual-trial gate.
+
+## Dialog responsiveness and usability completed — 2026-10-24
+
+Local 1.6.0-beta.5 fixes repeated layout/text measurement during popup creation,
+retains existing editing/stop guards, improves timer multi-selection/custom rule
+setup and network list/cue controls. Unchanged timer parts and preview reuse
+bounded surfaces. Dialog medians drop 66.7–84.8% for settings/step/crosshair/timer/
+network on this host. Relevant core/layout/journey/density, both packages,
+actual native desktop and OBS capture pass. See
+docs/USABILITY_AND_PERFORMANCE_1_6_0_BETA5.md.
+Current local delivery complete; no further architecture/feature/publication work.
+
+## Custom timer actions and network customization completed — 2026-10-24
+
+Local 1.6.0-beta.4: four control presets plus fully composed per-hotkey/state
+rules, display cadence, batch styles and line spacing; PCM WAV import/independent
+volume and up to 16 application targets. Nine selected suites, tool UI 75790/48,
+macro journey 142, native desktop 142 per architecture, OBS 48 frames and guest
+network 330 pass. Both final packaged binaries pass. See
+docs/OVERLAY_TOOLS_1_6_0_BETA4.md. Local delivery complete; no publication scope.
+
+## Independent network commands and timer parts completed — 2026-10-24
+
+Local 1.6.0-beta.3 implements separate disconnect/restore hotkeys, individually
+optional confirmation sounds and ordered styled timer parts. Legacy toggle and
+template behavior survives reload; defaults stay opt-in. Nine selected suites,
+SettingsSmoke, tool UI 37689/32, macro journey 142, desktop 109 per architecture,
+actual OBS 48 frames, guest dual-stack network 304 and both packages pass.
+See docs/OVERLAY_TOOLS_1_6_0_BETA3.md. No Stable publication or further work authorized.
+
+## Overlay capture and isolated recovery acceptance — 2026-10-24
+
+Local 1.6.0-beta.2 closes actual OBS Game Capture and guest-wide IPv4/IPv6
+TCP/UDP acceptance. OBS four recordings/48 decoded frames pass; native WFP
+application scope and four whole-guest restore/exit/TerminateProcess scenarios
+pass 299 assertions. Production changes are version metadata and capture help
+only. Eight selected suites, 29933/32 tool UI views and both packaged architectures
+pass; sizes unchanged. Stable 1.5.2 remains published. No further feature work or
+publication authorized. See docs/OVERLAY_TOOLS_1_6_0_BETA2.md.
+
+## Overlay tools beta — user authorized 2026-10-23
+
+Completed local 1.6.0-beta.1: configurable corner-cut ring, desktop/RTSS timer,
+reversible WFP network toggle. 16 selected suites pass; tool UI 29933/32 views,
+macro journey 142, density 3328, packaged x64/x86 pass. Desktop timer 77 checks
+per architecture; actual D3D9 both architectures, one-pixel shift and unchanged
+independent client pass. Network live IPv4 TCP/UDP, existing flows, negative
+control and crash recovery pass. IPv6 live/whole-host disconnect and OBS capture
+remain outside executed scope. Stable 1.5.2 unchanged. See
+docs/OVERLAY_TOOLS_1_6_0_BETA1.md for commands, hashes and limits.
+
+Local beta: corner-cut square crosshair, configurable desktop/optional RTSS
+stopwatch, reversible computer/application network hotkey. Published 1.5.2 stays
+unchanged. No arbitrary drawing editor or Stable publication in this scope.
+Keep optional tools separate from macro runtime; elevate only a temporary WFP
+helper. Root integrates isolated modules and runs impact-selected acceptance,
+legacy settings and packaged smoke. Actual network probes target a dedicated
+executable; never interrupt this host's entire connection. No manual-trial gate.
+
 ## 1.5.2 Stable released and verified — 2026-10-23
 
 Published v1.5.2 at 2278a55730e05beebd2f6a63f51a9f1552567499 after complete

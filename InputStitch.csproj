@@ -1,4 +1,4 @@
-﻿<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -87,6 +87,14 @@
     <Compile Include="CrosshairSettingsDialog.cs" />
     <Compile Include="MainForm.Crosshair.cs" />
     <Compile Include="MainForm.AdvancedTriggers.cs" />
+    <Compile Include="Timer.cs" />
+    <Compile Include="TimerOverlay.cs" />
+    <Compile Include="TimerRtss.cs" />
+    <Compile Include="NetworkControl.cs" />
+    <Compile Include="NetworkPrivilegeHelper.cs" />
+    <Compile Include="ToolSettingsDialogs.cs" />
+    <Compile Include="NetworkSettingsDialog.cs" />
+    <Compile Include="MainForm.Tools.cs" />
     <None Include="InputStitch.ico" />
     <EmbeddedResource Include="assets\mouse-color.jpg"><LogicalName>InputStitch.Assets.mouse-color.jpg</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="assets\mouse-alpha.png"><LogicalName>InputStitch.Assets.mouse-alpha.png</LogicalName></EmbeddedResource>

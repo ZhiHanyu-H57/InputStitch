@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:CrosshairTests",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "81b47f81dc568ac4a6c3367341c582438dceecfbbe7b7790d04e5a49fe5f7572",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "8CC4194975B3E6195D2CC49137CB4C345718DB15885B4E79CB27E6C28A3DB995",
+      "path": "verification/evidence/suite-CrosshairTests-79ad6d4e88ca.log"
+    }
+  ]
+}

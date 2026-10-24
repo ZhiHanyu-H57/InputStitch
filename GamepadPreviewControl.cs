@@ -348,11 +348,13 @@ namespace InputStitch
 
         protected override bool IsInputKey(Keys keyData)
         {
+            if (UiSafetyPolicy.PassThroughUiKey(keyData)) return base.IsInputKey(keyData);
             return true;
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (UiSafetyPolicy.PassThroughUiKey(e.KeyData)) { base.OnKeyDown(e); return; }
             e.Handled = true;
             e.SuppressKeyPress = true;
         }

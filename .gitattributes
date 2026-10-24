@@ -1,0 +1,2 @@
+# Preserve original receipt evidence bytes across Windows/CI checkouts.
+verification/evidence/** -text

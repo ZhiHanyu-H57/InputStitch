@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:UiSafetyTests",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "d5abcd28ecdbda67f5df4e9200263a78c42f65c19cfc514b0a36da1d72342cd6",
+  "qualification": "1.6.0-beta.7; original assertion counts and Windows context in log; feature inputs unchanged.",
+  "evidence": [
+    {
+      "sha256": "72B63D35A118D3EFBBD63BE42E53EE6C8119ABE19E0BCD6C56D1EF42EF757633",
+      "path": "verification/evidence/suite-UiSafetyTests-c4cd0bf79ae8.log"
+    }
+  ]
+}

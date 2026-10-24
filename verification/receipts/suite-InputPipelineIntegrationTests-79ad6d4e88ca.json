@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:InputPipelineIntegrationTests",
+  "status": "PASS",
+  "sourceCommit": "79ad6d4e88caa99cfae63202eb88589d3c1286bc",
+  "fingerprint": "262efb49e41417a8ac400919aa1489e06aa9c99da2738fc6e913ff5619c695ad",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "D2507828C19D08000582B9E59CAEA721D56A29B4819A780B8A7B91C219015A54",
+      "path": "verification/evidence/suite-InputPipelineIntegrationTests-79ad6d4e88ca.log"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:journey",
+  "status": "PASS",
+  "sourceCommit": "c4cd0bf79ae8becaa37467f7fe3abf8704e36aa9",
+  "fingerprint": "6a24257b60c0b80e5c9118c78866e86f9228ab5f5f98e6d3db3047135c68b31e",
+  "qualification": "1.6.0-beta.7; zh/en 100/125/150/200% where applicable; whole-process private Windows desktop; metadata/settings are checked separately.",
+  "evidence": [
+    {
+      "sha256": "44243ACAE61F422EC59DF04DF0932562426D72D8A00D5D6411870792B71D0507",
+      "path": "verification/evidence/ui-journey-c4cd0bf79ae8.log"
+    }
+  ]
+}

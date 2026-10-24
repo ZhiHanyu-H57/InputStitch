@@ -1,0 +1,38 @@
+﻿PASS options clone preserves modifiers and startup never blocks
+PASS disabled/missing executable refuses before elevation
+PASS cancelled UAC and startup failure never report blocked
+PASS toggle restores and reuses authorized idle helper
+PASS independent block is idempotent and restore never starts a helper
+PASS new hotkeys and independent sound preferences preserve legacy toggle
+PASS sounds follow confirmed edges once and respect each mute preference
+PASS embedded cues are small valid PCM waves with opposite pitch direction
+PASS legacy missing target array and default audio fields preserve XML
+PASS sound edge output snapshots file and independent volume
+PASS multiple applications validate before elevation and retain legacy single protocol
+PASS multi-app protocol preserves complete batch and rejects malformed sets
+PASS all batch WFP filters share one transaction and release together
+PASS audio aliases are bounded, independently controlled and cleaned on completion
+AUDIO EVIDENCE PCM16 native parse/play=PASS; independent gains=210/630 per1000; silent fixture ended; player/stream slots=2->0; system/session volume setters=none
+PASS native PCM WAV scaling, silent playback and per-cue resource cleanup
+PASS false reply/request failure closes connection
+PASS helper crash clears blocked state and notifies
+PASS view exception cannot undo committed block
+PASS restore transport failure forces fail-open pipe teardown
+PASS Dispose never waits for pending elevation and cannot later block
+PASS concurrent toggles serialize to restored state
+PASS WFP exact executable applies all four layers in one transaction
+PASS whole-computer block has no executable condition
+PASS each native failure rolls back and frees only owned session
+PASS abort failure still closes engine and releases app allocation
+PASS pipe EOF/parent disappearance restores active session
+PASS helper protocol restores before acknowledgment and is idempotent
+PASS native startup failure and invalid scope never acknowledge blocked
+PASS lost response/restore failure always leaves session scope
+PASS bounded pipe frames accept unicode and reject invalid size
+PASS helper verb does not accidentally start macro UI
+PASS pipe ACL grants only current identity and administrators
+PASS real named pipe authenticates parent/client and closes child on EOF
+PASS real helper process loss raises disconnection
+PASS real pipe timeout cancels pending IO and tears down child session
+PASS native ABI layout matches Windows SDK
+RESULT 36 passed; architecture=64; native network mutations=0
