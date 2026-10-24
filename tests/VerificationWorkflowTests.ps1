@@ -15,6 +15,10 @@ $p=Get-VerificationPlan -ChangedPaths @('.gitignore')
 Check ('workflow' -in $p.Checks -and !$p.SoakRequired) 'Discovery-rule changes verify the selector only.'
 & git -C $project check-ignore -q scripts/__pycache__/verification-fixture.pyc
 Check ($LASTEXITCODE -eq 0) 'Generated Python cache cannot become an unclassified source change.'
+$p=Get-VerificationPlan -ChangedPaths @('.gitattributes')
+Check ('workflow' -in $p.Checks) 'Checkout normalization changes verify evidence handling.'
+$attribute=& git -C $project check-attr text -- verification/evidence/fixture.log
+Check ($attribute -match 'text: unset$') 'Original evidence bytes survive different checkout line-ending settings.'
 $p=Get-VerificationPlan -ChangedPaths @('EditorPresentation.cs')
 Check ('ui:secondary' -in $p.Checks -and !$p.SoakRequired -and 'suite:MacroRunCoordinatorTests' -notin $p.Checks) 'Shared UI needs layouts without macro/soak expansion.'
 $p=Get-VerificationPlan -ChangedPaths @('MacroWorkerPool.cs')

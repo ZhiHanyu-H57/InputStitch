@@ -18,7 +18,7 @@ function Get-VerificationPlan {
     foreach ($raw in $ChangedPaths) {
         $path = $raw.Replace('\','/')
         if ($path -match '^tests/([^/]+Tests)\.cs$' -and $Matches[1] -in $suites) { [void]$checks.Add('suite:'+$Matches[1]); continue }
-        if ($path -match '(^\.gitignore$|^scripts/Verification\.psm1$|^tests/(Run-Tests|Run-Verification|VerificationWorkflowTests|Record-VerificationEvidence)\.ps1$|^verification/|^\.github/workflows/)') { [void]$checks.Add('workflow'); continue }
+        if ($path -match '(^\.gitattributes$|^\.gitignore$|^scripts/Verification\.psm1$|^tests/(Run-Tests|Run-Verification|VerificationWorkflowTests|Record-VerificationEvidence)\.ps1$|^verification/|^\.github/workflows/)') { [void]$checks.Add('workflow'); continue }
         if ($path -match '^[^/]+\.md$|^(docs/|website/|LICENSE|\.gitignore)') { continue }
         if ($path -eq 'ReleaseInfo.cs') { foreach($id in @('suite:ReleasePolicyTests','ui:settings','ui:settings-native','ui:settings-smoke')){[void]$checks.Add($id)}; continue }
         if ($path -match '^(build\.ps1|app\.manifest|InputStitch\.csproj|InputStitch\.ico|Assets/|scripts/(Restore-|Get-|production-sources)|third-party/)') { [void]$checks.Add('suite:SourceManifestTests'); [void]$checks.Add('suite:ReleasePolicyTests'); continue }
@@ -69,7 +69,7 @@ function Get-VerificationInputs {
     if($Check -eq 'native:obs') { return @($tracked | Where-Object {$_ -match '^(InputStitch\.cs|Crosshair\.cs|CrosshairOverlay\.cs|Timer\.cs|TimerOverlay\.cs|TimerRtss\.cs|tests/(obs-capture/|Run-Obs|TimerD3D|Run-TimerAcceptance))'}) }
     if($Check -eq 'native:network') { return @($tracked | Where-Object {$_ -match '^(InputStitch\.cs|NetworkControl\.cs|NetworkPrivilegeHelper\.cs|tests/(isolated-network/|LiveNetwork|Run-(Live|Isolated)Network))'}) }
     if($Check -eq 'native:crosshair'){return @($tracked | Where-Object {$_ -match '^Crosshair(Overlay)?\.cs$|^tests/CrosshairTests\.cs$'})}
-    if($Check -eq 'workflow'){return @($tracked | Where-Object {$_ -match '^(\.gitignore$|scripts/Verification\.psm1|tests/(Run-Tests|Run-Verification|VerificationWorkflowTests|Record-VerificationEvidence)\.ps1|\.github/workflows/)'})}
+    if($Check -eq 'workflow'){return @($tracked | Where-Object {$_ -match '^(\.gitattributes$|\.gitignore$|scripts/Verification\.psm1|tests/(Run-Tests|Run-Verification|VerificationWorkflowTests|Record-VerificationEvidence)\.ps1|\.github/workflows/)'})}
     if($Check -eq 'runtime:soak') { return @($tracked | Where-Object {$_ -match '^(ConcurrentRuntime|MacroRunCoordinator|MacroWorkerPool|OutputOwnership|MainForm\.AdvancedTriggers|InputPipeline)\.cs$|^tests/(ProductAcceptanceTests\.cs|Run-ProductAcceptance\.ps1|IsolatedUiDesktop\.cs)$'}) }
     $sourceManifest = if($Ref){@(& git -C $Root show ($Ref+':scripts/production-sources.txt'))}else{Get-Content (Join-Path $Root 'scripts/production-sources.txt')}
     $inputs=@($sourceManifest | Where-Object {$_ -match '^[^#].*\.cs$' -and $_ -ne 'ReleaseInfo.cs'})

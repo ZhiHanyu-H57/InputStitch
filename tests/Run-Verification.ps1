@@ -8,6 +8,8 @@ $project=Split-Path $PSScriptRoot -Parent
 Import-Module (Join-Path $project 'scripts/Verification.psm1') -Force
 if(!$ReceiptDirectory){$ReceiptDirectory=Join-Path $project 'verification/receipts'}
 if(!$OutputDirectory){$OutputDirectory=Join-Path $project 'artifacts/verification'}
+$OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
+$ReceiptDirectory=[IO.Path]::GetFullPath($ReceiptDirectory)
 if($Mode -eq 'Release' -and !$BaseRef){throw 'Release verification requires the previous published Stable ref in -BaseRef.'}
 $plan=Get-VerificationPlan -Mode $Mode -BaseRef $BaseRef -RequireSoak:$RequireSoak
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
