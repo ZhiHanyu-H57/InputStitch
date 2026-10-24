@@ -49,6 +49,13 @@ namespace InputStitch
 
         internal static void Frame(Form form, Control body, Control actions, string description, Control oldIntro)
         {
+            form.SuspendLayout();
+            try { FrameCore(form, body, actions, description, oldIntro); }
+            finally { form.ResumeLayout(true); }
+        }
+
+        private static void FrameCore(Form form, Control body, Control actions, string description, Control oldIntro)
+        {
             if (oldIntro != null) { oldIntro.Parent.Controls.Remove(oldIntro); oldIntro.Dispose(); }
             TableLayoutPanel oldTable = actions.Parent as TableLayoutPanel;
             if (oldTable != null)
@@ -77,6 +84,11 @@ namespace InputStitch
             EditorTheme.Apply(form);
             Button primary = form.AcceptButton as Button;
             if (primary != null) EditorTheme.Primary(primary, false);
+        }
+
+        internal static void ResumeChildLayouts(Control root)
+        {
+            foreach (Control child in root.Controls) { ResumeChildLayouts(child); child.ResumeLayout(true); }
         }
 
         internal static EditorSection Section(string title)

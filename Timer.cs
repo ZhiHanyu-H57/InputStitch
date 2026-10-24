@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Drawing;
@@ -557,21 +557,40 @@ namespace InputStitch
         }
     }
 
-    // Each changing number reuses its digit surfaces. One short-lived composition surface
-    // per visible part avoids rerasterizing fonts and outlines on animation ticks.
+    // Reuse each unchanged part/line and replace only changed numbers. Retained
+    // composition surfaces share a 4 MiB budget; larger lines remain temporary.
     internal sealed class TimerPartsFrameCache : IDisposable
     {
         private sealed class Entry : IDisposable
         {
             internal TimerPart Part; internal TimerPartMetrics Metrics; internal TimerFrameCache Cache; internal ImageAttributes Alpha; internal bool OwnCache;
-            public void Dispose() { if (OwnCache) Cache.Dispose(); if (Alpha != null) Alpha.Dispose(); }
+            internal readonly Surface[] Lines = new Surface[8];
+            public void Dispose() { foreach (Surface line in Lines) if (line != null) line.Image.Dispose(); if (OwnCache) Cache.Dispose(); if (Alpha != null) Alpha.Dispose(); }
         }
-        private sealed class Sprite { internal Bitmap Image; internal Entry Entry; internal float X, Y; }
+        private sealed class Surface
+        {
+            internal string Text; internal Bitmap Image; internal float Advance;
+            internal long Bytes { get { return (long)Image.Width * Image.Height * 4; } }
+        }
+        private sealed class Sprite { internal Bitmap Image; internal Entry Entry; internal float X, Y; internal bool Temporary; }
         private readonly TimerOptions options;
         private readonly List<Entry> entries = new List<Entry>();
         private readonly int padding;
         private readonly float baseline, lineHeight, lineAdvance;
         internal int CachedParts { get { int count = 0; foreach (Entry e in entries) if (e.OwnCache) count += e.Cache.CachedParts; return count; } }
+        private const long SurfaceLimit = 4 * 1024 * 1024;
+        private long surfaceBytes;
+        internal long CachedSurfaceBytes { get { return surfaceBytes; } }
+        private Surface Line(Entry entry, int index, string text, out bool temporary)
+        {
+            Surface previous = entry.Lines[index];
+            if (previous != null && previous.Text == text) { temporary = false; return previous; }
+            if (previous != null) { surfaceBytes -= previous.Bytes; previous.Image.Dispose(); entry.Lines[index] = null; }
+            Surface next = new Surface { Text = text, Image = entry.Cache.Render(text), Advance = entry.Cache.Measure(text) };
+            temporary = surfaceBytes + next.Bytes > SurfaceLimit;
+            if (!temporary) { entry.Lines[index] = next; surfaceBytes += next.Bytes; }
+            return next;
+        }
         internal TimerPartsFrameCache(TimerOptions source)
         {
             options = source.Clone(); options.Normalize();
@@ -603,8 +622,9 @@ namespace InputStitch
                     {
                         if (n > 0) { width = Math.Max(width, x); x = 0; line++; if (line == 8) break; }
                         if (lines[n].Length == 0 || x >= 4096 || line * lineAdvance >= 2048) continue;
-                        sprites.Add(new Sprite { Image = e.Cache.Render(lines[n]), Entry = e, X = x + padding - e.Metrics.Padding, Y = line * lineAdvance + baseline - e.Metrics.Baseline });
-                        x += e.Cache.Measure(lines[n]) + e.Part.Style.LetterSpacing; width = Math.Max(width, x);
+                        bool temporary; Surface surface = Line(e, n, lines[n], out temporary);
+                        sprites.Add(new Sprite { Image = surface.Image, Temporary = temporary, Entry = e, X = x + padding - e.Metrics.Padding, Y = line * lineAdvance + baseline - e.Metrics.Baseline });
+                        x += surface.Advance + e.Part.Style.LetterSpacing; width = Math.Max(width, x);
                     }
                 }
                 Bitmap result = new Bitmap(Math.Min(4096, Math.Max(1, (int)Math.Ceiling(width) + padding * 2)), Math.Min(2048, Math.Max(1, (int)Math.Ceiling(lineHeight + lineAdvance * Math.Min(7, line)))), PixelFormat.Format32bppPArgb);
@@ -624,8 +644,8 @@ namespace InputStitch
                 }
                 catch { result.Dispose(); throw; }
             }
-            finally { foreach (Sprite s in sprites) s.Image.Dispose(); }
+            finally { foreach (Sprite s in sprites) if (s.Temporary) s.Image.Dispose(); }
         }
-        public void Dispose() { foreach (Entry e in entries) e.Dispose(); entries.Clear(); }
+        public void Dispose() { foreach (Entry e in entries) e.Dispose(); entries.Clear(); surfaceBytes = 0; }
     }
 }

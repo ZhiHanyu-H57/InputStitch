@@ -60,7 +60,7 @@ namespace InputStitch
             StartPosition = FormStartPosition.CenterParent; MinimizeBox = MaximizeBox = false;
             ClientSize = new Size(920, 700); MinimumSize = new Size(780, 590);
 
-            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 }; body.SuspendLayout();
             body.RowStyles.Add(new RowStyle(SizeType.Percent,100));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64)); body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
             EditorTabs tabs = new EditorTabs { Dock = DockStyle.Fill };
@@ -121,8 +121,8 @@ namespace InputStitch
             Row(place, "", Help(T("快捷键仅在开启准星后生效，会记住显隐状态。建议使用 Ctrl / Alt 组合；紧急停止键始终优先。", "The hotkey works while enabled and remembers visibility. Prefer a Ctrl/Alt combination. Emergency Stop always takes priority.")));
             Row(place, "", Help(T("显示器断开后暂时改用主显示器，重新连接后恢复原选择。", "A disconnected display falls back to the primary display until it returns.")));
 
-            Panel sideViewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            TableLayoutPanel side = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6, Padding = new Padding(12, 0, 0, 0) };
+            Panel sideViewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true }; sideViewport.SuspendLayout();
+            TableLayoutPanel side = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6, Padding = new Padding(12, 0, 0, 0) }; side.SuspendLayout();
             side.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             side.RowStyles.Add(new RowStyle(SizeType.AutoSize)); side.RowStyles.Add(new RowStyle(SizeType.Absolute, 240));
             for (int i = 2; i < 6; i++) side.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -150,13 +150,13 @@ namespace InputStitch
             foreach (NumericUpDown number in new[] { size, line, gap, dot, border, opacity, x, y }) number.ValueChanged += delegate { Changed(); };
             foreach (CheckBox check in new[] { enabled, visible, outline, livePreview }) check.CheckedChanged += delegate { Changed(); };
             style.SelectedIndexChanged += delegate { Changed(); }; monitor.SelectedIndexChanged += delegate { Changed(); };
-            ResumeLayout(true);
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
             Changed();
         }
         private static TableLayoutPanel Fields(TabPage page)
         {
             page.Padding = new Padding(10); page.AutoScroll = true; page.BackColor = Color.White;
-            TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 6, 12, 12) };
+            TableLayoutPanel fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 6, 12, 12) }; fields.SuspendLayout();
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             fields.Layout += delegate
             {

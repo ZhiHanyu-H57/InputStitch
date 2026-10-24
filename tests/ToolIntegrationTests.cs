@@ -74,14 +74,43 @@ internal static class ToolIntegrationTests
         Application.EnableVisualStyles(); EmbeddedDependencyLoader.Register();
         try
         {
+            if (args.Contains("--dialog-performance")) { DialogPerformance(); return 0; }
             bool core = !args.Contains("--ui") || args.Contains("--core");
-            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); TimerCustomization(); NetworkCustomization(); }
+            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); TimerCustomization(); NetworkCustomization(); Usability(); }
             if (args.Contains("--ui")) { DialogLayouts(); CustomRuleLayouts(); ModalWorkflow(); }
             string summary = "PASS tool integration: " + checks + " checks; " + windows + " dialog views; core=" + core + "; ui=" + args.Contains("--ui");
             File.WriteAllText(Path.Combine(root, core && args.Contains("--ui") ? "all-summary.txt" : core ? "core-summary.txt" : "ui-summary.txt"), summary);
             Console.WriteLine(summary); return 0;
         }
         catch (Exception ex) { File.WriteAllText(Path.Combine(root, "failure.txt"), ex.ToString()); Console.Error.WriteLine(ex); return 1; }
+    }
+    private static void DialogPerformance()
+    {
+        string path = Path.Combine(root, "dialog-opening.csv"); List<string> rows = new List<string> { "language,dialog,sample,constructor_ms,shown_ms,total_ms" };
+        foreach (string language in new[] { "zh-CN", "en-US" })
+        {
+            Localizer.SetLanguage(language); MacroConfig config = Config(); config.Timer.Enabled = config.Crosshair.Enabled = config.NetworkControl.Enabled = false;
+            using (MainForm main = new MainForm(config, Path.Combine(root, "dialog-perf"), new NoOutput()))
+            {
+                IntPtr owner = main.Handle;
+                Func<Form>[] factories = { () => new SettingsDialog(config), () => new StepEditDialog(main, new MacroStep { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F8 }), () => new CrosshairSettingsDialog(config.Crosshair, null, null), () => new TimerSettingsDialog(config.Timer, null, null), () => new NetworkSettingsDialog(config.NetworkControl, null), () => new VirtualKeyboardDialog(false, null) };
+                foreach (Func<Form> factory in factories) for (int sample = 0; sample < 3; sample++)
+                {
+                    Stopwatch elapsed = Stopwatch.StartNew();
+                    using (Form dialog = factory())
+                    {
+                        double constructed = elapsed.Elapsed.TotalMilliseconds;
+                        dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-20000, -20000); dialog.ShowInTaskbar = false;
+                        dialog.Show(main); dialog.Update(); Application.DoEvents(); double total = elapsed.Elapsed.TotalMilliseconds;
+                        rows.Add(language + "," + dialog.GetType().Name + "," + sample + "," + constructed.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + "," + (total - constructed).ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + "," + total.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+                        dialog.Close();
+                    }
+                }
+                Stopwatch guard = Stopwatch.StartNew(); for (int i = 0; i < 100; i++) Call(main, "UpdateUiSafetyPauseState", false);
+                Console.WriteLine("GUARD " + language + " 100_calls_ms=" + guard.Elapsed.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+        File.WriteAllLines(path, rows); foreach (string row in rows) Console.WriteLine(row);
     }
     private static void Persistence()
     {
@@ -268,6 +297,71 @@ internal static class ToolIntegrationTests
             NetworkControlOptions changed = saved.Clone(); changed.ExecutablePaths[1] = Path.Combine(root, "GuestNetworkProbeC.exe");
             Check(!changed.SameTargets(saved), "changing second application changes effective scope");
         }
+    }
+    private static void Usability()
+    {
+        using (Control owner = new Control())
+        using (TimerController timer = new TimerController(owner))
+        using (TimerSettingsDialog dialog = new TimerSettingsDialog(new TimerOptions { Visible = false }, timer, null))
+        {
+            Button start = Field<Button>(dialog, "start");
+            Check(!start.Enabled && !Field<CheckBox>(dialog, "visible").Enabled, "disabled timer exposes no misleading start/show action");
+            Check(Field<Label>(dialog, "feedback").Text.Length > 0, "disabled timer explains how to start");
+            Check(!All(dialog).Single(c => c.Name == "timerStartHotkeyClear").Enabled, "empty shortcut cannot be cleared again");
+            start.PerformClick(); Check(!timer.IsRunning, "disabled start cannot start an invisible clock");
+            Field<CheckBox>(dialog, "enabled").Checked = true;
+            Check(start.Enabled && Field<CheckBox>(dialog, "visible").Enabled, "enabling timer makes commands available");
+        }
+        TimerOptions preset = new TimerOptions { ControlMode = TimerControlMode.SingleKeyCycle, StartPauseHotkey = Hotkey(Keys.F6) };
+        using (TimerSettingsDialog dialog = new TimerSettingsDialog(preset, null, null))
+        {
+            Field<ComboBox>(dialog, "controlMode").SelectedIndex = (int)TimerControlMode.Custom;
+            TimerOptions custom = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(custom.ShortcutRules.Count == 1 && custom.ShortcutRules[0].Hotkey.VirtualKey == (int)Keys.F6, "custom mode starts from the current bound preset");
+            Check(custom.ShortcutRules[0].Ready.Run == TimerRunCommand.Start && custom.ShortcutRules[0].Running.Run == TimerRunCommand.Pause && custom.ShortcutRules[0].Paused.Reset, "preset state actions survive custom conversion");
+            Field<TimerOptions>(dialog, "draft").ShortcutRules.Clear();
+            Field<ComboBox>(dialog, "controlMode").SelectedIndex = (int)TimerControlMode.Independent;
+            Field<ComboBox>(dialog, "controlMode").SelectedIndex = (int)TimerControlMode.Custom;
+            Check(((TimerOptions)Call(dialog, "CaptureOptions")).ShortcutRules.Count == 0, "explicit empty custom rules stay empty across mode changes");
+            Check(preset.ShortcutRules == null, "custom conversion does not change the saved preset");
+        }
+        TimerOptions source = new TimerOptions { Parts = new List<TimerPart>() };
+        foreach (string text in new[] { "a", "b", "c", "d" }) source.Parts.Add(new TimerPart { Kind = TimerPartKind.Text, Text = text });
+        Bitmap retained;
+        using (TimerSettingsDialog dialog = new TimerSettingsDialog(source, null, null))
+        {
+            ListView list = Field<ListView>(dialog, "partList"); IntPtr handle = list.Handle;
+            foreach (ListViewItem item in list.Items) item.Selected = false; list.Items[1].Selected = list.Items[2].Selected = true;
+            Call(dialog, "MovePart", -1); TimerOptions moved = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(string.Concat(moved.Parts.Select(p => p.Text)) == "bcad" && list.SelectedIndices.Cast<int>().SequenceEqual(new[] { 0, 1 }), "multi-selected parts move together and retain selection");
+            Call(dialog, "MovePart", 1); moved = (TimerOptions)Call(dialog, "CaptureOptions");
+            Check(string.Concat(moved.Parts.Select(p => p.Text)) == "abcd" && list.SelectedIndices.Cast<int>().SequenceEqual(new[] { 1, 2 }), "group move back keeps relative order");
+            retained = (Bitmap)Call(dialog, "GetPreviewImage");
+            Field<NumericUpDown>(dialog, "x").Value += 1; Field<NumericUpDown>(dialog, "updateInterval").Value = 250;
+            Check(ReferenceEquals(retained, Call(dialog, "GetPreviewImage")), "position and cadence edits reuse the preview raster");
+            Field<NumericUpDown>(dialog, "size").Value += 1;
+            Bitmap updated = (Bitmap)Call(dialog, "GetPreviewImage"); Check(!ReferenceEquals(retained, updated), "appearance change replaces the preview raster"); retained = updated;
+        }
+        bool disposed = false; try { int width = retained.Width; } catch (ArgumentException) { disposed = true; }
+        Check(disposed, "dialog close releases retained preview raster");
+        using (EditorChoice choice = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList })
+        {
+            choice.Items.Add("A"); choice.SelectedIndex = 0; choice.FitWidth(); int narrow = choice.DropDownWidth;
+            choice.Items[0] = "An expanded option after editing the same item"; choice.FitWidth();
+            Check(choice.DropDownWidth > narrow, "choice measurement cache detects in-place text changes");
+            int regular = choice.GetPreferredSize(Size.Empty).Width;
+            using (Font larger = new Font(choice.Font.FontFamily, choice.Font.Size * 1.5F))
+            { choice.Font = larger; choice.FitWidth(); Check(choice.GetPreferredSize(Size.Empty).Width > regular, "choice measurement cache follows font and scale changes"); }
+        }
+        NetworkControlOptions network = new NetworkControlOptions();
+        using (NetworkSettingsDialog dialog = new NetworkSettingsDialog(network, null))
+        {
+            Check(!Field<Button>(dialog, "browse").Enabled && !Field<Button>(dialog, "removeApplication").Enabled, "empty application list exposes Add instead of no-op replace/remove");
+            Check(!All(dialog).Single(c => c.Name == "networkBlockSoundClear").Enabled, "builtin cue does not expose a no-op restore action");
+        }
+        string fullPath = Path.Combine(root, "ExampleGame.exe");
+        string label = (string)typeof(NetworkSettingsDialog).GetMethod("ApplicationLabel", StaticHidden).Invoke(null, new object[] { fullPath });
+        Check(label.StartsWith("ExampleGame.exe", StringComparison.Ordinal) && label.Contains(fullPath), "application label leads with recognizable filename and retains full path");
     }
     private static void ShortcutValidation()
     {

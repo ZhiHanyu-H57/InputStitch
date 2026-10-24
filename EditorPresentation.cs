@@ -73,6 +73,13 @@ namespace InputStitch
 
         internal static void Apply(Control root)
         {
+            root.SuspendLayout();
+            try { ApplyCore(root); }
+            finally { root.ResumeLayout(true); }
+        }
+
+        private static void ApplyCore(Control root)
+        {
             if (root is Form)
             {
                 root.BackColor = Canvas; root.ForeColor = Ink;
@@ -401,6 +408,27 @@ namespace InputStitch
         private ToolTip uiToolTip;
         private Control parent;
 
+        private string[] measuredItems;
+        private int[] measuredWidths;
+        private Font measuredFont;
+        private string measuredText;
+        private int selectedTextWidth;
+        private int MeasureLabels()
+        {
+            bool reset = measuredFont == null || !measuredFont.Equals(Font);
+            if (measuredItems == null || measuredItems.Length != Items.Count)
+            { measuredItems = new string[Items.Count]; measuredWidths = new int[Items.Count]; reset = true; }
+            int width = 0;
+            for (int i = 0; i < Items.Count; i++)
+            {
+                string value = GetItemText(Items[i]);
+                if (reset || value != measuredItems[i]) { measuredItems[i] = value; measuredWidths[i] = TextRenderer.MeasureText(value, Font).Width; }
+                width = Math.Max(width, measuredWidths[i]);
+            }
+            if (reset || measuredText != Text) { measuredText = Text; selectedTextWidth = TextRenderer.MeasureText(Text, Font).Width; }
+            measuredFont = Font; return Math.Max(width, selectedTextWidth);
+        }
+
         internal void FitWidth()
         {
             if (!CompactWidth || busy || DropDownStyle != ComboBoxStyle.DropDownList) return;
@@ -408,8 +436,7 @@ namespace InputStitch
             try
             {
                 float scale = Math.Max(Font.GetHeight() / Font.GetHeight(96F),Font.Size / EditorTheme.BodyFontSize);
-                int measured = TextRenderer.MeasureText(Text,Font).Width;
-                foreach (object item in Items) measured = Math.Max(measured,TextRenderer.MeasureText(GetItemText(item),Font).Width);
+                int measured = MeasureLabels();
                 int width = Math.Max((int)(112*scale),Math.Min((int)(320*scale),measured+SystemInformation.VerticalScrollBarWidth+(int)(14*scale)));
                 TableLayoutPanel table = Parent as TableLayoutPanel;
                 if (table != null)
@@ -424,7 +451,7 @@ namespace InputStitch
                 if(Width!=width) Width=width;
                 DropDownWidth=Math.Max(width,Math.Min(Screen.FromControl(this).WorkingArea.Width-32,measured+SystemInformation.VerticalScrollBarWidth+24));
                 AccessibleDescription=Text;
-                bool clipped=TextRenderer.MeasureText(Text,Font).Width+SystemInformation.VerticalScrollBarWidth+6>width;
+                bool clipped=selectedTextWidth+SystemInformation.VerticalScrollBarWidth+6>width;
                 if(clipped && uiToolTip==null) uiToolTip=new ToolTip();
                 if(uiToolTip!=null) uiToolTip.SetToolTip(this,clipped?Text:"");
             }
@@ -438,8 +465,7 @@ namespace InputStitch
             if(CompactWidth && DropDownStyle==ComboBoxStyle.DropDownList)
             {
                 float scale=Math.Max(Font.GetHeight()/Font.GetHeight(96F),Font.Size/EditorTheme.BodyFontSize);
-                int width=TextRenderer.MeasureText(Text,Font).Width;
-                foreach(object item in Items) width=Math.Max(width,TextRenderer.MeasureText(GetItemText(item),Font).Width);
+                int width=MeasureLabels();
                 size.Width=Math.Max(MinimumSize.Width,Math.Max((int)(112*scale),Math.Min((int)(320*scale),width+SystemInformation.VerticalScrollBarWidth+(int)(14*scale))));
             }
             return size;
@@ -452,8 +478,7 @@ namespace InputStitch
         }
         protected override void OnDropDown(EventArgs e)
         {
-            int width=Width;
-            foreach(object item in Items) width=Math.Max(width,TextRenderer.MeasureText(GetItemText(item),Font).Width+SystemInformation.VerticalScrollBarWidth+24);
+            int width=Math.Max(Width,MeasureLabels()+SystemInformation.VerticalScrollBarWidth+24);
             DropDownWidth=Math.Min(Screen.FromControl(this).WorkingArea.Width-32,width);
             base.OnDropDown(e);
         }

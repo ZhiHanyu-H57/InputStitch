@@ -53,7 +53,7 @@ namespace InputStitch
 
         public StepEditDialog(MainForm owner, MacroStep source)
         {
-            ownerMain = owner;
+            SuspendLayout(); ownerMain = owner;
             Text = source == null ? "添加宏步骤" : "编辑宏步骤";
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -66,7 +66,7 @@ namespace InputStitch
             Font = EditorTheme.BodyFont();
             BackColor = Color.FromArgb(247, 249, 252);
 
-            TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(14, 10, 14, 10) };
+            TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(14, 10, 14, 10) }; shell.SuspendLayout();
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -75,7 +75,7 @@ namespace InputStitch
             shell.Controls.Add(new EditorIntro { Dock = DockStyle.Fill, Text = source == null ? Localizer.T("添加宏步骤") : Localizer.T("编辑宏步骤"),
                 Description = Localizer.IsEnglish ? "Choose what to press, how long to hold it, and when to move on." : "选择要按的键、按住多久，以及多久后执行下一步。" }, 0, 0);
 
-            TableLayoutPanel root = new TableLayoutPanel();
+            TableLayoutPanel root = new TableLayoutPanel(); root.SuspendLayout();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(16);
             root.BackColor = Color.White;
@@ -132,7 +132,7 @@ namespace InputStitch
             root.Controls.Add(inputLabel, 0, 2);
 
             inputPanel = new FlowLayoutPanel { AutoSize=true, AutoSizeMode=AutoSizeMode.GrowAndShrink,
-                Dock=DockStyle.Fill, WrapContents=true, Margin=new Padding(3,3,3,6) };
+                Dock=DockStyle.Fill, WrapContents=true, Margin=new Padding(3,3,3,6) }; inputPanel.SuspendLayout();
             inputText = new Label { AutoSize=true, Font=new Font(Font,FontStyle.Bold), Anchor=AnchorStyles.Left,
                 Margin=new Padding(0,6,10,4) };
             captureButton = new EditorButton { Text=EditorDialogs.T("键盘 / 鼠标图…", "Keyboard / mouse…"), AutoSize=true,
@@ -154,7 +154,7 @@ namespace InputStitch
             gamepadLabel.TextAlign = ContentAlignment.MiddleLeft;
             root.Controls.Add(gamepadLabel, 0, 3);
 
-            gamepadPanel = new FlowLayoutPanel();
+            gamepadPanel = new FlowLayoutPanel(); gamepadPanel.SuspendLayout();
             gamepadPanel.Dock = DockStyle.Fill;
             gamepadPanel.AutoSize = true;
             gamepadPanel.WrapContents = true;
@@ -213,7 +213,7 @@ namespace InputStitch
             holdLabel.TextAlign = ContentAlignment.MiddleLeft;
             root.Controls.Add(holdLabel, 0, 4);
 
-            FlowLayoutPanel holdRow = new FlowLayoutPanel();
+            FlowLayoutPanel holdRow = new FlowLayoutPanel(); holdRow.SuspendLayout();
             holdRow.Dock = DockStyle.Fill;
             holdRow.AutoSize = true;
             holdRow.WrapContents = true;
@@ -249,7 +249,7 @@ namespace InputStitch
             fixedDelayLabel.TextAlign = ContentAlignment.MiddleLeft;
             root.Controls.Add(fixedDelayLabel, 0, 5);
 
-            FlowLayoutPanel delayRow = new FlowLayoutPanel();
+            FlowLayoutPanel delayRow = new FlowLayoutPanel(); delayRow.SuspendLayout();
             delayRow.Dock = DockStyle.Fill;
             delayRow.AutoSize = true;
             delayRow.WrapContents = false;
@@ -278,7 +278,7 @@ namespace InputStitch
             randomDelayLabel.TextAlign = ContentAlignment.MiddleLeft;
             root.Controls.Add(randomDelayLabel, 0, 6);
 
-            FlowLayoutPanel randomRow = new FlowLayoutPanel();
+            FlowLayoutPanel randomRow = new FlowLayoutPanel(); randomRow.SuspendLayout();
             randomRow.Dock = DockStyle.Fill;
             randomRow.AutoSize = true;
             randomRow.WrapContents = false;
@@ -314,7 +314,7 @@ namespace InputStitch
             root.Controls.Add(randomRow, 1, 6);
             root.SetColumnSpan(randomRow, 2);
 
-            FlowLayoutPanel buttons = new FlowLayoutPanel();
+            FlowLayoutPanel buttons = new FlowLayoutPanel(); buttons.SuspendLayout();
             buttons.Dock = DockStyle.Fill;
             buttons.AutoSize = true;
             buttons.FlowDirection = FlowDirection.RightToLeft;
@@ -403,6 +403,7 @@ namespace InputStitch
                 Size extent = new Size(0,height);
                 if (root.AutoScrollMinSize != extent) root.AutoScrollMinSize = extent;
             };
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
 
         private static decimal ClampDecimal(int x, decimal min, decimal max)
@@ -414,7 +415,7 @@ namespace InputStitch
 
         private static Control InlineField(Control label,Control value)
         {
-            FlowLayoutPanel group=new FlowLayoutPanel { AutoSize=true, AutoSizeMode=AutoSizeMode.GrowAndShrink, WrapContents=false, Margin=new Padding(0,0,12,0) };
+            FlowLayoutPanel group=new FlowLayoutPanel { AutoSize=true, AutoSizeMode=AutoSizeMode.GrowAndShrink, WrapContents=false, Margin=new Padding(0,0,12,0) }; group.SuspendLayout();
             label.Anchor=value.Anchor=AnchorStyles.Left;
             group.Controls.Add(label); group.Controls.Add(value);
             return group;

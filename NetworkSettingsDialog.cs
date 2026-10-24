@@ -12,7 +12,8 @@ namespace InputStitch
         private readonly CheckBox enabled, blockSound, restoreSound;
         private readonly ComboBox mode;
         private readonly TextBox path;
-        private readonly Button save, browse;
+        private readonly Button save, browse, removeApplication;
+        private bool applicationsWidthDirty = true;
         private readonly Label feedback, shortcutHint, count, audioFeedback;
         private readonly ListBox applications;
         private readonly Panel applicationPanel;
@@ -25,7 +26,7 @@ namespace InputStitch
         private static string T(string zh, string en) { return ToolFields.T(zh, en); }
         internal NetworkSettingsDialog(NetworkControlOptions options, Func<NetworkControlOptions, string> validator)
         {
-            draft = (options ?? new NetworkControlOptions()).Clone(); draft.Normalize(); validate = validator;
+            SuspendLayout(); draft = (options ?? new NetworkControlOptions()).Clone(); draft.Normalize(); validate = validator;
             TriggerSpec oldBlock = draft.BlockShortcut, oldRestore = draft.RestoreShortcut;
             draft.BlockHotkey = oldBlock == null ? null : oldBlock.Clone(); draft.RestoreHotkey = oldRestore == null ? null : oldRestore.Clone(); draft.Hotkey = null;
             Font = EditorTheme.BodyFont(); AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
@@ -38,15 +39,15 @@ namespace InputStitch
             mode = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left, Width = 220, Name = "networkMode" };
             mode.Items.AddRange(new object[] { T("指定程序", "Selected applications"), T("整台电脑", "Whole computer") }); mode.SelectedIndex = draft.Mode == NetworkBlockMode.EntireComputer ? 1 : 0;
             ToolFields.Row(fields, T("断网范围", "Block scope"), mode);
-            applicationPanel = new Panel { Dock = DockStyle.Top, AutoSize = true };
-            TableLayoutPanel app = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2 };
+            applicationPanel = new Panel { Dock = DockStyle.Top, AutoSize = true }; applicationPanel.SuspendLayout();
+            TableLayoutPanel app = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2 }; app.SuspendLayout();
             app.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); app.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             applications = new ListBox { Dock = DockStyle.Top, Height = 96, HorizontalScrollbar = true, IntegralHeight = false, DrawMode = DrawMode.OwnerDrawFixed, Name = "networkApplications" };
-            applications.FontChanged += delegate { LayoutApplications(); };
+            applications.FontChanged += delegate { applicationsWidthDirty = true; LayoutApplications(); };
             applications.DrawItem += delegate(object sender, DrawItemEventArgs e)
             {
                 e.DrawBackground();
-                if (e.Index >= 0 && e.Index < applications.Items.Count) TextRenderer.DrawText(e.Graphics, (string)applications.Items[e.Index], e.Font, new Rectangle(e.Bounds.X + 4, e.Bounds.Y, Math.Max(1, e.Bounds.Width - 8), e.Bounds.Height), e.ForeColor, TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                if (e.Index >= 0 && e.Index < applications.Items.Count) TextRenderer.DrawText(e.Graphics, ApplicationLabel((string)applications.Items[e.Index]), e.Font, new Rectangle(e.Bounds.X + 4, e.Bounds.Y, Math.Max(1, e.Bounds.Width - 8), e.Bounds.Height), e.ForeColor, TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
                 e.DrawFocusRectangle();
             };
             foreach (string item in draft.Targets()) applications.Items.Add(item ?? ""); app.Controls.Add(applications, 0, 0); app.SetColumnSpan(applications, 2);
@@ -54,12 +55,12 @@ namespace InputStitch
             browse = ToolFields.Button(T("替换…", "Replace…")); browse.Click += delegate { ChooseApplications(false); };
             app.Controls.Add(path, 0, 1); app.Controls.Add(browse, 1, 1);
             Button add = ToolFields.Button(T("添加程序…", "Add apps…")), remove = ToolFields.Button(T("移除", "Remove"));
-            add.Name = "networkAddApplications"; remove.Name = "networkRemoveApplication";
+            removeApplication = remove; add.Name = "networkAddApplications"; remove.Name = "networkRemoveApplication";
             add.Click += delegate { ChooseApplications(true); };
             remove.Click += delegate
             {
                 int selected = applications.SelectedIndex; if (selected < 0) return;
-                loading = true; applications.Items.RemoveAt(selected); path.Text = ""; loading = false;
+                applicationsWidthDirty = true; loading = true; applications.Items.RemoveAt(selected); path.Text = ""; loading = false;
                 if (applications.Items.Count > 0) applications.SelectedIndex = Math.Min(selected, applications.Items.Count - 1); Changed();
             };
             count = ToolFields.Help(""); FlowLayoutPanel commands = ToolFields.Flow(add, remove, count);
@@ -76,10 +77,10 @@ namespace InputStitch
             restoreVolume = ToolFields.Number(0, 100, draft.RestoreSoundVolume, 0, "networkRestoreVolume"); restoreVolume.Width = 72;
             ToolFields.Row(sounds, T("断开网络", "Block traffic"), SoundEditor(NetworkSoundKind.Blocked, blockSound, blockVolume));
             ToolFields.Row(sounds, T("恢复网络", "Restore traffic"), SoundEditor(NetworkSoundKind.Restored, restoreSound, restoreVolume));
-            ToolFields.Row(sounds, "", ToolFields.Help(T("支持 8/16 位 PCM WAV（单声道/立体声）。清除文件后使用内置音效。", "8/16-bit PCM WAV (mono/stereo). Clear a file to use the built-in cue.")));
+            ToolFields.Row(sounds, "", ToolFields.Help(T("支持 8/16 位 PCM WAV（单声道/立体声）。点击“使用内置”可恢复默认音效。", "8/16-bit PCM WAV (mono/stereo). Use built-in restores the default cue.")));
             audioFeedback = ToolFields.Help(""); audioFeedback.Name = "networkAudioFeedback"; ToolFields.Row(sounds, "", audioFeedback);
             feedback = ToolFields.Help(""); feedback.Name = "networkFeedback";
-            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 }; body.SuspendLayout();
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); body.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); body.RowStyles.Add(new RowStyle(SizeType.AutoSize)); body.Controls.Add(tabs, 0, 0); body.Controls.Add(feedback, 0, 1);
             save = EditorDialogs.Button(T("保存", "Save"), DialogResult.None); save.Name = "networkSave";
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };
@@ -89,7 +90,7 @@ namespace InputStitch
             path.TextChanged += delegate
             {
                 if (loading) return;
-                int selected = applications.SelectedIndex;
+                applicationsWidthDirty = true; int selected = applications.SelectedIndex;
                 if (selected < 0 && applications.Items.Count == 0 && !string.IsNullOrWhiteSpace(path.Text))
                 { loading = true; applications.Items.Add(path.Text); applications.SelectedIndex = selected = 0; loading = false; }
                 if (selected >= 0 && (string)applications.Items[selected] != path.Text)
@@ -100,18 +101,25 @@ namespace InputStitch
             blockSound.CheckedChanged += delegate { Changed(); }; restoreSound.CheckedChanged += delegate { Changed(); };
             blockVolume.ValueChanged += delegate { Changed(); }; restoreVolume.ValueChanged += delegate { Changed(); };
             if (applications.Items.Count > 0) applications.SelectedIndex = 0; Changed();
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
         private Control SoundEditor(NetworkSoundKind kind, CheckBox enabledCue, NumericUpDown volume)
         {
             bool block = kind == NetworkSoundKind.Blocked;
-            TableLayoutPanel panel = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1, Margin = new Padding(0, 0, 0, 14) };
+            TableLayoutPanel panel = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1, Margin = new Padding(0, 0, 0, 14) }; panel.SuspendLayout();
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); panel.Controls.Add(enabledCue);
             TextBox file = new TextBox { ReadOnly = true, Dock = DockStyle.Top, Name = block ? "networkBlockSoundFile" : "networkRestoreSoundFile" };
-            Action refresh = delegate { string value = block ? draft.BlockSoundPath : draft.RestoreSoundPath; file.Text = string.IsNullOrEmpty(value) ? T("内置音效", "Built-in cue") : value; };
-            refresh(); panel.Controls.Add(file);
-            Button import = ToolFields.Button(T("导入…", "Import…")), clear = ToolFields.Button(T("清除文件", "Clear file")), preview = ToolFields.Button(T("试听", "Preview"));
+            Button import = ToolFields.Button(T("导入…", "Import…")), clear = ToolFields.Button(T("使用内置", "Use built-in")), preview = ToolFields.Button(T("试听", "Preview"));
             import.Name = block ? "networkBlockSoundImport" : "networkRestoreSoundImport"; clear.Name = block ? "networkBlockSoundClear" : "networkRestoreSoundClear";
             preview.Name = block ? "networkBlockSoundPreview" : "networkRestoreSoundPreview";
+            ToolTip fileInfo = new ToolTip(); Disposed += delegate { fileInfo.Dispose(); };
+            Action refresh = delegate
+            {
+                string value = block ? draft.BlockSoundPath : draft.RestoreSoundPath;
+                file.Text = string.IsNullOrEmpty(value) ? T("内置音效", "Built-in cue") : FileName(value);
+                fileInfo.SetToolTip(file, value); file.AccessibleDescription = value; clear.Enabled = !string.IsNullOrEmpty(value);
+            };
+            refresh(); panel.Controls.Add(file);
             import.Click += delegate
             {
                 using (OpenFileDialog picker = new OpenFileDialog { Filter = T("PCM WAV 音效 (*.wav)|*.wav", "PCM WAV files (*.wav)|*.wav"), CheckFileExists = true })
@@ -140,10 +148,14 @@ namespace InputStitch
             panel.Controls.Add(ToolFields.Flow(new Label { Text = T("音量", "Volume"), AutoSize = true, Margin = new Padding(3, 8, 6, 0) }, slider, volume, new Label { Text = "%", AutoSize = true, Margin = new Padding(0, 8, 0, 0) }));
             return panel;
         }
+        private static string FileName(string path)
+        { try { return Path.GetFileName(path); } catch (ArgumentException) { return path; } }
+        private static string ApplicationLabel(string path) { string name = FileName(path); return name == path ? path : name + "   " + path; }
         private void LayoutApplications()
         {
+            if (!applicationsWidthDirty) return; applicationsWidthDirty = false;
             applications.ItemHeight = Math.Max(24, applications.Font.Height + 6); int width = 0;
-            foreach (string item in applications.Items) width = Math.Max(width, TextRenderer.MeasureText(item, applications.Font).Width + 8);
+            foreach (string item in applications.Items) width = Math.Max(width, TextRenderer.MeasureText(ApplicationLabel(item), applications.Font).Width + 8);
             applications.HorizontalExtent = width;
         }
         private void SetSoundFile(NetworkSoundKind kind, string file)
@@ -157,7 +169,7 @@ namespace InputStitch
             using (OpenFileDialog picker = new OpenFileDialog { Filter = T("应用程序 (*.exe)|*.exe", "Applications (*.exe)|*.exe"), CheckFileExists = true, Multiselect = append })
             {
                 if (picker.ShowDialog(this) != DialogResult.OK) return;
-                loading = true;
+                applicationsWidthDirty = true; loading = true;
                 if (append)
                 {
                     if (applications.SelectedIndex >= 0) applications.Items[applications.SelectedIndex] = path.Text.Trim();
@@ -186,9 +198,10 @@ namespace InputStitch
         private void Changed()
         {
             if (save == null || loading) return; LayoutApplications();
-            NetworkControlOptions o = CaptureOptions(); applicationPanel.Enabled = mode.SelectedIndex == 0; EditorDialogs.RowVisible(scopeFields, applicationsRow, mode.SelectedIndex == 0);
+            NetworkControlOptions o = CaptureOptions(); applicationPanel.Enabled = mode.SelectedIndex == 0;
+            browse.Enabled = removeApplication.Enabled = applications.SelectedIndex >= 0; EditorDialogs.RowVisible(scopeFields, applicationsRow, mode.SelectedIndex == 0);
             string error = "";
-            if (o.Enabled && o.Mode == NetworkBlockMode.Executable) try { NetworkPrivilegeHelper.ValidateExecutables(o.Mode, o.Targets()); } catch (Exception) { error = T("请选择 1–16 个存在的程序文件。", "Choose 1–16 existing application files."); }
+            if (o.Enabled && o.Mode == NetworkBlockMode.Executable) try { NetworkPrivilegeHelper.ValidateExecutables(o.Mode, o.Targets()); } catch (Exception) { error = T("点击“添加程序”选择要断网的程序，或修正所选路径。", "Click Add apps to select applications, or correct the selected path."); }
             if (error.Length == 0 && (!ToolFields.ValidShortcut(draft.BlockHotkey) || !ToolFields.ValidShortcut(draft.RestoreHotkey))) error = T("请选择包含普通键的键盘组合键。", "Choose a keyboard shortcut that includes a regular key.");
             if (error.Length == 0 && validate != null) error = validate(o);
             feedback.Text = error; feedback.ForeColor = Color.Firebrick; save.Enabled = error.Length == 0; count.Text = o.ExecutablePaths.Count + " / 16";

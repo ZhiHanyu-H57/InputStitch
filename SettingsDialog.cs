@@ -115,7 +115,7 @@ namespace InputStitch
         internal SettingsDialog(MacroConfig config, Func<TargetWindowIdentity> recentIdleTargetProvider,
             Func<DeviceInventorySnapshot> currentInventoryProvider)
         {
-            inventoryProvider = currentInventoryProvider;
+            SuspendLayout(); inventoryProvider = currentInventoryProvider;
             routerSourcePolicy = config.GamepadRouterSourcePolicy == null
                 ? new RouterSourcePolicyConfig() : config.GamepadRouterSourcePolicy.Clone();
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -131,7 +131,7 @@ namespace InputStitch
             BackColor = Color.FromArgb(247, 249, 252);
             AutoScroll = true;
 
-            TableLayoutPanel root = new TableLayoutPanel();
+            TableLayoutPanel root = new TableLayoutPanel(); root.SuspendLayout();
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(18);
             root.ColumnCount = 1;
@@ -162,7 +162,7 @@ namespace InputStitch
             languageBox.Items.Add("简体中文");
             languageBox.Items.Add("English");
             languageBox.SelectedIndex = string.Equals(config.Language, Localizer.English, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-            TableLayoutPanel languageRow = new TableLayoutPanel();
+            TableLayoutPanel languageRow = new TableLayoutPanel(); languageRow.SuspendLayout();
             languageRow.AutoSize = true;
             languageRow.Dock = DockStyle.Top;
             languageRow.ColumnCount = 2;
@@ -196,7 +196,7 @@ namespace InputStitch
             GroupBox gamepad = MakeGroup(Localizer.T("虚拟手柄输出"));
             TableLayoutPanel gamepadLayout = MakeStack();
             gamepad.Controls.Add(gamepadLayout);
-            TableLayoutPanel gamepadTypeRow = new TableLayoutPanel();
+            TableLayoutPanel gamepadTypeRow = new TableLayoutPanel(); gamepadTypeRow.SuspendLayout();
             gamepadTypeRow.AutoSize = true;
             gamepadTypeRow.Dock = DockStyle.Top;
             gamepadTypeRow.ColumnCount = 2;
@@ -343,7 +343,7 @@ namespace InputStitch
             target.Controls.Add(targetLayout);
             activateTargetBox = MakeCheck(Localizer.T("从界面运行时先切换到目标窗口"), config.ActivateTargetWindowOnUiRun);
             targetLayout.Controls.Add(activateTargetBox);
-            TableLayoutPanel delayRow = new TableLayoutPanel();
+            TableLayoutPanel delayRow = new TableLayoutPanel(); delayRow.SuspendLayout();
             delayRow.AutoSize = true;
             delayRow.Dock = DockStyle.Top;
             delayRow.ColumnCount = 3;
@@ -377,7 +377,7 @@ namespace InputStitch
             GroupBox updates = MakeGroup(Localizer.T("软件更新"));
             TableLayoutPanel updatesLayout = MakeStack();
             updates.Controls.Add(updatesLayout);
-            TableLayoutPanel updateRow = new TableLayoutPanel();
+            TableLayoutPanel updateRow = new TableLayoutPanel(); updateRow.SuspendLayout();
             updateRow.AutoSize = true;
             updateRow.Dock = DockStyle.Top;
             updateRow.ColumnCount = 2;
@@ -435,7 +435,7 @@ namespace InputStitch
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.Controls.Add(tabs, 0, 1);
 
-            FlowLayoutPanel buttons = new FlowLayoutPanel();
+            FlowLayoutPanel buttons = new FlowLayoutPanel(); buttons.SuspendLayout();
             buttons.AutoSize = true;
             buttons.Dock = DockStyle.Fill;
             buttons.FlowDirection = FlowDirection.RightToLeft;
@@ -470,6 +470,7 @@ namespace InputStitch
             CancelButton = cancel;
             root.Padding = new Padding(0);
             EditorDialogs.Frame(this, root, buttons, EditorDialogs.T("常用选项保持默认即可。点击保存设置后生效，取消不会修改当前设置。", "Defaults work for most macros. Save settings to apply your changes, or cancel to keep your current setup."), hint);
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
 
         private static void AddSettingsTab(TabControl tabs, string title, params Control[] groups)
@@ -478,7 +479,7 @@ namespace InputStitch
             page.BackColor = Color.FromArgb(247, 249, 252);
             page.AutoScroll = true;
             page.Padding = new Padding(10);
-            TableLayoutPanel stack = new TableLayoutPanel();
+            TableLayoutPanel stack = new TableLayoutPanel(); stack.SuspendLayout();
             stack.AutoSize = true;
             stack.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             stack.Dock = DockStyle.Top;
@@ -561,7 +562,7 @@ namespace InputStitch
 
         private static GroupBox MakeGroup(string text)
         {
-            GroupBox box = new EditorSection();
+            GroupBox box = new EditorSection(); box.SuspendLayout();
             box.Text = text;
             box.Dock = DockStyle.Top;
             box.AutoSize = false;
@@ -574,7 +575,7 @@ namespace InputStitch
 
         private static TableLayoutPanel MakeStack()
         {
-            TableLayoutPanel panel = new TableLayoutPanel();
+            TableLayoutPanel panel = new TableLayoutPanel(); panel.SuspendLayout();
             panel.Dock = DockStyle.Top;
             panel.AutoSize = true;
             panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;

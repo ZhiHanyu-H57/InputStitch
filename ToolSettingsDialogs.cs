@@ -12,7 +12,7 @@ namespace InputStitch
         internal static TableLayoutPanel Page(ScrollableControl page)
         {
             page.BackColor = Color.White; page.Padding = new Padding(12); page.AutoScroll = true;
-            TableLayoutPanel grid = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2, RowCount = 0, Padding = new Padding(0, 0, 12, 12) };
+            TableLayoutPanel grid = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2, RowCount = 0, Padding = new Padding(0, 0, 12, 12) }; grid.SuspendLayout();
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             page.Controls.Add(grid); return grid;
         }
@@ -32,7 +32,7 @@ namespace InputStitch
         internal static NumericUpDown Number(decimal min, decimal max, decimal value, int decimals, string name)
         { return new NumericUpDown { Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, value)), DecimalPlaces = decimals, Increment = decimals == 0 ? 1 : .1M, Width = 105, AutoScaleMode = AutoScaleMode.None, Name = name }; }
         internal static FlowLayoutPanel Flow(params Control[] controls)
-        { FlowLayoutPanel flow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty }; flow.Controls.AddRange(controls); return flow; }
+        { FlowLayoutPanel flow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty }; flow.SuspendLayout(); flow.Controls.AddRange(controls); return flow; }
         internal static Button Button(string text) { return EditorDialogs.Button(text, DialogResult.None); }
         internal static bool ValidShortcut(TriggerSpec key)
         { return key == null || (key.Kind == InputKind.Keyboard && key.VirtualKey > 0 && key.VirtualKey < 255 && !ModifierSafetyPolicy.IsModifierVirtualKey(key.VirtualKey)); }
@@ -43,10 +43,10 @@ namespace InputStitch
         }
         internal static Control Shortcut(IWin32Window owner, string name, Func<TriggerSpec> get, Action<TriggerSpec> set, Action changed)
         {
-            Button choose = Button(""); choose.Name = name;
-            Action refresh = delegate { choose.Text = get() == null ? T("选择快捷键…", "Choose hotkey…") : InputNames.FormatTrigger(get()); };
+            Button choose = Button(""), clear = Button(T("清除", "Clear")); choose.Name = name; clear.Name = name + "Clear";
+            Action refresh = delegate { choose.Text = get() == null ? T("选择快捷键…", "Choose hotkey…") : InputNames.FormatTrigger(get()); clear.Enabled = get() != null; };
             choose.Click += delegate { set(PickHotkey(owner, get(), T("选择快捷键", "Choose hotkey"))); refresh(); changed(); };
-            Button clear = Button(T("清除", "Clear")); clear.Click += delegate { set(null); refresh(); changed(); };
+            clear.Click += delegate { set(null); refresh(); changed(); };
             refresh(); return Flow(choose, clear);
         }
     }
@@ -61,7 +61,10 @@ namespace InputStitch
         private readonly ComboBox backend, preset, partKind, monitor, controlMode;
         private readonly NumericUpDown size, border, spacing, opacity, partOpacity, digits, x, y, updateInterval, lineGap;
         private readonly TextBox partText;
-        private readonly Button font, color, outlineColor, save, start;
+        private readonly Button font, color, outlineColor, save, start, resetTimer, matchStyles;
+        private Button addShortcutRule, editShortcutRule, deleteShortcutRule;
+        private TimerOptions previewOptions;
+        private Bitmap previewImage;
         private readonly Label feedback, selectionHelp, controlHelp;
         private readonly Control preview;
         private readonly ListView partList;
@@ -78,7 +81,7 @@ namespace InputStitch
 
         internal TimerSettingsDialog(TimerOptions options, TimerController timer, Func<TimerOptions, string> validator)
         {
-            draft = (options ?? new TimerOptions()).Clone(); draft.Normalize(); controller = timer; validate = validator;
+            SuspendLayout(); draft = (options ?? new TimerOptions()).Clone(); draft.Normalize(); controller = timer; validate = validator;
             parts = TimerText.CreateParts(draft);
             Font = EditorTheme.BodyFont(); AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
             Text = T("屏幕计时器", "Screen timer"); StartPosition = FormStartPosition.CenterParent;
@@ -91,12 +94,12 @@ namespace InputStitch
             visible = ToolFields.Check(T("显示计时器", "Show timer")); visible.Checked = draft.Visible;
             start = ToolFields.Button(T("开始 / 暂停", "Start / pause")); start.Name = "timerStartPause";
             start.Click += delegate { if (controller != null) controller.StartPause(); Changed(); };
-            Button reset = ToolFields.Button(T("归零", "Reset")); reset.Click += delegate { if (controller != null) controller.Reset(); Changed(); };
+            resetTimer = ToolFields.Button(T("归零", "Reset")); resetTimer.Click += delegate { if (controller != null) controller.Reset(); Changed(); };
 
-            TableLayoutPanel editor = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Padding = new Padding(10) };
+            TableLayoutPanel editor = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Padding = new Padding(10) }; editor.SuspendLayout();
             editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45)); editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
             editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 94)); content.Controls.Add(editor);
-            TableLayoutPanel listPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Margin = new Padding(0, 0, 12, 0) };
+            TableLayoutPanel listPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Margin = new Padding(0, 0, 12, 0) }; listPanel.SuspendLayout();
             listPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); listPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize)); listPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -115,13 +118,14 @@ namespace InputStitch
             ToolTip orderTips = new ToolTip(); orderTips.SetToolTip(up, T("上移（Alt + ↑）", "Move up (Alt + ↑)")); orderTips.SetToolTip(down, T("下移（Alt + ↓）", "Move down (Alt + ↓)")); Disposed += delegate { orderTips.Dispose(); };
             up.Name = "timerPartUp"; down.Name = "timerPartDown";
             up.Click += delegate { MovePart(-1); }; down.Click += delegate { MovePart(1); };
-            Button selectAll = ToolFields.Button(T("全选", "Select all")), unify = ToolFields.Button(T("统一样式", "Match styles")), newline = ToolFields.Button(T("添加换行", "Add line break"));
-            selectAll.Name = "timerSelectAll"; unify.Name = "timerMatchStyles"; newline.Name = "timerAddLineBreak";
+            Button selectAll = ToolFields.Button(T("全选", "Select all")), unify = ToolFields.Button(T("套用首项样式", "Use first style")), newline = ToolFields.Button(T("换行", "New line"));
+            orderTips.SetToolTip(unify, T("复制第一个选中部分的完整格式。", "Copy the first selected part's complete style."));
+            matchStyles = unify; selectAll.Name = "timerSelectAll"; unify.Name = "timerMatchStyles"; newline.Name = "timerAddLineBreak";
             selectAll.Click += delegate { SelectAllParts(); }; unify.Click += delegate { UnifySelectedStyles(); }; newline.Click += delegate { AddTextPart("\n"); };
             listPanel.Controls.Add(ToolFields.Flow(add, remove, up, down, selectAll, unify, newline), 0, 2);
             selectionHelp = ToolFields.Help(""); listPanel.Controls.Add(selectionHelp, 0, 3);
             editor.Controls.Add(listPanel, 0, 0);
-            Panel stylePanel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            Panel stylePanel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty }; stylePanel.SuspendLayout();
             detail = ToolFields.Page(stylePanel); editor.Controls.Add(stylePanel, 1, 0);
             partKind = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 165, Name = "timerPartKind" };
             partKind.Items.AddRange(new object[] { T("时", "Hours"), T("分", "Minutes"), T("秒", "Seconds"), T("毫秒", "Milliseconds"), T("自定义文字", "Custom text") });
@@ -146,7 +150,7 @@ namespace InputStitch
             spacing = ToolFields.Number(-4, 40, 0, 1, "timerLetterSpacing"); ToolFields.Row(detail, T("字距（像素）", "Spacing (px)"), spacing);
             partOpacity = ToolFields.Number(0, 100, 100, 0, "timerPartOpacity"); ToolFields.Row(detail, T("本段不透明度", "Part opacity (%)"), partOpacity);
             foreach (Control field in detail.Controls) field.Margin = new Padding(field.Margin.Left, 3, field.Margin.Right, 3);
-            preview = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(32, 40, 52), Name = "timerPreview", Margin = new Padding(0, 8, 0, 0) };
+            preview = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(32, 40, 52), Name = "timerPreview", Margin = new Padding(0, 8, 0, 0) }; preview.SuspendLayout();
             preview.Paint += PaintPreview; editor.Controls.Add(preview, 0, 1); editor.SetColumnSpan(preview, 2);
 
             backend = new EditorChoice { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240, Name = "timerBackend" };
@@ -178,15 +182,17 @@ namespace InputStitch
             ruleList.Columns.Add(T("快捷键", "Hotkey"), 150); ruleList.Columns.Add(T("未开始", "Ready"), 180); ruleList.Columns.Add(T("计时中", "Running"), 180); ruleList.Columns.Add(T("已暂停", "Paused"), 180);
             Button addRule = ToolFields.Button(T("添加快捷键", "Add hotkey")), editRule = ToolFields.Button(T("编辑", "Edit")), removeRule = ToolFields.Button(T("删除", "Delete"));
             addRule.Name = "timerAddRule"; editRule.Name = "timerEditRule"; removeRule.Name = "timerDeleteRule";
+            addShortcutRule = addRule; editShortcutRule = editRule; deleteShortcutRule = removeRule;
+            ruleList.SelectedIndexChanged += delegate { RefreshRuleActions(); };
             ruleList.Resize += delegate { FitRuleColumns(); };
             addRule.Click += delegate { EditRule(-1); }; editRule.Click += delegate { if (ruleList.SelectedIndices.Count > 0) EditRule(ruleList.SelectedIndices[0]); }; removeRule.Click += delegate { if (ruleList.SelectedIndices.Count > 0) { draft.ShortcutRules.RemoveAt(ruleList.SelectedIndices[0]); RefreshRules(); Changed(); } };
             ruleList.DoubleClick += delegate { if (ruleList.SelectedIndices.Count > 0) EditRule(ruleList.SelectedIndices[0]); };
-            TableLayoutPanel rules = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 2 }; rules.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); rules.Controls.Add(ruleList, 0, 0); rules.Controls.Add(ToolFields.Flow(addRule, editRule, removeRule), 0, 1); ruleEditor = rules;
+            TableLayoutPanel rules = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 2 }; rules.SuspendLayout(); rules.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); rules.Controls.Add(ruleList, 0, 0); rules.Controls.Add(ToolFields.Flow(addRule, editRule, removeRule), 0, 1); ruleEditor = rules;
             ToolFields.Row(hotkeyFields, "", ruleEditor);
             feedback = ToolFields.Help(""); feedback.Name = "timerFeedback";
-            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
+            TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 }; body.SuspendLayout();
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); body.RowStyles.Add(new RowStyle(SizeType.AutoSize)); body.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            body.Controls.Add(ToolFields.Flow(enabled, visible, start, reset), 0, 0); body.Controls.Add(tabs, 0, 1); body.Controls.Add(feedback, 0, 2);
+            body.Controls.Add(ToolFields.Flow(enabled, visible, start, resetTimer), 0, 0); body.Controls.Add(tabs, 0, 1); body.Controls.Add(feedback, 0, 2);
             save = EditorDialogs.Button(T("保存", "Save"), DialogResult.None); save.Name = "timerSave";
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureOptions(); DialogResult = DialogResult.OK; Close(); };
             Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel); AcceptButton = save; CancelButton = cancel;
@@ -204,8 +210,9 @@ namespace InputStitch
             foreach (CheckBox control in new[] { enabled, visible }) control.CheckedChanged += delegate { Changed(); };
             foreach (NumericUpDown control in new[] { opacity, x, y, updateInterval, lineGap }) control.ValueChanged += delegate { Changed(); };
             foreach (ComboBox control in new[] { backend, monitor }) control.SelectedIndexChanged += delegate { Changed(); };
-            controlMode.SelectedIndexChanged += delegate { draft.ControlMode = (TimerControlMode)controlMode.SelectedIndex; RefreshControlMode(); Changed(); };
+            controlMode.SelectedIndexChanged += delegate { ChangeControlMode(); };
             selectedIndex = parts.Count == 0 ? -1 : 0; RebuildList(); LoadPart(); RefreshRules(); RefreshControlMode(); Changed();
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
         private void FitColumns()
         { if (partList.Columns.Count < 2) return; int first = Math.Min(partList.ClientSize.Width / 2, (int)Math.Ceiling(145 * partList.Font.Height / 16F)); partList.Columns[0].Width = Math.Max(70, first); partList.Columns[1].Width = Math.Max(40, partList.ClientSize.Width - first - SystemInformation.VerticalScrollBarWidth - 4); }
@@ -223,8 +230,8 @@ namespace InputStitch
         private void LoadPart()
         {
             loading = true; TimerPart part = SelectedPart; detail.Enabled = part != null;
-            int count = StyleIndices().Count;
-            selectionHelp.Text = count > 1 ? T("已选 ", "Selected ") + count + T(" 项，改动的格式会应用到这些部分。", " parts. Format changes apply to these parts.") : T("勾选控制显示，Ctrl / Shift 多选可批量改格式。", "Check to show. Ctrl / Shift selects parts for batch formatting.");
+            int count = StyleIndices().Count; matchStyles.Enabled = count > 1;
+            selectionHelp.Text = count > 1 ? T("已选 ", "Selected ") + count + T(" 项，右侧改动会批量应用；套用样式以首项为准。", " parts. Right-side edits apply to all; matching uses the first part.") : T("勾选控制显示，Ctrl / Shift 多选可批量改格式。", "Check to show. Ctrl / Shift selects parts for batch formatting.");
             partKind.Enabled = partText.Enabled = digits.Enabled = count == 1;
             if (part != null)
             {
@@ -248,7 +255,19 @@ namespace InputStitch
         }
         private void RemovePart() { List<int> chosen = StyleIndices(); if (chosen.Count == 0) return; for (int i = chosen.Count - 1; i >= 0; i--) parts.RemoveAt(chosen[i]); selectedIndex = Math.Min(chosen[0], parts.Count - 1); partsEdited = true; RebuildList(); LoadPart(); Changed(); }
         private void MovePart(int delta)
-        { int target = selectedIndex + delta; if (SelectedPart == null || target < 0 || target >= parts.Count) return; TimerPart part = parts[selectedIndex]; parts.RemoveAt(selectedIndex); parts.Insert(target, part); selectedIndex = target; partsEdited = true; RebuildList(); Changed(); }
+        {
+            List<int> chosen = StyleIndices(); if (chosen.Count == 0) return;
+            bool[] selected = new bool[parts.Count]; foreach (int index in chosen) selected[index] = true;
+            TimerPart lead = SelectedPart; bool moved = false;
+            for (int i = delta < 0 ? 1 : parts.Count - 2; delta < 0 ? i < parts.Count : i >= 0; i += delta < 0 ? 1 : -1)
+            {
+                int target = i + (delta < 0 ? -1 : 1); if (!selected[i] || selected[target]) continue;
+                TimerPart swap = parts[target]; parts[target] = parts[i]; parts[i] = swap;
+                selected[target] = true; selected[i] = false; moved = true;
+            }
+            if (!moved) return; selectedIndex = parts.IndexOf(lead); partsEdited = true; RebuildList();
+            loading = true; for (int i = 0; i < selected.Length; i++) partList.Items[i].Selected = selected[i]; loading = false; LoadPart(); Changed();
+        }
         private void ApplyPreset(TimerTimeFormat value)
         { parts.Clear(); parts.AddRange(TimerText.CreatePreset(value, draft)); draft.TimeFormat = value; selectedIndex = 0; partsEdited = true; RebuildList(); LoadPart(); Changed(); }
         private List<int> StyleIndices()
@@ -304,13 +323,48 @@ namespace InputStitch
             if (error.Length == 0 && validate != null) error = validate(o);
             save.Enabled = error.Length == 0; feedback.ForeColor = error.Length == 0 ? EditorTheme.Muted : Color.Firebrick;
             monitor.Enabled = backend.SelectedIndex == 0; preview.Invalidate(); if (controller != null && error.Length == 0) controller.Apply(o);
-            start.Text = controller != null && controller.IsRunning ? T("暂停", "Pause") : T("开始", "Start"); feedback.Text = error.Length > 0 ? error : controller == null ? "" : StatusText(controller.Status);
+            start.Enabled = resetTimer.Enabled = o.Enabled && controller != null && error.Length == 0; visible.Enabled = o.Enabled;
+            start.Text = controller != null && controller.IsRunning ? T("暂停", "Pause") : T("开始", "Start");
+            feedback.Text = error.Length > 0 ? error : !o.Enabled ? T("勾选“启用计时器”，然后点击开始或设置快捷键。", "Enable the timer, then click Start or set a hotkey.") : controller == null ? "" : StatusText(controller.Status);
         }
         private void PaintPreview(object sender, PaintEventArgs e)
         {
             if (save == null) return;
-            using (Bitmap image = TimerTextRenderer.Render(CaptureOptions(), TimeSpan.FromMilliseconds(123456)))
-            { float scale = Math.Min(1F, Math.Min(Math.Max(1, preview.Width - 16) / (float)image.Width, Math.Max(1, preview.Height - 16) / (float)image.Height)); e.Graphics.DrawImage(image, new Rectangle(8, 8, Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale)))); }
+            Bitmap image = GetPreviewImage();
+            float scale = Math.Min(1F, Math.Min(Math.Max(1, preview.Width - 16) / (float)image.Width, Math.Max(1, preview.Height - 16) / (float)image.Height)); e.Graphics.DrawImage(image, new Rectangle(8, 8, Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale))));
+        }
+        private Bitmap GetPreviewImage()
+        {
+            TimerOptions next = CaptureOptions();
+            if (previewImage == null || !next.SameRendering(previewOptions))
+            {
+                Bitmap image = TimerTextRenderer.Render(next, TimeSpan.FromMilliseconds(123456));
+                if (previewImage != null) previewImage.Dispose(); previewImage = image; previewOptions = next;
+            }
+            return previewImage;
+        }
+        protected override void Dispose(bool disposing)
+        { if (disposing && previewImage != null) { previewImage.Dispose(); previewImage = null; } base.Dispose(disposing); }
+        private void ChangeControlMode()
+        {
+            TimerControlMode next = (TimerControlMode)controlMode.SelectedIndex;
+            if (next == TimerControlMode.Custom && draft.ShortcutRules == null)
+            {
+                List<TimerShortcutRule> rules = new List<TimerShortcutRule>(); TriggerSpec[] keys = TimerControls.ActiveKeys(draft); int key = 0;
+                foreach (TriggerSpec shortcut in keys)
+                {
+                    key++; if (shortcut == null) continue;
+                    rules.Add(new TimerShortcutRule { Hotkey = shortcut.Clone(), Ready = TimerControls.Resolve(draft, key, TimerRunState.Ready), Running = TimerControls.Resolve(draft, key, TimerRunState.Running), Paused = TimerControls.Resolve(draft, key, TimerRunState.Paused) });
+                }
+                if (rules.Count > 0) draft.ShortcutRules = rules;
+            }
+            draft.ControlMode = next; RefreshRules(); RefreshControlMode(); Changed();
+        }
+        private void RefreshRuleActions()
+        {
+            if (addShortcutRule == null) return;
+            addShortcutRule.Enabled = draft.ShortcutRules == null || draft.ShortcutRules.Count < 16;
+            editShortcutRule.Enabled = deleteShortcutRule.Enabled = ruleList.SelectedIndices.Count > 0;
         }
         private void RefreshControlMode()
         {
@@ -318,18 +372,18 @@ namespace InputStitch
             EditorDialogs.RowVisible(hotkeyFields, 2, !custom); EditorDialogs.RowVisible(hotkeyFields, 3, !custom && mode != TimerControlMode.SingleKeyCycle); EditorDialogs.RowVisible(hotkeyFields, 4, mode == TimerControlMode.Independent); EditorDialogs.RowVisible(hotkeyFields, 5, custom);
             hotkeyFields.GetControlFromPosition(0, 2).Text = mode == TimerControlMode.SingleKeyCycle ? T("控制键", "Control key") : mode == TimerControlMode.StartFinishPause ? T("开始 / 结束", "Start / finish") : T("开始 / 暂停", "Start / pause");
             hotkeyFields.GetControlFromPosition(0, 3).Text = mode == TimerControlMode.StartFinishPause ? T("暂停 / 继续", "Pause / resume") : mode == TimerControlMode.StartPauseReset ? T("归零并隐藏", "Reset & hide") : T("归零并暂停", "Reset & pause");
-            controlHelp.Text = custom ? T("每个快捷键可分别设置未开始、计时中和已暂停时的动作。", "Set each hotkey's actions for ready, running and paused states.") : mode == TimerControlMode.SingleKeyCycle ? T("依次按：开始并显示 → 暂停 → 归零并隐藏。", "Press to cycle: start & show → pause → reset & hide.") : mode == TimerControlMode.StartFinishPause ? T("第一键开始，或结束并归零隐藏；第二键暂停或继续。", "First key starts, or finishes, resets and hides. Second key pauses or resumes.") : mode == TimerControlMode.StartPauseReset ? T("第一键开始或暂停并显示；第二键归零并隐藏。", "First key starts or pauses and shows. Second key resets and hides.") : T("开始暂停、归零、显隐各自使用一个快捷键。", "Separate shortcuts for start/pause, reset and show/hide.");
+            controlHelp.Text = custom ? (draft.ShortcutRules == null || draft.ShortcutRules.Count == 0 ? T("点击“添加快捷键”，分别设置未开始、计时中和暂停时的动作。", "Click Add hotkey to choose actions for ready, running and paused states.") : T("选中一行后编辑，可分别设置三个计时状态的动作。", "Select a row to edit its actions for each timer state.")) : mode == TimerControlMode.SingleKeyCycle ? T("依次按：开始并显示 → 暂停 → 归零并隐藏。", "Press to cycle: start & show → pause → reset & hide.") : mode == TimerControlMode.StartFinishPause ? T("第一键开始，或结束并归零隐藏；第二键暂停或继续。", "First key starts, or finishes, resets and hides. Second key pauses or resumes.") : mode == TimerControlMode.StartPauseReset ? T("第一键开始或暂停并显示；第二键归零并隐藏。", "First key starts or pauses and shows. Second key resets and hides.") : T("开始暂停、归零、显隐各自使用一个快捷键。", "Separate shortcuts for start/pause, reset and show/hide.");
         }
         private void RefreshRules()
         {
-            ruleList.Items.Clear(); if (draft.ShortcutRules == null) { FitRuleColumns(); return; }
+            int selected = ruleList.SelectedIndices.Count > 0 ? ruleList.SelectedIndices[0] : 0; ruleList.Items.Clear(); if (draft.ShortcutRules == null) { FitRuleColumns(); RefreshRuleActions(); return; }
             foreach (TimerShortcutRule rule in draft.ShortcutRules)
             {
                 ListViewItem item = new ListViewItem(rule.Hotkey == null ? T("选择快捷键…", "Choose hotkey…") : InputNames.FormatTrigger(rule.Hotkey));
                 item.SubItems.Add(TimerShortcutDialog.Describe(rule.Ready)); item.SubItems.Add(TimerShortcutDialog.Describe(rule.Running)); item.SubItems.Add(TimerShortcutDialog.Describe(rule.Paused));
                 item.ToolTipText = string.Join(" | ", new[] { item.SubItems[1].Text, item.SubItems[2].Text, item.SubItems[3].Text }); ruleList.Items.Add(item);
             }
-            ruleList.ShowItemToolTips = true; FitRuleColumns();
+            ruleList.ShowItemToolTips = true; if (ruleList.Items.Count > 0) ruleList.Items[Math.Min(selected, ruleList.Items.Count - 1)].Selected = true; FitRuleColumns(); RefreshRuleActions();
         }
         private void FitRuleColumns()
         {
@@ -356,7 +410,7 @@ namespace InputStitch
         }
         private Control PositionSlider(NumericUpDown number, int max, string name)
         {
-            TableLayoutPanel row = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
+            TableLayoutPanel row = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 }; row.SuspendLayout();
             row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             TrackBar slider = new TrackBar { Minimum = 0, Maximum = max, TickStyle = TickStyle.None, LargeChange = 100, SmallChange = 10, Value = (int)Math.Max(0, Math.Min(max, number.Value)), Dock = DockStyle.Fill, Height = 30, Name = name };
             bool synchronizing = false;
@@ -394,12 +448,12 @@ namespace InputStitch
         private static string T(string zh, string en) { return ToolFields.T(zh, en); }
         internal TimerShortcutDialog(TimerShortcutRule initial, Func<TriggerSpec, string> validator)
         {
-            draft = (initial ?? new TimerShortcutRule()).Clone(); validate = validator;
+            SuspendLayout(); draft = (initial ?? new TimerShortcutRule()).Clone(); validate = validator;
             Text = T("自定义计时快捷键", "Custom timer hotkey"); Font = EditorTheme.BodyFont(); AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
             ClientSize = new Size(780, 390); MinimumSize = new Size(700, 350); StartPosition = FormStartPosition.CenterParent; MinimizeBox = MaximizeBox = false;
-            Panel page = new Panel(); TableLayoutPanel fields = ToolFields.Page(page);
+            Panel page = new Panel(); page.SuspendLayout(); TableLayoutPanel fields = ToolFields.Page(page);
             ToolFields.Row(fields, T("快捷键", "Hotkey"), ToolFields.Shortcut(this, "timerRuleHotkey", () => draft.Hotkey, key => draft.Hotkey = key, Changed));
-            TableLayoutPanel states = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 4, RowCount = 4 };
+            TableLayoutPanel states = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 4, RowCount = 4 }; states.SuspendLayout();
             states.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); states.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); states.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); states.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             string[] headers = { T("计时状态", "Timer state"), T("计时动作", "Timer action"), T("先归零", "Reset first"), T("显示动作", "Display action") };
             for (int i = 0; i < 4; i++) states.Controls.Add(new Label { Text = headers[i], AutoSize = true, Margin = new Padding(4, 4, 12, 8) }, i, 0);
@@ -418,6 +472,7 @@ namespace InputStitch
             save = EditorDialogs.Button(T("确定", "OK"), DialogResult.None); Button cancel = EditorDialogs.Button(Localizer.T("取消"), DialogResult.Cancel); AcceptButton = save; CancelButton = cancel;
             save.Click += delegate { Changed(); if (!save.Enabled) return; Result = CaptureRule(); DialogResult = DialogResult.OK; Close(); };
             EditorDialogs.Frame(this, page, EditorDialogs.Actions(save, cancel), T("按当前状态执行：先归零，再处理计时，最后处理显示。", "For the current state: reset first, then apply timing and display actions."), null); Changed();
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
         private TimerShortcutRule CaptureRule()
         {

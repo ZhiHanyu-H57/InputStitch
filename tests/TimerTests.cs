@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -42,7 +42,7 @@ internal static class TimerTests
             if (args.Length > 0 && args[0] == "--performance") { Performance(); return 0; }
             if (args.Length > 0 && args[0] == "--parts-performance") { Performance(true); return 0; }
             if (args.Length > 0 && args[0] == "--rtss-live") { RtssLive(); return 0; }
-            Core(); Options(); Rendering(); Protocol(); Atomic(); Reuse(); Parts(); ControlModes(); Cadence(); LineSpacing();
+            Core(); Options(); Rendering(); Protocol(); Atomic(); Reuse(); Parts(); ControlModes(); Cadence(); LineSpacing(); SurfaceReuse();
             if (args.Length > 0 && args[0] == "--desktop") Desktop();
             Console.WriteLine("PASS TimerTests " + passed + " checks"); return 0;
         }
@@ -291,6 +291,34 @@ internal static class TimerTests
         for (int i = 0; i < 32; i++) o.Parts.Add(new TimerPart { Kind = TimerPartKind.Minutes, Style = new TimerPartStyle { FontSize = 160, OutlineWidth = 12, Color = "#" + (0x123000 + i).ToString("X6") } });
         using (TimerRtss client = new TimerRtss(o, delegate { return new FakeMemory(); }, output)) Check(!client.Present(elapsed) && client.Status == "RtssRenderError", "oversized part atlas fails at its explicit bound");
         Check(Directory.GetDirectories(output, "InputStitch.Timer.*").Length == directories, "failed part atlas construction leaves no temporary directory");
+    }
+    private static void SurfaceReuse()
+    {
+        TimerOptions options = new TimerOptions(); options.Parts = TimerText.CreatePreset(TimerTimeFormat.MinutesSecondsMilliseconds, options);
+        TimerPartsFrameCache cache = new TimerPartsFrameCache(options);
+        try
+        {
+            using (Bitmap first = cache.Render(TimeSpan.FromMilliseconds(12345))) { }
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            System.Collections.IList entries = (System.Collections.IList)typeof(TimerPartsFrameCache).GetField("entries", flags).GetValue(cache);
+            object entry = entries[0]; Array lines = (Array)entry.GetType().GetField("Lines", flags).GetValue(entry); object minute = lines.GetValue(0);
+            long warm = cache.CachedSurfaceBytes;
+            using (Bitmap next = cache.Render(TimeSpan.FromMilliseconds(12346))) { }
+            Check(ReferenceEquals(minute, lines.GetValue(0)), "unchanged minutes retain their composition surface while milliseconds change");
+            using (Bitmap next = cache.Render(TimeSpan.FromMilliseconds(72346))) { }
+            Check(!ReferenceEquals(minute, lines.GetValue(0)), "minute rollover replaces stale cached text");
+            for (int i = 0; i < 200; i++) using (Bitmap next = cache.Render(TimeSpan.FromMilliseconds(72346 + i * 50))) { }
+            Check(warm > 0 && cache.CachedSurfaceBytes > 0 && cache.CachedSurfaceBytes <= 4 * 1024 * 1024, "repeated part updates retain a bounded surface budget");
+        }
+        finally { cache.Dispose(); }
+        Check(cache.CachedSurfaceBytes == 0, "disposing part cache releases retained surface accounting");
+        TimerOptions large = new TimerOptions { Parts = new System.Collections.Generic.List<TimerPart>() };
+        for (int i = 0; i < 8; i++) large.Parts.Add(new TimerPart { Kind = TimerPartKind.Text, Text = "\n" + new string('W', 40), Style = new TimerPartStyle { FontSize = 160 } });
+        using (TimerPartsFrameCache bounded = new TimerPartsFrameCache(large))
+        {
+            using (Bitmap first = bounded.Render(TimeSpan.Zero)) using (Bitmap next = bounded.Render(TimeSpan.FromSeconds(1)))
+                Check(bounded.CachedSurfaceBytes <= 4 * 1024 * 1024 && first.Size == next.Size && Alpha(first) == Alpha(next), "oversized static layout preserves pixels through temporary-surface fallback");
+        }
     }
     private static void Rendering()
     {

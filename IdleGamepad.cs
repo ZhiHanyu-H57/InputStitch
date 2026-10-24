@@ -336,7 +336,7 @@ namespace InputStitch
 
         public IdleGamepadSettingsPanel(IdleGamepadOptions value, Func<TargetWindowIdentity> recentTargetProvider = null)
         {
-            this.recentTargetProvider = recentTargetProvider;
+            SuspendLayout(); this.recentTargetProvider = recentTargetProvider;
             IdleGamepadOptions current = (value ?? new IdleGamepadOptions()).CloneNormalized();
             targetProcessName = current.TargetProcessName;
             targetWindowTitle = current.TargetWindowTitle;
@@ -345,7 +345,7 @@ namespace InputStitch
             Dock = DockStyle.Top;
             Margin = new Padding(0);
             Padding = new Padding(4);
-            TableLayoutPanel root = new TableLayoutPanel();
+            TableLayoutPanel root = new TableLayoutPanel(); root.SuspendLayout();
             root.Dock = DockStyle.Top;
             root.AutoSize = true;
             root.AutoSizeMode = AutoSizeMode.GrowAndShrink;
@@ -357,7 +357,7 @@ namespace InputStitch
             enabledBox.Checked = current.Enabled;
             enabledBox.Margin = new Padding(0, 3, 0, 12);
             root.Controls.Add(enabledBox, 0, 0);
-            fields = new TableLayoutPanel();
+            fields = new TableLayoutPanel(); fields.SuspendLayout();
             fields.AutoSize = true;
             fields.Dock = DockStyle.Top;
             fields.ColumnCount = 2;
@@ -377,7 +377,7 @@ namespace InputStitch
             }
             controlBox.SelectedIndex = controls.IndexOf(current.Pulse.GamepadControl);
             AddRow(fields, T("手柄操作：", "Gamepad input:"), controlBox, 1);
-            analogRow = new FlowLayoutPanel();
+            analogRow = new FlowLayoutPanel(); analogRow.SuspendLayout();
             analogRow.AutoSize = true;
             analogRow.Dock = DockStyle.Top;
             analogRow.WrapContents = true;
@@ -396,7 +396,7 @@ namespace InputStitch
             fields.SetColumnSpan(analogRow, 2);
             AddRow(fields, T("按住时间（毫秒）：", "Hold time (ms):"), holdBox, 3);
 
-            TableLayoutPanel targetEditor = new TableLayoutPanel();
+            TableLayoutPanel targetEditor = new TableLayoutPanel(); targetEditor.SuspendLayout();
             targetEditor.AutoSize = true;
             targetEditor.Dock = DockStyle.Top;
             targetEditor.ColumnCount = 3;
@@ -470,6 +470,7 @@ namespace InputStitch
             };
             UpdateTargetText();
             UpdateFields();
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
         }
 
         private void CaptureRecentTarget()
