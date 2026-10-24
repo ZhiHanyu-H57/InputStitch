@@ -11,6 +11,10 @@ foreach($file in @('scripts/Verification.psm1','tests/Run-Verification.ps1','tes
 }
 $p=Get-VerificationPlan -ChangedPaths @('docs/README.md','CONTRIBUTING.md','SECURITY.md')
 Check ($p.Checks.Count -eq 0) 'Docs-only development must not run product tests.'
+$p=Get-VerificationPlan -ChangedPaths @('.gitignore')
+Check ('workflow' -in $p.Checks -and !$p.SoakRequired) 'Discovery-rule changes verify the selector only.'
+& git -C $project check-ignore -q scripts/__pycache__/verification-fixture.pyc
+Check ($LASTEXITCODE -eq 0) 'Generated Python cache cannot become an unclassified source change.'
 $p=Get-VerificationPlan -ChangedPaths @('EditorPresentation.cs')
 Check ('ui:secondary' -in $p.Checks -and !$p.SoakRequired -and 'suite:MacroRunCoordinatorTests' -notin $p.Checks) 'Shared UI needs layouts without macro/soak expansion.'
 $p=Get-VerificationPlan -ChangedPaths @('MacroWorkerPool.cs')

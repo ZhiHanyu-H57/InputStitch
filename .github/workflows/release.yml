@@ -27,6 +27,8 @@ concurrency:
 jobs:
   verify:
     runs-on: windows-2022
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     outputs:
       version: ${{ steps.version.outputs.version }}
       prerelease: ${{ steps.version.outputs.prerelease }}

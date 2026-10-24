@@ -54,3 +54,6 @@ Desktop.ini
 
 # Curated, source-bound acceptance evidence (not raw artifacts).
 !verification/evidence/*.log
+
+# Python-generated cache is not a source change.
+__pycache__/
