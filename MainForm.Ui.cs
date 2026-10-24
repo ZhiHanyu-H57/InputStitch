@@ -412,6 +412,7 @@ namespace InputStitch
             runButton.TabStop = false;
             runButton.KeyDown += delegate(object sender, KeyEventArgs e)
             {
+                if (UiSafetyPolicy.PassThroughUiKey(e.KeyData)) return;
                 e.Handled = true;
                 e.SuppressKeyPress = true;
             };

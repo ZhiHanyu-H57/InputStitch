@@ -217,6 +217,8 @@ internal static class SecondaryLayoutTests
     }
     [STAThread]
     private static int Main(string[] args)
+    { return IsolatedUiDesktop.Run(() => MainCore(args)); }
+    private static int MainCore(string[] args)
     {
         native = args.Contains("--native");
         if (native) SetProcessDpiAwarenessContext(new IntPtr(-4));

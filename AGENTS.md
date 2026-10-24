@@ -50,6 +50,24 @@ Before changing code in this repository, restore project context in this order:
 
 ## Verification before commit
 
+### Desktop use during UI verification
+
+Layout, editor journey and dialog tests use `IsolatedUiDesktop`: a whole child
+process starts on a private Windows desktop without activating it. Keep framework
+helper threads on that same desktop; moving only the test STA can hang WinForms
+cleanup. The parent checks foreground ownership and releases the desktop after
+the child exits. Do not weaken these checks or switch the desktop to get a pass.
+
+Run PowerShell UI smoke checks through `tests/Run-IsolatedUiScript.ps1`, including
+`SettingsSmoke.ps1` and architecture-matched `Run-PackagedSmoke.ps1`. Native DPI
+layout tests can run privately. Actual desktop composition/capture and real-input
+acceptance retain their explicitly authorized dedicated environment requirements.
+
+Announce before starting Computer Use and when it stops. Close test inspectors
+and stop desktop interaction as soon as the inspection finishes; do not leave it
+active until the conversation ends. Prefer private UI tests while the user is
+working. ToolIntegration interactive inspectors require `--allow-host-desktop`.
+
 Use impact-based verification during development (user instruction, 2026-10-22).
 Select the suites and focused workflows affected by the actual change. List the
 selection and results in the handoff. Do not rerun unrelated layout, provider or

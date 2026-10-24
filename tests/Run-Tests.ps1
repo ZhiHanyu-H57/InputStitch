@@ -55,6 +55,7 @@ $arguments += '/reference:'+$client
   $arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
   foreach($file in $productionSources) { $arguments += $file }
   $arguments += Join-Path $PSScriptRoot ($testSuite+'.cs')
+  $arguments += Join-Path $PSScriptRoot 'IsolatedUiDesktop.cs'
   if ($testSuite -eq 'CornerCutCrosshairTests') { $arguments += Join-Path $PSScriptRoot 'Fixtures/LegacyCrosshair.cs' }
   if ($testSuite -in @('CornerCutDialogTests','ToolIntegrationTests')) { $arguments += Join-Path $PSScriptRoot 'SecondaryLayoutTests.cs' }
   $compile = Invoke-NativeCaptured $compiler $arguments
@@ -69,6 +70,5 @@ $arguments += '/reference:'+$client
 }
 Write-Output ("PASS {0} selected regression suites. Tests use isolated observers/native target windows; real output acceptance is separate." -f $selectedSuites.Count)
 if ($fullRun -or $SettingsSmoke) {
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
-  if($LASTEXITCODE -ne 0) { Write-CiError 'Settings smoke tests failed' @('SettingsSmoke.ps1 returned a non-zero exit code.'); throw 'Settings smoke tests failed' }
+  & (Join-Path $PSScriptRoot 'Run-IsolatedUiScript.ps1') -Path (Join-Path $PSScriptRoot 'SettingsSmoke.ps1')
 }

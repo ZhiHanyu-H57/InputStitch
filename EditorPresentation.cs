@@ -413,6 +413,19 @@ namespace InputStitch
         private Font measuredFont;
         private string measuredText;
         private int selectedTextWidth;
+        private Font scaleFont;
+        private int scaleDpi;
+        private float measuredScale;
+        private string tooltipText;
+        private float LayoutScale()
+        {
+            if (!ReferenceEquals(scaleFont, Font) || scaleDpi != DeviceDpi)
+            {
+                scaleFont = Font; scaleDpi = DeviceDpi;
+                measuredScale = Math.Max(Font.GetHeight() / Font.GetHeight(96F), Font.Size / EditorTheme.BodyFontSize);
+            }
+            return measuredScale;
+        }
         private int MeasureLabels()
         {
             bool reset = measuredFont == null || !measuredFont.Equals(Font);
@@ -435,7 +448,7 @@ namespace InputStitch
             busy = true;
             try
             {
-                float scale = Math.Max(Font.GetHeight() / Font.GetHeight(96F),Font.Size / EditorTheme.BodyFontSize);
+                float scale = LayoutScale();
                 int measured = MeasureLabels();
                 int width = Math.Max((int)(112*scale),Math.Min((int)(320*scale),measured+SystemInformation.VerticalScrollBarWidth+(int)(14*scale)));
                 TableLayoutPanel table = Parent as TableLayoutPanel;
@@ -449,11 +462,14 @@ namespace InputStitch
                 Dock=DockStyle.None; Anchor=AnchorStyles.Left;
                 AutoSize=true;
                 if(Width!=width) Width=width;
-                DropDownWidth=Math.Max(width,Math.Min(Screen.FromControl(this).WorkingArea.Width-32,measured+SystemInformation.VerticalScrollBarWidth+24));
-                AccessibleDescription=Text;
+                // Clamp to the current monitor when opening, not on every layout pass.
+                int dropWidth = Math.Max(width, measured + SystemInformation.VerticalScrollBarWidth + 24);
+                if (DropDownWidth != dropWidth) DropDownWidth = dropWidth;
+                if (AccessibleDescription != Text) AccessibleDescription=Text;
                 bool clipped=selectedTextWidth+SystemInformation.VerticalScrollBarWidth+6>width;
                 if(clipped && uiToolTip==null) uiToolTip=new ToolTip();
-                if(uiToolTip!=null) uiToolTip.SetToolTip(this,clipped?Text:"");
+                string tip = clipped ? Text : "";
+                if(uiToolTip!=null && tooltipText != tip) { uiToolTip.SetToolTip(this,tip); tooltipText = tip; }
             }
             finally { busy=false; }
         }
@@ -464,7 +480,7 @@ namespace InputStitch
             size.Height=Math.Max(size.Height,Height);
             if(CompactWidth && DropDownStyle==ComboBoxStyle.DropDownList)
             {
-                float scale=Math.Max(Font.GetHeight()/Font.GetHeight(96F),Font.Size/EditorTheme.BodyFontSize);
+                float scale=LayoutScale();
                 int width=MeasureLabels();
                 size.Width=Math.Max(MinimumSize.Width,Math.Max((int)(112*scale),Math.Min((int)(320*scale),width+SystemInformation.VerticalScrollBarWidth+(int)(14*scale))));
             }

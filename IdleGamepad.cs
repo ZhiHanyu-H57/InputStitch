@@ -323,6 +323,9 @@ namespace InputStitch
         private readonly Label angleLabel;
         private readonly List<GamepadControl> controls = new List<GamepadControl>();
         private readonly TableLayoutPanel fields;
+        private readonly TableLayoutPanel layoutRoot;
+        private readonly Label explanation, background;
+        private bool layoutReady, arranging;
         private readonly Label targetBox;
         private readonly Button lockTargetButton;
         private readonly Button clearTargetButton;
@@ -346,13 +349,12 @@ namespace InputStitch
             Dock = DockStyle.Top;
             Margin = new Padding(0);
             Padding = new Padding(4);
-            TableLayoutPanel root = new TableLayoutPanel(); root.SuspendLayout();
+            TableLayoutPanel root = new TableLayoutPanel(); layoutRoot = root; root.SuspendLayout();
             root.Dock = DockStyle.Top;
-            root.AutoSize = true;
-            root.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            root.AutoSize = false;
             root.ColumnCount = 1;
             root.RowCount = 4;
-            for (int row = 0; row < 4; row++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            for (int row = 0; row < 4; row++) root.RowStyles.Add(new RowStyle(SizeType.Absolute));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             enabledBox = new CheckBox();
             enabledBox.AutoSize = true;
@@ -361,13 +363,12 @@ namespace InputStitch
             enabledBox.Margin = new Padding(0, 3, 0, 12);
             root.Controls.Add(enabledBox, 0, 0);
             fields = new TableLayoutPanel(); fields.SuspendLayout();
-            fields.AutoSize = true;
-            fields.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            fields.AutoSize = false;
             fields.Dock = DockStyle.Top;
             fields.ColumnCount = 2;
             fields.RowCount = 5;
-            for (int row = 0; row < 5; row++) fields.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            for (int row = 0; row < 5; row++) fields.RowStyles.Add(new RowStyle(SizeType.Absolute));
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             secondsBox = Number(10, 86400, current.IdleSeconds);
             holdBox = Number(50, 2000, current.HoldMilliseconds);
@@ -400,14 +401,6 @@ namespace InputStitch
             analogRow.Controls.Add(strengthBox);
             fields.Controls.Add(analogRow, 0, 2);
             fields.SetColumnSpan(analogRow, 2);
-            Action fitAnalogRow = delegate
-            {
-                if (fields.ClientSize.Width <= 1) return;
-                int width = Math.Min(Math.Max(1, fields.ClientSize.Width - analogRow.Margin.Horizontal),
-                    analogRow.GetPreferredSize(Size.Empty).Width);
-                if (analogRow.MinimumSize.Width != width) analogRow.MinimumSize = new Size(width, 0);
-            };
-            analogRow.Layout += delegate { fitAnalogRow(); }; fields.SizeChanged += delegate { fitAnalogRow(); };
             AddRow(fields, T("按住时间（毫秒）：", "Hold time (ms):"), holdBox, 3);
 
             TableLayoutPanel targetEditor = new TableLayoutPanel(); targetEditor.SuspendLayout();
@@ -446,14 +439,14 @@ namespace InputStitch
             targetEditor.Controls.Add(clearTargetButton, 2, 0);
             AddRow(fields, T("挂机目标：", "Idle target:"), targetEditor, 4);
             root.Controls.Add(fields, 0, 1);
-            Label explanation = Label(T(
+            explanation = Label(T(
                 "未锁定目标时按全局键鼠活动计时；锁定后只统计目标程序前台时的操作。目标未运行时暂停发送。",
                 "Without a target, keyboard/mouse activity anywhere restarts the idle timer. With a target, only activity in that app counts. Sending pauses while the target is closed."));
             explanation.Dock = DockStyle.Top;
             explanation.Margin = new Padding(0, 12, 0, 6);
             explanation.ForeColor = Color.FromArgb(85, 96, 112);
             root.Controls.Add(explanation, 0, 2);
-            Label background = Label(T(
+            background = Label(T(
                 "手柄活动和宏运行会重新计时。后台发送不切换窗口；紧急停止后需要重新启用。",
                 "Gamepad activity and macros also restart the timer. Sending keeps the current window active. Re-enable here after Emergency Stop."));
             background.Dock = DockStyle.Fill;
@@ -472,15 +465,70 @@ namespace InputStitch
             };
             UpdateTargetText();
             UpdateFields();
-            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true);
+            layoutReady = true;
+            EditorDialogs.ResumeChildLayouts(this); ResumeLayout(true); PerformLayout();
         }
 
         public override Size GetPreferredSize(Size proposedSize)
         {
-            if (Controls.Count == 0) return base.GetPreferredSize(proposedSize);
+            if (!layoutReady) return base.GetPreferredSize(proposedSize);
             int width = proposedSize.Width > Padding.Horizontal ? proposedSize.Width : Width;
-            Size content = Controls[0].GetPreferredSize(new Size(Math.Max(1, width - Padding.Horizontal), 0));
-            return new Size(content.Width + Padding.Horizontal, content.Height + Padding.Vertical);
+            int labelWidth; int[] rows, outer;
+            MeasureContent(Math.Max(1, width - Padding.Horizontal), out labelWidth, out rows, out outer);
+            int height = Padding.Vertical; foreach (int row in outer) height += row;
+            return new Size(width, height);
+        }
+        private static int RowHeight(Control control)
+        { return Math.Max(control.Height, control.GetPreferredSize(Size.Empty).Height) + control.Margin.Vertical; }
+        private void MeasureContent(int width, out int labelWidth, out int[] rows, out int[] outer)
+        {
+            labelWidth = 0;
+            foreach (Control control in fields.Controls)
+                if (fields.GetColumn(control) == 0 && fields.GetColumnSpan(control) == 1)
+                    labelWidth = Math.Max(labelWidth, control.GetPreferredSize(Size.Empty).Width + control.Margin.Horizontal);
+            rows = new[] { RowHeight(secondsBox), RowHeight(controlBox), 0, RowHeight(holdBox), RowHeight(targetBox.Parent) };
+            foreach (Control control in fields.Controls)
+                if (fields.GetColumn(control) == 0 && fields.GetColumnSpan(control) == 1)
+                    rows[fields.GetRow(control)] = Math.Max(rows[fields.GetRow(control)], RowHeight(control));
+            GamepadControl selected = controls[Math.Max(0, controlBox.SelectedIndex)];
+            bool stick = selected == GamepadControl.LeftStick || selected == GamepadControl.RightStick;
+            bool trigger = selected == GamepadControl.LeftTrigger || selected == GamepadControl.RightTrigger;
+            if (stick || trigger)
+            {
+                int available = Math.Max(1, width - fields.Margin.Horizontal - analogRow.Margin.Horizontal), used = 0, line = 0, height = 0;
+                for (int i = stick ? 0 : 2; i < analogRow.Controls.Count; i++)
+                {
+                    Control control = analogRow.Controls[i];
+                    int itemWidth = (control is Label ? control.GetPreferredSize(Size.Empty).Width : control.Width) + control.Margin.Horizontal;
+                    if (used > 0 && used + itemWidth > available) { height += line; used = line = 0; }
+                    used += itemWidth; line = Math.Max(line, RowHeight(control));
+                }
+                rows[2] = height + line + analogRow.Margin.Vertical;
+            }
+            int fieldsHeight = fields.Margin.Vertical; foreach (int row in rows) fieldsHeight += row;
+            outer = new[] { RowHeight(enabledBox), fieldsHeight,
+                explanation.GetPreferredSize(new Size(Math.Max(1, width - explanation.Margin.Horizontal), 0)).Height + explanation.Margin.Vertical,
+                background.GetPreferredSize(new Size(Math.Max(1, width - background.Margin.Horizontal), 0)).Height + background.Margin.Vertical };
+        }
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            if (layoutReady && !arranging)
+            {
+                arranging = true;
+                try
+                {
+                    int labelWidth; int[] rows, outer;
+                    MeasureContent(Math.Max(1, ClientSize.Width - Padding.Horizontal), out labelWidth, out rows, out outer);
+                    fields.ColumnStyles[0].Width = labelWidth;
+                    int fieldsHeight = 0, height = 0;
+                    for (int i = 0; i < rows.Length; i++) { fields.RowStyles[i].Height = rows[i]; fieldsHeight += rows[i]; }
+                    if (fields.Height != fieldsHeight) fields.Height = fieldsHeight;
+                    for (int i = 0; i < outer.Length; i++) { layoutRoot.RowStyles[i].Height = outer[i]; height += outer[i]; }
+                    if (layoutRoot.Height != height) layoutRoot.Height = height;
+                }
+                finally { arranging = false; }
+            }
+            base.OnLayout(e);
         }
 
         private void CaptureRecentTarget()
@@ -534,6 +582,7 @@ namespace InputStitch
             bool trigger = control == GamepadControl.LeftTrigger || control == GamepadControl.RightTrigger;
             analogRow.Visible = stick || trigger;
             angleLabel.Visible = angleBox.Visible = stick;
+            if (layoutReady) PerformLayout();
         }
 
         public IdleGamepadOptions ReadOptions()

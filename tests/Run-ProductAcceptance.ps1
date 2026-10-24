@@ -21,6 +21,7 @@ $arguments += '/resource:' + $client + ',InputStitch.ThirdParty.Nefarius.ViGEm.C
 $arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
 $arguments += $productionSources
 $arguments += Join-Path $PSScriptRoot 'ProductAcceptanceTests.cs'
+$arguments += Join-Path $PSScriptRoot 'IsolatedUiDesktop.cs'
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Product acceptance compilation failed.' }
 if ($SoakMinutes -gt 0) { & $exe --soak-minutes $SoakMinutes } elseif ($NativeFields) { & $exe --fields-native } elseif ($FieldsOnly) { & $exe --fields } elseif ($NativeJourney) { & $exe --journey-native } elseif ($JourneyOnly) { & $exe --journey } elseif ($DensityOnly) { & $exe --density } elseif ($DialogsOnly) { & $exe --dialogs } else { & $exe }

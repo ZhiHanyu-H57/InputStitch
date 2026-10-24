@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -74,11 +74,23 @@ internal static class ToolIntegrationTests
     { using (StringWriter writer = new StringWriter()) { new XmlSerializer(typeof(T)).Serialize(writer, data); return writer.ToString(); } }
     [STAThread] private static int Main(string[] args)
     {
+        if (args.Any(x => x.StartsWith("--inspect-", StringComparison.Ordinal)))
+        {
+            if (!args.Contains("--allow-host-desktop")) throw new InvalidOperationException("Interactive inspection requires explicit --allow-host-desktop authorization.");
+            return MainCore(args);
+        }
+        return IsolatedUiDesktop.Run(() => MainCore(args));
+    }
+    private static int MainCore(string[] args)
+    {
         if (args.Contains("--native-dpi")) SetProcessDpiAwarenessContext(new IntPtr(-4));
         root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tool-integration-results"); Directory.CreateDirectory(root);
         Application.EnableVisualStyles(); EmbeddedDependencyLoader.Register();
         try
         {
+            if (args.Contains("--automation-layout")) { AutomationLayout(); return 0; }
+            string compare = args.FirstOrDefault(x => x.StartsWith("--compare-popups=", StringComparison.Ordinal));
+            if (compare != null) { ComparePopups(compare.Substring("--compare-popups=".Length)); return 0; }
             if (args.Any(x => x.StartsWith("--inspect-", StringComparison.Ordinal))) { InspectDialog(args); return 0; }
             if (args.Contains("--dialog-regressions")) { DialogRegressions(args.FirstOrDefault(x => x.StartsWith("--regression-focus=", StringComparison.Ordinal))); return 0; }
             if (args.Contains("--dialog-performance")) { DialogPerformance(); return 0; }
@@ -109,6 +121,108 @@ internal static class ToolIntegrationTests
             lifetime.Tick += delegate { dialog.Close(); }; lifetime.Start();
             dialog.ShowDialog();
         }
+    }
+    private static void AutomationLayout()
+    {
+        foreach (string language in new[] { Localizer.Chinese, Localizer.English })
+        foreach (GamepadControl control in new[] { GamepadControl.South, GamepadControl.LeftStick, GamepadControl.RightTrigger })
+        foreach (bool enabled in new[] { false, true })
+        {
+            Localizer.SetLanguage(language); MacroConfig config = Config();
+            config.IdleGamepad = new IdleGamepadOptions { Enabled = enabled, TargetScopeInitialized = true }; config.IdleGamepad.Pulse.GamepadControl = control;
+            string source = Xml(config.IdleGamepad);
+            using (SettingsDialog dialog = new SettingsDialog(config))
+            {
+                dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-20000, -20000); dialog.Show(); Pump(5);
+                Size original = dialog.Size; TabControl tabs = All(dialog).OfType<TabControl>().First(); tabs.SelectedIndex = 2;
+                foreach (double scale in new[] { 1.0, .85, 1.15 })
+                {
+                    Existing("SyntheticSize", dialog, new Size(Math.Max(dialog.MinimumSize.Width, (int)(original.Width * scale)), Math.Max(dialog.MinimumSize.Height, (int)(original.Height * scale)))); Pump(3);
+                    IdleGamepadSettingsPanel idle = Field<IdleGamepadSettingsPanel>(dialog, "idleSettings");
+                    TableLayoutPanel layout = Field<TableLayoutPanel>(idle, "layoutRoot"), fields = Field<TableLayoutPanel>(idle, "fields");
+                    int tolerance = (int)Math.Ceiling(8 * dialog.Font.Height / 18F);
+                    Control targetStack = Field<CheckBox>(dialog, "activateTargetBox").Parent;
+                    int targetContent = targetStack.Controls.Cast<Control>().Sum(c => c.GetPreferredSize(Size.Empty).Height + c.Margin.Vertical);
+                    Check(targetStack.Height <= targetContent + tolerance, "target settings stack has no stretched rows");
+                    Control delay = Field<NumericUpDown>(dialog, "delayBox").Parent;
+                    Check(delay.Height <= delay.Controls.Cast<Control>().Max(c => c.Height + c.Margin.Vertical) + tolerance, "target delay remains a single compact row");
+                    Check(delay.Height <= dialog.Font.Height * 3, "target delay does not inherit inflated native numeric margins");
+                    Check(Field<NumericUpDown>(dialog, "delayBox").Margin.Vertical <= dialog.Font.Height, "native numeric margin stays smaller than a line of text");
+                    Check(targetStack.Parent.Height <= targetContent + targetStack.Parent.Padding.Vertical + targetStack.Parent.Font.Height + tolerance, "target settings section leaves no large blank region");
+                    if (control == GamepadControl.LeftStick && enabled && scale == 1.0)
+                        File.WriteAllLines(Path.Combine(root, "automation-details-" + language + ".txt"), new[] { targetStack.Parent }.Concat(All(targetStack.Parent)).Select(c => c.GetType().Name + " text=" + c.Text + " bounds=" + c.Bounds + " preferred=" + c.GetPreferredSize(Size.Empty) + " min=" + c.MinimumSize + " margin=" + c.Margin + " anchor=" + c.Anchor + " auto=" + c.AutoSize + " dock=" + c.Dock));
+                    Check(Math.Abs(idle.Height - idle.GetPreferredSize(new Size(idle.Width, 0)).Height) <= tolerance, "idle panel uses the measured width without growing blank space");
+                    for (int row = 0; row < fields.RowCount; row++)
+                    {
+                        Control[] cells = fields.Controls.Cast<Control>().Where(c => c.Visible && fields.GetRow(c) == row).ToArray();
+                        if (cells.Length == 0) { Check(fields.GetRowHeights()[row] <= tolerance, "hidden analog row leaves no empty strip"); continue; }
+                        int extent = cells.Max(c => c.Height + c.Margin.Vertical);
+                        Check(fields.GetRowHeights()[row] <= extent + tolerance, "automation rows keep a content-sized height");
+                    }
+                    foreach (Label label in layout.Controls.OfType<Label>())
+                        Check(label.Height <= label.GetPreferredSize(new Size(label.Width, 0)).Height + tolerance, "wrapped help has no stretched blank paragraph");
+                    Control explanation = layout.GetControlFromPosition(0, 2);
+                    Check(explanation.Top - fields.Bottom <= explanation.Margin.Top + fields.Margin.Bottom + tolerance, "no large gap between controls and help");
+                    Check(Xml(dialog.SelectedIdleOptions) == source, "resizing and measuring preserve all idle options");
+                    using (Bitmap bitmap = new Bitmap(dialog.Width, dialog.Height))
+                    { dialog.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size)); bitmap.Save(Path.Combine(root, "automation-" + language + "-" + control + "-" + enabled + "-" + scale.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".png")); }
+                    windows++;
+                }
+                dialog.Close();
+            }
+        }
+        string summary = "PASS automation layout: " + checks + " checks; " + windows + " views; buttons/sticks/triggers, enabled/disabled, bilingual and three sizes.";
+        File.WriteAllText(Path.Combine(root, "automation-summary.txt"), summary); Console.WriteLine(summary);
+    }
+    private static object Construct(Type type, params object[] arguments)
+    {
+        foreach (ConstructorInfo constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).OrderBy(c => c.GetParameters().Length))
+        {
+            ParameterInfo[] parameters = constructor.GetParameters(); if (parameters.Length < arguments.Length || parameters.Skip(arguments.Length).Any(p => !p.IsOptional)) continue;
+            object[] values = new object[parameters.Length]; Array.Copy(arguments, values, arguments.Length);
+            for (int i = arguments.Length; i < values.Length; i++) values[i] = parameters[i].DefaultValue;
+            return constructor.Invoke(values);
+        }
+        throw new Exception("No matching constructor for " + type.Name);
+    }
+    private static void ComparePopups(string baseline)
+    {
+        Assembly previous = Assembly.LoadFrom(Path.GetFullPath(baseline));
+        previous.GetType("InputStitch.EmbeddedDependencyLoader").GetMethod("Register").Invoke(null, null);
+        List<string> rows = new List<string> { "language,dialog,sample,version,constructor_ms,prepared_ms" };
+        List<string> layout = new List<string> { "language,version,delay_row_height,number_width,number_margin_top,number_margin_bottom,target_section_height" };
+        foreach (string language in new[] { Localizer.Chinese, Localizer.English })
+        foreach (string kind in new[] { "SettingsDialog", "StepEditDialog", "CrosshairSettingsDialog", "TimerSettingsDialog" })
+        for (int sample = 0; sample < 3; sample++) foreach (bool old in new[] { true, false })
+        {
+            Assembly assembly = old ? previous : typeof(SettingsDialog).Assembly;
+            assembly.GetType("InputStitch.Localizer").GetMethod("SetLanguage").Invoke(null, new object[] { language });
+            object options = assembly.CreateInstance("InputStitch." + (kind == "SettingsDialog" ? "MacroConfig" : kind == "StepEditDialog" ? "MacroStep" : kind == "CrosshairSettingsDialog" ? "CrosshairOptions" : "TimerOptions"));
+            Stopwatch clock = Stopwatch.StartNew(); Form dialog;
+            if (kind == "SettingsDialog") dialog = (Form)Construct(assembly.GetType("InputStitch." + kind), options, null);
+            else if (kind == "StepEditDialog") dialog = (Form)Construct(assembly.GetType("InputStitch." + kind), null, options);
+            else dialog = (Form)Construct(assembly.GetType("InputStitch." + kind), options, null, null);
+            double created = clock.Elapsed.TotalMilliseconds;
+            using (dialog)
+            {
+                dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-20000, -20000); dialog.Show(); dialog.Update();
+                using (Bitmap image = new Bitmap(dialog.Width, dialog.Height)) dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size));
+                rows.Add(language + "," + kind + "," + sample + "," + (old ? "beta6" : "current") + "," + created.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + "," + clock.Elapsed.TotalMilliseconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+                if (kind == "SettingsDialog" && sample == 0)
+                {
+                    All(dialog).OfType<TabControl>().First().SelectedIndex = 2; Pump(5);
+                    NumericUpDown delay = (NumericUpDown)dialog.GetType().GetField("delayBox", Hidden).GetValue(dialog);
+                    Control target = ((CheckBox)dialog.GetType().GetField("activateTargetBox", Hidden).GetValue(dialog)).Parent.Parent;
+                    layout.Add(language + "," + (old ? "beta6" : "beta7") + "," + delay.Parent.Height + "," + delay.Width + "," + delay.Margin.Top + "," + delay.Margin.Bottom + "," + target.Height);
+                    using (Bitmap image = new Bitmap(dialog.Width, dialog.Height))
+                    { dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(root, "automation-" + (old ? "beta6" : "beta7") + "-" + language + ".png")); }
+                }
+                dialog.Close();
+            }
+        }
+        File.WriteAllLines(Path.Combine(root, "popup-comparison.csv"), rows);
+        File.WriteAllLines(Path.Combine(root, "automation-comparison.csv"), layout);
+        Console.WriteLine("PASS paired popup preparation comparison: 48 samples, same native DPI and isolated desktop.");
     }
     private static void DialogRegressions(string focus = null)
     {
@@ -557,6 +671,18 @@ internal static class ToolIntegrationTests
         using (MainForm main = new MainForm(c, Path.Combine(root, "safety"), output))
         {
             IntPtr handle = main.Handle; Call(main, "ApplyScreenTools");
+            Button run = Field<Button>(main, "runButton");
+            foreach (Keys key in new[] { Keys.PrintScreen, Keys.PrintScreen | Keys.Alt, Keys.PrintScreen | Keys.Control })
+            {
+                KeyEventArgs input = new KeyEventArgs(key); Call(run, "OnKeyDown", input);
+                Check(!input.Handled && !input.SuppressKeyPress, "run button preserves PrintScreen " + key);
+                Check(!(bool)Call(main, "HandleTerminalInputCore", Event(new TriggerSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.PrintScreen }), false), "unbound PrintScreen is not globally suppressed");
+            }
+            foreach (Keys key in new[] { Keys.Enter, Keys.Space, Keys.F8 })
+            {
+                KeyEventArgs input = new KeyEventArgs(key); Call(run, "OnKeyDown", input);
+                Check(input.Handled && input.SuppressKeyPress, "run button retains ordinary key protection " + key);
+            }
             TimerController timer = Field<TimerController>(main, "timerController");
             Check(!timer.IsRunning && timer.Elapsed == TimeSpan.Zero, "timer launches paused at zero");
             foreach (string guard in new[] { "uiSafetyModalDepth", "pauseHotkeys", "uiSafetyPauseRequested" })

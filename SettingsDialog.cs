@@ -341,38 +341,50 @@ namespace InputStitch
             RefreshGamepadStatus();
 
             GroupBox target = MakeGroup(Localizer.T("目标窗口与方案"));
-            TableLayoutPanel targetLayout = MakeStack();
+            FlowLayoutPanel targetLayout = new FlowLayoutPanel(); targetLayout.SuspendLayout();
+            targetLayout.AutoSize = true;
+            targetLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            targetLayout.Dock = DockStyle.Top;
+            targetLayout.FlowDirection = FlowDirection.TopDown;
+            targetLayout.WrapContents = false;
             target.Controls.Add(targetLayout);
             activateTargetBox = MakeCheck(Localizer.T("从界面运行时先切换到目标窗口"), config.ActivateTargetWindowOnUiRun);
             targetLayout.Controls.Add(activateTargetBox);
-            TableLayoutPanel delayRow = new TableLayoutPanel(); delayRow.SuspendLayout();
+            FlowLayoutPanel delayRow = new FlowLayoutPanel(); delayRow.SuspendLayout();
             delayRow.AutoSize = true;
             delayRow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             delayRow.Dock = DockStyle.Top;
-            delayRow.ColumnCount = 3;
-            delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            delayRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            delayRow.WrapContents = false;
             Label delayLabel = new Label();
             delayLabel.Text = Localizer.T("切换后等待：");
             delayLabel.AutoSize = true;
-            delayLabel.Anchor = AnchorStyles.Left;
+            delayLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             delayLabel.Margin = new Padding(24, 5, 12, 5);
             delayBox = new NumericUpDown();
+            delayBox.AutoScaleMode = AutoScaleMode.None;
             delayBox.Minimum = 0;
             delayBox.Maximum = 5000;
             delayBox.Increment = 50;
             delayBox.Value = Math.Max(delayBox.Minimum, Math.Min(delayBox.Maximum, config.UiRunStartDelayMs));
             delayBox.Width = 100;
-            delayBox.Anchor = AnchorStyles.Left;
+            delayBox.Margin = new Padding(0, 3, 8, 5);
+            delayBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             Label ms = new Label();
             ms.Text = "ms";
             ms.AutoSize = true;
-            ms.Anchor = AnchorStyles.Left;
+            ms.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             ms.Margin = new Padding(8, 5, 0, 5);
-            delayRow.Controls.Add(delayLabel, 0, 0);
-            delayRow.Controls.Add(delayBox, 1, 0);
-            delayRow.Controls.Add(ms, 2, 0);
+            delayRow.Controls.Add(delayLabel);
+            delayRow.Controls.Add(delayBox);
+            delayRow.Controls.Add(ms);
+            delayRow.Layout += delegate
+            {
+                float scale = Math.Max(Font.GetHeight() / Font.GetHeight(96F), Font.Size / EditorTheme.BodyFontSize);
+                Padding margin = new Padding(0, (int)(3 * scale), (int)(8 * scale), (int)(5 * scale));
+                if (delayBox.Margin != margin) delayBox.Margin = margin;
+                int width = Math.Max(delayBox.MinimumSize.Width, (int)(100 * scale));
+                if (delayBox.Width != width) delayBox.Width = width;
+            };
             targetLayout.Controls.Add(delayRow);
             autoProfileBox = MakeCheck(Localizer.T("按前台程序自动切换已绑定方案"), config.AutoSwitchProfiles);
             targetLayout.Controls.Add(autoProfileBox);
@@ -575,6 +587,12 @@ namespace InputStitch
             box.Padding = new Padding(12, 18, 12, 10);
             box.Margin = new Padding(0, 0, 0, 12);
             box.BackColor = Color.White;
+            box.Layout += delegate
+            {
+                float scale = Math.Max(box.Font.GetHeight() / box.Font.GetHeight(96F), box.Font.Size / EditorTheme.BodyFontSize);
+                Padding padding = new Padding((int)(12 * scale), (int)(18 * scale), (int)(12 * scale), (int)(10 * scale));
+                if (box.Padding != padding) box.Padding = padding;
+            };
             EditorDialogs.FitSection(box);
             return box;
         }

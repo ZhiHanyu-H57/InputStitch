@@ -7,6 +7,9 @@ namespace InputStitch
 {
     internal static class UiSafetyPolicy
     {
+        internal static bool PassThroughUiKey(Keys keyData)
+        { return (keyData & Keys.KeyCode) == Keys.PrintScreen; }
+
         internal static bool IsEditor(Control control)
         {
             TextBoxBase text = control as TextBoxBase;

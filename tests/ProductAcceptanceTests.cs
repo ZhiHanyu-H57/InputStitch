@@ -116,6 +116,8 @@ internal static class ProductAcceptanceTests
 
     [STAThread]
     private static int Main(string[] args)
+    { return IsolatedUiDesktop.Run(() => MainCore(args)); }
+    private static int MainCore(string[] args)
     {
         bool nativeJourney = args.Length > 0 && args[0] == "--journey-native";
         bool nativeFields = args.Length > 0 && args[0] == "--fields-native";

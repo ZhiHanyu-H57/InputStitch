@@ -19,6 +19,8 @@ internal static class CornerCutDialogTests
     private static void Existing(string method, params object[] arguments)
     { typeof(SecondaryLayoutTests).GetMethod(method, StaticHidden).Invoke(null, arguments); }
     [STAThread] private static int Main()
+    { return IsolatedUiDesktop.Run(MainCore); }
+    private static int MainCore()
     {
         string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "results", "dialog"); Directory.CreateDirectory(root);
         Application.EnableVisualStyles(); EmbeddedDependencyLoader.Register();

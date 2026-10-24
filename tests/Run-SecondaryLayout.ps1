@@ -18,6 +18,7 @@ $arguments += '/resource:' + $client + ',InputStitch.ThirdParty.Nefarius.ViGEm.C
 $arguments += @(& (Join-Path $project 'scripts/Get-UiResourceArguments.ps1'))
 $arguments += $sources
 $arguments += Join-Path $PSScriptRoot 'SecondaryLayoutTests.cs'
+$arguments += Join-Path $PSScriptRoot 'IsolatedUiDesktop.cs'
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Secondary layout compilation failed.' }
 $testArgs = @()
