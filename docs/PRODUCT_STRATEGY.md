@@ -1,6 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
-## Current decision: scoped verification and Stable1.6.0 — 2026-10-24
+## Current decision: Stable1.6.1 repair update — 2026-10-27
+
+Published the mouse-control recovery and shared Shift-trigger fixes with frozen
+feature sources. Reuse valid evidence and run missing cumulative checks plus
+actual package/update acceptance. All14 selected checks pass; publication CI
+reuses14/14. GitHub/R2/latest verified. No feature expansion or full/soak gate.
+See RELEASE_1_6_1_VERIFICATION.md.
+
+## Scoped verification and Stable1.6.0 — 2026-10-24
 
 User authorized formal publication of frozen beta.7 functionality as1.6.0 after
 fixing verification flow. Development uses actual impact; formal releases use

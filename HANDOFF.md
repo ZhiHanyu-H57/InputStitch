@@ -1,14 +1,17 @@
 # HANDOFF.md
 
-## Stable1.6.1 fix publication authorized — 2026-10-27
+## Stable1.6.1 repair update published — 2026-10-27
 
-User requested publication of the existing mouse/Shift fixes as an update.
-Freeze feature code at d06bdf7; only Stable metadata1.6.1/FileVersion1.6.1.2,
-release documentation and reusable evidence change. Baseline is publishedv1.6.0.
-Reuse candidate results with matching inputs, run missing cumulative obligations
-and fresh final-package/update checks, then use normal protected-main PR merge
-and existing [publish-stable] flow. No full suite or repeated soak. The affected
-desktop stays recovered; publication does not authorize replacing/relaunching it.
+Published latest Stablev1.6.1 at2026-10-27 01:00:51 Beijing time. PR #10 merged
+normally at3a156c7029ed0f6063c02a12313087149130e3a8. Feature code matchesd06bdf7;
+only metadata1.6.1/FileVersion1.6.1.2 changed. Cumulative v1.6.0 acceptance passed:
+14 selected,6 reused/8 executed, then final CI reused14/14 and freshly checked
+both packaged startups. Actual1.6.0->1.6.1 update acceptance462 checks passed.
+Run40364328537 passed publish and R2 mirror. All5 assets,4 aliases,R2 manifest,
+2 pinned EXEs and66 frozen feature sources match. Website snapshot and user
+instructions are synchronized. No full suite, soak or manual trial gate.
+The recovered desktop program was not replaced/relaunched. See
+docs/RELEASE_1_6_1_VERIFICATION.md. Current authorized work is complete.
 
 ## Mouse lockout and Shift-trigger fixes; local1.6.1-beta.1 — 2026-10-27
 

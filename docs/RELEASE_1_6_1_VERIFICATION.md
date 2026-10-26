@@ -52,3 +52,19 @@ Publish through a normal protected-main PR and the existing Stable workflow.
 Retain the versioned assets, latest endpoint and R2 mirror. Check downloaded
 public assets against their digests after publication. The recovered user's
 desktop is not replaced or relaunched as part of publication.
+
+## Published result
+
+[Stable v1.6.1](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.6.1)
+was published on2026-10-27 at01:00:51 Beijing time from protected-main merge
+`3a156c7029ed0f6063c02a12313087149130e3a8`, through
+[PR #10](https://github.com/ZhiHanyu-H57/InputStitch/pull/10).
+The [publication run](https://github.com/ZhiHanyu-H57/InputStitch/actions/runs/40364328537)
+passed verification, Stable publication and R2 mirroring. Its gate reused all14
+valid records and executed0 duplicate tests; the final package startup checks
+were freshly executed on both architectures. The verification job took74seconds.
+
+All5 downloaded GitHub assets match their API digests and checksum manifest.
+The4 R2 latest aliases, R2 update manifest and2 pinned executables match the
+published release. All66 non-metadata feature source files in the published
+source archive match the frozen candidate. Stable/latest is v1.6.1.
