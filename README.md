@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Keyboard, mouse and controller macros for Windows. Record actions, edit steps and assign shortcuts. Optional tools include a screen crosshair, timer and network controls. The interface supports English and Simplified Chinese.
 
-## Download 1.6.0
+## Download 1.6.1
 
 | System | Download |
 | --- | --- |
@@ -14,7 +14,7 @@ Keyboard, mouse and controller macros for Windows. Record actions, edit steps an
 
 Place the downloaded EXE in your tools folder and double-click it. Requires .NET Framework 4.7.2 or a compatible later version.
 
-Version 1.6.0 adds an editable screen timer, application/whole-computer network shortcuts and a corner-cut square crosshair. [Release notes](RELEASE_NOTES.md).
+Version 1.6.1 fixes mouse triggers blocking application controls and bare keys such as PageDown failing while Shift is held. [Release notes](RELEASE_NOTES.md).
 
 ## Create your first macro
 
@@ -26,7 +26,7 @@ This example uses F8 to start repeated clicks and F8 again to stop:
 4. Add a left mouse-button Press step, for example with a 25 ms hold and a 120 ms delay.
 5. Edits save automatically. Switch to the application and press F8 to start, then again to stop.
 
-Stop all at the bottom, or the default **Ctrl + Shift + F12** Emergency Stop, stops active macros and releases their output.
+Stop all at the bottom, or the default **Ctrl + Shift + F12** Emergency Stop, stops active macros and releases their output. Emergency Stop also pauses global triggers; uncheck Pause global macro triggers in the gear menu to resume.
 
 ## Record and edit
 

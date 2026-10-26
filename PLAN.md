@@ -1,11 +1,12 @@
 # PLAN.md
 
-## Stable1.6.1 publication authorized — 2026-10-27
+## Stable1.6.1 repair update published — 2026-10-27
 
-Publish the frozen mouse/Shift trigger fixes from d06bdf7 as a repair update.
-Use cumulative v1.6.0 impact acceptance, candidate evidence reuse and fresh final
-package/update checks. No extra feature, architecture work, full suite or soak.
-Publish through protected main and verify GitHub/R2/latest endpoints.
+Published the frozen d06bdf7 mouse/Shift fixes through PR #10 and protected main.
+Cumulative14 checks pass, final CI reuses14/14, both packages pass startup and
+462 actual update checks pass. GitHub/latest/R2 digests and66 frozen source
+files verified. Website version and emergency-resume instructions synchronized.
+No feature expansion, full suite, soak, manual gate or affected-device install.
 
 ## Mouse-trigger emergency recovery and safety fix — 2026-10-27
 
