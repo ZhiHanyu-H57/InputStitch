@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## Primary-mouse lockout recovered; local1.6.1-beta.1 correction — 2026-10-27
+## Mouse lockout and Shift-trigger fixes; local1.6.1-beta.1 — 2026-10-27
 
 Affected machine recovered via AgentDock: stopped only InputStitch, backed up
 the config and disabled exactly one enabled/plain-left/suppressed Toggle macro.
@@ -11,6 +11,9 @@ Source baseline3509197, branch fix/primary-mouse-recovery. Mouse edges preserve
 native clicks on own interactive UI/caption/menus, excluding native click-through
 overlays. Emergency Stop immediately pauses triggers until explicitly resumed;
 ordinary Stop all keeps prior behavior. Capture/recording retain priority.
+User also reported PageDown failing with held Shift. The shared fallback now
+covers every bare non-modifier key instead of a key-family whitelist. Exact
+chords win; Ctrl/Alt/Win and modifier/terminal-release semantics stay unchanged.
 Targeted UI/mouse/editor/integration/advanced/modifier/source/channel checks,
 real ViGEm/XInput emergency-only11 and both packaged startups pass privately.
 No full suite, host keyboard/mouse injection or soak. Local beta only; Stable

@@ -1589,15 +1589,12 @@ namespace InputStitch
             if (trigger == null || inputEvent == null) return false;
             if (SupportsExtraPhysicalModifiers(trigger)) return true;
 
-            // Bare ordinary keyboard triggers may coexist with a physically held Shift so
-            // sprint/other gameplay modifiers do not disable otherwise independent macros.
+            // Any bare non-modifier key may coexist with a physically held Shift.
+            // A key-family whitelist omitted navigation and punctuation keys.
             // Ctrl/Alt/Win remain strict for bare keys to avoid surprising activation inside
             // common application/system shortcuts such as Ctrl+C, Alt+F4 or Win+E.
             if (trigger.Kind != InputKind.Keyboard || GetTriggerModifierMask(trigger) != 0) return false;
-            Keys key = (Keys)trigger.VirtualKey;
-            bool ordinaryGameplayKey = (key >= Keys.A && key <= Keys.Z) ||
-                                       (key >= Keys.D0 && key <= Keys.D9) || key == Keys.Space;
-            return ordinaryGameplayKey && EventModifiersForTrigger(trigger, inputEvent) == Shift;
+            return !IsModifierVirtualKey(trigger.VirtualKey) && EventModifiersForTrigger(trigger, inputEvent) == Shift;
         }
 
         public static bool HoldTriggerReleasedByEvent(TriggerSpec trigger, InputEventInfo releaseEvent)

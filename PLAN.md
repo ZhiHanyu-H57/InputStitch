@@ -7,6 +7,9 @@ Only the accidental trigger was disabled after backup; user confirmed recovery.
 Local1.6.1-beta.1 preserves own-window mouse interaction and latches emergency
 trigger suspension. Targeted automation and private packaged checks complete;
 no new feature or Stable publication. See the mouse-recovery verification note.
+Additional user report: PageDown with held Shift. Fix the shared fallback for
+all bare non-modifier keys, retaining explicit chord priority and existing
+Ctrl/Alt/Win safeguards. Include actual admission and release regressions.
 
 ## Website and user instructions for1.6.0 — 2026-10-24
 

@@ -23,6 +23,7 @@ internal static class UiSafetyTests
             EmbeddedDependencyLoader.Register();
             ScreenshotPassthrough();
             MouseRecovery();
+            ShiftNavigationTriggers();
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,false,false,false), "idle hover over a button/list must not reject hotkeys");
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,true,false,false), "hover over an editor is not editing");
             Check(!UiSafetyPolicy.ShouldPauseControl(true,false,false,false,false), "idle button/list focus can transfer to the input sink");
@@ -194,6 +195,36 @@ internal static class UiSafetyTests
                 }
                 finally { Marshal.FreeHGlobal(data); hook.Dispose(); }
                 target.Close();
+            }
+        }
+        finally { Directory.Delete(directory,true); }
+    }
+
+    private static void ShiftNavigationTriggers()
+    {
+        string directory=Path.Combine(Path.GetTempPath(),"InputStitch-shift-trigger-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            MacroDefinition bare=new MacroDefinition { Trigger=new TriggerSpec { VirtualKey=(int)Keys.PageDown }, SuppressTrigger=true };
+            bare.Steps.Add(new MacroStep { VirtualKey=(int)Keys.F23, HoldMs=1, DelayMs=1 });
+            InputEventInfo shifted=new InputEventInfo { Input=new InputSpec { VirtualKey=(int)Keys.PageDown, Extended=true }, Shift=true };
+            MethodInfo select=typeof(MainForm).GetMethod("SelectTriggerMacro",BindingFlags.Static|BindingFlags.NonPublic);
+            MacroDefinition chord=bare.Clone(); chord.Trigger.Shift=true;
+            List<MacroDefinition> choices=new List<MacroDefinition> { bare,chord };
+            Check(ReferenceEquals(select.Invoke(null,new object[] { choices,shifted }),chord),"explicit Shift+PageDown wins even below the bare key");
+            chord.Enabled=false;
+            Check(ReferenceEquals(select.Invoke(null,new object[] { choices,shifted }),bare),"disabled specific chord allows the bare Shift-compatible trigger");
+            MacroConfig config=new MacroConfig { GamepadDeviceType=VirtualGamepadTypes.None,PauseMacroInRiskyUi=false };
+            config.Macros.Add(bare); Observer observer=new Observer();
+            using (MainForm form=new MainForm(config,directory,observer))
+            {
+                IntPtr handle=form.Handle;
+                Check((bool)Call(form,"HandleTerminalInput",shifted),"real macro admission accepts Shift+PageDown for a PageDown trigger");
+                Call(form,"HandleTerminalInputReleased",shifted); Pump();
+                Check(observer.Downs>0 && observer.Downs==observer.Ups,"Shift+PageDown reaches the worker and releases output");
+                InputEventInfo ctrl=new InputEventInfo { Input=new InputSpec { VirtualKey=(int)Keys.PageDown },Ctrl=true };
+                Check(!(bool)Call(form,"HandleTerminalInput",ctrl),"bare PageDown does not consume an unconfigured Ctrl shortcut");
             }
         }
         finally { Directory.Delete(directory,true); }

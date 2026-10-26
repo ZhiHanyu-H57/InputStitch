@@ -5,6 +5,8 @@
 User control recovery takes priority. Preserve interactive UI clicks and require
 explicit resume after Emergency Stop, keeping intentional external mouse
 triggers and ordinary Stop all. Local1.6.1-beta.1 targets this defect only.
+Also correct the shared Shift fallback for navigation, editing and punctuation
+keys; retain combination priority and modifier/release behavior.
 
 ## 1.6.0 website and user guide update — 2026-10-24
 

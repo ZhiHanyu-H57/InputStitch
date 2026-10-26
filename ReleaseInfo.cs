@@ -13,10 +13,12 @@
         public const string ReleaseSummaryZh =
             "修复鼠标触发导致界面无法点击的问题。\r\n\r\n" +
             "• 点击 InputStitch 的界面、菜单和关闭按钮时保留鼠标操作。\r\n" +
-            "• 紧急停止后暂停全局宏触发，可在齿轮菜单手动恢复。";
+            "• 紧急停止后暂停全局宏触发，可在齿轮菜单手动恢复。\r\n" +
+            "• 单键触发统一兼容按住 Shift，明确设置的组合键优先。";
         public const string ReleaseSummaryEn =
             "Fix mouse triggers blocking application controls.\r\n\r\n" +
             "• Mouse input reaches InputStitch controls, menus and the close button.\r\n" +
-            "• Emergency Stop pauses global macro triggers until resumed from the gear menu.";
+            "• Emergency Stop pauses global macro triggers until resumed from the gear menu.\r\n" +
+            "• Bare keys work with held Shift; explicitly configured chords take priority.";
     }
 }

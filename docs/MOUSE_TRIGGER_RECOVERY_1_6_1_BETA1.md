@@ -1,4 +1,4 @@
-# Mouse-trigger recovery — 1.6.1-beta.1
+# Mouse and Shift-trigger safety — 1.6.1-beta.1
 
 ## Confirmed incident
 
@@ -27,6 +27,20 @@ values remained unchanged. The existing desktop executable was not replaced.
 - Ordinary Stop all retains its existing ability to run another macro later.
 - No new polling loop, dependency, configuration format or macro runtime mode.
 
+## Shift with navigation and other ordinary trigger keys
+
+The prior Shift fallback whitelist admitted letters/digits/Space but excluded
+PageDown, PageUp, arrows, editing/navigation and punctuation keys. The shared
+matching policy now admits an extra Shift for every bare non-modifier key.
+Explicit chords still win before fallback. Existing Ctrl/Alt/Win restrictions,
+standalone modifier identity, required modifiers and terminal release rules
+remain unchanged. The same policy serves macro and layer matching.
+
+Regression cases cover navigation/editing/punctuation families, Ctrl/Alt/Win
+non-expansion, Shift-release versus terminal-release lifecycle, exact chord
+priority, disabled-chord fallback and an actual Shift+PageDown admitted run
+with balanced observer output. Existing advanced timing/stop tests remain valid.
+
 ## Targeted verification
 
 UI safety includes the accidental-left-button scenario, native client/caption
@@ -34,6 +48,9 @@ hit testing, click-through exclusion, cancelled queued starts, pause visibility,
 explicit resume, ordinary stop and balanced output through an isolated observer.
 Mouse recording/editing, input integration, advanced trigger dispatch, modifier
 priority, source manifest and release policy also pass.
+
+Current counts: UI safety58, recording/editing209, input integration24, advanced
+dispatch163, modifier policy185 and source manifest424, plus release-policy guards.
 
 Input Lab has a focused `-EmergencyStopOnly` route. In a private desktop it
 observes real ViGEm/XInput output before/after panic, prevents immediate restart,
