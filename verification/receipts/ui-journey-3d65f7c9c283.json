@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:journey",
+  "status": "PASS",
+  "sourceCommit": "3d65f7c9c283058818f00e8fa19a685a1f82f329",
+  "fingerprint": "0fe0636afa3c70ba12b134af6525a1ef685ac31e4ed70b6f02a4b14ac86ce8e6",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "F521A9EBD2B869F2349872022BEA663AD4F1E4F5E78A3D49280055E6954A9C67",
+      "path": "verification/evidence/ui-journey-3d65f7c9c283.log"
+    }
+  ]
+}
