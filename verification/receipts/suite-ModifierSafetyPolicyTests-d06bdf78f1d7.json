@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ModifierSafetyPolicyTests",
+  "status": "PASS",
+  "sourceCommit": "d06bdf78f1d742f020b98b3432f04067f86310f6",
+  "fingerprint": "2249ea83769162ef2272f682d9319b8673f63555271c1109c95152cc6af8b68c",
+  "qualification": "1.6.1-beta.1 targeted acceptance; original private-desktop/observer or pure-policy scope in log; no new execution claimed during Stable promotion.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-ModifierSafetyPolicyTests-d06bdf78f1d7.log",
+      "sha256": "FF9273B29C2FFD504FA31828559E77FBD0B0696871499803C87E32E24E4FFDD5"
+    }
+  ]
+}

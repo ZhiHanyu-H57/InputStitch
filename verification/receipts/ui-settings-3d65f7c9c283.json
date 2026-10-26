@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings",
+  "status": "PASS",
+  "sourceCommit": "3d65f7c9c283058818f00e8fa19a685a1f82f329",
+  "fingerprint": "c1f7dfe6a09c1288a0d878ee6d8710123a515e9bca2bf960f4189841e0ee16e1",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "23CE2CCB9ED854A8CD1A86E7AE49B9BF286F937EDACC192E6B61B0C0F5EA15BE",
+      "path": "verification/evidence/ui-settings-3d65f7c9c283.log"
+    }
+  ]
+}

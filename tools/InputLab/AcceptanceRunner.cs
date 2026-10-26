@@ -23,11 +23,13 @@ namespace InputStitch.Tools.InputLab
         private static int failures;
         private static int checks;
         private static string reportPath;
+        private static bool emergencyStopOnly;
 
         [STAThread]
         private static void Main(string[] args)
         {
             reportPath = ResolveReportPath(args);
+            emergencyStopOnly = Array.IndexOf(args, "--emergency-stop-only") >= 0;
             Directory.CreateDirectory(Path.GetDirectoryName(reportPath));
 
             Application.EnableVisualStyles();
@@ -117,6 +119,16 @@ namespace InputStitch.Tools.InputLab
             Report.AppendLine("Started UTC: " + DateTime.UtcNow.ToString("o"));
             Report.AppendLine("Product version: " + AppInfo.Version);
             Report.AppendLine();
+
+            if (emergencyStopOnly)
+            {
+                Info("Acceptance scope", "Emergency Stop only; no keyboard/mouse SendInput scenarios");
+                BindVirtualXboxObservation(lab, product);
+                ScenarioEmergencyStop(lab, product);
+                Neutral(product, lab, "final-neutral");
+                Report.AppendLine("SUMMARY: " + (failures == 0 ? "PASS" : "FAIL") + " | checks=" + checks.ToString() + " | failures=" + failures.ToString());
+                return;
+            }
 
             // Keyboard/mouse lanes do not require ViGEm. Run them first so an XInput
             // environment blocker cannot hide useful SendInput/Raw Input evidence.
@@ -694,6 +706,22 @@ namespace InputStitch.Tools.InputLab
             Release(product, KeyEvent(Keys.Z));
             Release(product, KeyEvent(Keys.Q));
             Release(product, KeyEvent(Keys.F12, true, true, false, false));
+
+            Press(product, KeyEvent(Keys.W));
+            SleepAndPump(lab, SettleMs);
+            CheckStick(lab, "panic prevents immediate retrigger", 0.0, 0.0, 0.02);
+            Release(product, KeyEvent(Keys.W));
+            product.Invoke((MethodInvoker)delegate
+            {
+                ToolStripMenuItem paused = (ToolStripMenuItem)typeof(MainForm).GetField("suspendTriggersMenuItem", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(product);
+                Check("emergency suspension visible in gear menu", paused.Checked, "checked=" + paused.Checked);
+                paused.Checked = false;
+            });
+            Press(product, KeyEvent(Keys.W));
+            SleepAndPump(lab, SettleMs);
+            CheckStick(lab, "explicit resume permits trigger again", 0.0, 1.0, 0.02);
+            Release(product, KeyEvent(Keys.W));
+            SleepAndPump(lab, SettleMs);
         }
 
         private static void ScenarioKeyboardRawComparison(InputLabForm lab, MainForm product)

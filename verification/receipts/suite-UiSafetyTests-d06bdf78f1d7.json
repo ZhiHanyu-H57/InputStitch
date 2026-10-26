@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:UiSafetyTests",
+  "status": "PASS",
+  "sourceCommit": "d06bdf78f1d742f020b98b3432f04067f86310f6",
+  "fingerprint": "6a3fee09988dc6cde02ba661abcb20fbcc70144dfb5cca00dbfa953c2705473d",
+  "qualification": "1.6.1-beta.1 targeted acceptance; original private-desktop/observer or pure-policy scope in log; no new execution claimed during Stable promotion.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-UiSafetyTests-d06bdf78f1d7.log",
+      "sha256": "3DB90574EA2FA43EC3A9C2AE5477635BDFF6633AA6432DE59625F70A36C43815"
+    }
+  ]
+}

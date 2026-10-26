@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:RecordingEditingTests",
+  "status": "PASS",
+  "sourceCommit": "d06bdf78f1d742f020b98b3432f04067f86310f6",
+  "fingerprint": "99d4d33f093577d53086837d90e84fcc4468992aeb429318e63fe7c2072530de",
+  "qualification": "1.6.1-beta.1 targeted acceptance; original private-desktop/observer or pure-policy scope in log; no new execution claimed during Stable promotion.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-RecordingEditingTests-d06bdf78f1d7.log",
+      "sha256": "333F837964283A00F58D86BC13F573BDAF7B4BD0A8075AA022DBA49FC099EA12"
+    }
+  ]
+}

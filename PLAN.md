@@ -1,5 +1,23 @@
 # PLAN.md
 
+## Stable1.6.1 publication authorized — 2026-10-27
+
+Publish the frozen mouse/Shift trigger fixes from d06bdf7 as a repair update.
+Use cumulative v1.6.0 impact acceptance, candidate evidence reuse and fresh final
+package/update checks. No extra feature, architecture work, full suite or soak.
+Publish through protected main and verify GitHub/R2/latest endpoints.
+
+## Mouse-trigger emergency recovery and safety fix — 2026-10-27
+
+Recover the affected machine, preserve configuration and prevent recurrence.
+Only the accidental trigger was disabled after backup; user confirmed recovery.
+Local1.6.1-beta.1 preserves own-window mouse interaction and latches emergency
+trigger suspension. Targeted automation and private packaged checks complete;
+no new feature or Stable publication. See the mouse-recovery verification note.
+Additional user report: PageDown with held Shift. Fix the shared fallback for
+all bare non-modifier keys, retaining explicit chord priority and existing
+Ctrl/Alt/Win safeguards. Include actual admission and release regressions.
+
 ## Website and user instructions for1.6.0 — 2026-10-24
 
 Update overview/download/guide and both READMEs for the released timer, network

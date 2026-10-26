@@ -1,5 +1,19 @@
 # ROADMAP.md
 
+## Publish1.6.1 repair update — 2026-10-27
+
+Current scope: formal publication of the validated mouse-lockout and held-Shift
+fixes. Preserve d06bdf7 feature sources, apply scoped cumulative verification and
+reuse valid evidence. No additional feature or architecture changes.
+
+## Primary-button trigger lockout correction — 2026-10-27
+
+User control recovery takes priority. Preserve interactive UI clicks and require
+explicit resume after Emergency Stop, keeping intentional external mouse
+triggers and ordinary Stop all. Local1.6.1-beta.1 targets this defect only.
+Also correct the shared Shift fallback for navigation, editing and punctuation
+keys; retain combination priority and modifier/release behavior.
+
 ## 1.6.0 website and user guide update — 2026-10-24
 
 Document the released timer, network hotkeys and corner-cut square with concise

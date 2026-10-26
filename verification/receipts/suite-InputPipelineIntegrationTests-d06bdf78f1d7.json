@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:InputPipelineIntegrationTests",
+  "status": "PASS",
+  "sourceCommit": "d06bdf78f1d742f020b98b3432f04067f86310f6",
+  "fingerprint": "46759301af5644510608f04e0075361c59ff54c476810b8e6cf215c53830cf86",
+  "qualification": "1.6.1-beta.1 targeted acceptance; original private-desktop/observer or pure-policy scope in log; no new execution claimed during Stable promotion.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-InputPipelineIntegrationTests-d06bdf78f1d7.log",
+      "sha256": "DF37449E5A07FDA3D2CE9EB0CBC623712ECC324222BCA58FD04AB3B7BE8F57CE"
+    }
+  ]
+}

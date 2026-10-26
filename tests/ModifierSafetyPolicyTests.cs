@@ -101,7 +101,27 @@ internal static class ModifierSafetyPolicyTests
         Expect("Bare E Shift fallback does not also admit Ctrl", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareE, shiftCtrlE));
         TriggerSpec bareTab = Trigger(Keys.Tab, false, false, false, false);
         InputEventInfo shiftTab = Event(Keys.Tab, false, true, false, false);
-        Expect("Bare Tab does not gain Shift fallback", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareTab, shiftTab));
+        Expect("Bare Tab uses the same Shift fallback as other ordinary keys", true, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bareTab, shiftTab));
+
+        foreach (Keys key in new[] { Keys.PageDown, Keys.PageUp, Keys.Home, Keys.End, Keys.Insert, Keys.Delete,
+            Keys.Up, Keys.Down, Keys.Left, Keys.Right, Keys.Enter, Keys.Back, Keys.Escape, Keys.Tab,
+            Keys.Oemcomma, Keys.OemPeriod, Keys.OemSemicolon, Keys.OemQuestion, Keys.OemOpenBrackets,
+            Keys.OemCloseBrackets, Keys.OemPipe, Keys.OemQuotes, Keys.OemMinus, Keys.Oemplus, Keys.Oemtilde })
+        {
+            TriggerSpec bare = Trigger(key, false, false, false, false);
+            InputEventInfo shifted = Event(key, false, true, false, false);
+            Expect(key + " accepts an extra physical Shift", true, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bare, shifted));
+            Expect(key + " retains terminal matching with Shift", true, ModifierSafetyPolicy.TriggerRequiredModifiersMatch(bare, shifted));
+            Expect(key + " does not add Ctrl fallback", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bare, Event(key, true, false, false, false)));
+            Expect(key + " does not add Alt fallback", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bare, Event(key, false, false, true, false)));
+            Expect(key + " does not add Win fallback", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bare, Event(key, false, false, false, true)));
+            Expect(key + " does not admit Shift plus Ctrl", false, ModifierSafetyPolicy.SupportsExtraPhysicalModifiers(bare, Event(key, true, true, false, false)));
+        }
+        TriggerSpec pageDown = Trigger(Keys.PageDown, false, false, false, false);
+        Expect("extra Shift release does not end a bare PageDown hold", false,
+            ModifierSafetyPolicy.HoldTriggerReleasedByEvent(pageDown, Event(Keys.LShiftKey, false, false, false, false)));
+        Expect("PageDown release ends a hold while Shift is still held", true,
+            ModifierSafetyPolicy.HoldTriggerReleasedByEvent(pageDown, Event(Keys.PageDown, false, true, false, false)));
 
         TriggerSpec shiftEHold = Trigger(Keys.E, false, true, false, false);
         Expect("Shift+E Hold terminal release ends chord", true,

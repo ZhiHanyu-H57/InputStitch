@@ -1,0 +1,186 @@
+﻿PASS Shift+E is allowed
+PASS Shift+Enter is allowed
+PASS Shift+mouse is allowed
+PASS Alt+Enter is blocked
+PASS Alt+E is allowed
+PASS Alt+F4 is blocked
+PASS Alt+Tab is blocked
+PASS Alt+Space is blocked
+PASS Ctrl+Esc is blocked
+PASS Ctrl+E is allowed
+PASS Ctrl+Alt+Delete is blocked
+PASS Win+E is blocked
+PASS Up is always allowed
+PASS Macro-authored Alt+Enter is not physically blocked
+PASS Physical Ctrl joining macro Alt+Delete is blocked
+PASS Bare F8 is not exact under Shift
+PASS Bare F8 accepts required-subset fallback
+PASS Bare F8 supports extra modifiers
+PASS Bare E does not broadly accept arbitrary modifiers
+PASS Bare E is not exact under Shift
+PASS Bare E accepts Shift-only gameplay fallback
+PASS Bare E remains strict under Ctrl
+PASS Bare E Shift fallback does not also admit Ctrl
+PASS Bare Tab uses the same Shift fallback as other ordinary keys
+PASS Next accepts an extra physical Shift
+PASS Next retains terminal matching with Shift
+PASS Next does not add Ctrl fallback
+PASS Next does not add Alt fallback
+PASS Next does not add Win fallback
+PASS Next does not admit Shift plus Ctrl
+PASS PageUp accepts an extra physical Shift
+PASS PageUp retains terminal matching with Shift
+PASS PageUp does not add Ctrl fallback
+PASS PageUp does not add Alt fallback
+PASS PageUp does not add Win fallback
+PASS PageUp does not admit Shift plus Ctrl
+PASS Home accepts an extra physical Shift
+PASS Home retains terminal matching with Shift
+PASS Home does not add Ctrl fallback
+PASS Home does not add Alt fallback
+PASS Home does not add Win fallback
+PASS Home does not admit Shift plus Ctrl
+PASS End accepts an extra physical Shift
+PASS End retains terminal matching with Shift
+PASS End does not add Ctrl fallback
+PASS End does not add Alt fallback
+PASS End does not add Win fallback
+PASS End does not admit Shift plus Ctrl
+PASS Insert accepts an extra physical Shift
+PASS Insert retains terminal matching with Shift
+PASS Insert does not add Ctrl fallback
+PASS Insert does not add Alt fallback
+PASS Insert does not add Win fallback
+PASS Insert does not admit Shift plus Ctrl
+PASS Delete accepts an extra physical Shift
+PASS Delete retains terminal matching with Shift
+PASS Delete does not add Ctrl fallback
+PASS Delete does not add Alt fallback
+PASS Delete does not add Win fallback
+PASS Delete does not admit Shift plus Ctrl
+PASS Up accepts an extra physical Shift
+PASS Up retains terminal matching with Shift
+PASS Up does not add Ctrl fallback
+PASS Up does not add Alt fallback
+PASS Up does not add Win fallback
+PASS Up does not admit Shift plus Ctrl
+PASS Down accepts an extra physical Shift
+PASS Down retains terminal matching with Shift
+PASS Down does not add Ctrl fallback
+PASS Down does not add Alt fallback
+PASS Down does not add Win fallback
+PASS Down does not admit Shift plus Ctrl
+PASS Left accepts an extra physical Shift
+PASS Left retains terminal matching with Shift
+PASS Left does not add Ctrl fallback
+PASS Left does not add Alt fallback
+PASS Left does not add Win fallback
+PASS Left does not admit Shift plus Ctrl
+PASS Right accepts an extra physical Shift
+PASS Right retains terminal matching with Shift
+PASS Right does not add Ctrl fallback
+PASS Right does not add Alt fallback
+PASS Right does not add Win fallback
+PASS Right does not admit Shift plus Ctrl
+PASS Return accepts an extra physical Shift
+PASS Return retains terminal matching with Shift
+PASS Return does not add Ctrl fallback
+PASS Return does not add Alt fallback
+PASS Return does not add Win fallback
+PASS Return does not admit Shift plus Ctrl
+PASS Back accepts an extra physical Shift
+PASS Back retains terminal matching with Shift
+PASS Back does not add Ctrl fallback
+PASS Back does not add Alt fallback
+PASS Back does not add Win fallback
+PASS Back does not admit Shift plus Ctrl
+PASS Escape accepts an extra physical Shift
+PASS Escape retains terminal matching with Shift
+PASS Escape does not add Ctrl fallback
+PASS Escape does not add Alt fallback
+PASS Escape does not add Win fallback
+PASS Escape does not admit Shift plus Ctrl
+PASS Tab accepts an extra physical Shift
+PASS Tab retains terminal matching with Shift
+PASS Tab does not add Ctrl fallback
+PASS Tab does not add Alt fallback
+PASS Tab does not add Win fallback
+PASS Tab does not admit Shift plus Ctrl
+PASS Oemcomma accepts an extra physical Shift
+PASS Oemcomma retains terminal matching with Shift
+PASS Oemcomma does not add Ctrl fallback
+PASS Oemcomma does not add Alt fallback
+PASS Oemcomma does not add Win fallback
+PASS Oemcomma does not admit Shift plus Ctrl
+PASS OemPeriod accepts an extra physical Shift
+PASS OemPeriod retains terminal matching with Shift
+PASS OemPeriod does not add Ctrl fallback
+PASS OemPeriod does not add Alt fallback
+PASS OemPeriod does not add Win fallback
+PASS OemPeriod does not admit Shift plus Ctrl
+PASS Oem1 accepts an extra physical Shift
+PASS Oem1 retains terminal matching with Shift
+PASS Oem1 does not add Ctrl fallback
+PASS Oem1 does not add Alt fallback
+PASS Oem1 does not add Win fallback
+PASS Oem1 does not admit Shift plus Ctrl
+PASS OemQuestion accepts an extra physical Shift
+PASS OemQuestion retains terminal matching with Shift
+PASS OemQuestion does not add Ctrl fallback
+PASS OemQuestion does not add Alt fallback
+PASS OemQuestion does not add Win fallback
+PASS OemQuestion does not admit Shift plus Ctrl
+PASS OemOpenBrackets accepts an extra physical Shift
+PASS OemOpenBrackets retains terminal matching with Shift
+PASS OemOpenBrackets does not add Ctrl fallback
+PASS OemOpenBrackets does not add Alt fallback
+PASS OemOpenBrackets does not add Win fallback
+PASS OemOpenBrackets does not admit Shift plus Ctrl
+PASS Oem6 accepts an extra physical Shift
+PASS Oem6 retains terminal matching with Shift
+PASS Oem6 does not add Ctrl fallback
+PASS Oem6 does not add Alt fallback
+PASS Oem6 does not add Win fallback
+PASS Oem6 does not admit Shift plus Ctrl
+PASS Oem5 accepts an extra physical Shift
+PASS Oem5 retains terminal matching with Shift
+PASS Oem5 does not add Ctrl fallback
+PASS Oem5 does not add Alt fallback
+PASS Oem5 does not add Win fallback
+PASS Oem5 does not admit Shift plus Ctrl
+PASS Oem7 accepts an extra physical Shift
+PASS Oem7 retains terminal matching with Shift
+PASS Oem7 does not add Ctrl fallback
+PASS Oem7 does not add Alt fallback
+PASS Oem7 does not add Win fallback
+PASS Oem7 does not admit Shift plus Ctrl
+PASS OemMinus accepts an extra physical Shift
+PASS OemMinus retains terminal matching with Shift
+PASS OemMinus does not add Ctrl fallback
+PASS OemMinus does not add Alt fallback
+PASS OemMinus does not add Win fallback
+PASS OemMinus does not admit Shift plus Ctrl
+PASS Oemplus accepts an extra physical Shift
+PASS Oemplus retains terminal matching with Shift
+PASS Oemplus does not add Ctrl fallback
+PASS Oemplus does not add Alt fallback
+PASS Oemplus does not add Win fallback
+PASS Oemplus does not admit Shift plus Ctrl
+PASS Oemtilde accepts an extra physical Shift
+PASS Oemtilde retains terminal matching with Shift
+PASS Oemtilde does not add Ctrl fallback
+PASS Oemtilde does not add Alt fallback
+PASS Oemtilde does not add Win fallback
+PASS Oemtilde does not admit Shift plus Ctrl
+PASS extra Shift release does not end a bare PageDown hold
+PASS PageDown release ends a hold while Shift is still held
+PASS Shift+E Hold terminal release ends chord
+PASS Shift+E Hold modifier release ends chord
+PASS Shift+E remains held if the other Shift side is still down
+PASS Unrelated Ctrl release does not end Shift+E Hold
+PASS Alt+9 accepts extra sprint Shift
+PASS Alt+9 supports extra modifiers
+PASS Exact Shift+Alt+9 remains exact
+PASS More specific trigger scores higher
+PASS Emergency stop accepts extra Alt
+ALL TESTS PASSED

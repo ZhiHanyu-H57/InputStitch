@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ProductivityTests",
+  "status": "PASS",
+  "sourceCommit": "3d65f7c9c283058818f00e8fa19a685a1f82f329",
+  "fingerprint": "ae7185710cd8ecadabac6fb429322aff43ce210a15b2dedcb51734a62fbc4877",
+  "qualification": "Windows 10.0.26200.0; AMD64; .NET Framework 4.7.2 target; see original log.",
+  "evidence": [
+    {
+      "sha256": "4700893D9304BACE33BB54EBFBDB500DD469F2A1DEE80F2865EF8CFBD62EB2B3",
+      "path": "verification/evidence/suite-ProductivityTests-3d65f7c9c283.log"
+    }
+  ]
+}

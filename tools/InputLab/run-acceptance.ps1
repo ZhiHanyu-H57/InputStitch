@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$ReportPath = '',
-    [switch]$AllowRealOutput
+    [switch]$AllowRealOutput,
+    [switch]$EmergencyStopOnly
 )
 
 Set-StrictMode -Version Latest
@@ -36,7 +37,9 @@ if ($runningProduct.Count -ne 0) {
 $exe = & (Join-Path $toolRoot 'build-acceptance.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Ownership acceptance build failed.' }
 
-& $exe --report $ReportPath
+$acceptanceArguments = @('--report', $ReportPath)
+if ($EmergencyStopOnly) { $acceptanceArguments += '--emergency-stop-only' }
+& $exe @acceptanceArguments
 $exitCode = $LASTEXITCODE
 if (Test-Path -LiteralPath $ReportPath) {
     Get-Content -LiteralPath $ReportPath | Select-String -Pattern '^SUMMARY:' | ForEach-Object { $_.Line }

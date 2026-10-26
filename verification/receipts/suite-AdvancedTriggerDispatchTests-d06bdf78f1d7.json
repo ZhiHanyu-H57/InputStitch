@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:AdvancedTriggerDispatchTests",
+  "status": "PASS",
+  "sourceCommit": "d06bdf78f1d742f020b98b3432f04067f86310f6",
+  "fingerprint": "5cf089599859652e1dd470fe3d85f977e85856b9e4380fe55a9917c32cc85e8c",
+  "qualification": "1.6.1-beta.1 targeted acceptance; original private-desktop/observer or pure-policy scope in log; no new execution claimed during Stable promotion.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-AdvancedTriggerDispatchTests-d06bdf78f1d7.log",
+      "sha256": "707D784C93B43CFB9DB5FFB41A94771617E9722FE45AD7D1DA79C5B493E4DE2E"
+    }
+  ]
+}

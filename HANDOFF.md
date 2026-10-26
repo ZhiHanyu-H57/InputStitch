@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## Stable1.6.1 fix publication authorized — 2026-10-27
+
+User requested publication of the existing mouse/Shift fixes as an update.
+Freeze feature code at d06bdf7; only Stable metadata1.6.1/FileVersion1.6.1.2,
+release documentation and reusable evidence change. Baseline is publishedv1.6.0.
+Reuse candidate results with matching inputs, run missing cumulative obligations
+and fresh final-package/update checks, then use normal protected-main PR merge
+and existing [publish-stable] flow. No full suite or repeated soak. The affected
+desktop stays recovered; publication does not authorize replacing/relaunching it.
+
+## Mouse lockout and Shift-trigger fixes; local1.6.1-beta.1 — 2026-10-27
+
+Affected machine recovered via AgentDock: stopped only InputStitch, backed up
+the config and disabled exactly one enabled/plain-left/suppressed Toggle macro.
+User confirmed normal left-click operation. All other XML values preserved;
+no desktop executable replacement or relaunch was performed.
+
+Source baseline3509197, branch fix/primary-mouse-recovery. Mouse edges preserve
+native clicks on own interactive UI/caption/menus, excluding native click-through
+overlays. Emergency Stop immediately pauses triggers until explicitly resumed;
+ordinary Stop all keeps prior behavior. Capture/recording retain priority.
+User also reported PageDown failing with held Shift. The shared fallback now
+covers every bare non-modifier key instead of a key-family whitelist. Exact
+chords win; Ctrl/Alt/Win and modifier/terminal-release semantics stay unchanged.
+Targeted UI/mouse/editor/integration/advanced/modifier/source/channel checks,
+real ViGEm/XInput emergency-only11 and both packaged startups pass privately.
+No full suite, host keyboard/mouse injection or soak. Local beta only; Stable
+downloads/website unchanged. See docs/MOUSE_TRIGGER_RECOVERY_1_6_1_BETA1.md.
+Do not replace/relaunch the recovered user's program without their instruction.
+
 ## Website and user guide synchronized to1.6.0 — 2026-10-24
 
 Source baseline8d5ca9615cfd2b4ff191db4c1f1ae7233ebad0cd. Website overview/download/

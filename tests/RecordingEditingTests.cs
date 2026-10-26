@@ -352,6 +352,11 @@ internal static class RecordingEditingTests
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Contains("--window-host") || args.Contains("--artwork-native") || args.Contains("--recording-native")) return MainCore(args);
+        return IsolatedUiDesktop.Run(delegate { return MainCore(args); });
+    }
+    private static int MainCore(string[] args)
+    {
         if (args.Contains("--artwork-native")) SetProcessDpiAwarenessContext(new IntPtr(-4));
         Application.EnableVisualStyles();
         if (args.Contains("--artwork-native"))
