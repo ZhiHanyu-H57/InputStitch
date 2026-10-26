@@ -1,0 +1,2 @@
+﻿{"version":"1.6.1-beta.1","thresholdMs":150,"uiBlockedMs":400,"samplesMs":[183,151,151,151,150,151,150,151],"checks":163,"backend":"isolated observer; explicit physical state/focus","outputBeforeUiResumes":true}
+PASS advanced trigger dispatch: 163 checks; latency, cancellation, editing/capture/modal/recording protection, source cleanup, safe UI fallback, native foreground suspension/resume and synchronous panic stop.

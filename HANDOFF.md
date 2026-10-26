@@ -1,5 +1,15 @@
 # HANDOFF.md
 
+## Stable1.6.1 fix publication authorized — 2026-10-27
+
+User requested publication of the existing mouse/Shift fixes as an update.
+Freeze feature code at d06bdf7; only Stable metadata1.6.1/FileVersion1.6.1.2,
+release documentation and reusable evidence change. Baseline is publishedv1.6.0.
+Reuse candidate results with matching inputs, run missing cumulative obligations
+and fresh final-package/update checks, then use normal protected-main PR merge
+and existing [publish-stable] flow. No full suite or repeated soak. The affected
+desktop stays recovered; publication does not authorize replacing/relaunching it.
+
 ## Mouse lockout and Shift-trigger fixes; local1.6.1-beta.1 — 2026-10-27
 
 Affected machine recovered via AgentDock: stopped only InputStitch, backed up

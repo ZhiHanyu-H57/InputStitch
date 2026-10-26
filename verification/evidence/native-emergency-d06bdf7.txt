@@ -1,0 +1,20 @@
+﻿InputStitch Input Lab automated ownership acceptance
+Started UTC: 2026-10-26T16:41:59.3684328Z
+Product version: 1.6.1-beta.1
+
+INFO | Acceptance scope | Emergency Stop only; no keyboard/mouse SendInput scenarios
+INFO | XInput probe binding | bound to slot=0 using direct ViGEm Y + LT41 + RS(0.37,-0.63) signature
+
+## Emergency Stop global cleanup
+PASS | pre-panic RB active | expected=True observed=True
+PASS | pre-panic RT active | expected=1.000 observed=1.000
+PASS | panic clears stick | expected=(0.000,0.000) observed=(0.000,0.000)
+PASS | panic clears RT | expected=0.000 observed=0.000
+PASS | panic clears RB | expected=False observed=False
+PASS | panic prevents immediate retrigger | expected=(0.000,0.000) observed=(0.000,0.000)
+PASS | emergency suspension visible in gear menu | checked=True
+PASS | explicit resume permits trigger again | expected=(0.000,1.000) observed=(0.000,1.000)
+PASS | final-neutral stick | expected=(0.000,0.000) observed=(0.000,0.000) timeout=1200ms
+PASS | final-neutral LT | expected=0.000 observed=0.000 timeout=1200ms
+PASS | final-neutral RT | expected=0.000 observed=0.000 timeout=1200ms
+SUMMARY: PASS | checks=11 | failures=0

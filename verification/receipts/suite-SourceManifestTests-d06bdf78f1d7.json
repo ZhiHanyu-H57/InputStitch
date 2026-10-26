@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:SourceManifestTests",
+  "status": "PASS",
+  "sourceCommit": "d06bdf78f1d742f020b98b3432f04067f86310f6",
+  "fingerprint": "9fdf346313de874afdb04e673f2c06c91664b9b697edbf0afd67ab8268ed427b",
+  "qualification": "1.6.1-beta.1 targeted acceptance; original private-desktop/observer or pure-policy scope in log; no new execution claimed during Stable promotion.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-SourceManifestTests-d06bdf78f1d7.log",
+      "sha256": "B30CC177DEEC1CAFA102E32A87778F82671FB996319E31F3C4A3C004A014A69D"
+    }
+  ]
+}

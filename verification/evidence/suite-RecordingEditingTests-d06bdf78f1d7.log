@@ -1,0 +1,4 @@
+﻿PRIVATE UI process bound: InputStitchTest-37cd9591ab7f48159557a13b14c37c6f
+PASS recording/editing: 209 checks; native decoder, mouse trigger execution, explicit foreground boundary, real external window, isolated settings; no global hooks or emitted input.
+PASS private UI desktop; foreground test-window samples=0/175; input desktop unchanged.
+PASS private UI process exited and desktop handle released.
