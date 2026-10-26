@@ -1,5 +1,13 @@
 # PLAN.md
 
+## Mouse-trigger emergency recovery and safety fix — 2026-10-27
+
+Recover the affected machine, preserve configuration and prevent recurrence.
+Only the accidental trigger was disabled after backup; user confirmed recovery.
+Local1.6.1-beta.1 preserves own-window mouse interaction and latches emergency
+trigger suspension. Targeted automation and private packaged checks complete;
+no new feature or Stable publication. See the mouse-recovery verification note.
+
 ## Website and user instructions for1.6.0 — 2026-10-24
 
 Update overview/download/guide and both READMEs for the released timer, network

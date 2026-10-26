@@ -1,5 +1,22 @@
 # HANDOFF.md
 
+## Primary-mouse lockout recovered; local1.6.1-beta.1 correction — 2026-10-27
+
+Affected machine recovered via AgentDock: stopped only InputStitch, backed up
+the config and disabled exactly one enabled/plain-left/suppressed Toggle macro.
+User confirmed normal left-click operation. All other XML values preserved;
+no desktop executable replacement or relaunch was performed.
+
+Source baseline3509197, branch fix/primary-mouse-recovery. Mouse edges preserve
+native clicks on own interactive UI/caption/menus, excluding native click-through
+overlays. Emergency Stop immediately pauses triggers until explicitly resumed;
+ordinary Stop all keeps prior behavior. Capture/recording retain priority.
+Targeted UI/mouse/editor/integration/advanced/modifier/source/channel checks,
+real ViGEm/XInput emergency-only11 and both packaged startups pass privately.
+No full suite, host keyboard/mouse injection or soak. Local beta only; Stable
+downloads/website unchanged. See docs/MOUSE_TRIGGER_RECOVERY_1_6_1_BETA1.md.
+Do not replace/relaunch the recovered user's program without their instruction.
+
 ## Website and user guide synchronized to1.6.0 — 2026-10-24
 
 Source baseline8d5ca9615cfd2b4ff191db4c1f1ae7233ebad0cd. Website overview/download/

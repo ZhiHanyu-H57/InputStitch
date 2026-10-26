@@ -1476,6 +1476,8 @@ namespace InputStitch
         public bool Shift;
         public bool Alt;
         public bool Win;
+        // Captured from the physical mouse edge, including non-client windows.
+        internal bool PointerOverInputStitch;
     }
 
     public static class ModifierSafetyPolicy
@@ -2017,6 +2019,7 @@ namespace InputStitch
                         else
                         {
                             InputEventInfo e = BuildMouseEvent(kind.Value);
+                            e.PointerOverInputStitch = NativeWindowFocus.IsCurrentProcessWindowAtPoint(data.pt.x, data.pt.y);
                             if (OnTerminalInput != null && OnTerminalInput(e))
                             {
                                 if (kind.Value != InputKind.WheelUp && kind.Value != InputKind.WheelDown)
@@ -2825,6 +2828,18 @@ namespace InputStitch
             return pid != 0 && pid == GetCurrentProcessId();
         }
 
+        internal static bool IsCurrentProcessWindowAtPoint(int x, int y)
+        {
+            return IsInteractiveInputStitchWindow(WindowFromPoint(new Point(x, y)));
+        }
+
+        internal static bool IsInteractiveInputStitchWindow(IntPtr hwnd)
+        {
+            // Native click-through crosshair/timer windows are not editor UI.
+            // Managed child handles also cover menus and owned native dialogs.
+            return IsCurrentProcessWindow(hwnd) && Control.FromChildHandle(hwnd) != null;
+        }
+
         public static bool IsUsableExternalWindow(IntPtr hwnd)
         {
             return IsExternalProcessWindow(hwnd) && IsWindowVisible(hwnd);
@@ -2947,6 +2962,9 @@ namespace InputStitch
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr WindowFromPoint(Point point);
 
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -3530,6 +3548,11 @@ namespace InputStitch
 
         private void EmergencyStop(string reason)
         {
+            // Stop-all is an ordinary run control. Emergency Stop also latches
+            // the existing trigger suspension until the user explicitly resumes.
+            if (!string.Equals(reason, "ui-stop-all", StringComparison.Ordinal)) manualTriggerSuspend = true;
+            if (suspendTriggersMenuItem != null) suspendTriggersMenuItem.Checked = manualTriggerSuspend;
+            UpdateTrayMenuChecks();
             QueueNetworkOperation(true);
             try
             {
@@ -3581,6 +3604,10 @@ namespace InputStitch
                     statusLabel.Text = "紧急停止：已向全部运行实例发送停止信号并释放受管输入。";
                 else
                     statusLabel.Text = "紧急停止：当前没有正在执行的宏。";
+                if (manualTriggerSuspend && !replacementRestoreFailed)
+                    statusLabel.Text = Localizer.IsEnglish
+                        ? "Emergency Stop: macros stopped and triggers paused. Uncheck Pause global macro triggers in the gear menu to resume."
+                        : "紧急停止：已停止宏并暂停触发。在齿轮菜单取消“暂停全局宏触发”后恢复。";
                 UpdateRunButton();
                 AppLog.Write("Emergency stop: " + (reason ?? "unknown") + "; runs=" + runCount.ToString() + "; held=" + heldMappingCount.ToString());
             }
@@ -5978,6 +6005,9 @@ namespace InputStitch
             // global escape path from every interactive state.
             if (config != null && config.PanicTrigger != null && ModifierSafetyPolicy.TriggerRequiredModifiersMatch(config.PanicTrigger, e))
             {
+                // Latch before posting cleanup: a busy UI must not let the next
+                // primary-button press start another macro or swallow the click.
+                manualTriggerSuspend = true;
                 StopAllMacroRuns("emergency-stop");
                 try { BeginInvoke((MethodInvoker)delegate { EmergencyStop("全局紧急停止键"); }); } catch { }
                 return true;
@@ -6116,6 +6146,11 @@ namespace InputStitch
                 return false;
             }
 
+            // Clicking the editor, menu, caption or close button must remain
+            // possible even with mouse suppression and optional UI guards off.
+            // Explicit key capture/recording above retain their existing behavior.
+            if (e.PointerOverInputStitch) return false;
+
             // Refresh synchronously on a physical edge: a queued foreground/focus
             // notification must not leave the previous UI protection state cached.
             UpdateUiSafetyPauseState();
@@ -6168,7 +6203,7 @@ namespace InputStitch
                     runtimeTrace.Add("trigger-stop", "macro-index=" + config.Macros.IndexOf(m).ToString());
                     try { BeginInvoke((MethodInvoker)delegate { if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop"); }); }
                     catch { runtimeTrace.Add("trigger-cancelled", "stop dispatch unavailable"); }
-                    return ModifierSafetyPolicy.ShouldSuppressTrigger(m);
+                    return !manualTriggerSuspend && ModifierSafetyPolicy.ShouldSuppressTrigger(m);
                 }
                 if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend)
                 {

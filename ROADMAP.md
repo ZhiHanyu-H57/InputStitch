@@ -1,5 +1,11 @@
 # ROADMAP.md
 
+## Primary-button trigger lockout correction — 2026-10-27
+
+User control recovery takes priority. Preserve interactive UI clicks and require
+explicit resume after Emergency Stop, keeping intentional external mouse
+triggers and ordinary Stop all. Local1.6.1-beta.1 targets this defect only.
+
 ## 1.6.0 website and user guide update — 2026-10-24
 
 Document the released timer, network hotkeys and corner-cut square with concise
