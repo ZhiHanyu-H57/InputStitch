@@ -25,6 +25,8 @@ internal static class UiSafetyTests
             MouseRecovery();
             ShiftNavigationTriggers();
             CoalescedStatusUpdates();
+            ShutdownContinuesAfterProviderFailure();
+            IndependentCleanupFailures();
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,false,false,false), "idle hover over a button/list must not reject hotkeys");
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,true,false,false), "hover over an editor is not editing");
             Check(!UiSafetyPolicy.ShouldPauseControl(true,false,false,false,false), "idle button/list focus can transfer to the input sink");
@@ -80,6 +82,72 @@ internal static class UiSafetyTests
         FieldInfo field = typeof(Control).GetField("threadCallbackList", BindingFlags.Instance | BindingFlags.NonPublic);
         System.Collections.ICollection queue = (System.Collections.ICollection)field.GetValue(control);
         return queue == null ? 0 : queue.Count;
+    }
+
+    private sealed class FailingDisposeProvider : IGamepadInputProvider
+    {
+        internal int Disposals;
+        public string ProviderName { get { return "shutdown-fault"; } }
+        public long TopologyVersion { get { return 0; } }
+        public Action<InputEventInfo> InputDown { get; set; }
+        public Action<InputEventInfo> InputUp { get; set; }
+        public void Poll() { }
+        public int[] ConnectedDeviceIndices() { return new int[0]; }
+        public bool TryGetState(int index, out XInputPadState state) { state=new XInputPadState(); return false; }
+        public bool IsTriggerSatisfied(TriggerSpec trigger) { return false; }
+        public void Dispose() { Disposals++; throw new InvalidOperationException("injected provider shutdown failure"); }
+    }
+
+    private static void ShutdownContinuesAfterProviderFailure()
+    {
+        string directory=Path.Combine(Path.GetTempPath(),"InputStitch-shutdown-fault-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            MacroConfig config=new MacroConfig { GamepadDeviceType=VirtualGamepadTypes.None, PauseMacroInRiskyUi=false };
+            MacroDefinition macro=new MacroDefinition { Name="shutdown-fault",Enabled=true,Infinite=true,Trigger=new TriggerSpec { VirtualKey=(int)Keys.F24 } };
+            macro.Steps.Add(new MacroStep { VirtualKey=(int)Keys.F23,Action=MacroAction.Down,DelayMs=1000 });
+            config.Macros.Add(macro); Observer observer=new Observer(); FailingDisposeProvider provider=new FailingDisposeProvider();
+            using(MainForm form=new MainForm(config,directory,observer))
+            {
+                IntPtr handle=form.Handle;
+                Call(form,"HandleTerminalInput",new InputEventInfo { Input=new InputSpec { VirtualKey=(int)Keys.F24 } });
+                DateTime deadline=DateTime.UtcNow.AddSeconds(3);
+                while(observer.Downs==0 && DateTime.UtcNow<deadline) { Application.DoEvents(); Thread.Sleep(2); }
+                Check(observer.Downs>0,"shutdown fault fixture starts an actual macro with held observer output");
+                typeof(MainForm).GetField("gamepadInput",Hidden).SetValue(form,provider);
+                bool stopped=false,released=false,detached=false,gateClosed=false;
+                try
+                {
+                    Call(form,"MainForm_FormClosing",form,new FormClosingEventArgs(CloseReason.WindowsShutDown,false));
+                    Pump();
+                    stopped=!(bool)Call(form,"HasWorkerBackedRuns");
+                    released=observer.Downs==observer.Ups && Field<OutputOwnershipManager>(form,"outputOwnership").Snapshot().Sources.Count==0;
+                    detached=Field<IGamepadInputProvider>(form,"gamepadInput")==null;
+                    gateClosed=Field<bool>(form,"manualTriggerSuspend");
+                }
+                finally { Call(form,"EmergencyStop","fault-fixture-cleanup"); Pump(); }
+                Check(stopped && released,"provider Dispose failure cannot skip macro stop and final owned-input release");
+                Check(detached && provider.Disposals==1,"failed provider shutdown is detached and attempted once");
+                Check(gateClosed,"shutdown rejects new macro triggers during cleanup");
+                int outputCount=observer.Downs;
+                Call(form,"HandleTerminalInput",new InputEventInfo { Input=new InputSpec { VirtualKey=(int)Keys.F24 } });
+                Call(form,"StartMacroCore",macro,0,null,false,false,null);
+                Pump();
+                Check(observer.Downs==outputCount && !(bool)Call(form,"HasWorkerBackedRuns"),"committed shutdown also rejects queued or direct macro starts");
+            }
+        }
+        finally { Directory.Delete(directory,true); }
+    }
+
+    private static void IndependentCleanupFailures()
+    {
+        List<string> steps=new List<string>();
+        ShutdownCleanup cleanup=new ShutdownCleanup(delegate(string name,Exception error) { steps.Add("failed-"+name); throw new IOException("injected logging failure"); });
+        cleanup.Run("provider",delegate { steps.Add("provider"); throw new InvalidOperationException(); });
+        cleanup.Run("network",delegate { steps.Add("network"); throw new InvalidOperationException(); });
+        cleanup.Run("inputs",delegate { steps.Add("inputs"); });
+        Check(cleanup.FailureCount==2 && string.Join(",",steps.ToArray())=="provider,failed-provider,network,failed-network,inputs","resource and logging failures cannot skip subsequent recovery steps");
     }
 
     private static void PostStatus(MainForm form, string prefix, int count)

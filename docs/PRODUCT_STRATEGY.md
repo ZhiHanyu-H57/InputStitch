@@ -1,5 +1,13 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Run preparation and shutdown maintenance — 2026-11-06
+
+Address actual repetition and cleanup failures with a small per-run plan and
+explicit independent shutdown stages. Preserve the single-file native product,
+stable features and input/output ownership. Continue to distinguish local
+preparation gains from whole-app CPU; do not equate partial-file moves with a
+complete runtime/UI separation. See EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
 ## Architecture maintenance follow-up — 2026-11-06
 
 Keep the lightweight native application and existing backend/ownership seams.

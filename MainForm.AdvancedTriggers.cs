@@ -22,7 +22,7 @@ namespace InputStitch
 
         private bool IsActivatorStartBlocked()
         {
-            return uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None ||
+            return shutdownStarted || uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None ||
                 recordingActive || uiSafetyModalDepth > 0 || IsDisposed || Disposing;
         }
 

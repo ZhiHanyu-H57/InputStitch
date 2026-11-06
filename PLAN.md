@@ -1,5 +1,15 @@
 # PLAN.md
 
+## Execution preparation and shutdown maintenance — 2026-11-06
+
+Continue from beta.2 at5c028bc. Extract per-run prepared steps from MainForm;
+reuse input conversion/keys and fix unused wheel HoldMs bypassing loop pacing.
+Reproduce provider shutdown failure and isolate each cleanup phase, preserving
+final macro stop/output release and network-helper disposal after timer failure.
+Use affected checks and one bounded60-second runtime acceptance, no full/repeated
+ten-minute gate. Final local beta.3 delivery pending integration closure.
+See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
 ## Native-state and UI-dispatch maintenance — 2026-11-06
 
 Continue from beta.1 at aeaa22a. Local1.6.2-beta.2 uses independent raw SDL value

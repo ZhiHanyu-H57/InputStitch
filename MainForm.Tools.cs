@@ -29,10 +29,11 @@ namespace InputStitch
         }
         private void DisposeScreenTools()
         {
-            if (timerController != null) { timerController.Dispose(); timerController = null; }
+            TimerController timer = timerController; timerController = null;
             NetworkController network;
             lock (screenToolsGate) { screenToolsDisposed = true; network = networkController; networkController = null; }
-            if (network != null) network.Dispose();
+            try { if (timer != null) timer.Dispose(); }
+            finally { if (network != null) network.Dispose(); }
         }
         private static bool SameShortcut(TriggerSpec a, TriggerSpec b)
         {
@@ -122,7 +123,7 @@ namespace InputStitch
                     int matchedCommand = command;
                     try { BeginInvoke((MethodInvoker)delegate
                     {
-                        if (IsDisposed || uiSafetyModalDepth > 0 || uiSafetyPauseRequested || pauseHotkeys || !config.Timer.Enabled) return;
+                        if (shutdownStarted || IsDisposed || uiSafetyModalDepth > 0 || uiSafetyPauseRequested || pauseHotkeys || !config.Timer.Enabled) return;
                         ExecuteTimerControl(matchedCommand);
                     }); } catch (InvalidOperationException) { }
                     return true;
@@ -151,6 +152,7 @@ namespace InputStitch
         }
         private void QueueNetworkOperation(bool restore)
         {
+            if (shutdownStarted && !restore) return;
             if (restore && networkController == null && Volatile.Read(ref networkOperationPending) == 0) return;
             if (restore) Interlocked.Exchange(ref networkRestorePending, 1);
             if (Interlocked.CompareExchange(ref networkOperationPending, 1, 0) != 0) return;

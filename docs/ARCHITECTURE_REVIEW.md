@@ -1,5 +1,13 @@
 # InputStitch architecture review
 
+## Execution and shutdown follow-up — 2026-11-06
+
+See [beta.3 implementation and evidence](EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md).
+Per-run preparation is now outside MainForm, repeat input/key conversion is
+cached, and fault-injected cleanup stages do not skip later release/recovery.
+The main execution loop and some conditions/UI-pause coordination still remain
+in MainForm; this is an incremental extraction, not a completed runtime rewrite.
+
 ## Current review — 2026-11-06
 
 See [1.6.2-beta.2 review](ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md) for the

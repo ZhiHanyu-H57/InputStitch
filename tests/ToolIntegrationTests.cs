@@ -36,6 +36,11 @@ internal static class ToolIntegrationTests
         { Interlocked.Increment(ref Requests); return command.StartsWith("BLOCK", StringComparison.Ordinal) ? "BLOCKED" : "RESTORED"; }
         public void Dispose() { Interlocked.Exchange(ref Disposals, 1); }
     }
+    private sealed class FailingUiTimer : System.Windows.Forms.Timer
+    {
+        protected override void Dispose(bool disposing)
+        { base.Dispose(disposing); if (disposing) throw new InvalidOperationException("injected timer cleanup failure"); }
+    }
     private sealed class DelayedFactory : INetworkHelperFactory, IDisposable
     {
         internal readonly ManualResetEvent Started = new ManualResetEvent(false), Release = new ManualResetEvent(false);
@@ -780,6 +785,29 @@ internal static class ToolIntegrationTests
     }
     private static void NetworkExitRaces()
     {
+        using (DelayedFactory factory = new DelayedFactory())
+        using (MainForm main = new MainForm(Config(), Path.Combine(root, "network-exit-timer-fault"), new NoOutput()))
+        {
+            NetworkController network=new NetworkController(factory);
+            Set(network,"connection",factory.Connection); Set(network,"blocked",true);
+            Set(main,"networkController",network);
+            TimerController timer=new TimerController(main);
+            FieldInfo timerField=typeof(TimerController).GetField("displayTimer",Hidden);
+            ((System.Windows.Forms.Timer)timerField.GetValue(timer)).Dispose();
+            timerField.SetValue(timer,new FailingUiTimer()); Set(main,"timerController",timer);
+            bool failed=false;
+            try { Call(main,"DisposeScreenTools"); }
+            catch(InvalidOperationException) { failed=true; }
+            finally
+            {
+                // The fault deliberately stops TimerController.Dispose early.
+                EventHandler handler=(EventHandler)Delegate.CreateDelegate(typeof(EventHandler),timer,typeof(TimerController).GetMethod("DisplaysChanged",Hidden));
+                Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=handler;
+            }
+            Check(failed,"timer cleanup fault is observed rather than reported as success");
+            Check(factory.Connection.Disposals==1 && !network.IsBlocked,"timer cleanup failure still disposes the owned network helper");
+            Check(Field<NetworkController>(main,"networkController")==null && Field<TimerController>(main,"timerController")==null && Field<bool>(main,"screenToolsDisposed"),"tool shutdown detaches state before disposal faults");
+        }
         // Inject a fake helper factory. Neither test invokes UAC, WFP, or the real network stack.
         using (DelayedFactory factory = new DelayedFactory())
         using (MainForm main = new MainForm(Config(), Path.Combine(root, "network-exit-elevation"), new NoOutput()))

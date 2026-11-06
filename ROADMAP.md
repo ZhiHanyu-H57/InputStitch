@@ -1,5 +1,13 @@
 # ROADMAP.md
 
+## Execution / cleanup boundary follow-up — 2026-11-06
+
+Beta.3 extracts UI-free run preparation and makes committed shutdown stages
+independent after concrete failure reproduction. MainForm still owns execution
+and some pause/condition decisions; continue incremental extraction only with
+matched runtime evidence. Existing provider/backend seams remain unchanged.
+See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
 ## Architecture and native-sampling maintenance — 2026-11-06
 
 Beta.2 removes native-binding managed allocations for unchanged input frames,

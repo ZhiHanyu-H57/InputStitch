@@ -3203,6 +3203,7 @@ namespace InputStitch
         private readonly object statusDispatchLock = new object();
         private string pendingStatusText;
         private bool statusDispatchQueued;
+        private volatile bool shutdownStarted;
 
         // Macro recorder. It records physical keyboard/mouse button/wheel events only while an
         // external application owns foreground focus; InputStitch UI clicks are intentionally ignored.
@@ -4959,17 +4960,7 @@ namespace InputStitch
 
         private static InputSpec InputFromStep(MacroStep step)
         {
-            if (step == null) return null;
-            InputSpec input = new InputSpec();
-            input.Kind = step.Kind;
-            input.VirtualKey = step.VirtualKey;
-            input.ScanCode = step.ScanCode;
-            input.Extended = step.Extended;
-            input.GamepadControl = step.GamepadControl;
-            input.GamepadX = step.GamepadX;
-            input.GamepadY = step.GamepadY;
-            input.GamepadValue = step.GamepadValue;
-            return input;
+            return MacroExecutionPlan.ConvertInput(step);
         }
 
         private void InfiniteBox_CheckedChanged(object sender, EventArgs e)
@@ -6013,6 +6004,7 @@ namespace InputStitch
                 return true;
             }
 
+            if (shutdownStarted) return false;
             if (captureMode != CaptureMode.None)
             {
                 // Defer a physical modifier until it is released: Ctrl then K must still
@@ -6449,6 +6441,7 @@ namespace InputStitch
 
         private void StartParallelHeldMappingWithTrigger(MacroDefinition macro, TriggerSpec triggerOverride)
         {
+            if (shutdownStarted) return;
             if (macro == null || !IsParallelHeldMapping(macro)) return;
             if (!isolatedUiHost && !EnsureGamepadReady(macro, false)) return;
 
@@ -7309,6 +7302,7 @@ namespace InputStitch
 
         private void StartMacroCore(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep, TriggerSpec holdTriggerOverride)
         {
+            if (shutdownStarted) return;
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
             if (!capability.CanStart)
             {
@@ -7351,6 +7345,7 @@ namespace InputStitch
             int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep,
             TriggerSpec holdTriggerOverride, bool nativeUiGuard)
         {
+            if (shutdownStarted) return;
             InputSender.UseScanCodeInput = config.UseScanCodeInput;
 
             MacroRunRuntime runtime = new MacroRunRuntime();
@@ -7426,8 +7421,6 @@ namespace InputStitch
             string sourceId = runtime.SourceId;
             bool singleStep = runtime.SingleStep;
             Dictionary<string, InputSpec> held = new Dictionary<string, InputSpec>();
-            List<MacroStep> steps = new List<MacroStep>();
-            foreach (MacroStep original in snapshot.Steps) steps.Add(original.Clone());
             string macroName = snapshot.Name;
             bool infinite = snapshot.Infinite;
             int repeatCount = Math.Max(1, snapshot.RepeatCount);
@@ -7437,10 +7430,10 @@ namespace InputStitch
             Random random = new Random(unchecked(Environment.TickCount * 31 + (int)(runId & 0x7FFFFFFF)));
             int lastStatusTick = unchecked(Environment.TickCount - 100);
 
-            runCoordinator.BeginExecution(runtime, steps.Count);
-
             try
             {
+                MacroExecutionPlan plan = new MacroExecutionPlan(snapshot.Steps);
+                runCoordinator.BeginExecution(runtime, plan.Count);
                 if (waitForReleaseTrigger != null)
                 {
                     SetMacroRunStatusSafe(runtime, "准备执行：" + macroName + "（等待触发键松开）");
@@ -7455,16 +7448,7 @@ namespace InputStitch
 
                 if (WaitForUiSafetyClear(stop, macroName, held, sourceId, runtime.NativeUiGuard)) return;
 
-                bool hasNaturalDelay = false;
-                foreach (MacroStep s in steps)
-                {
-                    int possibleDelay = s.RandomDelay ? Math.Max(s.RandomDelayMinMs, s.RandomDelayMaxMs) : s.DelayMs;
-                    if (possibleDelay > 0 || (s.Action == MacroAction.Press && s.HoldMs > 0))
-                    {
-                        hasNaturalDelay = true;
-                        break;
-                    }
-                }
+                bool hasNaturalDelay = plan.HasNaturalDelay;
 
                 int iteration = 0;
                 while (!stop.IsSet)
@@ -7480,22 +7464,23 @@ namespace InputStitch
                         SetMacroRunStatusSafe(runtime, "正在执行：" + macroName + (infinite ? "（第 " + iteration.ToString() + " 次，无限循环）" : "（" + iteration.ToString() + "/" + repeatCount.ToString() + "）"));
                     }
 
-                    for (int stepIndex = 0; stepIndex < steps.Count; stepIndex++)
+                    for (int stepIndex = 0; stepIndex < plan.Count; stepIndex++)
                     {
-                        MacroStep step = steps[stepIndex];
+                        PreparedMacroStep prepared = plan[stepIndex];
+                        MacroStep step = prepared.Definition;
                         if (stop.IsSet) break;
-                        if (singleStep && stepIndex > 0 && WaitForSingleStepAdvance(runtime, stepIndex, steps.Count)) break;
-                        runCoordinator.BeginStep(runtime, stepIndex + 1, steps.Count);
+                        if (singleStep && stepIndex > 0 && WaitForSingleStepAdvance(runtime, stepIndex, plan.Count)) break;
+                        runCoordinator.BeginStep(runtime, stepIndex + 1, plan.Count);
 
-                        InputSpec input = InputFromStep(step);
-                        string key = InputKey(input);
+                        InputSpec input = prepared.Input;
+                        string key = prepared.Key;
 
                         if (WaitForUiSafetyClear(stop, macroName, held, sourceId, runtime.NativeUiGuard)) break;
                         if (WaitForDangerousPhysicalShortcutToClear(stop, macroName, held, step, sourceId, runtime.NativeUiGuard)) break;
 
                         if (step.Action == MacroAction.Press)
                         {
-                            if (InputSender.IsHoldable(input))
+                            if (prepared.Holdable)
                             {
                                 // State-first overlap semantics: a Press never bounces a control that
                                 // this same run already owns Down. It simply consumes its hold time and
@@ -7537,7 +7522,7 @@ namespace InputStitch
                                 outputOwnership.SetDown(sourceId, input);
                                 if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
                                 producedOutput = true;
-                                if (InputSender.IsHoldable(input))
+                                if (prepared.Holdable)
                                 {
                                     held[key] = input.Clone();
                                     SyncRunHeldInputs(runtime, held);
@@ -7831,9 +7816,7 @@ namespace InputStitch
 
         private static string InputKey(InputSpec input)
         {
-            if (input != null && input.Kind == InputKind.Gamepad)
-                return ((int)input.Kind).ToString() + ":" + ((int)input.GamepadControl).ToString();
-            return ((int)input.Kind).ToString() + ":" + input.VirtualKey.ToString() + ":" + input.ScanCode.ToString() + ":" + input.Extended.ToString();
+            return MacroExecutionPlan.KeyForInput(input);
         }
 
         private static bool WaitOrStop(ManualResetEventSlim stop, int ms)
@@ -8004,81 +7987,107 @@ namespace InputStitch
                     }
                 }
             }
-            try
+            // From here closing is committed. Stop admitting new triggers before
+            // disposing any provider; one failing subsystem cannot skip final release.
+            shutdownStarted = true;
+            manualTriggerSuspend = true;
+            ShutdownCleanup cleanup = new ShutdownCleanup(delegate(string name, Exception ex) { AppLog.Write("Shutdown step failed: " + name, ex); });
+            cleanup.Run("input-pipeline", delegate
             {
-                if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
-                DisposeCrosshair();
-                DisposeScreenTools();
-                if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
                 if (inputPipelineScheduler != null)
                 {
                     inputPipelineScheduler.Dispose();
                     inputPipelineScheduler = null;
                 }
+            });
+            cleanup.Run("macro-stop", delegate { StopAllMacroRuns("shutdown"); });
+            cleanup.Run("held-mapping-stop", delegate { StopAllParallelHeldMappings("shutdown"); });
+            cleanup.Run("held-state", ForceReleaseActiveHeldInputs);
+            cleanup.Run("screen-tools-and-network", DisposeScreenTools);
+            cleanup.Run("replacement-monitor", delegate
+            {
+                if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
+            });
+            cleanup.Run("crosshair", DisposeCrosshair);
+            cleanup.Run("idle-gamepad", delegate { if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; } });
+            cleanup.Run("router", delegate
+            {
                 if (gamepadRouter != null)
                 {
                     gamepadRouter.Dispose();
                     gamepadRouter = null;
                 }
-                if (gamepadInput != null)
+            });
+            IGamepadInputProvider closingInput = gamepadInput; gamepadInput = null; sdl3Input = null;
+            cleanup.Run("input-detach", delegate
+            {
+                if (closingInput != null)
                 {
-                    gamepadInput.InputDown = null;
-                    gamepadInput.InputUp = null;
-                    gamepadInput.Dispose();
-                    gamepadInput = null;
+                    closingInput.InputDown = null;
+                    closingInput.InputUp = null;
                 }
-                sdl3Input = null;
+            });
+            cleanup.Run("input-dispose", delegate { if (closingInput != null) closingInput.Dispose(); });
+            cleanup.Run("capture", delegate
+            {
                 CancelCapture();
                 uiSafetyPauseRequested = false;
                 uiSafetyPauseReason = "";
+            });
+            cleanup.Run("foreground-timer", delegate
+            {
                 if (foregroundTimer != null)
                 {
                     foregroundTimer.Stop();
                     foregroundTimer.Dispose();
                     foregroundTimer = null;
                 }
-                StopAllMacroRuns("shutdown");
-                StopAllParallelHeldMappings("shutdown");
-                ForceReleaseActiveHeldInputs();
-                macroWorkers.Dispose();
-                // Ownership is the final shutdown authority. This releases keyboard/mouse state
-                // as well as the gamepad, including the rare case where a worker missed its
-                // normal finally path before the bounded join returned.
-                outputOwnership.ClearAll("shutdown");
-                GamepadOutput.NeutralizeAll();
-                GamepadOutput.Disconnect();
-                SaveConfig();
+            });
+            cleanup.Run("macro-workers", macroWorkers.Dispose);
+            // Keep final ownership release after the bounded worker join. Each
+            // fallback is independent even when a provider or output backend fails.
+            cleanup.Run("owned-input-release", delegate { outputOwnership.ClearAll("shutdown"); });
+            cleanup.Run("gamepad-neutral", GamepadOutput.NeutralizeAll);
+            cleanup.Run("gamepad-disconnect", GamepadOutput.Disconnect);
+            cleanup.Run("configuration", delegate { SaveConfig(); });
+            cleanup.Run("raw-keyboard", delegate
+            {
                 if (rawKeyboardFallback != null)
                 {
                     rawKeyboardFallback.Input -= HandleRawKeyboardFallback;
                     rawKeyboardFallback.Dispose();
                     rawKeyboardFallback = null;
                 }
+            });
+            cleanup.Run("hooks", delegate
+            {
                 if (hooks != null)
                 {
                     hooks.Dispose();
                     hooks = null;
                 }
+            });
+            cleanup.Run("tray", delegate
+            {
                 if (trayIcon != null)
                 {
                     trayIcon.Visible = false;
                     trayIcon.Dispose();
                     trayIcon = null;
                 }
-                // Do not synchronously Dispose ContextMenuStrip instances during FormClosing.
-                // If shutdown was initiated from a menu item, WinForms' ModalMenuFilter may
-                // still reference that drop-down until the click/close message fully unwinds.
-                // The process is exiting, so dropping our references is safer than forcing an
-                // early Dispose that can surface ObjectDisposedException from ToolStrip internals.
-                trayMenu = null;
-                toolsMenu = null;
-                if (runtimeObservationForm != null && !runtimeObservationForm.IsDisposed) { runtimeObservationForm.Close(); runtimeObservationForm = null; }
-                AppLog.Write("Application closed normally.");
-            }
-            catch (Exception ex)
+            });
+            // Do not synchronously Dispose ContextMenuStrip instances during FormClosing.
+            // If shutdown was initiated from a menu item, WinForms' ModalMenuFilter may
+            // still reference that drop-down until the click/close message fully unwinds.
+            // The process is exiting, so dropping our references is safer than forcing an
+            // early Dispose that can surface ObjectDisposedException from ToolStrip internals.
+            trayMenu = null;
+            toolsMenu = null;
+            cleanup.Run("observation-window", delegate
             {
-                AppLog.Write("Shutdown cleanup failed", ex);
-            }
+                if (runtimeObservationForm != null && !runtimeObservationForm.IsDisposed) { runtimeObservationForm.Close(); runtimeObservationForm = null; }
+            });
+            try { AppLog.Write(cleanup.FailureCount == 0 ? "Application closed normally." : "Application closed with cleanup errors: " + cleanup.FailureCount.ToString()); } catch { }
         }
     }
 
