@@ -1,5 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Architecture maintenance follow-up — 2026-11-06
+
+Keep the lightweight native application and existing backend/ownership seams.
+Local beta.2 improves native sample ownership, cleanup failure isolation and
+latest-status UI dispatch. MainForm still owns execution and presentation; its
+remaining coupling is documented rather than declared solved by partial files.
+Prioritize measured paths and scoped evidence. See
+ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md.
+
 ## Performance maintenance — 2026-11-06
 
 Use official mature-tool/platform sources and same-host measurements to remove

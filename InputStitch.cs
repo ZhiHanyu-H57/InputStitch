@@ -3200,6 +3200,9 @@ namespace InputStitch
         private string slotAcquisitionRecoveryWarning = "";
         private long lastIdleHookEventCount;
         private bool idleKeyboardMouseActivityInScope = true;
+        private readonly object statusDispatchLock = new object();
+        private string pendingStatusText;
+        private bool statusDispatchQueued;
 
         // Macro recorder. It records physical keyboard/mouse button/wheel events only while an
         // external application owns foreground focus; InputStitch UI clicks are intentionally ignored.
@@ -3594,17 +3597,17 @@ namespace InputStitch
                 catch (Exception ex) { AppLog.Write("Emergency stop gamepad neutralize failed; continuing fail-safe cleanup", ex); }
                 ReconcileHookState("emergency-stop");
                 if (replacementRestoreFailed)
-                    statusLabel.Text = Localizer.IsEnglish
+                    SetStatusSafe(Localizer.IsEnglish
                         ? "Emergency Stop released managed output, but controller visibility could not be fully restored. Restart InputStitch to retry recovery."
-                        : "紧急停止已释放受管输入，但原手柄可见性未能完整恢复；重启 InputStitch 会再次尝试恢复。";
+                        : "紧急停止已释放受管输入，但原手柄可见性未能完整恢复；重启 InputStitch 会再次尝试恢复。");
                 else if (runCount != 0 || heldMappingCount != 0)
-                    statusLabel.Text = "紧急停止：已向全部运行实例发送停止信号并释放受管输入。";
+                    SetStatusSafe("紧急停止：已向全部运行实例发送停止信号并释放受管输入。");
                 else
-                    statusLabel.Text = "紧急停止：当前没有正在执行的宏。";
+                    SetStatusSafe("紧急停止：当前没有正在执行的宏。");
                 if (manualTriggerSuspend && !replacementRestoreFailed)
-                    statusLabel.Text = Localizer.IsEnglish
+                    SetStatusSafe(Localizer.IsEnglish
                         ? "Emergency Stop: macros stopped and triggers paused. Uncheck Pause global macro triggers in the gear menu to resume."
-                        : "紧急停止：已停止宏并暂停触发。在齿轮菜单取消“暂停全局宏触发”后恢复。";
+                        : "紧急停止：已停止宏并暂停触发。在齿轮菜单取消“暂停全局宏触发”后恢复。");
                 UpdateRunButton();
                 AppLog.Write("Emergency stop: " + (reason ?? "unknown") + "; runs=" + runCount.ToString() + "; held=" + heldMappingCount.ToString());
             }
@@ -7069,7 +7072,7 @@ namespace InputStitch
             {
                 StopParallelHeldMapping(m, "ui-stop");
                 ReconcileHookState("ui-stop");
-                statusLabel.Text = Localizer.IsEnglish ? "Stopped selected Held Mapping." : "状态：已停止所选按住映射。";
+                SetStatusSafe(Localizer.IsEnglish ? "Stopped selected Held Mapping." : "状态：已停止所选按住映射。");
                 UpdateRunButton();
                 return;
             }
@@ -7080,7 +7083,7 @@ namespace InputStitch
             {
                 StopMacro(m, "ui-stop");
                 ReconcileHookState("ui-stop");
-                statusLabel.Text = Localizer.IsEnglish ? "Stopping selected macro..." : "状态：正在停止所选宏…";
+                SetStatusSafe(Localizer.IsEnglish ? "Stopping selected macro..." : "状态：正在停止所选宏…");
                 UpdateRunButton();
                 return;
             }
@@ -7842,12 +7845,39 @@ namespace InputStitch
         private void SetStatusSafe(string text)
         {
             if (IsDisposed) return;
+            if (!InvokeRequired)
+            {
+                // A direct UI command supersedes notifications posted before it.
+                lock (statusDispatchLock) pendingStatusText = null;
+                try { statusLabel.Text = text; } catch { }
+                return;
+            }
+            lock (statusDispatchLock)
+            {
+                pendingStatusText = text ?? "";
+                if (statusDispatchQueued) return;
+                statusDispatchQueued = true;
+            }
             try
             {
-                if (InvokeRequired) BeginInvoke((MethodInvoker)delegate { if (!IsDisposed) statusLabel.Text = text; });
-                else statusLabel.Text = text;
+                BeginInvoke((MethodInvoker)ApplyPendingStatus);
             }
-            catch { }
+            catch
+            {
+                lock (statusDispatchLock) { pendingStatusText = null; statusDispatchQueued = false; }
+            }
+        }
+
+        private void ApplyPendingStatus()
+        {
+            string text;
+            lock (statusDispatchLock)
+            {
+                text = pendingStatusText;
+                pendingStatusText = null;
+                statusDispatchQueued = false;
+            }
+            if (!IsDisposed && text != null) statusLabel.Text = text;
         }
 
         private void UpdateRunButtonSafe()

@@ -1,5 +1,14 @@
 # PLAN.md
 
+## Native-state and UI-dispatch maintenance — 2026-11-06
+
+Continue from beta.1 at aeaa22a. Local1.6.2-beta.2 uses independent raw SDL value
+frames, stable membership snapshots and per-device cleanup failure isolation;
+coalesces background status text without changing input/output/stop commands.
+Review current extension seams, MainForm coupling and cleanup boundaries. Relevant
+regressions and final packages pass; record reusable evidence and deliver local
+packages. See docs/ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md. Stable unchanged.
+
 ## Performance maintenance — 2026-11-06
 
 User authorized another measured performance/stability pass and independent

@@ -3,8 +3,8 @@
     // Build scripts and release workflows read these constants as the release source of truth.
     public static class ReleaseInfo
     {
-        public const string Version = "1.6.2-beta.1";
-        public const string FileVersion = "1.6.2.1";
+        public const string Version = "1.6.2-beta.2";
+        public const string FileVersion = "1.6.2.2";
         public const bool IsPrerelease = true;
         public static bool AutomaticChecksAllowed { get { return !IsPrerelease; } }
         public const string ReleasesUrl = "https://github.com/ZhiHanyu-H57/InputStitch/releases";
@@ -12,13 +12,13 @@
         // Detailed release notes remain in RELEASE_NOTES.md / GitHub Releases.
         public const string ReleaseSummaryZh =
             "减少后台输入处理的开销。\r\n\r\n" +
-            "• 减少手柄轮询中的临时内存分配。\r\n" +
-            "• 普通按键跳过无关的工具快捷键冲突检查。\r\n" +
-            "• 修复 SDL 手柄断开后扳机释放事件遗漏。";
+            "• 减少 SDL 原生状态读取的临时内存分配。\r\n" +
+            "• 合并后台状态通知，避免界面忙时积压。\r\n" +
+            "• 完善 SDL 设备关闭失败后的清理。";
         public const string ReleaseSummaryEn =
             "Reduce background input-processing overhead.\r\n\r\n" +
-            "• Reduce temporary allocations during controller polling.\r\n" +
-            "• Skip unrelated tool-shortcut conflict checks for ordinary input.\r\n" +
-            "• Release held SDL trigger inputs when a controller disconnects.";
+            "• Reduce temporary allocations in native SDL state reads.\r\n" +
+            "• Coalesce background status updates while the UI is busy.\r\n" +
+            "• Complete SDL cleanup after individual device-close failures.";
     }
 }

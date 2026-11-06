@@ -1,5 +1,13 @@
 # ROADMAP.md
 
+## Architecture and native-sampling maintenance — 2026-11-06
+
+Beta.2 removes native-binding managed allocations for unchanged input frames,
+isolates Close failures and bounds pending status callbacks. Existing input/output
+seams remain appropriate; next structural priorities are the executor/UI boundary
+and fault-isolated shutdown. Do not add a plugin framework or change polling to
+claim savings. Current review: docs/ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md.
+
 ## Measured performance maintenance — 2026-11-06
 
 Local1.6.2-beta.1 narrows tool-key validation to matching candidates, reuses SDL

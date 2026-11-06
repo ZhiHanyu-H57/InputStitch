@@ -24,6 +24,7 @@ internal static class UiSafetyTests
             ScreenshotPassthrough();
             MouseRecovery();
             ShiftNavigationTriggers();
+            CoalescedStatusUpdates();
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,false,false,false), "idle hover over a button/list must not reject hotkeys");
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,true,false,false), "hover over an editor is not editing");
             Check(!UiSafetyPolicy.ShouldPauseControl(true,false,false,false,false), "idle button/list focus can transfer to the input sink");
@@ -70,6 +71,79 @@ internal static class UiSafetyTests
             return 0;
         }
         catch(Exception ex) { Console.Error.WriteLine(ex.GetType().Name + ": " + ex.Message); return 1; }
+    }
+
+    private static int PendingCallbacks(Control control)
+    {
+        // Inspect the actual .NET Framework dispatcher queue, independently of
+        // InputStitch's coalescing flag; the old implementation queued each item.
+        FieldInfo field = typeof(Control).GetField("threadCallbackList", BindingFlags.Instance | BindingFlags.NonPublic);
+        System.Collections.ICollection queue = (System.Collections.ICollection)field.GetValue(control);
+        return queue == null ? 0 : queue.Count;
+    }
+
+    private static void PostStatus(MainForm form, string prefix, int count)
+    {
+        Exception failure = null;
+        Thread producer = new Thread(delegate()
+        {
+            try { for (int i=0;i<count;i++) Call(form,"SetStatusSafe",prefix+i.ToString()); }
+            catch (Exception ex) { failure=ex; }
+        });
+        producer.Start();
+        Check(producer.Join(3000) && failure==null,"background status producer completes without UI pumping");
+    }
+
+    private static void CoalescedStatusUpdates()
+    {
+        string directory=Path.Combine(Path.GetTempPath(),"InputStitch-status-queue-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using (MainForm form=new MainForm(new MacroConfig { GamepadDeviceType=VirtualGamepadTypes.None },directory,new Observer()))
+            {
+                IntPtr handle=form.Handle;
+                Label label=Field<Label>(form,"statusLabel");
+                PostStatus(form,"burst-",1000);
+                Check(PendingCallbacks(form)==1,"1000 blocked-UI status writes queue one actual dispatcher callback");
+                Pump(); Check(label.Text=="burst-999","draining a status burst displays its newest value");
+                Thread[] writers=new Thread[4]; Exception[] errors=new Exception[4];
+                for (int writer=0;writer<writers.Length;writer++)
+                {
+                    int index=writer;
+                    writers[index]=new Thread(delegate()
+                    {
+                        try { for (int i=0;i<250;i++) Call(form,"SetStatusSafe","writer-"+index.ToString()+"-"+i.ToString()); }
+                        catch(Exception ex) { errors[index]=ex; }
+                    });
+                    writers[index].Start();
+                }
+                for (int i=0;i<writers.Length;i++) Check(writers[i].Join(3000) && errors[i]==null,"concurrent status writers complete without UI pumping");
+                PostStatus(form,"last-writer-",1);
+                Check(PendingCallbacks(form)==1,"concurrent producers share a single pending status callback");
+                Pump(); Check(label.Text=="last-writer-0","last notification survives concurrent producers");
+                for (int i=0;i<10;i++)
+                {
+                    PostStatus(form,"cycle-"+i.ToString()+"-",100);
+                    Check(PendingCallbacks(form)==1,"repeated drain cycles keep the dispatch queue bounded");
+                    Pump(); Check(label.Text=="cycle-"+i.ToString()+"-99","updates after a drain are delivered");
+                }
+                PostStatus(form,"stale-",100);
+                Call(form,"SetStatusSafe","direct UI state");
+                Pump(); Check(label.Text=="direct UI state","direct UI status invalidates older queued notifications");
+                PostStatus(form,"stale running-",100);
+                Call(form,"EmergencyStop","status-test");
+                string stopped=label.Text;
+                Pump(); Check(label.Text==stopped && Field<bool>(form,"manualTriggerSuspend"),"queued activity cannot replace the Emergency Stop status or resume triggers");
+                PostStatus(form,"after-stop-",10);
+                Pump(); Check(label.Text=="after-stop-9","later background notifications remain deliverable after invalidation");
+                PostStatus(form,"closing-",100);
+                form.Dispose(); Pump();
+                PostStatus(form,"disposed-",100);
+                Check(form.IsDisposed,"queued and later status updates tolerate form disposal");
+            }
+        }
+        finally { Directory.Delete(directory,true); }
     }
 
     private static void ScreenshotPassthrough()

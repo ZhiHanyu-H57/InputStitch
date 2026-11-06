@@ -168,8 +168,8 @@ namespace InputStitch
 
                 foreach (KeyValuePair<int, int> pair in indexByDeviceId)
                 {
-                    Sdl3DeviceSnapshot snapshot = SnapshotSafely(pair.Key);
-                    if (snapshot == null) continue;
+                    Sdl3DeviceSnapshot snapshot;
+                    if (!SnapshotSafely(pair.Key, out snapshot)) continue;
                     XInputPadState mapped = MapSnapshot(snapshot);
                     mapped.Connected = true;
                     XInputPadState previous;
@@ -306,33 +306,28 @@ namespace InputStitch
         {
             XInputPadState state = new XInputPadState();
             state.Connected = true;
-            if (snapshot == null) return state;
-            bool[] buttons = snapshot.Buttons;
-            if (buttons != null)
-            {
-                if (Pressed(buttons, Sdl3GamepadButtons.South)) state.Buttons |= 0x1000;
-                if (Pressed(buttons, Sdl3GamepadButtons.East)) state.Buttons |= 0x2000;
-                if (Pressed(buttons, Sdl3GamepadButtons.West)) state.Buttons |= 0x4000;
-                if (Pressed(buttons, Sdl3GamepadButtons.North)) state.Buttons |= 0x8000;
-                if (Pressed(buttons, Sdl3GamepadButtons.Back)) state.Buttons |= 0x0020;
-                if (Pressed(buttons, Sdl3GamepadButtons.Guide)) state.Buttons |= 0x0400;
-                if (Pressed(buttons, Sdl3GamepadButtons.Start)) state.Buttons |= 0x0010;
-                if (Pressed(buttons, Sdl3GamepadButtons.LeftStick)) state.Buttons |= 0x0040;
-                if (Pressed(buttons, Sdl3GamepadButtons.RightStick)) state.Buttons |= 0x0080;
-                if (Pressed(buttons, Sdl3GamepadButtons.LeftShoulder)) state.Buttons |= 0x0100;
-                if (Pressed(buttons, Sdl3GamepadButtons.RightShoulder)) state.Buttons |= 0x0200;
-                if (Pressed(buttons, Sdl3GamepadButtons.DPadUp)) state.Buttons |= 0x0001;
-                if (Pressed(buttons, Sdl3GamepadButtons.DPadDown)) state.Buttons |= 0x0002;
-                if (Pressed(buttons, Sdl3GamepadButtons.DPadLeft)) state.Buttons |= 0x0004;
-                if (Pressed(buttons, Sdl3GamepadButtons.DPadRight)) state.Buttons |= 0x0008;
-            }
-            short[] axes = snapshot.Axes;
-            state.ThumbLX = Axis(axes, Sdl3GamepadAxes.LeftX);
-            state.ThumbLY = InvertY(Axis(axes, Sdl3GamepadAxes.LeftY));
-            state.ThumbRX = Axis(axes, Sdl3GamepadAxes.RightX);
-            state.ThumbRY = InvertY(Axis(axes, Sdl3GamepadAxes.RightY));
-            state.LeftTrigger = ScaleTrigger(Axis(axes, Sdl3GamepadAxes.LeftTrigger));
-            state.RightTrigger = ScaleTrigger(Axis(axes, Sdl3GamepadAxes.RightTrigger));
+            uint buttons = snapshot.Buttons;
+            if (Pressed(buttons, Sdl3GamepadButtons.South)) state.Buttons |= 0x1000;
+            if (Pressed(buttons, Sdl3GamepadButtons.East)) state.Buttons |= 0x2000;
+            if (Pressed(buttons, Sdl3GamepadButtons.West)) state.Buttons |= 0x4000;
+            if (Pressed(buttons, Sdl3GamepadButtons.North)) state.Buttons |= 0x8000;
+            if (Pressed(buttons, Sdl3GamepadButtons.Back)) state.Buttons |= 0x0020;
+            if (Pressed(buttons, Sdl3GamepadButtons.Guide)) state.Buttons |= 0x0400;
+            if (Pressed(buttons, Sdl3GamepadButtons.Start)) state.Buttons |= 0x0010;
+            if (Pressed(buttons, Sdl3GamepadButtons.LeftStick)) state.Buttons |= 0x0040;
+            if (Pressed(buttons, Sdl3GamepadButtons.RightStick)) state.Buttons |= 0x0080;
+            if (Pressed(buttons, Sdl3GamepadButtons.LeftShoulder)) state.Buttons |= 0x0100;
+            if (Pressed(buttons, Sdl3GamepadButtons.RightShoulder)) state.Buttons |= 0x0200;
+            if (Pressed(buttons, Sdl3GamepadButtons.DPadUp)) state.Buttons |= 0x0001;
+            if (Pressed(buttons, Sdl3GamepadButtons.DPadDown)) state.Buttons |= 0x0002;
+            if (Pressed(buttons, Sdl3GamepadButtons.DPadLeft)) state.Buttons |= 0x0004;
+            if (Pressed(buttons, Sdl3GamepadButtons.DPadRight)) state.Buttons |= 0x0008;
+            state.ThumbLX = snapshot.LeftX;
+            state.ThumbLY = InvertY(snapshot.LeftY);
+            state.ThumbRX = snapshot.RightX;
+            state.ThumbRY = InvertY(snapshot.RightY);
+            state.LeftTrigger = ScaleTrigger(snapshot.LeftTrigger);
+            state.RightTrigger = ScaleTrigger(snapshot.RightTrigger);
             return state;
         }
 
@@ -343,15 +338,8 @@ namespace InputStitch
             return (byte)((value * 255 + 16383) / 32767);
         }
 
-        private static bool Pressed(bool[] buttons, int index)
-        {
-            return buttons != null && index >= 0 && index < buttons.Length && buttons[index];
-        }
-
-        private static short Axis(short[] axes, int index)
-        {
-            return axes == null || index < 0 || index >= axes.Length ? (short)0 : axes[index];
-        }
+        private static bool Pressed(uint buttons, int index)
+        { return (buttons & (1U << index)) != 0; }
 
         private static short InvertY(short value)
         {
@@ -450,10 +438,10 @@ namespace InputStitch
             catch { return null; }
         }
 
-        private Sdl3DeviceSnapshot SnapshotSafely(int deviceId)
+        private bool SnapshotSafely(int deviceId, out Sdl3DeviceSnapshot snapshot)
         {
-            try { return api.GetSnapshot(deviceId); }
-            catch { return null; }
+            try { return api.TryGetSnapshot(deviceId, out snapshot); }
+            catch { snapshot = new Sdl3DeviceSnapshot(); return false; }
         }
     }
 }

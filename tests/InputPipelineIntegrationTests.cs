@@ -28,7 +28,7 @@ internal static class InputPipelineIntegrationTests
     private sealed class SdlController : ISdl3Api
     {
         internal bool Connected = true;
-        internal readonly Sdl3DeviceSnapshot Frame = new Sdl3DeviceSnapshot { Axes = new short[6] };
+        internal Sdl3DeviceSnapshot Frame;
         public bool Initialize() { return true; }
         public void Shutdown() { }
         public void Update() { }
@@ -36,7 +36,7 @@ internal static class InputPipelineIntegrationTests
         public Sdl3DeviceDescriptor Describe(int id) { return new Sdl3DeviceDescriptor { DeviceId = id, VendorId = 0x054c }; }
         public bool Open(int id) { return true; }
         public void Close(int id) { }
-        public Sdl3DeviceSnapshot GetSnapshot(int id) { return Frame; }
+        public bool TryGetSnapshot(int id, out Sdl3DeviceSnapshot snapshot) { snapshot = Connected ? Frame : new Sdl3DeviceSnapshot(); return Connected; }
     }
     // Provider -> actual controller callbacks -> held mapping -> output ownership.
     // A disconnect must release both trigger-held outputs without the periodic
@@ -62,18 +62,18 @@ internal static class InputPipelineIntegrationTests
             for (int i = 0; i < 100; i++)
             {
                 api.Connected = true;
-                api.Frame.Axes[4] = api.Frame.Axes[5] = short.MaxValue;
+                api.Frame.LeftTrigger = api.Frame.RightTrigger = short.MaxValue;
                 provider.Poll(); Application.DoEvents();
                 if (ownership.Snapshot().Sources.Count != 1) throw new Exception("reconnected held triggers must establish a baseline without activation");
-                api.Frame.Axes[4] = api.Frame.Axes[5] = 0; provider.Poll(); Application.DoEvents();
-                api.Frame.Axes[4] = api.Frame.Axes[5] = short.MaxValue; provider.Poll();
+                api.Frame.LeftTrigger = api.Frame.RightTrigger = 0; provider.Poll(); Application.DoEvents();
+                api.Frame.LeftTrigger = api.Frame.RightTrigger = short.MaxValue; provider.Poll();
                 Wait(delegate { return ownership.Snapshot().Sources.Count == 3; });
                 api.Connected = false; provider.Poll();
                 Wait(delegate { return ownership.Snapshot().Sources.Count == 1; });
                 if (observer.Downs - observer.Ups != 1) throw new Exception("disconnect must release only both trigger-owned keys");
             }
-            api.Connected = true; api.Frame.Axes[4] = api.Frame.Axes[5] = 0; provider.Poll();
-            api.Frame.Axes[4] = api.Frame.Axes[5] = short.MaxValue; provider.Poll();
+            api.Connected = true; api.Frame.LeftTrigger = api.Frame.RightTrigger = 0; provider.Poll();
+            api.Frame.LeftTrigger = api.Frame.RightTrigger = short.MaxValue; provider.Poll();
             Wait(delegate { return ownership.Snapshot().Sources.Count == 3; });
             provider.Dispose();
             Wait(delegate { return ownership.Snapshot().Sources.Count == 1; });

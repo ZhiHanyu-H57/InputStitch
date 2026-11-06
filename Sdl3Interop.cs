@@ -2,9 +2,9 @@ using System;
 
 namespace InputStitch
 {
-    // Normalized SDL3 gamepad surface used by Sdl3InputProvider. The native P/Invoke implementation
-    // (Sdl3NativeApi) and the provider tests both target this contract, so mapping logic is verifiable
-    // without a real controller or a loaded SDL3.dll.
+    // SDL3 source-state contract. The native binding samples raw SDL controls;
+    // Sdl3InputProvider alone normalizes their mapping, axes and trigger values.
+    // Test implementations exercise the same contract without a loaded SDL3.dll.
     internal sealed class Sdl3DeviceDescriptor
     {
         public int DeviceId = 0;
@@ -15,12 +15,12 @@ namespace InputStitch
         public string Path = "";
     }
 
-    internal sealed class Sdl3DeviceSnapshot
+    internal struct Sdl3DeviceSnapshot
     {
-        // Index = SDL_GamepadButton value (see Sdl3GamepadButtons). Missing entries count as not pressed.
-        public bool[] Buttons = null;
-        // Index = SDL_GamepadAxis value (see Sdl3GamepadAxes). Missing entries count as zero.
-        public short[] Axes = null;
+        // Bit index = SDL_GamepadButton value. This independent value frame never
+        // exposes mutable native/scratch buffers or allocates per sampled device.
+        public uint Buttons;
+        public short LeftX, LeftY, RightX, RightY, LeftTrigger, RightTrigger;
     }
 
     internal static class Sdl3GamepadButtons
@@ -63,10 +63,13 @@ namespace InputStitch
         void Shutdown();
         // Refreshes device state (SDL_UpdateGamepads) before snapshots are read.
         void Update();
+        // Read-only member snapshot. An implementation may reuse it while members
+        // are unchanged; it must replace rather than mutate a published array.
         int[] ListDeviceIds();
         Sdl3DeviceDescriptor Describe(int deviceId);
         bool Open(int deviceId);
         void Close(int deviceId);
-        Sdl3DeviceSnapshot GetSnapshot(int deviceId);
+        // False means no live handle; the out frame is zero in that case.
+        bool TryGetSnapshot(int deviceId, out Sdl3DeviceSnapshot snapshot);
     }
 }

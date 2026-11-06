@@ -14,12 +14,17 @@ internal static class Sdl3ProviderTests
     private static int joystickUpdates;
     private static int nativeCount;
     private static int nativeFrees;
+    private static int[] nativeIds = new[] { 7, 9 };
+    private static uint nativeButtons;
+    private static short[] nativeAxes = new short[6];
+    private static int nativeButtonReads, nativeAxisReads, nativeCloses, nativeQuits;
+    private static bool failNativeClose, failNativeAxis;
     private static IntPtr NativeList(out int count)
     {
         count = Math.Max(0, nativeCount);
         if (nativeCount < 0) return IntPtr.Zero;
         IntPtr pointer = Marshal.AllocHGlobal((count + 1) * 4);
-        if (count != 0) Marshal.WriteInt32(pointer, 7);
+        for (int i = 0; i < count; i++) Marshal.WriteInt32(pointer, i * 4, nativeIds[i]);
         Marshal.WriteInt32(pointer, count * 4, 0);
         return pointer;
     }
@@ -39,6 +44,67 @@ internal static class Sdl3ProviderTests
         Check(indices.Length == 1 && indices[0] == 7 && nativeFrees == 5001, "nonempty lists are copied before the native allocation is freed");
         nativeCount = -1;
         Check(api.ListDeviceIds().Length == 0 && nativeFrees == 5001, "a null native result is not freed");
+        nativeCount = 1;
+        int[] retained = api.ListDeviceIds();
+        Check(object.ReferenceEquals(retained, api.ListDeviceIds()), "unchanged native membership reuses its read-only snapshot");
+        nativeIds[0] = 13;
+        int[] replaced = api.ListDeviceIds();
+        Check(replaced[0] == 13 && retained[0] == 7 && !object.ReferenceEquals(retained, replaced), "same-count membership change replaces the snapshot without mutating a retained list");
+        nativeCount = 2;
+        Check(api.ListDeviceIds().Length == 2 && replaced.Length == 1, "member count change preserves the previous snapshot");
+        nativeCount = 0;
+        Check(object.ReferenceEquals(api.ListDeviceIds(), api.ListDeviceIds()), "empty native membership reuses an empty snapshot while freeing every native list");
+        Check(nativeFrees == 5007, "snapshot reuse never skips SDL_free or native enumeration");
+        nativeIds[0] = 7;
+    }
+    private static void BindNative(Sdl3NativeApi api, string field, string method)
+    {
+        FieldInfo target = typeof(Sdl3NativeApi).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic);
+        target.SetValue(api, Delegate.CreateDelegate(target.FieldType, typeof(Sdl3ProviderTests).GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic)));
+    }
+    private static bool NativeButton(IntPtr handle, int index) { nativeButtonReads++; return (nativeButtons & (1U << index)) != 0; }
+    private static short NativeAxis(IntPtr handle, int index)
+    { nativeAxisReads++; if (failNativeAxis) throw new IOException("native axis failure"); return nativeAxes[index]; }
+    private static void NativeClose(IntPtr handle)
+    { nativeCloses++; if (failNativeClose && nativeCloses == 1) throw new IOException("native close failure"); }
+    private static void NativeQuit(uint flags) { nativeQuits++; }
+    private static void NativeFramesAndCleanup()
+    {
+        BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+        Sdl3NativeApi api = new Sdl3NativeApi();
+        typeof(Sdl3NativeApi).GetField("available", hidden).SetValue(api, true);
+        Dictionary<int, IntPtr> handles = (Dictionary<int, IntPtr>)typeof(Sdl3NativeApi).GetField("handles", hidden).GetValue(api);
+        handles.Add(7, new IntPtr(1)); handles.Add(9, new IntPtr(2));
+        BindNative(api, "sdlGetGamepadButton", "NativeButton"); BindNative(api, "sdlGetGamepadAxis", "NativeAxis");
+        BindNative(api, "sdlCloseGamepad", "NativeClose"); BindNative(api, "sdlQuitSubSystem", "NativeQuit");
+        nativeButtons = 0x7fff;
+        nativeAxes = new[] { short.MinValue, short.MaxValue, (short)1500, short.MinValue, short.MaxValue, (short)16384 };
+        Sdl3DeviceSnapshot first;
+        Check(api.TryGetSnapshot(7, out first) && first.Buttons == 0x7fff, "native frame reads all mapped SDL buttons into an independent value");
+        Check(nativeButtonReads == 15 && nativeAxisReads == 6, "each connected device still reads every mapped button and all six axes");
+        XInputPadState mapped = Sdl3InputProvider.MapSnapshot(first);
+        Check(mapped.Buttons == 0xf7ff && mapped.ThumbLX == short.MinValue && mapped.ThumbLY == -short.MaxValue && mapped.ThumbRX == 1500 && mapped.ThumbRY == short.MaxValue && mapped.LeftTrigger == 255 && mapped.RightTrigger == 128,
+            "value-frame mapping preserves all digital controls, Y saturation and trigger scaling");
+        ushort[] expected = { 0x1000, 0x2000, 0x4000, 0x8000, 0x20, 0x400, 0x10, 0x40, 0x80, 0x100, 0x200, 1, 2, 4, 8 };
+        for (int i = 0; i < expected.Length; i++)
+        {
+            nativeButtons = 1U << i; Sdl3DeviceSnapshot single;
+            Check(api.TryGetSnapshot(7, out single) && Sdl3InputProvider.MapSnapshot(single).Buttons == expected[i], "individual SDL button mapping remains unchanged: " + i);
+        }
+        nativeButtons = 0; nativeAxes[0] = 42; Sdl3DeviceSnapshot later;
+        Check(api.TryGetSnapshot(7, out later) && later.Buttons == 0 && later.LeftX == 42 && first.Buttons == 0x7fff && first.LeftX == short.MinValue,
+            "later reads cannot mutate retained value frames");
+        Check(!api.TryGetSnapshot(999, out later) && later.Equals(new Sdl3DeviceSnapshot()), "missing native handle returns false and a zero frame");
+        failNativeAxis = true;
+        try { api.TryGetSnapshot(7, out later); Check(false, "native getter exception is observable"); }
+        catch (IOException) { Check(later.Equals(new Sdl3DeviceSnapshot()), "failed native read never publishes a partially sampled frame"); }
+        failNativeAxis = false; failNativeClose = true;
+        api.Shutdown(); api.Shutdown();
+        Check(nativeCloses == 2 && nativeQuits == 1 && handles.Count == 0 && !api.Available, "one close failure cannot skip another handle or subsystem shutdown; cleanup is idempotent");
+        Check(!api.TryGetSnapshot(7, out later) && later.Equals(new Sdl3DeviceSnapshot()), "shutdown leaves no readable stale native frame");
+        api.Dispose();
+        Check(nativeCloses == 2 && nativeQuits == 1, "dispose after shutdown repeats no native side effects");
+        failNativeClose = false;
     }
     private static void GamepadUpdate() { gamepadUpdates++; }
     private static void JoystickUpdate() { joystickUpdates++; }
@@ -92,11 +158,11 @@ internal static class Sdl3ProviderTests
         }
         public bool Open(int deviceId) { Opened.Add(deviceId); return true; }
         public void Close(int deviceId) { Closed.Add(deviceId); }
-        public Sdl3DeviceSnapshot GetSnapshot(int deviceId)
+        public bool TryGetSnapshot(int deviceId, out Sdl3DeviceSnapshot snapshot)
         {
             SnapshotCount++;
-            Sdl3DeviceSnapshot snapshot;
-            return Snapshots.TryGetValue(deviceId, out snapshot) ? snapshot : new Sdl3DeviceSnapshot();
+            Snapshots.TryGetValue(deviceId, out snapshot);
+            return true;
         }
     }
 
@@ -107,7 +173,15 @@ internal static class Sdl3ProviderTests
 
     private static Sdl3DeviceSnapshot Snapshot(bool[] buttons, short[] axes)
     {
-        return new Sdl3DeviceSnapshot { Buttons = buttons, Axes = axes };
+        uint mask = 0;
+        if (buttons != null) for (int i = 0; i < buttons.Length && i < 32; i++) if (buttons[i]) mask |= 1U << i;
+        return new Sdl3DeviceSnapshot { Buttons = mask,
+            LeftX = axes == null || axes.Length < 1 ? (short)0 : axes[0],
+            LeftY = axes == null || axes.Length < 2 ? (short)0 : axes[1],
+            RightX = axes == null || axes.Length < 3 ? (short)0 : axes[2],
+            RightY = axes == null || axes.Length < 4 ? (short)0 : axes[3],
+            LeftTrigger = axes == null || axes.Length < 5 ? (short)0 : axes[4],
+            RightTrigger = axes == null || axes.Length < 6 ? (short)0 : axes[5] };
     }
 
     private static bool[] Buttons(params int[] pressed)
@@ -135,6 +209,7 @@ internal static class Sdl3ProviderTests
     {
         NativeUpdate();
         NativeEnumeration();
+        NativeFramesAndCleanup();
         PollingLifetime();
         // 1. An unavailable SDL3 runtime leaves the provider inert instead of throwing.
         FakeSdl3Api missing = new FakeSdl3Api();
