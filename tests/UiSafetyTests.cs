@@ -27,6 +27,7 @@ internal static class UiSafetyTests
             CoalescedStatusUpdates();
             ShutdownContinuesAfterProviderFailure();
             IndependentCleanupFailures();
+            ShutdownAdmissionRace();
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,false,false,false), "idle hover over a button/list must not reject hotkeys");
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,true,false,false), "hover over an editor is not editing");
             Check(!UiSafetyPolicy.ShouldPauseControl(true,false,false,false,false), "idle button/list focus can transfer to the input sink");
@@ -148,6 +149,55 @@ internal static class UiSafetyTests
         cleanup.Run("network",delegate { steps.Add("network"); throw new InvalidOperationException(); });
         cleanup.Run("inputs",delegate { steps.Add("inputs"); });
         Check(cleanup.FailureCount==2 && string.Join(",",steps.ToArray())=="provider,failed-provider,network,failed-network,inputs","resource and logging failures cannot skip subsequent recovery steps");
+    }
+
+    private static void ShutdownAdmissionRace()
+    {
+        foreach(bool held in new[] {false,true})
+        {
+            string directory=Path.Combine(Path.GetTempPath(),"InputStitch-close-admission-"+Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            try
+            {
+                MacroDefinition macro=new MacroDefinition { Enabled=true,Infinite=true };
+                macro.Steps.Add(new MacroStep { VirtualKey=(int)Keys.F23,Action=MacroAction.Down,DelayMs=1000 });
+                if(held) macro=QuickMacros.Create(QuickTemplate.HeldMapping,"closing",new TriggerSpec { VirtualKey=(int)Keys.F24 },
+                    new List<MacroStep> {new MacroStep {Kind=InputKind.Gamepad,GamepadControl=GamepadControl.South}},1);
+                MacroConfig config=new MacroConfig {GamepadDeviceType=VirtualGamepadTypes.None,PauseMacroInRiskyUi=false};
+                config.Macros.Add(macro); Observer observer=new Observer();
+                using(MainForm form=new MainForm(config,directory,observer))
+                {
+                    IntPtr handle=form.Handle; Exception failure=null;
+                    MacroDefinition snapshot=macro.Clone(); MacroRuntimeCapability capability=MacroRuntimeClassifier.Classify(snapshot);
+                    Thread entrant=new Thread(delegate()
+                    {
+                        try
+                        {
+                            if(held) Call(form,"StartParallelHeldMapping",macro);
+                            else Call(form,"StartPreparedMacro",macro,snapshot,capability,0,null,false,false,null,true);
+                        }
+                        catch(Exception ex) {failure=ex;}
+                    });
+                    bool blocked;
+                    lock(Field<object>(form,"runLock"))
+                    {
+                        entrant.Start(); DateTime until=DateTime.UtcNow.AddSeconds(3);
+                        while((entrant.ThreadState & ThreadState.WaitSleepJoin)==0 && entrant.IsAlive && DateTime.UtcNow<until) Thread.Sleep(1);
+                        blocked=(entrant.ThreadState & ThreadState.WaitSleepJoin)!=0;
+                        typeof(MainForm).GetField("shutdownStarted",Hidden).SetValue(form,true);
+                    }
+                    bool stopped;
+                    try
+                    {
+                        Check(entrant.Join(3000) && failure==null && blocked,"admission race pauses an entrant at the shared run-state lock");
+                        stopped=!(bool)Call(form,"HasAnyActiveRuntime") && observer.Downs==0;
+                    }
+                    finally {Call(form,"EmergencyStop","admission-fixture-cleanup");Pump();}
+                    Check(stopped,"committed shutdown rejects an already waiting "+(held?"held mapping":"prepared run"));
+                }
+            }
+            finally {Directory.Delete(directory,true);}
+        }
     }
 
     private static void PostStatus(MainForm form, string prefix, int count)

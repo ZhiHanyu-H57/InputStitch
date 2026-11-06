@@ -786,6 +786,18 @@ internal static class ToolIntegrationTests
     private static void NetworkExitRaces()
     {
         using (DelayedFactory factory = new DelayedFactory())
+        using (MainForm main = new MainForm(Config(), Path.Combine(root,"network-exit-admission"),new NoOutput()))
+        {
+            IntPtr handle=main.Handle; Set(main,"networkController",new NetworkController(factory));
+            lock(Field<object>(main,"screenToolsGate"))
+            {
+                Call(main,"QueueNetworkOperation",false);
+                Set(main,"shutdownStarted",true);
+            }
+            Until(()=>Field<int>(main,"networkOperationPending")==0,"queued network request observes committed shutdown");
+            Check(factory.Starts==0,"a queued block request cannot launch a helper after shutdown is committed");
+        }
+        using (DelayedFactory factory = new DelayedFactory())
         using (MainForm main = new MainForm(Config(), Path.Combine(root, "network-exit-timer-fault"), new NoOutput()))
         {
             NetworkController network=new NetworkController(factory);

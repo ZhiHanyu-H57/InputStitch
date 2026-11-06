@@ -166,7 +166,7 @@ namespace InputStitch
                     NetworkController network;
                     lock (screenToolsGate)
                     {
-                        if (screenToolsDisposed) return;
+                        if (screenToolsDisposed || (shutdownStarted && !restore)) return;
                         if (networkController == null)
                         {
                             networkController = new NetworkController();

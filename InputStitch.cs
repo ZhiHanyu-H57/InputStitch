@@ -6448,6 +6448,7 @@ namespace InputStitch
             HeldMappingRuntime runtime;
             lock (runLock)
             {
+                if (shutdownStarted) return;
                 if (activeParallelHeldMappings.ContainsKey(macro)) return;
                 runtime = new HeldMappingRuntime();
                 runtime.Macro = macro;
@@ -7363,7 +7364,9 @@ namespace InputStitch
             runtime.StopReason = "running";
 
             runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
-            if (!runCoordinator.TryRegister(runtime))
+            bool registered;
+            lock (runLock) { registered = !shutdownStarted && runCoordinator.TryRegister(runtime); }
+            if (!registered)
             {
                 runtime.Stop.Dispose();
                 if (runtime.StepGate != null) runtime.StepGate.Dispose();
@@ -7989,8 +7992,7 @@ namespace InputStitch
             }
             // From here closing is committed. Stop admitting new triggers before
             // disposing any provider; one failing subsystem cannot skip final release.
-            shutdownStarted = true;
-            manualTriggerSuspend = true;
+            lock (runLock) { shutdownStarted = true; manualTriggerSuspend = true; }
             ShutdownCleanup cleanup = new ShutdownCleanup(delegate(string name, Exception ex) { AppLog.Write("Shutdown step failed: " + name, ex); });
             cleanup.Run("input-pipeline", delegate
             {
