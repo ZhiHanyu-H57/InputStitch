@@ -65,6 +65,8 @@
     <Compile Include="MacroRunCoordinator.cs" />
     <Compile Include="MacroWorkerPool.cs" />
     <Compile Include="MacroExecutionPlan.cs" />
+    <Compile Include="MacroExecutor.cs" />
+    <Compile Include="MainForm.Execution.cs" />
     <Compile Include="ShutdownCleanup.cs" />
     <Compile Include="OutputOwnership.cs" />
     <Compile Include="VirtualGamepadBackend.cs" />

@@ -25,6 +25,8 @@ $p=Get-VerificationPlan -ChangedPaths @('MacroWorkerPool.cs')
 Check ($p.SoakRequired -and 'suite:OutputOwnershipTests' -in $p.Checks) 'Worker lifetime change must select runtime/ownership and soak.'
 $p=Get-VerificationPlan -ChangedPaths @('MacroExecutionPlan.cs','ShutdownCleanup.cs')
 Check ($p.SoakRequired -and 'suite:MacroExecutionPlanTests' -in $p.Checks -and 'suite:MacroTimingTests' -in $p.Checks -and 'suite:UiSafetyTests' -in $p.Checks) 'Execution preparation and shutdown changes select their specific runtime checks.'
+$p=Get-VerificationPlan -ChangedPaths @('MacroExecutor.cs','MainForm.Execution.cs')
+Check ($p.SoakRequired -and 'suite:MacroExecutorTests' -in $p.Checks -and 'suite:UiSafetyTests' -in $p.Checks -and 'ui:secondary' -notin $p.Checks) 'Executor and host bridge select runtime protection checks without unrelated layout matrices.'
 $p=Get-VerificationPlan -ChangedPaths @('ReleaseInfo.cs') -Mode Release
 Check ('suite:ReleasePolicyTests' -in $p.Checks -and 'ui:settings-native' -in $p.Checks -and !$p.SoakRequired) 'Stable promotion checks metadata/settings, not a repeated soak.'
 $p=Get-VerificationPlan -ChangedPaths @('NetworkControl.cs','TimerRtss.cs') -Mode Release

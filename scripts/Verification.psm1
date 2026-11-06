@@ -30,7 +30,8 @@ function Get-VerificationPlan {
         if ($path -match '^tools/InputLab/') { continue } # Its own path-filtered workflow owns packaging/self-tests.
         if ($path -notmatch '^[^/]+\.cs$') { $unknown.Add($path); continue }
         [void]$checks.Add('suite:SourceManifestTests')
-        if ($path -match '^(ConcurrentRuntime|MacroRunCoordinator|MacroWorkerPool|MacroExecutionPlan|ShutdownCleanup|OutputOwnership|MainForm\.AdvancedTriggers|InputPipeline)\.cs$') {
+        if ($path -match '^(ConcurrentRuntime|MacroRunCoordinator|MacroWorkerPool|MacroExecutionPlan|MacroExecutor|ShutdownCleanup|OutputOwnership|MainForm\.(AdvancedTriggers|Execution)|InputPipeline)\.cs$') {
+            if($path -match '^(MacroExecutor|MainForm\.Execution)\.cs$'){[void]$checks.Add('suite:MacroExecutorTests');[void]$checks.Add('suite:MacroTimingTests');[void]$checks.Add('suite:UiSafetyTests')}
             if($path -eq 'MacroExecutionPlan.cs'){[void]$checks.Add('suite:MacroExecutionPlanTests');[void]$checks.Add('suite:MacroTimingTests')}
             if($path -eq 'ShutdownCleanup.cs'){[void]$checks.Add('suite:UiSafetyTests');[void]$checks.Add('suite:ToolIntegrationTests')}
             foreach($id in @('suite:MacroRunCoordinatorTests','suite:InputPipelineIntegrationTests','suite:OutputOwnershipTests','suite:AdvancedTriggerDispatchTests','runtime:soak')){[void]$checks.Add($id)}; continue
@@ -72,7 +73,7 @@ function Get-VerificationInputs {
     if($Check -eq 'native:network') { return @($tracked | Where-Object {$_ -match '^(InputStitch\.cs|NetworkControl\.cs|NetworkPrivilegeHelper\.cs|tests/(isolated-network/|LiveNetwork|Run-(Live|Isolated)Network))'}) }
     if($Check -eq 'native:crosshair'){return @($tracked | Where-Object {$_ -match '^Crosshair(Overlay)?\.cs$|^tests/CrosshairTests\.cs$'})}
     if($Check -eq 'workflow'){return @($tracked | Where-Object {$_ -match '^(\.gitattributes$|\.gitignore$|scripts/Verification\.psm1|tests/(Run-Tests|Run-Verification|VerificationWorkflowTests|Record-VerificationEvidence)\.ps1|\.github/workflows/)'})}
-    if($Check -eq 'runtime:soak') { return @($tracked | Where-Object {$_ -match '^(ConcurrentRuntime|MacroRunCoordinator|MacroWorkerPool|MacroExecutionPlan|ShutdownCleanup|InputStitch|OutputOwnership|MainForm\.AdvancedTriggers|InputPipeline)\.cs$|^tests/(ProductAcceptanceTests\.cs|Run-ProductAcceptance\.ps1|IsolatedUiDesktop\.cs)$'}) }
+    if($Check -eq 'runtime:soak') { return @($tracked | Where-Object {$_ -match '^(ConcurrentRuntime|MacroRunCoordinator|MacroWorkerPool|MacroExecutionPlan|MacroExecutor|ShutdownCleanup|InputStitch|OutputOwnership|MainForm\.(AdvancedTriggers|Execution)|InputPipeline)\.cs$|^tests/(ProductAcceptanceTests\.cs|Run-ProductAcceptance\.ps1|IsolatedUiDesktop\.cs)$'}) }
     $sourceManifest = if($Ref){@(& git -C $Root show ($Ref+':scripts/production-sources.txt'))}else{Get-Content (Join-Path $Root 'scripts/production-sources.txt')}
     $inputs=@($sourceManifest | Where-Object {$_ -match '^[^#].*\.cs$' -and $_ -ne 'ReleaseInfo.cs'})
     $inputs+=@($tracked | Where-Object {$_ -match '^(Assets/|app\.manifest$|InputStitch\.ico$|third-party/Nefarius|scripts/(Restore-NetFramework472|Get-UiResourceArguments|Get-ProductionSources)\.ps1$|scripts/production-sources\.txt$)'})
