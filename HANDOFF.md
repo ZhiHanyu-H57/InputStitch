@@ -1,27 +1,32 @@
 # HANDOFF.md
 
-## Stable1.6.2 ready for protected publication — 2026-11-06
+## Stable1.6.2 published and verified — 2026-11-06
 
-User authorized frozen1.6.2 release. Feature freezec8f1eda, Stable metadata freeze
-63553963986b9b4e9a3fce396681cbbcfc76007c, product1.6.2/file1.6.2.6. No non-metadata
-production change. Cumulative baseline publishedv1.6.1/3a156c7; remote main dada992.
-Local26 selected PASS:18 reuse/8 executed; reused beta.5 sustain60.2s, no full/long
-repeat. Fresh plan260/network36/SDL95(real runtime0devices)/timer134/release guards
-and Stable settings8864/8 scaled,2208/2 actual144DPI, compact/oldXML smoke PASS.
-Final x64/x86 packaged startup/resources/cache/save-reopen/exit PASS. Current1.6.1
-official assets verified against live API digests; actual original parser/config/
-new package install backs up exact bytes, handles versioned->fixed and fixed-name
-in-place updates, preserves221 original XML leaves, and rolls both names back on
-launch failure.236checks perarch/472 total PASS, no user config/install mutation.
-New8 evidence receipts bind Stable metadata6355396;18 previous source-bound results
-retain original scope/version. Beta.5 native emergency11 and5 extras still valid.
+User-authorized frozen1.6.2 publication is complete. Feature freezec8f1eda, Stable
+metadata6355396/product1.6.2/file1.6.2.6, no non-metadata production change. Cumulative
+baselinev1.6.1/3a156c7; local26 selected PASS18 reuse/8 fresh. Reused beta.5 final
+60.2s sustain and original native emergency11, no full/long/manual-trial repeat.
+Fresh plan260/network36/SDL95(actual runtime0devices)/timer134, release guards,
+Stable settings8864/8 scaled2208/2 native144DPI and compact/oldXML smoke PASS.
+Actual official1.6.1->localStable packages:236checks perarch/472 total,221 original
+XML leaves preserved, legacy->fixed/fixed->fixed update, exact backups and rollback.
 
-Next: push perf/runtime-162, create ordinary PR to protected main, wait CI verify,
-merge with[publish-stable] marker, monitor Stable publication and R2 mirror, download
-all public assets and verify digests/latest/manifest/70 feature source equality to
-c8f1eda. Then update this handoff with final PR/commit/run/asset results through a
-documentation PR; leave main clean and synchronized. No manual-trial gate or
-additional approval required. See docs/RELEASE_1_6_2_VERIFICATION.md.
+PR12 merged normally, protected main retained. Release commit413f5674689cbd52ea91dfe46d49ef46d99d62fe.
+v1.6.2 published2026-11-06 20:48:05 Beijing. Actions42220226918 verify/publishStable/
+mirrorStable all success; gate reuses26/26, executes0 duplicate checks, freshly
+checks both actual CI packages. Public GitHub5assets/digests/checksums/latest,
+R2 latest4aliases+manifest+2pinned EXEs and70 frozen feature source files PASS.
+Actual downloaded public-package parsers/install/backups/rollback16 focused checks
+PASS across both architectures, supplementing prepublication472 without rerunning
+all XML leaves or functional checks. Evidence:
+verification/evidence/release-1.6.2-publication.json and docs/RELEASE_1_6_2_VERIFICATION.md.
+
+Delivery outputs/stable162 contains downloaded official assets, fixed-name x64/x86
+copies, Chinese report, hashes, CI/local/update logs and reproducible upgrade scripts.
+No user installation/config replacement, physical keyboard/mouse injection, host
+network interruption or Computer Use. All test/private-desktop children exited.
+No required product work remains; this documentation closure follows a normal PR.
+After merging it, synchronize main, keep working tree clean and do not republish.
 
 ## Beta.4 audit findings repaired — 2026-11-06
 

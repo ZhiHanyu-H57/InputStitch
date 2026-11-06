@@ -49,3 +49,27 @@ x64 / x86 正式包通过发布清单、PE 架构/元数据、资源、哈希和
 使用受保护 main 的普通 PR，通过后由现有 Stable Actions 流程创建 v1.6.2，发布五个
 标准附件并更新 latest，再镜像到 R2。合并不绕过分支保护。发布后核对 GitHub 和镜像
 成品摘要、更新清单及源码归档与冻结源码的一致性。
+
+## 已发布与公开文件复核
+
+[v1.6.2 正式版](https://github.com/ZhiHanyu-H57/InputStitch/releases/tag/v1.6.2)
+于北京时间 2026-11-06 20:48:05 发布。通过普通
+[PR #12](https://github.com/ZhiHanyu-H57/InputStitch/pull/12) 合并至 main，发布提交为
+`413f5674689cbd52ea91dfe46d49ef46d99d62fe`。
+[正式发布流程](https://github.com/ZhiHanyu-H57/InputStitch/actions/runs/42220226918)
+的验证、Stable 发布和 R2 镜像均成功。
+
+发布 CI 复用 26/26 项有效结果，执行 0 项重复功能测试，仍对实际构建的两种架构成品
+新执行启动检查。没有重复持续运行或引入人工试用条件。
+
+已下载全部五个 GitHub 附件，与 API 摘要及 SHA256SUMS 逐一一致；latest 为 v1.6.2。
+R2 四个最新文件别名、更新清单及两个版本固定的 EXE 均核对通过。两个公开 EXE 的
+产品/文件版本为 1.6.2 / 1.6.2.6。公开源码归档中 70 个非元数据生产源码全部匹配
+冻结的 beta.5。
+
+针对 GitHub 最终构建字节，两架构另做共 16 项快速检查：原版解析实际 GitHub/R2
+公开清单及摘要、固定文件名原位安装、精确备份和失败回滚全部通过。没有重跑 221 项
+XML 叶值比较或功能回归；这补充了最终公开字节与本机预发布构建之间的成品验证。
+
+完整公开摘要与检查记录：[publication evidence](../verification/evidence/release-1.6.2-publication.json)。
+用户原安装与正常配置没有被替换；本次没有新增功能。
