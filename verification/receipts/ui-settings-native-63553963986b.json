@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-native",
+  "status": "PASS",
+  "sourceCommit": "63553963986b9b4e9a3fce396681cbbcfc76007c",
+  "fingerprint": "5a7a06bff1332296a9d8b6284b42be6c9641b8e62a55c54cb54e301c90a02569",
+  "qualification": "Stable1.6.2 frozen promotion; metadata only versus beta.5. Cumulative baselinev1.6.1. Fresh missing suite/Stable metadata check; original log retains fake/private/native-SDL scope. No user configuration, keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-native-63553963986b.log",
+      "sha256": "C6409DD3B2A842741F5416BB2707E7AA03F36B44B74C0532415F28F26EF660CD"
+    }
+  ]
+}

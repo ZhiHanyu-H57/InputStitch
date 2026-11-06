@@ -1,5 +1,28 @@
 # HANDOFF.md
 
+## Stable1.6.2 ready for protected publication — 2026-11-06
+
+User authorized frozen1.6.2 release. Feature freezec8f1eda, Stable metadata freeze
+63553963986b9b4e9a3fce396681cbbcfc76007c, product1.6.2/file1.6.2.6. No non-metadata
+production change. Cumulative baseline publishedv1.6.1/3a156c7; remote main dada992.
+Local26 selected PASS:18 reuse/8 executed; reused beta.5 sustain60.2s, no full/long
+repeat. Fresh plan260/network36/SDL95(real runtime0devices)/timer134/release guards
+and Stable settings8864/8 scaled,2208/2 actual144DPI, compact/oldXML smoke PASS.
+Final x64/x86 packaged startup/resources/cache/save-reopen/exit PASS. Current1.6.1
+official assets verified against live API digests; actual original parser/config/
+new package install backs up exact bytes, handles versioned->fixed and fixed-name
+in-place updates, preserves221 original XML leaves, and rolls both names back on
+launch failure.236checks perarch/472 total PASS, no user config/install mutation.
+New8 evidence receipts bind Stable metadata6355396;18 previous source-bound results
+retain original scope/version. Beta.5 native emergency11 and5 extras still valid.
+
+Next: push perf/runtime-162, create ordinary PR to protected main, wait CI verify,
+merge with[publish-stable] marker, monitor Stable publication and R2 mirror, download
+all public assets and verify digests/latest/manifest/70 feature source equality to
+c8f1eda. Then update this handoff with final PR/commit/run/asset results through a
+documentation PR; leave main clean and synchronized. No manual-trial gate or
+additional approval required. See docs/RELEASE_1_6_2_VERIFICATION.md.
+
 ## Beta.4 audit findings repaired — 2026-11-06
 
 Local1.6.2-beta.5, perf/runtime-162. Baseline cc9caa9e96a11d10c417dbb69192dd01f42e7432;

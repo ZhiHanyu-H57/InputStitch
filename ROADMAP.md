@@ -1,5 +1,12 @@
 # ROADMAP.md
 
+## Stable1.6.2 release freeze — 2026-11-06
+
+Freeze beta.5 behavior, promote metadata only, use cumulativev1.6.1 acceptance
+with input-bound reuse.26 checks PASS(18 reuse/8 fresh), final packages and472
+actual update/old-config checks PASS. No new feature or further architecture work
+in this release. Publication details: docs/RELEASE_1_6_2_VERIFICATION.md.
+
 ## Stop and admission boundaries — 2026-11-06
 
 Beta.5 repairs observed UI-queued release and stale ordinary starts. Runtime stop

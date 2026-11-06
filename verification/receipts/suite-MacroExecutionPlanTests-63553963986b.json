@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:MacroExecutionPlanTests",
+  "status": "PASS",
+  "sourceCommit": "63553963986b9b4e9a3fce396681cbbcfc76007c",
+  "fingerprint": "f99a6546d6aebbf2e37804af886c8162646a413eaed5352e1b3b0da3c9c97a44",
+  "qualification": "Stable1.6.2 frozen promotion; metadata only versus beta.5. Cumulative baselinev1.6.1. Fresh missing suite/Stable metadata check; original log retains fake/private/native-SDL scope. No user configuration, keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-MacroExecutionPlanTests-63553963986b.log",
+      "sha256": "7F4F3E61629D92026F2DF90BD5415A5D05FE643CD2BACF5E973780CEBCB1AF87"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:Sdl3ProviderTests",
+  "status": "PASS",
+  "sourceCommit": "63553963986b9b4e9a3fce396681cbbcfc76007c",
+  "fingerprint": "dc581c963e44e13a5c77f0a84e1269991486f5958ec6ec497bf22a524945e48d",
+  "qualification": "Stable1.6.2 frozen promotion; metadata only versus beta.5. Cumulative baselinev1.6.1. Fresh missing suite/Stable metadata check; original log retains fake/private/native-SDL scope. No user configuration, keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-Sdl3ProviderTests-63553963986b.log",
+      "sha256": "128ABF612CD827F31EF63550B8A2576F1D17A344A9535D5A025E1AD1D5656CFF"
+    }
+  ]
+}

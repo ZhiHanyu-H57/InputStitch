@@ -1,0 +1,2 @@
+REAL-SDL3 smoke: device count=0; provider status=ready; devices=0
+PASS sdl3 provider: 95 checks; mapping, edges, hysteresis, hot-plug and duplicate suppression with a fake SDL3 API.

@@ -1,0 +1,13 @@
+PRIVATE UI process bound: InputStitchTest-46c658a2888f479d92b1a68cfc2f97c9
+SECONDARY DPI=96 native=False
+WINDOW 01-SettingsDialog-zh-CN-100 {Width=796, Height=659} font=18
+WINDOW 01-SettingsDialog-zh-CN-125 {Width=991, Height=814} font=23
+WINDOW 01-SettingsDialog-zh-CN-150 {Width=1186, Height=969} font=27
+WINDOW 01-SettingsDialog-zh-CN-200 {Width=1576, Height=1279} font=36
+WINDOW 01-SettingsDialog-en-US-100 {Width=796, Height=659} font=18
+WINDOW 01-SettingsDialog-en-US-125 {Width=991, Height=814} font=23
+WINDOW 01-SettingsDialog-en-US-150 {Width=1186, Height=969} font=27
+WINDOW 01-SettingsDialog-en-US-200 {Width=1576, Height=1279} font=36
+PASS secondary layouts: 8864 checks; 8 windows; issues=0; native=False
+PASS private UI desktop; foreground test-window samples=0/452; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

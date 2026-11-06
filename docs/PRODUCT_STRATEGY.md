@@ -1,5 +1,12 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Stable1.6.2 publication — 2026-11-06
+
+Promote frozen beta.5 maintenance behavior after cumulativev1.6.1 verification,
+reusing valid runtime/soak evidence. Fresh Stable metadata, missing cumulative
+checks and final actual packages/updates complete the release gate. No feature
+expansion or user-trial requirement. See RELEASE_1_6_2_VERIFICATION.md.
+
 ## Reproduced safety and overhead fixes — 2026-11-06
 
 Beta.5 closes concrete stop/admission gaps and removes measured unchanged-save,

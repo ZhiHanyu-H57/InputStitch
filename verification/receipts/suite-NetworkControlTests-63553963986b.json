@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:NetworkControlTests",
+  "status": "PASS",
+  "sourceCommit": "63553963986b9b4e9a3fce396681cbbcfc76007c",
+  "fingerprint": "d69e891bfc1e097e10e880a8aa4f56c466a18f59db91fe9f125657b1b3cb8a44",
+  "qualification": "Stable1.6.2 frozen promotion; metadata only versus beta.5. Cumulative baselinev1.6.1. Fresh missing suite/Stable metadata check; original log retains fake/private/native-SDL scope. No user configuration, keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-NetworkControlTests-63553963986b.log",
+      "sha256": "F99AFFA15F997A0D685C989CE1408873B454C96B58EB09C9CF8554F7244F10AD"
+    }
+  ]
+}
