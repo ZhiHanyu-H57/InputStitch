@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ProductivityTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "97db472a97897afec96dce61201d1ad6f35a43489a3520189ecfd16eaa3ef848",
+  "qualification": "Final beta.5 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "A52C5CC4E619D10B9B596866F13053B47D5D6DE966A448C9C47E1777DAD92AD8",
+      "path": "verification/evidence/suite-ProductivityTests-c8f1eda5ee67.log"
+    }
+  ]
+}

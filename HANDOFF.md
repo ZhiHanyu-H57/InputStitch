@@ -1,5 +1,67 @@
 # HANDOFF.md
 
+## Beta.4 audit findings repaired — 2026-11-06
+
+Local1.6.2-beta.5, perf/runtime-162. Baseline cc9caa9e96a11d10c417dbb69192dd01f42e7432;
+production/tests freeze c8f1eda5ee674a328bacef0159a3c1d2f487780d. All five reproduced
+audit findings addressed. Native key/mouse hook installation still belongs to UI;
+do not claim all physical hook delivery independent of its message pump. Evidence
+separates delivered callbacks, controllable physical probes and actual ViGEm reads.
+
+Runtime stop: delivered toggle/terminal-up no longer queues to UI. Hook panic
+latches suspension then independently attempts worker stop, idle stop, runtime
+router disable, held-source release and ClearAll; UI/settings/device visibility
+recovery follows. Held publication/stop use a small gate after registration;
+runLock never spans native output/UI waits. Late stopped publication cannot orphan
+a source. Ordinary release preserves other sources. Missed-up physical fallback
+moves to existing input lane at50ms, original60ms settle, including poll-fault
+finally; isolated/manual UI entry retains fallback when no scheduler is running.
+
+Ordinary admission tickets are acquired with selection under runLock, checked at
+UI dispatch and final worker/held commit. Stop/edit/disable/delete/profile/Hold-up
+invalidate old tickets, other owners unaffected; drained/cancelled callbacks retire
+owner references. Existing UI protection and manual execution remain authoritative.
+ConfigStore serializes once, compares actual disk bytes, caches only validated
+path+32byte SHA; equal validated content skips write/flush/deserialization. Unknown
+equal file validated once; external same-length/time edit observed. Actual changes
+keep atomic replacement/corrupt-original/5-backup policy. XML/schema unchanged.
+Input conditions now evaluated only for enabled matching candidates, lazy list.
+
+One canary-approved child exclusively edited GamepadRouter/RouterSourcePolicy and
+their tests; root reviewed/integrated. Private per-device preparation and indexed
+scratch, optional revisioned transform snapshot; EVERY tick still reads/evaluates/
+ReplaceSource, so external cleanup and fault recovery preserve behavior. Router
+Tick/Configure/Stop/Dispose serialized, lock order router->ownership. Stop still
+clears without disabling; panic explicitly Configure(false). Custom policies keep
+their per-tick semantics. No feature/dependency/thread/timer/poll-rate addition.
+
+Final22 selected+5 extra checks PASS (21 regression suites, one soak, journey,
+3 settings checks, workflow).27 source-bound durable receipts, all fresh because
+declared production/assertion inputs changed; unrelated OBS/network/updater paths
+not selected. Runtime57, config808, coordinator61, executor339, ownership303716,
+UI117, dispatch163, pipeline24+100 cycles, router55, policy30, transform49,
+keyboard329, modifier policy, layer72/context22, manifest448/71, workflow33.
+Delivered stop0–15ms while UI stays blocked220ms; fallback114–148ms including fake
+provider exceptions. Long-press150ms threshold155/151ms with400ms blocked UI.
+Final60.2s/439 cycles/220 long presses/21 UI blocks, keyboard2340/2340, final
+sources/pressed0,2 macro workers,GDI26->26,USER30->30,no forcedGC. No full45/10min gate.
+Journey142; settings8784/8 scaled100–200%,2188/2 native144DPI, compact/oldXML smoke.
+Real ViGEm/XInput emergency-only11/final neutral PASS, no keyboard/mouse SendInput.
+Both actual packages cache/resources/save-reopen/message-loop/normal-exit PASS.
+
+Frozen full-source router probe12 samples: production10000 static ticks allocation
+neutral15360000->2560000B(-83.3%),held22080000->6240000B(-71.7%); no extra edges,
+expected1 source while held/0 afterStop. Local routing only, no whole-app CPU claim.
+2500step/1.5MB unchanged10-save writes/validations10/10->0/0, final84ms vs audit331ms
+local samples.100 disabled F24 conditions/unrelated A reads/enumerations100/100->0/0.
+
+Delivery outputs/beta162-5: Windows-x64/InputStitch.exe and Windows-x86/InputStitch.exe,
+Chinese report/hashes/verification.json, raw logs, final soak CSV and route driver.
+Sizes2191872/2021888B (+5632B/5.5KiB each). User installation untouched; no public
+Stable/latest/site change. Source/evidence local commits only. Test children/private
+desktops exited, no Computer Use or host network interruption/user-trial gate.
+No required work remains for this local beta. See docs/RUNTIME_REPAIR_1_6_2_BETA5.md.
+
 ## Independent macro executor complete — 2026-11-06
 
 Local1.6.2-beta.4 on perf/runtime-162. Baseline545cd689a94c161c0b10eddb8d51b53ce9d45c12;

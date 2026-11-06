@@ -1,0 +1,330 @@
+PASS: Raw Input normalizes left Shift
+PASS: Raw Input normalizes right Shift
+PASS: Raw Input normalizes right Ctrl
+PASS: Raw Input normalizes right Alt
+PASS: Raw Input recognizes keyboard release
+PASS: Raw Input preserves E0 extended semantics
+PASS: create 160
+PASS: standalone left Shift matches its hook modifier snapshot
+PASS: left Shift keeps side distinction
+PASS: create 162
+PASS: standalone modifier stored as terminal key LControlKey
+PASS: standalone modifier matches physical hook snapshot LControlKey
+PASS: create 163
+PASS: standalone modifier stored as terminal key RControlKey
+PASS: standalone modifier matches physical hook snapshot RControlKey
+PASS: create 160
+PASS: standalone modifier stored as terminal key LShiftKey
+PASS: standalone modifier matches physical hook snapshot LShiftKey
+PASS: create 161
+PASS: standalone modifier stored as terminal key RShiftKey
+PASS: standalone modifier matches physical hook snapshot RShiftKey
+PASS: create 164
+PASS: standalone modifier stored as terminal key LMenu
+PASS: standalone modifier matches physical hook snapshot LMenu
+PASS: create 165
+PASS: standalone modifier stored as terminal key RMenu
+PASS: standalone modifier matches physical hook snapshot RMenu
+PASS: create 91
+PASS: standalone modifier stored as terminal key LWin
+PASS: standalone modifier matches physical hook snapshot LWin
+PASS: create 92
+PASS: standalone modifier stored as terminal key RWin
+PASS: standalone modifier matches physical hook snapshot RWin
+PASS: held gamepad mapping preserves ShiftKey
+PASS: effective passthrough does not rewrite saved preference ShiftKey
+PASS: native Shift still triggers mapping ShiftKey
+PASS: Shift does not block gamepad output ShiftKey
+PASS: mixed keyboard macro retains suppression ShiftKey
+PASS: toggle macro retains suppression ShiftKey
+PASS: modifier chord retains suppression ShiftKey
+PASS: C mapping retains suppression preference
+PASS: mouse mapping retains suppression preference
+PASS: explicit passthrough remains respected
+PASS: held gamepad mapping preserves LShiftKey
+PASS: effective passthrough does not rewrite saved preference LShiftKey
+PASS: native Shift still triggers mapping LShiftKey
+PASS: Shift does not block gamepad output LShiftKey
+PASS: mixed keyboard macro retains suppression LShiftKey
+PASS: toggle macro retains suppression LShiftKey
+PASS: modifier chord retains suppression LShiftKey
+PASS: C mapping retains suppression preference
+PASS: mouse mapping retains suppression preference
+PASS: explicit passthrough remains respected
+PASS: held gamepad mapping preserves RShiftKey
+PASS: effective passthrough does not rewrite saved preference RShiftKey
+PASS: native Shift still triggers mapping RShiftKey
+PASS: Shift does not block gamepad output RShiftKey
+PASS: mixed keyboard macro retains suppression RShiftKey
+PASS: toggle macro retains suppression RShiftKey
+PASS: modifier chord retains suppression RShiftKey
+PASS: C mapping retains suppression preference
+PASS: mouse mapping retains suppression preference
+PASS: explicit passthrough remains respected
+PASS: create 27
+PASS: Esc is a usable virtual trigger
+PASS: create 160
+PASS: ordinary key terminal independent of selection order
+PASS: Ctrl Shift K matches exactly
+PASS: missing Shift does not match
+PASS: multiple ordinary trigger keys rejected
+PASS: duplicate modifier sides rejected even with ordinary terminal
+PASS: empty trigger rejected
+PASS: create 13
+PASS: numpad Enter differs from main Enter
+PASS: numpad Enter matches extended event
+PASS: legacy Enter remains compatible with both Enter keys
+PASS: create 13
+PASS: distinct Enter triggers have no false conflict
+PASS: legacy wildcard Enter still conflicts with numpad Enter
+PASS: step list displays numpad Enter distinctly
+PASS: main and numpad Enter have independent held state
+PASS: virtual key mode preserves numpad extended flag
+PASS: numpad Enter release preserves extended flag
+PASS: scan code mode preserves numpad extended flag
+PASS: create 75
+PASS: existing trigger selection roundtrip
+PASS: legacy F8 while sprinting still allowed
+PASS: bare printable triggers remain strict
+PASS: legacy Ctrl mouse chord
+PASS: four-key Press expands to seven balanced steps
+PASS: chord hold/release order 0
+PASS: timing applies once after complete chord 0
+PASS: chord hold/release order 1
+PASS: timing applies once after complete chord 1
+PASS: chord hold/release order 2
+PASS: timing applies once after complete chord 2
+PASS: chord hold/release order 3
+PASS: timing applies once after complete chord 3
+PASS: chord hold/release order 4
+PASS: timing applies once after complete chord 4
+PASS: chord hold/release order 5
+PASS: timing applies once after complete chord 5
+PASS: chord hold/release order 6
+PASS: timing applies once after complete chord 6
+PASS: Down holds modifiers before ordinary keys
+PASS: Up releases in reverse order
+PASS: full standard 104-key layout
+PASS: unique keyboard key Esc
+PASS: unique keyboard key F1
+PASS: unique keyboard key F2
+PASS: unique keyboard key F3
+PASS: unique keyboard key F4
+PASS: unique keyboard key F5
+PASS: unique keyboard key F6
+PASS: unique keyboard key F7
+PASS: unique keyboard key F8
+PASS: unique keyboard key F9
+PASS: unique keyboard key F10
+PASS: unique keyboard key F11
+PASS: unique keyboard key F12
+PASS: unique keyboard key PrtSc
+PASS: unique keyboard key ScrLk
+PASS: unique keyboard key Pause
+PASS: unique keyboard key `  ~
+PASS: unique keyboard key 1
+PASS: unique keyboard key 2
+PASS: unique keyboard key 3
+PASS: unique keyboard key 4
+PASS: unique keyboard key 5
+PASS: unique keyboard key 6
+PASS: unique keyboard key 7
+PASS: unique keyboard key 8
+PASS: unique keyboard key 9
+PASS: unique keyboard key 0
+PASS: unique keyboard key -  _
+PASS: unique keyboard key =  +
+PASS: unique keyboard key Backspace
+PASS: unique keyboard key Ins
+PASS: unique keyboard key Home
+PASS: unique keyboard key PgUp
+PASS: unique keyboard key Num Lock
+PASS: unique keyboard key /
+PASS: unique keyboard key *
+PASS: unique keyboard key -
+PASS: unique keyboard key Tab
+PASS: unique keyboard key Q
+PASS: unique keyboard key W
+PASS: unique keyboard key E
+PASS: unique keyboard key R
+PASS: unique keyboard key T
+PASS: unique keyboard key Y
+PASS: unique keyboard key U
+PASS: unique keyboard key I
+PASS: unique keyboard key O
+PASS: unique keyboard key P
+PASS: unique keyboard key [  {
+PASS: unique keyboard key ]  }
+PASS: unique keyboard key \  |
+PASS: unique keyboard key Del
+PASS: unique keyboard key End
+PASS: unique keyboard key PgDn
+PASS: unique keyboard key 7
+PASS: unique keyboard key 8
+PASS: unique keyboard key 9
+PASS: unique keyboard key +
+PASS: unique keyboard key Caps Lock
+PASS: unique keyboard key A
+PASS: unique keyboard key S
+PASS: unique keyboard key D
+PASS: unique keyboard key F
+PASS: unique keyboard key G
+PASS: unique keyboard key H
+PASS: unique keyboard key J
+PASS: unique keyboard key K
+PASS: unique keyboard key L
+PASS: unique keyboard key ;  :
+PASS: unique keyboard key '  "
+PASS: unique keyboard key Enter
+PASS: unique keyboard key 4
+PASS: unique keyboard key 5
+PASS: unique keyboard key 6
+PASS: unique keyboard key Shift L
+PASS: unique keyboard key Z
+PASS: unique keyboard key X
+PASS: unique keyboard key C
+PASS: unique keyboard key V
+PASS: unique keyboard key B
+PASS: unique keyboard key N
+PASS: unique keyboard key M
+PASS: unique keyboard key ,  <
+PASS: unique keyboard key .  >
+PASS: unique keyboard key /  ?
+PASS: unique keyboard key Shift R
+PASS: unique keyboard key ↑
+PASS: unique keyboard key 1
+PASS: unique keyboard key 2
+PASS: unique keyboard key 3
+PASS: unique keyboard key Enter
+PASS: unique keyboard key Ctrl L
+PASS: unique keyboard key Win L
+PASS: unique keyboard key Alt L
+PASS: unique keyboard key Space
+PASS: unique keyboard key Alt R
+PASS: unique keyboard key Win R
+PASS: unique keyboard key Menu
+PASS: unique keyboard key Ctrl R
+PASS: unique keyboard key ←
+PASS: unique keyboard key ↓
+PASS: unique keyboard key →
+PASS: unique keyboard key 0
+PASS: unique keyboard key .
+PASS: single mode replaces previous selection
+PASS: multiple mode preserves previous selection
+PASS: click selected key deselects it
+PASS: switching to single truncates chord
+PASS: keyboard bounds Esc
+PASS: keyboard bounds F1
+PASS: keyboard bounds F2
+PASS: keyboard bounds F3
+PASS: keyboard bounds F4
+PASS: keyboard bounds F5
+PASS: keyboard bounds F6
+PASS: keyboard bounds F7
+PASS: keyboard bounds F8
+PASS: keyboard bounds F9
+PASS: keyboard bounds F10
+PASS: keyboard bounds F11
+PASS: keyboard bounds F12
+PASS: keyboard bounds PrtSc
+PASS: keyboard bounds ScrLk
+PASS: keyboard bounds Pause
+PASS: keyboard bounds `  ~
+PASS: keyboard bounds 1
+PASS: keyboard bounds 2
+PASS: keyboard bounds 3
+PASS: keyboard bounds 4
+PASS: keyboard bounds 5
+PASS: keyboard bounds 6
+PASS: keyboard bounds 7
+PASS: keyboard bounds 8
+PASS: keyboard bounds 9
+PASS: keyboard bounds 0
+PASS: keyboard bounds -  _
+PASS: keyboard bounds =  +
+PASS: keyboard bounds Backspace
+PASS: keyboard bounds Ins
+PASS: keyboard bounds Home
+PASS: keyboard bounds PgUp
+PASS: keyboard bounds Num Lock
+PASS: keyboard bounds /
+PASS: keyboard bounds *
+PASS: keyboard bounds -
+PASS: keyboard bounds Tab
+PASS: keyboard bounds Q
+PASS: keyboard bounds W
+PASS: keyboard bounds E
+PASS: keyboard bounds R
+PASS: keyboard bounds T
+PASS: keyboard bounds Y
+PASS: keyboard bounds U
+PASS: keyboard bounds I
+PASS: keyboard bounds O
+PASS: keyboard bounds P
+PASS: keyboard bounds [  {
+PASS: keyboard bounds ]  }
+PASS: keyboard bounds \  |
+PASS: keyboard bounds Del
+PASS: keyboard bounds End
+PASS: keyboard bounds PgDn
+PASS: keyboard bounds 7
+PASS: keyboard bounds 8
+PASS: keyboard bounds 9
+PASS: keyboard bounds +
+PASS: keyboard bounds Caps Lock
+PASS: keyboard bounds A
+PASS: keyboard bounds S
+PASS: keyboard bounds D
+PASS: keyboard bounds F
+PASS: keyboard bounds G
+PASS: keyboard bounds H
+PASS: keyboard bounds J
+PASS: keyboard bounds K
+PASS: keyboard bounds L
+PASS: keyboard bounds ;  :
+PASS: keyboard bounds '  "
+PASS: keyboard bounds Enter
+PASS: keyboard bounds 4
+PASS: keyboard bounds 5
+PASS: keyboard bounds 6
+PASS: keyboard bounds Shift L
+PASS: keyboard bounds Z
+PASS: keyboard bounds X
+PASS: keyboard bounds C
+PASS: keyboard bounds V
+PASS: keyboard bounds B
+PASS: keyboard bounds N
+PASS: keyboard bounds M
+PASS: keyboard bounds ,  <
+PASS: keyboard bounds .  >
+PASS: keyboard bounds /  ?
+PASS: keyboard bounds Shift R
+PASS: keyboard bounds ↑
+PASS: keyboard bounds 1
+PASS: keyboard bounds 2
+PASS: keyboard bounds 3
+PASS: keyboard bounds Enter
+PASS: keyboard bounds Ctrl L
+PASS: keyboard bounds Win L
+PASS: keyboard bounds Alt L
+PASS: keyboard bounds Space
+PASS: keyboard bounds Alt R
+PASS: keyboard bounds Win R
+PASS: keyboard bounds Menu
+PASS: keyboard bounds Ctrl R
+PASS: keyboard bounds ←
+PASS: keyboard bounds ↓
+PASS: keyboard bounds →
+PASS: keyboard bounds 0
+PASS: keyboard bounds .
+PASS: physical Ctrl defers capture awaiting main key
+PASS: physical Ctrl then K captures traditional chord
+PASS: physical standalone modifier captured on release LControlKey
+PASS: physical standalone modifier captured on release RControlKey
+PASS: physical standalone modifier captured on release LShiftKey
+PASS: physical standalone modifier captured on release RShiftKey
+PASS: physical standalone modifier captured on release LMenu
+PASS: physical standalone modifier captured on release RMenu
+PASS: physical standalone modifier captured on release LWin
+PASS: physical standalone modifier captured on release RWin
+SUCCESS: 329 keyboard checks; no hooks, physical input, macro workers, or config writes.

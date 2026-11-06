@@ -1,5 +1,13 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Reproduced safety and overhead fixes — 2026-11-06
+
+Beta.5 closes concrete stop/admission gaps and removes measured unchanged-save,
+unrelated-condition and static-route work. Keep stable input ownership, old XML
+and the single-file product; distinguish delivered-edge/physical-probe evidence
+from actual hook delivery or driver checks. No feature, dependency or polling-rate
+change. See RUNTIME_REPAIR_1_6_2_BETA5.md.
+
 ## Executor maintenance — 2026-11-06
 
 Beta.4 separates the real macro loop from the window through a small policy

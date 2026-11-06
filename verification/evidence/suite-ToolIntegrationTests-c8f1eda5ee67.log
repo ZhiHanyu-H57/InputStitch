@@ -1,0 +1,4 @@
+PRIVATE UI process bound: InputStitchTest-62837379f3c44eda8a55587b5426cb52
+PASS tool integration: 287 checks; 0 dialog views; core=True; ui=False
+PASS private UI desktop; foreground test-window samples=0/55; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

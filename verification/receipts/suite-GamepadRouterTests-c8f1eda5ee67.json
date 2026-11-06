@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:GamepadRouterTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "a6daf0ac0db4f35e3d03478c9fa5ff63611bcf4743658a40ca70ac24d46b5212",
+  "qualification": "Final beta.5 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "6DBAA8A80B5CCC7158CAD77A56CDCA835852A482C32C30398A79CD13AD3AFE69",
+      "path": "verification/evidence/suite-GamepadRouterTests-c8f1eda5ee67.log"
+    }
+  ]
+}

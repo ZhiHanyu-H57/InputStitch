@@ -1,0 +1,6 @@
+PRIVATE UI process bound: InputStitchTest-da1dad73289d4ebf8bf7d2e64522ce27
+WHEEL WheelUp: 18 edges / 202 ms; observer only.
+WHEEL WheelDown: 18 edges / 208 ms; observer only.
+PASS macro timing: 15 checks; fake output only, no real input or device.
+PASS private UI desktop; foreground test-window samples=0/34; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

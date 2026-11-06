@@ -1,5 +1,15 @@
 # PLAN.md
 
+## Stop/admission and measured overhead repairs — 2026-11-06
+
+Repair the five reproduced beta.4 findings: runtime release before UI cleanup,
+pending ordinary-trigger invalidation, unchanged saves, cheap condition candidates
+and router preparation reuse. Keep XML, feature/driver/latency policies unchanged.
+Freeze c8f1eda;22 selected checks+5 dependency suites, one60.2s sustain, final
+x64/x86 packages and native emergency-only11 all PASS. Delivery outputs/beta162-5
+complete. Local1.6.2-beta.5; no Stable publication. Evidence and boundaries:
+docs/RUNTIME_REPAIR_1_6_2_BETA5.md.
+
 ## Independent macro executor — 2026-11-06
 
 Continue from beta.3 at545cd68. Move the actual step/repeat/hold/output loop into

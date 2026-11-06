@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ModifierSafetyPolicyTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "11cc1890a40e4de8ea33a1ecc1e1ebc684b9cdcdc5b0f1428d277e2e7f96bc3f",
+  "qualification": "Final beta.5 supplemental dependency regression; frozen complete production source. Original fake/private/keyboard-policy scope retained, no real keyboard or mouse output.",
+  "evidence": [
+    {
+      "sha256": "27294B279139BBBB0ACF927BC3EADB5483BB8D0906FECA4E06362B7F295F5255",
+      "path": "verification/evidence/suite-ModifierSafetyPolicyTests-c8f1eda5ee67.log"
+    }
+  ]
+}

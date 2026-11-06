@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "runtime:soak",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "c66e7c202ab82c0a25a0d5b7c1ae56d124f12c6fd72caf7aea7e7b061aae73bb",
+  "qualification": "Final beta.5 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "B6C245FC98AA0EA36017CADC6E44585334797AA04C6D2F4175943AE9C25D3DCB",
+      "path": "verification/evidence/runtime-soak-c8f1eda5ee67.log"
+    }
+  ]
+}

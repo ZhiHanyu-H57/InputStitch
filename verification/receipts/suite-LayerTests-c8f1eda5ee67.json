@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:LayerTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "45dc089ed1d90a52e956a97969aa7b0ac6529d2771a0e439418f77ed423c4f17",
+  "qualification": "Final beta.5 supplemental dependency regression; frozen complete production source. Original fake/private/keyboard-policy scope retained, no real keyboard or mouse output.",
+  "evidence": [
+    {
+      "sha256": "61D134392A940775E377E2F371F1DE1339875E6469BF89685111B262646850F7",
+      "path": "verification/evidence/suite-LayerTests-c8f1eda5ee67.log"
+    }
+  ]
+}

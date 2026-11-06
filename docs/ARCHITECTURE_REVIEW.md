@@ -1,5 +1,15 @@
 # InputStitch architecture review
 
+## Stop/admission repair — 2026-11-06
+
+See [beta.5 repairs and evidence](RUNTIME_REPAIR_1_6_2_BETA5.md). Coordinator tickets
+bind ordinary physical starts to stop/edit invalidation. Runtime panic cleanup
+and held-source release run before UI presentation; physical-release fallback
+uses the existing input lane even after poll failure. The host still installs
+keyboard/mouse hooks on its UI lane; no claim that all physical edge delivery
+is UI-independent. Router preparation remains private and always resubmits to
+ownership, preserving recovery after external source cleanup.
+
 ## Independent execution loop — 2026-11-06
 
 See [beta.4 implementation and evidence](MACRO_EXECUTOR_1_6_2_BETA4.md).

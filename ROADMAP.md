@@ -1,5 +1,14 @@
 # ROADMAP.md
 
+## Stop and admission boundaries — 2026-11-06
+
+Beta.5 repairs observed UI-queued release and stale ordinary starts. Runtime stop
+and held physical-release fallback no longer await UI callbacks; final admission
+rechecks the same runtime-lock ticket generation. UI conditions/presentation and
+low-level hook installation remain explicit host responsibilities. Reduce proven
+save/condition/router repetition without another framework or scheduler rewrite.
+See docs/RUNTIME_REPAIR_1_6_2_BETA5.md.
+
 ## Executor separated from the window — 2026-11-06
 
 Beta.4 moves step execution and repeat/held/output logic into a UI-free executor,
