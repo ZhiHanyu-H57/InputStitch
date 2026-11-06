@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Keyboard, mouse and controller macros for Windows. Record actions, edit steps and assign shortcuts. Optional tools include a screen crosshair, timer and network controls. The interface supports English and Simplified Chinese.
 
-## Download 1.6.1
+## Download 1.6.2
 
 | System | Download |
 | --- | --- |
@@ -14,7 +14,7 @@ Keyboard, mouse and controller macros for Windows. Record actions, edit steps an
 
 Place the downloaded EXE in your tools folder and double-click it. Requires .NET Framework 4.7.2 or a compatible later version.
 
-Version 1.6.1 fixes mouse triggers blocking application controls and bare keys such as PageDown failing while Shift is held. [Release notes](RELEASE_NOTES.md).
+Version 1.6.2 improves macro execution and stop handling, cancels stale queued triggers and reduces repeated background work. [Release notes](RELEASE_NOTES.md).
 
 ## Create your first macro
 
