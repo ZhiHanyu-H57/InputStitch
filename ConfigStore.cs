@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Xml;
 using System.Xml.Serialization;
 
@@ -15,17 +16,19 @@ namespace InputStitch
         private static readonly object BackupNameSync = new object();
         private static readonly Dictionary<string, long> LastAllocatedBackupTicksByDirectory =
             new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        private string validatedPath;
+        private byte[] validatedDigest;
 
         internal virtual DateTime GetUtcNow()
         {
             return DateTime.UtcNow;
         }
 
-        internal virtual void Write(string path, MacroConfig config)
+        internal virtual void Write(string path, byte[] payload)
         {
             using (FileStream stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                new XmlSerializer(typeof(MacroConfig)).Serialize(stream, config);
+                stream.Write(payload, 0, payload.Length);
                 stream.Flush(true);
             }
         }
@@ -51,17 +54,32 @@ namespace InputStitch
         internal void Save(string path, MacroConfig config)
         {
             path = Path.GetFullPath(path);
+            byte[] payload;
+            using (MemoryStream stream = new MemoryStream())
+            {
+                new XmlSerializer(typeof(MacroConfig)).Serialize(stream, config);
+                payload = stream.ToArray();
+            }
+            byte[] digest;
+            using (SHA256 hash = SHA256.Create()) digest = hash.ComputeHash(payload);
+            if (File.Exists(path) && SameBytes(File.ReadAllBytes(path), payload))
+            {
+                // Trust only a payload already validated by this store. Read the
+                // actual file on every comparison so external edits are observed.
+                if (!string.Equals(validatedPath, path, StringComparison.OrdinalIgnoreCase) ||
+                    validatedDigest == null || !SameBytes(validatedDigest, digest)) Validate(path);
+                validatedPath = path; validatedDigest = digest;
+                return;
+            }
             string directory = Path.GetDirectoryName(path);
             Directory.CreateDirectory(directory);
             string staged = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                Write(staged, config);
+                Write(staged, payload);
                 Validate(staged);
                 if (File.Exists(path))
                 {
-                    // Do not rotate backups on focus changes that saved identical data.
-                    if (File.ReadAllBytes(path).SequenceEqual(File.ReadAllBytes(staged))) return;
                     bool validOld = true;
                     try { Validate(path); } catch { validOld = false; }
                     string backups = Path.Combine(directory, "backups", "config");
@@ -73,11 +91,19 @@ namespace InputStitch
                     catch (Exception ex) { AppLog.Write("Config backup cleanup failed; saved configuration is intact", ex); }
                 }
                 else File.Move(staged, path);
+                validatedPath = path; validatedDigest = digest;
             }
             finally
             {
                 try { if (File.Exists(staged)) File.Delete(staged); } catch { }
             }
+        }
+
+        private static bool SameBytes(byte[] left, byte[] right)
+        {
+            if (left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++) if (left[i] != right[i]) return false;
+            return true;
         }
 
         private string CreateBackupPath(string directory, bool validOld)

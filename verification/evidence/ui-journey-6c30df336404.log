@@ -1,0 +1,5 @@
+PRIVATE UI process bound: InputStitchTest-9bfdb0cf4f0442a3b50c8ce640a1c394
+JOURNEY DPI=96
+PASS product acceptance: 142 checks; isolated editor, saved files and runtime observer; no user configuration or real input.
+PASS private UI desktop; foreground test-window samples=0/557; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

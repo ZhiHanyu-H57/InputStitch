@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "runtime:soak",
+  "status": "PASS",
+  "sourceCommit": "582a6182db2ad0d470c5f497ba645884cb97495e",
+  "fingerprint": "afd0a4d71d68a1af3372719c3c4bd10b2d00df487abdd4dcd1ed9b98baeeae7e",
+  "qualification": "Fresh beta.3 60.1-second observer sustain,441 cycles,221 long presses,22 blocked-UI samples; keyboard2349/2349; final sources/pressed zero,3 workers; no forced GC; private process desktop. Exact declared sustained inputs unchanged since this run.",
+  "evidence": [
+    {
+      "path": "verification/evidence/runtime-soak-582a6182db2a.log",
+      "sha256": "6F16CD9D886C2378D88D17DAFCFC2A57E78212AEC18BE17FDA291FD07DBF0EB0"
+    }
+  ]
+}

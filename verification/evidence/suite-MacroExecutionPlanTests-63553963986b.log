@@ -1,0 +1,1 @@
+PASS execution plan: 260 checks; detached per-run preparation, compatible input identity/timing and observer-only ownership; no UI, hooks, output or configuration.

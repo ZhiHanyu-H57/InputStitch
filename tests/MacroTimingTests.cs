@@ -76,12 +76,54 @@ internal static class MacroTimingTests
         return condition();
     }
 
+    [STAThread]
     public static int Main()
+    {
+        try { return IsolatedUiDesktop.Run(MainCore); }
+        catch(Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+    }
+
+    private sealed class WheelBackend : IOutputBackend
+    {
+        internal int Edges;
+        public void SendDown(InputSpec input) { Interlocked.Increment(ref Edges); }
+        public void SendUp(InputSpec input) { }
+        public void NeutralizeGamepad() { }
+    }
+
+    private static void WheelLoopThrottle(string root)
+    {
+        foreach(InputKind kind in new[] { InputKind.WheelUp,InputKind.WheelDown })
+        {
+            MacroDefinition macro=new MacroDefinition { Name="wheel-loop",Enabled=true,Infinite=true };
+            macro.Steps.Add(new MacroStep { Kind=kind,Action=MacroAction.Press,HoldMs=500,DelayMs=0 });
+            MacroConfig config=new MacroConfig { GamepadDeviceType=VirtualGamepadTypes.None,PauseMacroInRiskyUi=false };
+            config.Macros.Add(macro); WheelBackend backend=new WheelBackend();
+            using(MainForm form=new MainForm(config,root,backend))
+            {
+                IntPtr handle=form.Handle;
+                MethodInfo start=typeof(MainForm).GetMethod("StartMacro",BindingFlags.Instance|BindingFlags.NonPublic,null,
+                    new Type[] {typeof(MacroDefinition),typeof(int),typeof(TriggerSpec),typeof(bool),typeof(bool)},null);
+                start.Invoke(form,new object[] {macro,0,null,false,false});
+                Check(WaitUntil(delegate {return backend.Edges>0;},500),"zero-delay wheel macro starts");
+                Stopwatch duration=Stopwatch.StartNew(); Thread.Sleep(200); duration.Stop();
+                int edges=Volatile.Read(ref backend.Edges);
+                typeof(MainForm).GetMethod("StopMacro",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(form,new object[] {macro,"wheel-loop-test"});
+                Check(WaitUntil(delegate {return !(bool)typeof(MainForm).GetMethod("HasWorkerBackedRuns",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(form,null);},1000),"zero-delay wheel macro stops promptly");
+                Console.WriteLine("WHEEL "+kind+": "+edges+" edges / "+duration.ElapsedMilliseconds+" ms; observer only.");
+                Check(edges>0 && edges<=duration.Elapsed.TotalMilliseconds*2+100,"wheel HoldMs does not bypass zero-delay infinite-loop pacing");
+                Check(((OutputOwnershipManager)typeof(MainForm).GetField("outputOwnership",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(form)).Snapshot().Sources.Count==0,"wheel loop leaves no owned state");
+            }
+        }
+    }
+
+    private static int MainCore()
     {
         string root = Path.Combine(Path.GetTempPath(), "InputStitch-MacroTimingTests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
+            WheelLoopThrottle(root);
             const int requestedHoldMs = 900;
             MacroDefinition macro = new MacroDefinition
             {

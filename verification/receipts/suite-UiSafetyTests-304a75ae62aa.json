@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:UiSafetyTests",
+  "status": "PASS",
+  "sourceCommit": "304a75ae62aaf05b07a046f12dbe1d8f17c21918",
+  "fingerprint": "38e427e90e03b16ac1e4a00849cd05f4f24e22056ed39e65bb3ca8130fa1c8f3",
+  "qualification": "Windows x64, .NET Framework 4.7.2; impact-selected regression; original log scope retained; windows use private process desktops, controller/state fakes unless native SDL loading is explicitly logged. No keyboard/mouse output or host network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-UiSafetyTests-304a75ae62aa.log",
+      "sha256": "5EF2F5358ABEFA8322A2A999F995B40BA86AAD9583908116B5530E26BA350D0A"
+    }
+  ]
+}

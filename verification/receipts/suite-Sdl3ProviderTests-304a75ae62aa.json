@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:Sdl3ProviderTests",
+  "status": "PASS",
+  "sourceCommit": "304a75ae62aaf05b07a046f12dbe1d8f17c21918",
+  "fingerprint": "6be5e5e211e7847e38b21ebb9617c2b9e904ac818948569dcdf7519cc93c8964",
+  "qualification": "Windows x64, .NET Framework 4.7.2; impact-selected regression; original log scope retained; windows use private process desktops, controller/state fakes unless native SDL loading is explicitly logged. No keyboard/mouse output or host network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-Sdl3ProviderTests-304a75ae62aa.log",
+      "sha256": "CA1B2CDDBA008C505395138CC724407C2AD464680FB69C15665E7A57FD9FEF86"
+    }
+  ]
+}

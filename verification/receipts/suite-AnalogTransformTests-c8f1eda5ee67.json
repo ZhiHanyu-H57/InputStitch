@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:AnalogTransformTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "9affa61b0c3dde34b323c69db1dc3f6c37c3784afcf28b1a6dc84b4b78ee7584",
+  "qualification": "Final beta.5 supplemental dependency regression; frozen complete production source. Original fake/private/keyboard-policy scope retained, no real keyboard or mouse output.",
+  "evidence": [
+    {
+      "sha256": "91548F3D77F679F5AE2165785BDB9A4A81F23485399E6645AF0025711FC44634",
+      "path": "verification/evidence/suite-AnalogTransformTests-c8f1eda5ee67.log"
+    }
+  ]
+}

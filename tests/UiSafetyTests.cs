@@ -24,6 +24,10 @@ internal static class UiSafetyTests
             ScreenshotPassthrough();
             MouseRecovery();
             ShiftNavigationTriggers();
+            CoalescedStatusUpdates();
+            ShutdownContinuesAfterProviderFailure();
+            IndependentCleanupFailures();
+            ShutdownAdmissionRace();
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,false,false,false), "idle hover over a button/list must not reject hotkeys");
             Check(!UiSafetyPolicy.ShouldPauseControl(false,true,true,false,false), "hover over an editor is not editing");
             Check(!UiSafetyPolicy.ShouldPauseControl(true,false,false,false,false), "idle button/list focus can transfer to the input sink");
@@ -70,6 +74,194 @@ internal static class UiSafetyTests
             return 0;
         }
         catch(Exception ex) { Console.Error.WriteLine(ex.GetType().Name + ": " + ex.Message); return 1; }
+    }
+
+    private static int PendingCallbacks(Control control)
+    {
+        // Inspect the actual .NET Framework dispatcher queue, independently of
+        // InputStitch's coalescing flag; the old implementation queued each item.
+        FieldInfo field = typeof(Control).GetField("threadCallbackList", BindingFlags.Instance | BindingFlags.NonPublic);
+        System.Collections.ICollection queue = (System.Collections.ICollection)field.GetValue(control);
+        return queue == null ? 0 : queue.Count;
+    }
+
+    private sealed class FailingDisposeProvider : IGamepadInputProvider
+    {
+        internal int Disposals;
+        public string ProviderName { get { return "shutdown-fault"; } }
+        public long TopologyVersion { get { return 0; } }
+        public Action<InputEventInfo> InputDown { get; set; }
+        public Action<InputEventInfo> InputUp { get; set; }
+        public void Poll() { }
+        public int[] ConnectedDeviceIndices() { return new int[0]; }
+        public bool TryGetState(int index, out XInputPadState state) { state=new XInputPadState(); return false; }
+        public bool IsTriggerSatisfied(TriggerSpec trigger) { return false; }
+        public void Dispose() { Disposals++; throw new InvalidOperationException("injected provider shutdown failure"); }
+    }
+
+    private static void ShutdownContinuesAfterProviderFailure()
+    {
+        string directory=Path.Combine(Path.GetTempPath(),"InputStitch-shutdown-fault-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            MacroConfig config=new MacroConfig { GamepadDeviceType=VirtualGamepadTypes.None, PauseMacroInRiskyUi=false };
+            MacroDefinition macro=new MacroDefinition { Name="shutdown-fault",Enabled=true,Infinite=true,Trigger=new TriggerSpec { VirtualKey=(int)Keys.F24 } };
+            macro.Steps.Add(new MacroStep { VirtualKey=(int)Keys.F23,Action=MacroAction.Down,DelayMs=1000 });
+            config.Macros.Add(macro); Observer observer=new Observer(); FailingDisposeProvider provider=new FailingDisposeProvider();
+            using(MainForm form=new MainForm(config,directory,observer))
+            {
+                IntPtr handle=form.Handle;
+                Call(form,"HandleTerminalInput",new InputEventInfo { Input=new InputSpec { VirtualKey=(int)Keys.F24 } });
+                DateTime deadline=DateTime.UtcNow.AddSeconds(3);
+                while(observer.Downs==0 && DateTime.UtcNow<deadline) { Application.DoEvents(); Thread.Sleep(2); }
+                Check(observer.Downs>0,"shutdown fault fixture starts an actual macro with held observer output");
+                typeof(MainForm).GetField("gamepadInput",Hidden).SetValue(form,provider);
+                bool stopped=false,released=false,detached=false,gateClosed=false;
+                try
+                {
+                    Call(form,"MainForm_FormClosing",form,new FormClosingEventArgs(CloseReason.WindowsShutDown,false));
+                    Pump();
+                    stopped=!(bool)Call(form,"HasWorkerBackedRuns");
+                    released=observer.Downs==observer.Ups && Field<OutputOwnershipManager>(form,"outputOwnership").Snapshot().Sources.Count==0;
+                    detached=Field<IGamepadInputProvider>(form,"gamepadInput")==null;
+                    gateClosed=Field<bool>(form,"manualTriggerSuspend");
+                }
+                finally { Call(form,"EmergencyStop","fault-fixture-cleanup"); Pump(); }
+                Check(stopped && released,"provider Dispose failure cannot skip macro stop and final owned-input release");
+                Check(detached && provider.Disposals==1,"failed provider shutdown is detached and attempted once");
+                Check(gateClosed,"shutdown rejects new macro triggers during cleanup");
+                int outputCount=observer.Downs;
+                Call(form,"HandleTerminalInput",new InputEventInfo { Input=new InputSpec { VirtualKey=(int)Keys.F24 } });
+                Call(form,"StartMacroCore",macro,0,null,false,false,null);
+                Pump();
+                Check(observer.Downs==outputCount && !(bool)Call(form,"HasWorkerBackedRuns"),"committed shutdown also rejects queued or direct macro starts");
+            }
+        }
+        finally { Directory.Delete(directory,true); }
+    }
+
+    private static void IndependentCleanupFailures()
+    {
+        List<string> steps=new List<string>();
+        ShutdownCleanup cleanup=new ShutdownCleanup(delegate(string name,Exception error) { steps.Add("failed-"+name); throw new IOException("injected logging failure"); });
+        cleanup.Run("provider",delegate { steps.Add("provider"); throw new InvalidOperationException(); });
+        cleanup.Run("network",delegate { steps.Add("network"); throw new InvalidOperationException(); });
+        cleanup.Run("inputs",delegate { steps.Add("inputs"); });
+        Check(cleanup.FailureCount==2 && string.Join(",",steps.ToArray())=="provider,failed-provider,network,failed-network,inputs","resource and logging failures cannot skip subsequent recovery steps");
+    }
+
+    private static void ShutdownAdmissionRace()
+    {
+        foreach(bool held in new[] {false,true})
+        {
+            string directory=Path.Combine(Path.GetTempPath(),"InputStitch-close-admission-"+Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            try
+            {
+                MacroDefinition macro=new MacroDefinition { Enabled=true,Infinite=true };
+                macro.Steps.Add(new MacroStep { VirtualKey=(int)Keys.F23,Action=MacroAction.Down,DelayMs=1000 });
+                if(held) macro=QuickMacros.Create(QuickTemplate.HeldMapping,"closing",new TriggerSpec { VirtualKey=(int)Keys.F24 },
+                    new List<MacroStep> {new MacroStep {Kind=InputKind.Gamepad,GamepadControl=GamepadControl.South}},1);
+                MacroConfig config=new MacroConfig {GamepadDeviceType=VirtualGamepadTypes.None,PauseMacroInRiskyUi=false};
+                config.Macros.Add(macro); Observer observer=new Observer();
+                using(MainForm form=new MainForm(config,directory,observer))
+                {
+                    IntPtr handle=form.Handle; Exception failure=null;
+                    MacroDefinition snapshot=macro.Clone(); MacroRuntimeCapability capability=MacroRuntimeClassifier.Classify(snapshot);
+                    Thread entrant=new Thread(delegate()
+                    {
+                        try
+                        {
+                            if(held) Call(form,"StartParallelHeldMapping",macro);
+                            else Call(form,"StartPreparedMacro",macro,snapshot,capability,0,null,false,false,null,true);
+                        }
+                        catch(Exception ex) {failure=ex;}
+                    });
+                    bool blocked;
+                    lock(Field<object>(form,"runLock"))
+                    {
+                        entrant.Start(); DateTime until=DateTime.UtcNow.AddSeconds(3);
+                        while((entrant.ThreadState & ThreadState.WaitSleepJoin)==0 && entrant.IsAlive && DateTime.UtcNow<until) Thread.Sleep(1);
+                        blocked=(entrant.ThreadState & ThreadState.WaitSleepJoin)!=0;
+                        typeof(MainForm).GetField("shutdownStarted",Hidden).SetValue(form,true);
+                    }
+                    bool stopped;
+                    try
+                    {
+                        Check(entrant.Join(3000) && failure==null && blocked,"admission race pauses an entrant at the shared run-state lock");
+                        stopped=!(bool)Call(form,"HasAnyActiveRuntime") && observer.Downs==0;
+                    }
+                    finally {Call(form,"EmergencyStop","admission-fixture-cleanup");Pump();}
+                    Check(stopped,"committed shutdown rejects an already waiting "+(held?"held mapping":"prepared run"));
+                }
+            }
+            finally {Directory.Delete(directory,true);}
+        }
+    }
+
+    private static void PostStatus(MainForm form, string prefix, int count)
+    {
+        Exception failure = null;
+        Thread producer = new Thread(delegate()
+        {
+            try { for (int i=0;i<count;i++) Call(form,"SetStatusSafe",prefix+i.ToString()); }
+            catch (Exception ex) { failure=ex; }
+        });
+        producer.Start();
+        Check(producer.Join(3000) && failure==null,"background status producer completes without UI pumping");
+    }
+
+    private static void CoalescedStatusUpdates()
+    {
+        string directory=Path.Combine(Path.GetTempPath(),"InputStitch-status-queue-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using (MainForm form=new MainForm(new MacroConfig { GamepadDeviceType=VirtualGamepadTypes.None },directory,new Observer()))
+            {
+                IntPtr handle=form.Handle;
+                Label label=Field<Label>(form,"statusLabel");
+                PostStatus(form,"burst-",1000);
+                Check(PendingCallbacks(form)==1,"1000 blocked-UI status writes queue one actual dispatcher callback");
+                Pump(); Check(label.Text=="burst-999","draining a status burst displays its newest value");
+                Thread[] writers=new Thread[4]; Exception[] errors=new Exception[4];
+                for (int writer=0;writer<writers.Length;writer++)
+                {
+                    int index=writer;
+                    writers[index]=new Thread(delegate()
+                    {
+                        try { for (int i=0;i<250;i++) Call(form,"SetStatusSafe","writer-"+index.ToString()+"-"+i.ToString()); }
+                        catch(Exception ex) { errors[index]=ex; }
+                    });
+                    writers[index].Start();
+                }
+                for (int i=0;i<writers.Length;i++) Check(writers[i].Join(3000) && errors[i]==null,"concurrent status writers complete without UI pumping");
+                PostStatus(form,"last-writer-",1);
+                Check(PendingCallbacks(form)==1,"concurrent producers share a single pending status callback");
+                Pump(); Check(label.Text=="last-writer-0","last notification survives concurrent producers");
+                for (int i=0;i<10;i++)
+                {
+                    PostStatus(form,"cycle-"+i.ToString()+"-",100);
+                    Check(PendingCallbacks(form)==1,"repeated drain cycles keep the dispatch queue bounded");
+                    Pump(); Check(label.Text=="cycle-"+i.ToString()+"-99","updates after a drain are delivered");
+                }
+                PostStatus(form,"stale-",100);
+                Call(form,"SetStatusSafe","direct UI state");
+                Pump(); Check(label.Text=="direct UI state","direct UI status invalidates older queued notifications");
+                PostStatus(form,"stale running-",100);
+                Call(form,"EmergencyStop","status-test");
+                string stopped=label.Text;
+                Pump(); Check(label.Text==stopped && Field<bool>(form,"manualTriggerSuspend"),"queued activity cannot replace the Emergency Stop status or resume triggers");
+                PostStatus(form,"after-stop-",10);
+                Pump(); Check(label.Text=="after-stop-9","later background notifications remain deliverable after invalidation");
+                PostStatus(form,"closing-",100);
+                form.Dispose(); Pump();
+                PostStatus(form,"disposed-",100);
+                Check(form.IsDisposed,"queued and later status updates tolerate form disposal");
+            }
+        }
+        finally { Directory.Delete(directory,true); }
     }
 
     private static void ScreenshotPassthrough()

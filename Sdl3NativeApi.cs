@@ -78,6 +78,8 @@ namespace InputStitch
 
         private readonly string explicitPath;
         private readonly Dictionary<int, IntPtr> handles = new Dictionary<int, IntPtr>();
+        private static readonly int[] EmptyDeviceIds = new int[0];
+        private int[] deviceIds = EmptyDeviceIds;
         private IntPtr module = IntPtr.Zero;
         private bool initialized;
         private bool available;
@@ -164,18 +166,22 @@ namespace InputStitch
 
         public int[] ListDeviceIds()
         {
-            if (!available || sdlGetGamepads == null) return new int[0];
+            if (!available || sdlGetGamepads == null) return deviceIds = EmptyDeviceIds;
             int count = 0;
             IntPtr pointer = sdlGetGamepads(out count);
-            if (pointer == IntPtr.Zero) return new int[0];
+            if (pointer == IntPtr.Zero) return deviceIds = EmptyDeviceIds;
             try
             {
                 // SDL returns a caller-owned, zero-terminated allocation even for an empty list.
                 // Keep the zero-count return inside finally's ownership scope.
-                if (count <= 0) return new int[0];
+                if (count <= 0) return deviceIds = EmptyDeviceIds;
+                bool same = count == deviceIds.Length;
+                for (int i = 0; same && i < count; i++)
+                    same = deviceIds[i] == Marshal.ReadInt32(pointer, i * 4);
+                if (same) return deviceIds;
                 int[] ids = new int[count];
                 for (int i = 0; i < count; i++) ids[i] = Marshal.ReadInt32(pointer, i * 4);
-                return ids;
+                return deviceIds = ids;
             }
             finally
             {
@@ -214,22 +220,27 @@ namespace InputStitch
             if (handle != IntPtr.Zero && sdlCloseGamepad != null) sdlCloseGamepad(handle);
         }
 
-        public Sdl3DeviceSnapshot GetSnapshot(int deviceId)
+        public bool TryGetSnapshot(int deviceId, out Sdl3DeviceSnapshot snapshot)
         {
-            if (!available) return null;
+            snapshot = new Sdl3DeviceSnapshot();
+            if (!available) return false;
             IntPtr handle;
-            if (!handles.TryGetValue(deviceId, out handle) || handle == IntPtr.Zero) return null;
-            Sdl3DeviceSnapshot snapshot = new Sdl3DeviceSnapshot();
-            bool[] buttons = new bool[Sdl3GamepadButtons.Count];
-            for (int index = FirstMappedButton; index <= LastMappedButton && index < buttons.Length; index++)
-                buttons[index] = sdlGetGamepadButton != null && sdlGetGamepadButton(handle, index);
-            snapshot.Buttons = buttons;
-            short[] axes = new short[Sdl3GamepadAxes.Count];
-            for (int axis = 0; axis < axes.Length; axis++)
-                axes[axis] = sdlGetGamepadAxis == null ? (short)0 : sdlGetGamepadAxis(handle, axis);
-            snapshot.Axes = axes;
-            return snapshot;
+            if (!handles.TryGetValue(deviceId, out handle) || handle == IntPtr.Zero) return false;
+            Sdl3DeviceSnapshot frame = new Sdl3DeviceSnapshot();
+            for (int index = FirstMappedButton; index <= LastMappedButton; index++)
+                if (sdlGetGamepadButton != null && sdlGetGamepadButton(handle, index)) frame.Buttons |= 1U << index;
+            frame.LeftX = ReadAxis(handle, Sdl3GamepadAxes.LeftX);
+            frame.LeftY = ReadAxis(handle, Sdl3GamepadAxes.LeftY);
+            frame.RightX = ReadAxis(handle, Sdl3GamepadAxes.RightX);
+            frame.RightY = ReadAxis(handle, Sdl3GamepadAxes.RightY);
+            frame.LeftTrigger = ReadAxis(handle, Sdl3GamepadAxes.LeftTrigger);
+            frame.RightTrigger = ReadAxis(handle, Sdl3GamepadAxes.RightTrigger);
+            snapshot = frame;
+            return true;
         }
+
+        private short ReadAxis(IntPtr handle, int axis)
+        { return sdlGetGamepadAxis == null ? (short)0 : sdlGetGamepadAxis(handle, axis); }
 
         public void Shutdown()
         {
@@ -237,12 +248,15 @@ namespace InputStitch
             try
             {
                 foreach (KeyValuePair<int, IntPtr> pair in new List<KeyValuePair<int, IntPtr>>(handles))
-                    Close(pair.Key);
-                if (sdlQuitSubSystem != null) sdlQuitSubSystem(SdlInitGamepad);
+                    try { Close(pair.Key); } catch { }
+                try { if (sdlQuitSubSystem != null) sdlQuitSubSystem(SdlInitGamepad); } catch { }
             }
-            catch { }
-            available = false;
-            status = "shutdown";
+            finally
+            {
+                available = false;
+                deviceIds = EmptyDeviceIds;
+                status = "shutdown";
+            }
         }
 
         public void Dispose()

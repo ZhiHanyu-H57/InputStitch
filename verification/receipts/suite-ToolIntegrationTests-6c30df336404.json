@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ToolIntegrationTests",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "a65b0d7dfebef3e4cec3b2c74ac2483db99e8245ebe32cfd8d34892bdd667381",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "D99C138D0D72B097E57EBF6A86FB4CD872C0A6006A9CC162E18651B834AA509E",
+      "path": "verification/evidence/suite-ToolIntegrationTests-6c30df336404.log"
+    }
+  ]
+}

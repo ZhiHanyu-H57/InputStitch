@@ -1,5 +1,66 @@
 # PLAN.md
 
+## Stable1.6.2 frozen publication — 2026-11-06
+
+User froze beta.5 and authorized Stable publication after cumulative acceptance
+fromv1.6.1. Feature source c8f1eda, Stable metadata6355396/1.6.2.6.26 selected checks
+PASS:18 valid reuse/8 fresh, no repeated sustain/full run. Actual x64/x86 packages
+and472 old1.6.1 update/config/fixed-name/rollback checks PASS. Publish through normal
+protected-main PR/Actions; verify GitHub/latest/R2 bytes. See
+docs/RELEASE_1_6_2_VERIFICATION.md.
+
+## Stop/admission and measured overhead repairs — 2026-11-06
+
+Repair the five reproduced beta.4 findings: runtime release before UI cleanup,
+pending ordinary-trigger invalidation, unchanged saves, cheap condition candidates
+and router preparation reuse. Keep XML, feature/driver/latency policies unchanged.
+Freeze c8f1eda;22 selected checks+5 dependency suites, one60.2s sustain, final
+x64/x86 packages and native emergency-only11 all PASS. Delivery outputs/beta162-5
+complete. Local1.6.2-beta.5; no Stable publication. Evidence and boundaries:
+docs/RUNTIME_REPAIR_1_6_2_BETA5.md.
+
+## Independent macro executor — 2026-11-06
+
+Continue from beta.3 at545cd68. Move the actual step/repeat/hold/output loop into
+MacroExecutor with six explicit environment calls; keep host editing/physical
+policies and lifecycle cleanup. Remove the redundant run-held input clone while
+retaining ownership/diagnostic copies. Frozen production/tests6c30df3; local
+beta.4, no features/schema/dependencies/threads/timers. All17 selected runtime,
+UI safety/config/journey checks pass, with one60.1-second sustain. Actual x64/x86
+packages and real emergency-only11 pass. Local delivery outputs/beta162-4 complete.
+See docs/MACRO_EXECUTOR_1_6_2_BETA4.md for boundaries, measurement and final evidence.
+
+## Execution preparation and shutdown maintenance — 2026-11-06
+
+Continue from beta.2 at5c028bc. Extract per-run prepared steps from MainForm;
+reuse input conversion/keys and fix unused wheel HoldMs bypassing loop pacing.
+Reproduce provider shutdown failure and isolate each cleanup phase, preserving
+final macro stop/output release and network-helper disposal after timer failure.
+Use affected checks and one bounded60-second runtime acceptance, no full/repeated
+ten-minute gate. Final19 selected checks, both packages and real emergency-only11
+pass. Local delivery outputs/beta162-3 complete; no Stable publication.
+See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
+## Native-state and UI-dispatch maintenance — 2026-11-06
+
+Continue from beta.1 at aeaa22a. Local1.6.2-beta.2 uses independent raw SDL value
+frames, stable membership snapshots and per-device cleanup failure isolation;
+coalesces background status text without changing input/output/stop commands.
+Review current extension seams, MainForm coupling and cleanup boundaries. Relevant
+regressions, reusable evidence and final packages pass. Local delivery is complete
+at outputs/beta162-2. See docs/ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md. Stable
+unchanged; follow-up priorities are recorded, with no broader rewrite pending.
+
+## Performance maintenance — 2026-11-06
+
+User authorized another measured performance/stability pass and independent
+subagents. Local 1.6.2-beta.1 removes unrelated optional-tool conflict scans and
+SDL per-poll scratch allocations, and fixes missing SDL LT/RT disconnect releases.
+Keep input cadence, configuration and existing runtime/stop safeguards. Selected
+automation, resource measurements, reusable receipts and both final packages are
+complete. Local delivery outputs/beta162-1; Stable1.6.1 stays published. See
+docs/PERFORMANCE_1_6_2_BETA1.md. No further work pending under this scope.
+
 ## Stable1.6.1 repair update published — 2026-10-27
 
 Published the frozen d06bdf7 mouse/Shift fixes through PR #10 and protected main.

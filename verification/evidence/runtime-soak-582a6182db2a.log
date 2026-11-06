@@ -1,0 +1,6 @@
+PRIVATE UI process bound: InputStitchTest-23fd92ee55df4e328f95908977c269a2
+SOAK REPORT C:\Users\trium\source\InputStitch\artifacts\product-tests\product-acceptance\soak-20261106T093807\report.json
+PASS product acceptance: 1984 checks; isolated editor, saved files and runtime observer; no user configuration or real input.
+PASS private UI desktop; foreground test-window samples=0/1035; input desktop unchanged.
+PASS private UI process exited and desktop handle released.
+{"status":"PASS","version":"1.6.2-beta.3","durationSeconds":60.1,"cycles":441,"outputDowns":2438,"outputUps":2437,"longPressCycles":221,"longPressThresholdMs":50,"blockedUiSamples":22,"blockedUiDurationMs":120,"maxLongPressMs":119,"keyboardDowns":2349,"keyboardUps":2349,"maxContinuousGapMs":54,"cpuMilliseconds":6218.8,"baselinePrivateBytes":34021376,"finalPrivateBytes":35082240,"peakPrivateBytes":35082240,"baselineHandles":378,"finalHandles":388,"peakHandles":388,"warmedMedianHandles":379,"tailMedianHandles":378,"handlePeakBudget":635,"baselineGdi":26,"finalGdi":26,"baselineUser":31,"finalUser":31,"baselineThreads":12,"finalThreads":11,"peakThreads":14,"workerThreadsCreated":3,"maxUiDispatchMs":26,"remainingOutputSources":0,"remainingPressedOutputs":0,"forcedGc":false,"backend":"isolated observer"}

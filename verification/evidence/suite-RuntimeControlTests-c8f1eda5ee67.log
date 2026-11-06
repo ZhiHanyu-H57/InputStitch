@@ -1,0 +1,35 @@
+PRIVATE UI process bound: InputStitchTest-4a943941155a48869254e067e0a4eecc
+OBSERVED release-keyboard response=7ms; UI remained blocked for220ms; downs=1 ups=1 additionalDowns=0 sources=0 neutralizations=0
+OBSERVED release-keyboard after UI pump: downs=1 ups=1 sources=0 neutralizations=0
+OBSERVED release-mouse response=0ms; UI remained blocked for220ms; downs=1 ups=1 additionalDowns=0 sources=0 neutralizations=0
+OBSERVED release-mouse after UI pump: downs=1 ups=1 sources=0 neutralizations=0
+OBSERVED release-gamepad response=0ms; UI remained blocked for220ms; downs=1 ups=1 additionalDowns=0 sources=0 neutralizations=0
+OBSERVED release-gamepad after UI pump: downs=1 ups=1 sources=0 neutralizations=0
+OBSERVED release-worker response=15ms; UI remained blocked for220ms; downs=1 ups=1 additionalDowns=0 sources=0 neutralizations=0
+OBSERVED release-worker after UI pump: downs=1 ups=1 sources=0 neutralizations=0
+OBSERVED panic response=5ms; UI remained blocked for220ms; downs=1 ups=1 additionalDowns=0 sources=0 neutralizations=1
+OBSERVED panic after UI pump: downs=1 ups=1 sources=0 neutralizations=2
+OBSERVED toggle response=6ms; UI remained blocked for220ms; downs=1 ups=1 additionalDowns=0 sources=0 neutralizations=0
+OBSERVED toggle after UI pump: downs=1 ups=1 sources=0 neutralizations=0
+OBSERVED queued start after valid: downs=1 ups=1 enabled=True inConfig=True
+OBSERVED queued start after other-stop: downs=1 ups=1 enabled=True inConfig=True
+OBSERVED queued start after disabled: downs=0 ups=0 enabled=False inConfig=True
+OBSERVED queued start after disabled-only: downs=0 ups=0 enabled=False inConfig=True
+OBSERVED queued start after removed: downs=0 ups=0 enabled=True inConfig=False
+OBSERVED queued start after removed-only: downs=0 ups=0 enabled=True inConfig=False
+OBSERVED queued start after edited: downs=0 ups=0 enabled=True inConfig=True
+OBSERVED queued start after stop-all: downs=0 ups=0 enabled=True inConfig=True
+OBSERVED queued start after stop-selected: downs=0 ups=0 enabled=True inConfig=True
+OBSERVED queued start after profile: downs=0 ups=0 enabled=True inConfig=False
+OBSERVED queued start after released: downs=0 ups=0 enabled=True inConfig=True
+OBSERVED queued start after condition: downs=0 ups=0 enabled=True inConfig=True
+FALLBACK parallel=False pollFault=False responseMs=148 sources=0
+FALLBACK parallel=False pollFault=True responseMs=132 sources=0
+FALLBACK parallel=True pollFault=False responseMs=114 sources=0
+FALLBACK parallel=True pollFault=True responseMs=134 sources=0
+OBSERVED10 identical saves: bytes=1509074 writes=0 validations=0 replaces=0 elapsedMs=84
+UNRELATED A: reads=0 enumerations=0
+MATCHED F24,1 enabled/99 disabled macros: reads=1 enumerations=1
+PASS runtime control: 57 checks; blocked-UI release/panic/toggle, stale admission, unchanged save and input candidate filtering; private observer only.
+PASS private UI desktop; foreground test-window samples=0/330; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

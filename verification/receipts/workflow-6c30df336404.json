@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "workflow",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "1cd0a75446f8b16a46127442894bcab29ff45fbe350d0dbd0fade097b520d78d",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "6BD8BD1DDB5B858AA749F37BABC93DB7F0722DD9E5F75E2504AB65E1E6F22942",
+      "path": "verification/evidence/workflow-6c30df336404.log"
+    }
+  ]
+}

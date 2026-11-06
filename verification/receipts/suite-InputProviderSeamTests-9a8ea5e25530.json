@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:InputProviderSeamTests",
+  "status": "PASS",
+  "sourceCommit": "9a8ea5e25530eb1922fdc10667ceae514d811c6c",
+  "fingerprint": "bbb3de76743ea03f30f0b6da142a359fd3bc31e4dd721195de33ed554cc36ef7",
+  "qualification": "Windows x64/.NET Framework4.7.2; targeted beta.2 integration. UI tests use private process desktops; fakes/observer output, except native SDL loading where explicitly logged. No real keyboard/mouse input or host network mutation. SDL suite was executed before metadata-only version update; relevant source/assertion/helper inputs are identical.",
+  "evidence": [
+    {
+      "sha256": "6A73AD6C151A1333E8DCCA286D868E47FD8C77E28DE3B0AAA0B5FEC4C6C6C966",
+      "path": "verification/evidence/suite-InputProviderSeamTests-9a8ea5e25530.log"
+    }
+  ]
+}

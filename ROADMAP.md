@@ -1,5 +1,54 @@
 # ROADMAP.md
 
+## Stable1.6.2 release freeze — 2026-11-06
+
+Freeze beta.5 behavior, promote metadata only, use cumulativev1.6.1 acceptance
+with input-bound reuse.26 checks PASS(18 reuse/8 fresh), final packages and472
+actual update/old-config checks PASS. No new feature or further architecture work
+in this release. Publication details: docs/RELEASE_1_6_2_VERIFICATION.md.
+
+## Stop and admission boundaries — 2026-11-06
+
+Beta.5 repairs observed UI-queued release and stale ordinary starts. Runtime stop
+and held physical-release fallback no longer await UI callbacks; final admission
+rechecks the same runtime-lock ticket generation. UI conditions/presentation and
+low-level hook installation remain explicit host responsibilities. Reduce proven
+save/condition/router repetition without another framework or scheduler rewrite.
+See docs/RUNTIME_REPAIR_1_6_2_BETA5.md.
+
+## Executor separated from the window — 2026-11-06
+
+Beta.4 moves step execution and repeat/held/output logic into a UI-free executor,
+independently testable without a Form or message loop. The host adapter retains
+editing/physical-state policy, admission and final cleanup. Continue to preserve
+those boundaries; no scheduler/backend rewrite or extension framework is needed.
+See docs/MACRO_EXECUTOR_1_6_2_BETA4.md.
+
+## Execution / cleanup boundary follow-up — 2026-11-06
+
+Beta.3 extracts UI-free run preparation and makes committed shutdown stages
+independent after concrete failure reproduction. MainForm still owns execution
+and some pause/condition decisions; continue incremental extraction only with
+matched runtime evidence. Existing provider/backend seams remain unchanged.
+See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
+## Architecture and native-sampling maintenance — 2026-11-06
+
+Beta.2 removes native-binding managed allocations for unchanged input frames,
+isolates Close failures and bounds pending status callbacks. Existing input/output
+seams remain appropriate; next structural priorities are the executor/UI boundary
+and fault-isolated shutdown. Do not add a plugin framework or change polling to
+claim savings. Current review: docs/ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md.
+
+## Measured performance maintenance — 2026-11-06
+
+Local1.6.2-beta.1 narrows tool-key validation to matching candidates, reuses SDL
+private polling scratch and completes trigger release on disconnect/disposal.
+No feature, dependency, polling-rate or driver change. Continue to require actual
+evidence before larger scheduling/runtime changes; native state snapshot and
+enumeration allocations remain the next potential profile target. Source-backed
+research and verification: docs/PERFORMANCE_1_6_2_BETA1.md.
+
 ## Stable1.6.1 repair update complete — 2026-10-27
 
 The validated mouse-lockout and held-Shift fixes are published as latest Stable

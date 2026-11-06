@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:UiSafetyTests",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "f8c7691d63dd6be922ca62b62aa0cb09fc79e376c853a765bda24aa4764cd5d0",
+  "qualification": "Final beta.3 committed-source117-check UI/input safety; shutdown Dispose faults, queued prepared/held admission races, status and mouse/Shift safety. Private desktop, observer output.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-UiSafetyTests-be4958f01272.log",
+      "sha256": "35A6826EB25578303B04592B15DD03D983475B1133DA301A82C9FF42175DED1F"
+    }
+  ]
+}

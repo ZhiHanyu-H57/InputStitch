@@ -23,6 +23,12 @@ $p=Get-VerificationPlan -ChangedPaths @('EditorPresentation.cs')
 Check ('ui:secondary' -in $p.Checks -and !$p.SoakRequired -and 'suite:MacroRunCoordinatorTests' -notin $p.Checks) 'Shared UI needs layouts without macro/soak expansion.'
 $p=Get-VerificationPlan -ChangedPaths @('MacroWorkerPool.cs')
 Check ($p.SoakRequired -and 'suite:OutputOwnershipTests' -in $p.Checks) 'Worker lifetime change must select runtime/ownership and soak.'
+$p=Get-VerificationPlan -ChangedPaths @('MacroExecutionPlan.cs','ShutdownCleanup.cs')
+Check ($p.SoakRequired -and 'suite:MacroExecutionPlanTests' -in $p.Checks -and 'suite:MacroTimingTests' -in $p.Checks -and 'suite:UiSafetyTests' -in $p.Checks) 'Execution preparation and shutdown changes select their specific runtime checks.'
+$p=Get-VerificationPlan -ChangedPaths @('MacroExecutor.cs','MainForm.Execution.cs')
+Check ($p.SoakRequired -and 'suite:MacroExecutorTests' -in $p.Checks -and 'suite:UiSafetyTests' -in $p.Checks -and 'ui:secondary' -notin $p.Checks) 'Executor and host bridge select runtime protection checks without unrelated layout matrices.'
+$p=Get-VerificationPlan -ChangedPaths @('MacroRunCoordinator.cs','InputStitch.cs','MainForm.Execution.cs')
+Check ('suite:RuntimeControlTests' -in $p.Checks -and @($p.Checks|Where-Object {$_ -eq 'suite:RuntimeControlTests'}).Count -eq 1) 'Admission/stop changes include the blocked-UI and stale-trigger regressions once.'
 $p=Get-VerificationPlan -ChangedPaths @('ReleaseInfo.cs') -Mode Release
 Check ('suite:ReleasePolicyTests' -in $p.Checks -and 'ui:settings-native' -in $p.Checks -and !$p.SoakRequired) 'Stable promotion checks metadata/settings, not a repeated soak.'
 $p=Get-VerificationPlan -ChangedPaths @('NetworkControl.cs','TimerRtss.cs') -Mode Release
@@ -43,11 +49,15 @@ New-Item -ItemType Directory -Force -Path (Join-Path $fixture 'scripts'),(Join-P
 'class ReleaseInfo { const string Version="beta"; }' | Set-Content (Join-Path $fixture 'ReleaseInfo.cs')
 'test body' | Set-Content (Join-Path $fixture 'tests/UiSafetyTests.cs')
 'release policy body' | Set-Content (Join-Path $fixture 'tests/ReleasePolicyTests.cs')
+'class MainForm {}' | Set-Content (Join-Path $fixture 'InputStitch.cs')
 & git -C $fixture add .
 & git -C $fixture -c user.name=VerificationFixture -c user.email=fixture@example.invalid commit -qm fixture
 if($LASTEXITCODE -ne 0){throw 'Fixture git commit failed.'}
 $original=Get-VerificationFingerprint -Check 'suite:UiSafetyTests' -Root $fixture
 Check ($original -eq (Get-VerificationFingerprint -Check 'suite:UiSafetyTests' -Ref HEAD -Root $fixture)) 'Git-object fingerprints match clean working-tree inputs.'
+$soakFingerprint=Get-VerificationFingerprint -Check 'runtime:soak' -Root $fixture
+'class MainForm { /* changed worker or shutdown */ }' | Set-Content (Join-Path $fixture 'InputStitch.cs')
+Check ($soakFingerprint -ne (Get-VerificationFingerprint -Check 'runtime:soak' -Root $fixture)) 'Host worker/shutdown changes invalidate sustained-runtime evidence.'
 $savedEncoding=$OutputEncoding
 try{
     $OutputEncoding=[Text.UTF8Encoding]::new($true)

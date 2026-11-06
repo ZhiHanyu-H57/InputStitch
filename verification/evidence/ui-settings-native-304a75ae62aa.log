@@ -1,0 +1,7 @@
+PRIVATE UI process bound: InputStitchTest-d7fbe3fb22114ec0b438e290ebbb26e6
+SECONDARY DPI=144 native=True
+WINDOW 01-SettingsDialog-zh-CN-100 {Width=1192, Height=986} font=27
+WINDOW 01-SettingsDialog-en-US-100 {Width=1192, Height=986} font=27
+PASS secondary layouts: 2188 checks; 2 windows; issues=0; native=True
+PASS private UI desktop; foreground test-window samples=0/135; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

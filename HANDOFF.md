@@ -1,5 +1,260 @@
 # HANDOFF.md
 
+## Stable1.6.2 ready for protected publication — 2026-11-06
+
+User authorized frozen1.6.2 release. Feature freezec8f1eda, Stable metadata freeze
+63553963986b9b4e9a3fce396681cbbcfc76007c, product1.6.2/file1.6.2.6. No non-metadata
+production change. Cumulative baseline publishedv1.6.1/3a156c7; remote main dada992.
+Local26 selected PASS:18 reuse/8 executed; reused beta.5 sustain60.2s, no full/long
+repeat. Fresh plan260/network36/SDL95(real runtime0devices)/timer134/release guards
+and Stable settings8864/8 scaled,2208/2 actual144DPI, compact/oldXML smoke PASS.
+Final x64/x86 packaged startup/resources/cache/save-reopen/exit PASS. Current1.6.1
+official assets verified against live API digests; actual original parser/config/
+new package install backs up exact bytes, handles versioned->fixed and fixed-name
+in-place updates, preserves221 original XML leaves, and rolls both names back on
+launch failure.236checks perarch/472 total PASS, no user config/install mutation.
+New8 evidence receipts bind Stable metadata6355396;18 previous source-bound results
+retain original scope/version. Beta.5 native emergency11 and5 extras still valid.
+
+Next: push perf/runtime-162, create ordinary PR to protected main, wait CI verify,
+merge with[publish-stable] marker, monitor Stable publication and R2 mirror, download
+all public assets and verify digests/latest/manifest/70 feature source equality to
+c8f1eda. Then update this handoff with final PR/commit/run/asset results through a
+documentation PR; leave main clean and synchronized. No manual-trial gate or
+additional approval required. See docs/RELEASE_1_6_2_VERIFICATION.md.
+
+## Beta.4 audit findings repaired — 2026-11-06
+
+Local1.6.2-beta.5, perf/runtime-162. Baseline cc9caa9e96a11d10c417dbb69192dd01f42e7432;
+production/tests freeze c8f1eda5ee674a328bacef0159a3c1d2f487780d. All five reproduced
+audit findings addressed. Native key/mouse hook installation still belongs to UI;
+do not claim all physical hook delivery independent of its message pump. Evidence
+separates delivered callbacks, controllable physical probes and actual ViGEm reads.
+
+Runtime stop: delivered toggle/terminal-up no longer queues to UI. Hook panic
+latches suspension then independently attempts worker stop, idle stop, runtime
+router disable, held-source release and ClearAll; UI/settings/device visibility
+recovery follows. Held publication/stop use a small gate after registration;
+runLock never spans native output/UI waits. Late stopped publication cannot orphan
+a source. Ordinary release preserves other sources. Missed-up physical fallback
+moves to existing input lane at50ms, original60ms settle, including poll-fault
+finally; isolated/manual UI entry retains fallback when no scheduler is running.
+
+Ordinary admission tickets are acquired with selection under runLock, checked at
+UI dispatch and final worker/held commit. Stop/edit/disable/delete/profile/Hold-up
+invalidate old tickets, other owners unaffected; drained/cancelled callbacks retire
+owner references. Existing UI protection and manual execution remain authoritative.
+ConfigStore serializes once, compares actual disk bytes, caches only validated
+path+32byte SHA; equal validated content skips write/flush/deserialization. Unknown
+equal file validated once; external same-length/time edit observed. Actual changes
+keep atomic replacement/corrupt-original/5-backup policy. XML/schema unchanged.
+Input conditions now evaluated only for enabled matching candidates, lazy list.
+
+One canary-approved child exclusively edited GamepadRouter/RouterSourcePolicy and
+their tests; root reviewed/integrated. Private per-device preparation and indexed
+scratch, optional revisioned transform snapshot; EVERY tick still reads/evaluates/
+ReplaceSource, so external cleanup and fault recovery preserve behavior. Router
+Tick/Configure/Stop/Dispose serialized, lock order router->ownership. Stop still
+clears without disabling; panic explicitly Configure(false). Custom policies keep
+their per-tick semantics. No feature/dependency/thread/timer/poll-rate addition.
+
+Final22 selected+5 extra checks PASS (21 regression suites, one soak, journey,
+3 settings checks, workflow).27 source-bound durable receipts, all fresh because
+declared production/assertion inputs changed; unrelated OBS/network/updater paths
+not selected. Runtime57, config808, coordinator61, executor339, ownership303716,
+UI117, dispatch163, pipeline24+100 cycles, router55, policy30, transform49,
+keyboard329, modifier policy, layer72/context22, manifest448/71, workflow33.
+Delivered stop0–15ms while UI stays blocked220ms; fallback114–148ms including fake
+provider exceptions. Long-press150ms threshold155/151ms with400ms blocked UI.
+Final60.2s/439 cycles/220 long presses/21 UI blocks, keyboard2340/2340, final
+sources/pressed0,2 macro workers,GDI26->26,USER30->30,no forcedGC. No full45/10min gate.
+Journey142; settings8784/8 scaled100–200%,2188/2 native144DPI, compact/oldXML smoke.
+Real ViGEm/XInput emergency-only11/final neutral PASS, no keyboard/mouse SendInput.
+Both actual packages cache/resources/save-reopen/message-loop/normal-exit PASS.
+
+Frozen full-source router probe12 samples: production10000 static ticks allocation
+neutral15360000->2560000B(-83.3%),held22080000->6240000B(-71.7%); no extra edges,
+expected1 source while held/0 afterStop. Local routing only, no whole-app CPU claim.
+2500step/1.5MB unchanged10-save writes/validations10/10->0/0, final84ms vs audit331ms
+local samples.100 disabled F24 conditions/unrelated A reads/enumerations100/100->0/0.
+
+Delivery outputs/beta162-5: Windows-x64/InputStitch.exe and Windows-x86/InputStitch.exe,
+Chinese report/hashes/verification.json, raw logs, final soak CSV and route driver.
+Sizes2191872/2021888B (+5632B/5.5KiB each). User installation untouched; no public
+Stable/latest/site change. Source/evidence local commits only. Test children/private
+desktops exited, no Computer Use or host network interruption/user-trial gate.
+No required work remains for this local beta. See docs/RUNTIME_REPAIR_1_6_2_BETA5.md.
+
+## Independent macro executor complete — 2026-11-06
+
+Local1.6.2-beta.4 on perf/runtime-162. Baseline545cd689a94c161c0b10eddb8d51b53ce9d45c12;
+production/test freeze6c30df33640442c804cff25b8ec2ecc439c0047d. MacroExecutor owns the
+actual step/repeat/held/output loop without Forms, handles or UI dispatch. Six
+environment calls delegate unchanged editing/physical-state/wait/status policies
+to MainForm.Execution. Host still owns registration, global failure recovery and
+finally release/disposal; conditions/admission were not migrated. Old helper
+bodies were moved unchanged, final cleanup order retained. Main file ~400lines less.
+Run-private context captures effective single-step/repeat/name/held state; held
+dictionary references private read-only prepared inputs, ownership/diagnostics
+retain their own copies. No new feature/schema/dependency/thread/timer/poll change.
+
+Console-only executor339 checks PASS without any Form/message loop, including
+cancellation/safety/waits, finite/infinite/single-step, same/cross-source ownership,
+all input fields, hostile output/snapshot/config mutation and caller failure cleanup.
+Final reverse-order20000-step mixed host-worker probe: allocation median22557768B
+->22173816B (-383952B/1.702%), time51.728->51.106ms (similar; do not extrapolate initial
+timing difference or whole-app CPU).12000down/8000up incl instantaneous wheel edges,
+all fields/order checksum15508316335096831171, final sources0 in every sample.
+
+Final17 selected checks PASS:11 suites, one60.1s sustain, journey142, settings8784/8
+scaled100–200%,2188/2 native144DPI, compact/default packaged settings and workflow32.
+Includes UI117, timing15, pipeline24+100 SDL lifecycle cycles, coordinator55,
+ownership303716, dispatch163, productivity802, tool287, source manifest448/71files.
+Delivered-edge long press150ms threshold:162ms responsive/157ms with400ms UI block,
+output before UI resumes.60.1s/437 cycles/219 long presses/21 blocked-UI samples,
+keyboard2346/2346, final output sources/pressed0,2 workers,GDI26->26,USER30->30,no forcedGC.
+All17 selected fingerprints changed, so freshly executed; unchanged OBS/network/
+updater paths not selected. No full44-suite or ten-minute gate. Durable receipts
+and source-bound logs recorded against6c30df3 for valid subsequent reuse.
+
+Actual ViGEm/XInput emergency-only11 PASS/final neutral, no keyboard/mouse SendInput.
+Initial preflight was BLOCKED by another product instance; user closed it and the
+unchanged preflight then passed. A host tool-session reset interrupted one package
+attempt before a result; only that missing package evidence was rerun. Both final
+x64/x86 metadata/resources/cache/save-reopen/message-loop/normal-exit PASS privately.
+No Computer Use, host network interruption, installed-app replacement or user-trial
+gate. All test children/private desktops exited. Stable/latest/site unchanged.
+
+Delivery: task workspace outputs/beta162-4, x64/x86 InputStitch.exe, Chinese report,
+SHA256SUMS, verification.json and raw logs/probe. Sizes2186240/2016256B, +2048B each
+over beta.3. Source/evidence remain local topic-branch commits, no publication.
+See docs/MACRO_EXECUTOR_1_6_2_BETA4.md. Continue future work only from current source;
+host policy and condition coordination remain explicit boundaries, not hidden debt
+to solve through a framework rewrite.
+
+## Execution preparation / fault-isolated shutdown complete — 2026-11-06
+
+Local1.6.2-beta.3 on perf/runtime-162. Baseline5c028bc; final production/test freeze
+be4958f0127204de8535671c65fc0300e9421a84 (initial implementation582a618 superseded
+for final lifecycle evidence). MacroExecutionPlan is UI-free per-run preparation:
+clone steps once, cache InputSpec/identity/holdability; existing recording/held
+wrappers delegate shared conversion. Worker output/ownership/waits remain in
+MainForm; do not claim full executor separation. Pure plan260 checks;200000-step
+prepared access61.6MB->0,25.281ms->0.336ms local median. Four-step creation1800B
+vs legacy clone408B, trading small per-run retention for repeated allocation.
+
+Fixed wheel Press HoldMs being counted as a delay despite no executed hold wait.
+Frozen beta.2 source reproduces735479 observer edges/213ms; final WheelUp/Down
+17/15 edges over217/212ms, prompt stop and no remaining source. No real wheel input.
+
+ShutdownCleanup independently attempts explicit stop/recovery/release steps even
+when one resource or its logger throws. Provider Dispose fault no longer skips
+macro stop/final release; timer Dispose fault still disposes fake network helper.
+Committed shutdown gating and run registration share runLock; fault injection
+reproduces/rejects already-waiting prepared and held admissions. Pending network
+block work rechecks shutdown under screenToolsGate. User cancel-close branches
+remain before committed shutdown. No lock is held across UI/driver/IPC waits.
+
+Final19 selected checks PASS:4 valid reuse/15 executed,13 regression suites,
+journey142, settings8784/8 scaled100–200% and2188/2 native144DPI, final packaged
+settings smoke. Includes UI117, tool287, timing15, ownership303716, coordinator55,
+dispatch163, productivity802, manifest436, workflow31. Source-bound fingerprints
+now include host worker/shutdown and new modules for sustained acceptance.
+Final60.2s sustain:441 cycles,221 long presses,22 UI blocks, keyboard2327/2327,
+zero final sources/pressed outputs,3 macro workers,GDI26->26,USER30->31,no forcedGC.
+The earlier pre-admission-fix60s sample is not final evidence; no10-minute/full run.
+
+Both final packages pass metadata/resources/cache/save-reopen/startup/shutdown.
+Private real ViGEm/XInput emergency-only11 PASS/final neutral, no keyboard/mouse
+SendInput. No actual WFP/host disconnect or OBS/native-render rerun: backends
+unchanged. No Computer Use, installed-app replacement or user-trial gate.
+
+Delivery: task workspace outputs/beta162-3, Windows-x64/InputStitch.exe and
+Windows-x86/InputStitch.exe, Chinese report/hashes/raw logs/probes. Sizes2184192/
+2014208B, +3584B each over beta.2, no dependency/thread/timer/schema/feature addition.
+Code and evidence are local topic-branch commits; no Stable/latest/site publication.
+All test processes/private desktops exited. Next meaningful architectural step
+is a bounded execution-loop/pause-state extraction, not a framework rewrite.
+See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
+## Architecture and native-state maintenance complete — 2026-11-06
+
+Local1.6.2-beta.2 on perf/runtime-162; feature/test freeze
+9a8ea5e25530eb1922fdc10667ceae514d811c6c, baseline aeaa22a (beta.1).
+Native SDL uses independent16-byte raw value frames and TryGetSnapshot; one
+MapSnapshot normalization path, no duplicate compatibility API. Stable membership
+snapshots are internally read-only and replaced on change, retaining native
+enumeration/free and all15 button/6-axis reads each input tick. Close failures
+no longer skip remaining handles or subsystem cleanup (fault reproduction old
+1close/0quit/1remaining, new2/1/0). A canary-gated agent owned only those files;
+root reviewed/integrated and completed final acceptance.
+
+Root coalesced only background status text into one latest-value callback;
+direct UI status and ordinary/emergency stop invalidate older queued statuses.
+Actual packaged1000-request blocked-UI probe:1000 callbacks ->1, both display
+status-999. Input/output/stop/recording commands are not coalesced or delayed.
+Per-thread native-binding stub microbenchmark200000frames at0/1/4devices:
+4.8/32/110.4MB managed allocation ->0, unchanged native call counts. Timing nearly
+equal; no whole-app CPU claim, added dependency, feature or schema change.
+
+14 relevant suites pass, including SDL95 (real library/0devices), UI107,
+pipeline24 plus100 full disconnect/reconnect cycles, coordinator55, ownership
+303716, tool282 and productivity802. Delivered-edge UI-blocked long press152ms
+at150ms threshold/400ms block. Real ViGEm/XInput emergency-only11 passes privately,
+final neutral. No host keyboard/mouse input, host network mutation or Computer Use.
+Final x64/x86 startup/native cache/save-reopen/shutdown, bilingual compact/default
+settings/oldXML pass. Journey142; metadata layouts8784/8 synthetic100–200% and
+2188/2 actual144-DPI pass. Selector16 reuses13 and executes3 missing checks,
+no soak/full suite/manual gate. Logs and source-bound receipts preserve coverage.
+
+Final delivery: task workspace outputs/beta162-2, Windows-x64/InputStitch.exe and
+Windows-x86/InputStitch.exe, hashes, Chinese architecture/performance report,
+inventory and raw/reproducible measurements. Sizes2180608/2010624B, +512B each
+over beta.1. Published Stable/latest/website remain1.6.1, user installation untouched.
+All tests/processes/private desktop handles exited normally; no service left active.
+
+Review conclusion: existing input/output seams are adequate for extension.
+MainForm still owns execution/conditions/UI/shutdown; partial files are not full
+decoupling. Next priorities are a bounded executor/UI extraction and separate
+shutdown fault-injection/isolation. MainForm_FormClosing itself was not changed.
+See docs/ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md for evidence and remaining work.
+
+## Performance maintenance complete — 2026-11-06
+
+Local1.6.2-beta.1 on perf/runtime-162, production/test freeze
+304a75ae62aaf05b07a046f12dbe1d8f17c21918, baseline dada992. Two canary-gated
+agents owned independent SDL/shortcut files; root reviewed, integrated and
+verified. Tool keys reject unrelated input before existing full conflict checks,
+no config cache. SDL reuses only lock-private scratch, preserves each native
+update/enumeration/state read and independent edge objects; disconnect/disposal
+release both triggers once. No new feature, dependency, schema, driver or cadence.
+
+14 fresh impact-selected suites PASS. Added actual controller-callback to held
+mapping/ownership integration passes100 disconnect/reconnect cycles and disposal,
+preserving unrelated ownership and reconnect baseline. SDL66 (native library,
+zero physical devices), tool282, UI58, ownership303716, timer134, network36.
+Real ViGEm/XInput emergency-only11 PASS privately, final neutral; no host key/mouse
+injection or network interruption. Final x64/x86 packaged startup/cache/restore/
+shutdown and zh/en compact/default settings/old XML PASS. Settings metadata
+layouts8784/8 synthetic100–200% and2188/2 actual144-DPI PASS. Selector15 checks
+reuses13 valid receipts (12 this source plus unchanged workflow), executes only2
+missing settings layouts; no soak selected. No full suite/manual gate.
+
+Exact per-thread allocation counters confirm provider scratch0 bytes per300000
+stable polls (old96/136.8/127.2MB empty/connected/suppressed) and tool unmatched
+dispatch0 per20000 events (old16.48MB). No native-allocation elimination claim.
+Same-driver three-sample medians and four packaged ABBA resource samples are in
+docs/PERFORMANCE_1_6_2_BETA1.md. Idle CPU/memory did not consistently decrease;
+report local hot-path gains separately. Both EXEs add1024B:2180096/2010112B.
+
+Runnable delivery: task workspace outputs/beta162-1, fixed InputStitch.exe in
+Windows-x64 and Windows-x86, hashes, report and raw/reproducible measurements.
+The beta is local; published Stable/latest/website remain1.6.1. User installations
+were neither stopped nor replaced. No Computer Use, remote operations or services
+were started. All private test processes and desktop handles exited cleanly.
+Next optimization requires profiling a concrete remaining path (native snapshots
+and enumeration still allocate); no automatic larger runtime rewrite pending.
+
 ## Stable1.6.1 repair update published — 2026-10-27
 
 Published latest Stablev1.6.1 at2026-10-27 01:00:51 Beijing time. PR #10 merged

@@ -59,6 +59,7 @@ internal static class RouterSourcePolicyTests
         try
         {
             ConfigPolicyDefaults();
+            PrivateTransformSnapshots();
             RuntimeSelection(root);
             DialogRefreshPreservesEdits();
             Console.WriteLine("PASS router source policy: " + checks + " checks; fake XInput/device metadata/output only.");
@@ -157,6 +158,27 @@ internal static class RouterSourcePolicyTests
         ConfigPackageSerializer.NormalizeConfig(cloned);
         Check(cloned.GamepadRouterSourcePolicy != null && cloned.GamepadRouterSourcePolicy.Mode == RouterSourceModes.AllVisible,
             "missing legacy Router source policy migrates to all-visible without changing old behavior");
+    }
+
+    private static void PrivateTransformSnapshots()
+    {
+        RouterSourcePolicyConfig config = new RouterSourcePolicyConfig();
+        RouterSourcePolicyEvaluator policy = new RouterSourcePolicyEvaluator(null, config);
+        IRouterTransformSnapshotProvider snapshots = policy;
+        long revision = -1; AnalogTransformProfile copy = null;
+        Check(snapshots.CopyAnalogTransformIfChanged(ref revision, ref copy) && copy.IsIdentity, "first snapshot copies configuration");
+        AnalogTransformProfile original = copy;
+        Check(!snapshots.CopyAnalogTransformIfChanged(ref revision, ref copy) && ReferenceEquals(original, copy), "unchanged revision retains caller-private copy");
+        copy.LeftStick.InvertX = true;
+        Check(policy.AnalogTransform.IsIdentity && policy.Summary == "all-visible", "caller snapshot mutation cannot change evaluator data or summary");
+        long firstRevision = revision; config.AnalogTransform.RightStick.InvertY = true; policy.Update(config);
+        Check(snapshots.CopyAnalogTransformIfChanged(ref revision, ref copy) && revision != firstRevision && !ReferenceEquals(original, copy), "configuration update supplies a new private snapshot");
+        Check(copy.RightStick.InvertY && !copy.LeftStick.InvertX, "new snapshot contains only committed configuration");
+        Check(policy.Summary.IndexOf("analog=", StringComparison.Ordinal) >= 0, "configuration summary updates with transform");
+        config.AnalogTransform.RightStick.InvertY = false;
+        Check(policy.AnalogTransform.RightStick.InvertY, "editing source config cannot mutate committed evaluator transform");
+        AnalogTransformProfile publicCopy = policy.AnalogTransform; publicCopy.RightStick.InvertY = false;
+        Check(policy.AnalogTransform.RightStick.InvertY, "legacy transform getter still isolates caller mutation");
     }
 
     private static void RuntimeSelection(string root)

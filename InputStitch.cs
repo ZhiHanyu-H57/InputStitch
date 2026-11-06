@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -3200,6 +3200,10 @@ namespace InputStitch
         private string slotAcquisitionRecoveryWarning = "";
         private long lastIdleHookEventCount;
         private bool idleKeyboardMouseActivityInScope = true;
+        private readonly object statusDispatchLock = new object();
+        private string pendingStatusText;
+        private bool statusDispatchQueued;
+        private volatile bool shutdownStarted;
 
         // Macro recorder. It records physical keyboard/mouse button/wheel events only while an
         // external application owns foreground focus; InputStitch UI clicks are intentionally ignored.
@@ -3235,6 +3239,7 @@ namespace InputStitch
         private string lastUiSafetyHint = "";
         private readonly object runLock = new object();
         private readonly MacroRunCoordinator runCoordinator;
+        private readonly MacroExecutor macroExecutor;
         private readonly MacroWorkerPool macroWorkers = new MacroWorkerPool(delegate(Exception ex) { AppLog.Write("Macro worker dispatch failed", ex); });
 
         public MainForm() : this(null, null, null) { }
@@ -3247,6 +3252,7 @@ namespace InputStitch
             runCoordinator = new MacroRunCoordinator(runLock, delegate(long id, string reason)
             { runtimeTrace.Add("stop-request", "run=" + id.ToString() + "; reason=" + reason); });
             outputOwnership = new OutputOwnershipManager(outputBackend ?? (IOutputBackend)new DirectOutputBackend());
+            macroExecutor = new MacroExecutor(runCoordinator, outputOwnership, runtimeTrace, new MainFormExecutionEnvironment(this));
             Disposed += delegate { StopAllMacroRuns("dispose"); macroWorkers.Dispose(); DisposeCrosshair(); DisposeScreenTools(); };
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -3594,17 +3600,17 @@ namespace InputStitch
                 catch (Exception ex) { AppLog.Write("Emergency stop gamepad neutralize failed; continuing fail-safe cleanup", ex); }
                 ReconcileHookState("emergency-stop");
                 if (replacementRestoreFailed)
-                    statusLabel.Text = Localizer.IsEnglish
+                    SetStatusSafe(Localizer.IsEnglish
                         ? "Emergency Stop released managed output, but controller visibility could not be fully restored. Restart InputStitch to retry recovery."
-                        : "紧急停止已释放受管输入，但原手柄可见性未能完整恢复；重启 InputStitch 会再次尝试恢复。";
+                        : "紧急停止已释放受管输入，但原手柄可见性未能完整恢复；重启 InputStitch 会再次尝试恢复。");
                 else if (runCount != 0 || heldMappingCount != 0)
-                    statusLabel.Text = "紧急停止：已向全部运行实例发送停止信号并释放受管输入。";
+                    SetStatusSafe("紧急停止：已向全部运行实例发送停止信号并释放受管输入。");
                 else
-                    statusLabel.Text = "紧急停止：当前没有正在执行的宏。";
+                    SetStatusSafe("紧急停止：当前没有正在执行的宏。");
                 if (manualTriggerSuspend && !replacementRestoreFailed)
-                    statusLabel.Text = Localizer.IsEnglish
+                    SetStatusSafe(Localizer.IsEnglish
                         ? "Emergency Stop: macros stopped and triggers paused. Uncheck Pause global macro triggers in the gear menu to resume."
-                        : "紧急停止：已停止宏并暂停触发。在齿轮菜单取消“暂停全局宏触发”后恢复。";
+                        : "紧急停止：已停止宏并暂停触发。在齿轮菜单取消“暂停全局宏触发”后恢复。");
                 UpdateRunButton();
                 AppLog.Write("Emergency stop: " + (reason ?? "unknown") + "; runs=" + runCount.ToString() + "; held=" + heldMappingCount.ToString());
             }
@@ -3925,8 +3931,6 @@ namespace InputStitch
         {
             long now = Stopwatch.GetTimestamp();
             long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
-            List<MacroDefinition> parallelToStop = new List<MacroDefinition>();
-            List<long> holdRunsToStop = new List<long>();
             List<MomentaryLayerHold> momentaryToEnd = new List<MomentaryLayerHold>();
             lock (runLock)
             {
@@ -3949,32 +3953,6 @@ namespace InputStitch
                     else if (now - momentaryHold.ReleaseProbeSince >= requiredTicks) momentaryToEnd.Add(momentaryHold);
                 }
 
-                foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
-                {
-                    HeldMappingRuntime runtime = pair.Value;
-                    if (runtime == null || runtime.Trigger == null) continue;
-                    bool released = !IsPhysicalHoldTriggerSatisfied(runtime.Trigger);
-                    if (!released)
-                    {
-                        runtime.ReleaseProbeSince = 0;
-                    }
-                    else if (runtime.ReleaseProbeSince == 0)
-                    {
-                        runtime.ReleaseProbeSince = now;
-                    }
-                    else if (now - runtime.ReleaseProbeSince >= requiredTicks)
-                    {
-                        runtime.ReleaseProbeSince = 0;
-                        parallelToStop.Add(pair.Key);
-                    }
-                }
-
-                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
-                {
-                    if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null || runtime.Stop == null || runtime.Stop.IsSet) continue;
-                    bool released = !IsPhysicalHoldTriggerSatisfied(runtime.HoldTrigger);
-                    if (UpdateRunReleaseProbe(runtime, released, now)) holdRunsToStop.Add(runtime.RunId);
-                }
             }
             if (momentaryToEnd.Count != 0)
             {
@@ -3985,16 +3963,7 @@ namespace InputStitch
                 runtimeTrace.Add("momentary-layer-release-fallback", "physical release detected without a terminal release callback");
                 ApplyEffectiveMappingLayer();
             }
-            foreach (MacroDefinition parallel in parallelToStop)
-            {
-                runtimeTrace.Add("hold-release-fallback", "parallel mapping physical release detected without terminal KeyUp/MouseUp callback");
-                StopParallelHeldMapping(parallel, "physical-release-fallback");
-            }
-            foreach (long runId in holdRunsToStop)
-            {
-                runtimeTrace.Add("hold-release-fallback", "concurrent Hold run=" + runId.ToString() + " physical release detected without terminal KeyUp/MouseUp callback");
-                StopMacroRun(runId, "physical-release-fallback");
-            }
+            if (inputPipelineScheduler == null || !inputPipelineScheduler.Running) ReconcileRuntimeTriggerRelease();
         }
 
         private void ForegroundTimer_Tick(object sender, EventArgs e)
@@ -4504,14 +4473,15 @@ namespace InputStitch
 
         private MacroDefinition SelectEligibleTriggerMacro(InputEventInfo inputEvent)
         {
-            List<MacroDefinition> eligible = new List<MacroDefinition>();
+            List<MacroDefinition> eligible = null;
             lock (runLock)
             {
                 foreach (MacroDefinition macro in config.Macros)
-                    if (IsMacroLayerEligible(macro) && !layerBlockedUntilRelease.Contains(macro) &&
-                        AreMacroConditionsSatisfied(macro, inputEvent == null ? -1 : inputEvent.DeviceIndex)) eligible.Add(macro);
+                    if (TriggerMacroMatchesEvent(macro, inputEvent) && IsMacroLayerEligible(macro) && !layerBlockedUntilRelease.Contains(macro) &&
+                        AreMacroConditionsSatisfied(macro, inputEvent.DeviceIndex))
+                    { if (eligible == null) eligible = new List<MacroDefinition>(); eligible.Add(macro); }
             }
-            return SelectTriggerMacro(eligible, inputEvent);
+            return eligible == null ? null : SelectTriggerMacro(eligible, inputEvent);
         }
 
         private static bool TriggerMacroMatchesEvent(MacroDefinition macro, InputEventInfo inputEvent)
@@ -4956,17 +4926,7 @@ namespace InputStitch
 
         private static InputSpec InputFromStep(MacroStep step)
         {
-            if (step == null) return null;
-            InputSpec input = new InputSpec();
-            input.Kind = step.Kind;
-            input.VirtualKey = step.VirtualKey;
-            input.ScanCode = step.ScanCode;
-            input.Extended = step.Extended;
-            input.GamepadControl = step.GamepadControl;
-            input.GamepadX = step.GamepadX;
-            input.GamepadY = step.GamepadY;
-            input.GamepadValue = step.GamepadValue;
-            return input;
+            return MacroExecutionPlan.ConvertInput(step);
         }
 
         private void InfiniteBox_CheckedChanged(object sender, EventArgs e)
@@ -6005,11 +5965,12 @@ namespace InputStitch
                 // Latch before posting cleanup: a busy UI must not let the next
                 // primary-button press start another macro or swallow the click.
                 manualTriggerSuspend = true;
-                StopAllMacroRuns("emergency-stop");
+                StopRuntimeOutputForPanic();
                 try { BeginInvoke((MethodInvoker)delegate { EmergencyStop("全局紧急停止键"); }); } catch { }
                 return true;
             }
 
+            if (shutdownStarted) return false;
             if (captureMode != CaptureMode.None)
             {
                 // Defer a physical modifier until it is released: Ctrl then K must still
@@ -6186,24 +6147,32 @@ namespace InputStitch
             // additional condition is currently false. This clears/disarms timing state (notably
             // DoublePress) instead of letting an invalid press participate in a later activation.
             ObserveAdvancedConditionMisses(e);
-            MacroDefinition matchedMacro = SelectEligibleTriggerMacro(e);
+            MacroDefinition matchedMacro;
+            MacroTriggerTicket ticket = null;
+            bool advancedActivator;
+            lock (runLock)
+            {
+                matchedMacro = SelectEligibleTriggerMacro(e);
+                advancedActivator = matchedMacro != null && ActivatorModes.UsesAdvancedPolicy(matchedMacro);
+                if (matchedMacro != null && !advancedActivator) ticket = runCoordinator.QueueTrigger(matchedMacro);
+            }
 
             if (matchedMacro != null)
             {
                 MacroDefinition m = matchedMacro;
-                bool advancedActivator = ActivatorModes.UsesAdvancedPolicy(m);
                 // Stopping an existing toggle macro produces no new input. Do not
                 // require leaving an editor just to stop it, and never turn this
                 // queued stop into a new start if the worker finishes first.
                 if (!advancedActivator && m.RunMode == TriggerRunMode.Toggle && IsMacroActuallyRunning(m))
                 {
                     runtimeTrace.Add("trigger-stop", "macro-index=" + config.Macros.IndexOf(m).ToString());
-                    try { BeginInvoke((MethodInvoker)delegate { if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop"); }); }
-                    catch { runtimeTrace.Add("trigger-cancelled", "stop dispatch unavailable"); }
+                    StopMacro(m, "trigger-toggle-stop");
+                    runCoordinator.CompleteTrigger(ticket);
                     return !manualTriggerSuspend && ModifierSafetyPolicy.ShouldSuppressTrigger(m);
                 }
                 if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend)
                 {
+                    runCoordinator.CompleteTrigger(ticket);
                     runtimeTrace.Add("trigger-blocked", uiSafetyPauseRequested ? "editor: " + uiSafetyPauseReason : (manualTriggerSuspend ? "manual-suspend" : "dialog"));
                     return false;
                 }
@@ -6231,19 +6200,22 @@ namespace InputStitch
                 {
                     BeginInvoke((MethodInvoker)delegate
                     {
-                        // Recheck after queuing so a newly opened editor cannot be
-                        // bypassed by an earlier hotkey. Clear non-editing button/list
-                        // focus before any output can activate those controls.
-                        UpdateUiSafetyPauseState();
-                        if (uiSafetyPauseRequested || pauseHotkeys || manualTriggerSuspend || captureMode != CaptureMode.None || recordingActive)
-                        { runtimeTrace.Add("trigger-cancelled", "UI state changed before dispatch"); return; }
-                        if (NativeWindowFocus.ForegroundWindow() == Handle && inputSink != null) inputSink.Focus();
-                        UpdateUiSafetyPauseState();
-                        if (m.RunMode == TriggerRunMode.Hold) StartMacroFromHeldTrigger(m, ResolveTriggerForPhysicalEvent(m.Trigger, e));
-                        else ToggleMacroFromHotkey(m);
+                        try
+                        {
+                            // Preserve UI protection while rejecting commands invalidated
+                            // since their physical edge was selected under the runtime lock.
+                            UpdateUiSafetyPauseState();
+                            if (!IsOrdinaryTriggerCurrent(ticket) || !TriggerMacroMatchesEvent(m, e) || !AreMacroConditionsSatisfied(m, e.DeviceIndex))
+                            { runtimeTrace.Add("trigger-cancelled", "UI state changed before dispatch"); return; }
+                            if (NativeWindowFocus.ForegroundWindow() == Handle && inputSink != null) inputSink.Focus();
+                            UpdateUiSafetyPauseState();
+                            if (m.RunMode == TriggerRunMode.Hold) StartMacroFromHeldTriggerWithTicket(m, ResolveTriggerForPhysicalEvent(m.Trigger, e), ticket);
+                            else ToggleMacroFromTicket(m, ticket);
+                        }
+                        finally { runCoordinator.CompleteTrigger(ticket); }
                     });
                 }
-                catch { runtimeTrace.Add("trigger-cancelled", "UI dispatch unavailable"); }
+                catch { runCoordinator.CompleteTrigger(ticket); runtimeTrace.Add("trigger-cancelled", "UI dispatch unavailable"); }
                 return suppress;
             }
             return false;
@@ -6305,7 +6277,11 @@ namespace InputStitch
                     gamepadRouter.Tick(gamepadInput, GamepadOutput.OwnXboxUserIndex);
                 RequestActivatorTick();
             }
-            finally { gamepadTickStats.End(tickStart); }
+            finally
+            {
+                try { ReconcileRuntimeTriggerReleaseIfDue(); }
+                finally { gamepadTickStats.End(tickStart); }
+            }
         }
 
         // Prepared long-press timing/admission runs here. Other advanced activators retain a
@@ -6387,6 +6363,15 @@ namespace InputStitch
 
             lock (runLock)
             {
+                List<MacroDefinition> releasedPending = null;
+                foreach (MacroDefinition macro in runCoordinator.PendingTriggerMacrosLocked)
+                    if (ActivatorModes.IsHoldLifecycle(macro) && ModifierSafetyPolicy.HoldTriggerReleasedByEvent(macro.Trigger, e))
+                    { if (releasedPending == null) releasedPending = new List<MacroDefinition>(); releasedPending.Add(macro); }
+                if (releasedPending != null) foreach (MacroDefinition macro in releasedPending) runCoordinator.InvalidateTrigger(macro);
+            }
+
+            lock (runLock)
+            {
                 List<MacroDefinition> unblocked = new List<MacroDefinition>();
                 foreach (MacroDefinition macro in layerBlockedUntilRelease)
                     if (macro != null && ModifierSafetyPolicy.HoldTriggerReleasedByEvent(macro.Trigger, e)) unblocked.Add(macro);
@@ -6408,16 +6393,8 @@ namespace InputStitch
                     if (ModifierSafetyPolicy.HoldTriggerReleasedByEvent(runtime.HoldTrigger, e)) holdRunsReleased.Add(runtime.RunId);
                 }
             }
-            if (parallelReleased.Count == 0 && holdRunsReleased.Count == 0) return;
-            try
-            {
-                BeginInvoke((MethodInvoker)delegate
-                {
-                    foreach (MacroDefinition macro in parallelReleased) StopParallelHeldMapping(macro, "terminal-release");
-                    foreach (long runId in holdRunsReleased) StopMacroRun(runId, "terminal-release");
-                });
-            }
-            catch { }
+            foreach (MacroDefinition macro in parallelReleased) StopParallelHeldMapping(macro, "terminal-release");
+            foreach (long runId in holdRunsReleased) StopMacroRun(runId, "terminal-release");
         }
 
         private int ActiveParallelHeldMappingCount()
@@ -6445,13 +6422,18 @@ namespace InputStitch
         }
 
         private void StartParallelHeldMappingWithTrigger(MacroDefinition macro, TriggerSpec triggerOverride)
+        { StartParallelHeldMappingWithTicket(macro, triggerOverride, null); }
+
+        private void StartParallelHeldMappingWithTicket(MacroDefinition macro, TriggerSpec triggerOverride, MacroTriggerTicket ticket)
         {
+            if (shutdownStarted) return;
             if (macro == null || !IsParallelHeldMapping(macro)) return;
             if (!isolatedUiHost && !EnsureGamepadReady(macro, false)) return;
 
             HeldMappingRuntime runtime;
             lock (runLock)
             {
+                if (shutdownStarted || manualTriggerSuspend || (ticket != null && !IsOrdinaryTriggerCurrent(ticket))) return;
                 if (activeParallelHeldMappings.ContainsKey(macro)) return;
                 runtime = new HeldMappingRuntime();
                 runtime.Macro = macro;
@@ -6463,25 +6445,38 @@ namespace InputStitch
                 activeParallelHeldMappings[macro] = runtime;
             }
 
-            try
+            lock (heldOutputGate)
             {
-                if (idleGamepad != null) idleGamepad.SetBusy(true);
-                foreach (MacroStep step in macro.Steps)
+                lock (runLock)
                 {
-                    InputSpec input = InputFromStep(step);
-                    if (input != null) outputOwnership.SetDown(runtime.SourceId, input);
+                    HeldMappingRuntime current;
+                    if (!activeParallelHeldMappings.TryGetValue(macro, out current) || !ReferenceEquals(current, runtime)) return;
+                    if (shutdownStarted || manualTriggerSuspend || (ticket != null && !IsOrdinaryTriggerCurrent(ticket)))
+                    { activeParallelHeldMappings.Remove(macro); return; }
                 }
-                runtimeTrace.Add("held-source-start", "source=" + runtime.SourceId + "; macro-index=" + config.Macros.IndexOf(macro).ToString());
-                if (!HasWorkerBackedRuns())
-                    statusLabel.Text = Localizer.IsEnglish ? "Held mappings active: " + ActiveParallelHeldMappingCount().ToString() : "按住映射活动：" + ActiveParallelHeldMappingCount().ToString();
-            }
-            catch (Exception ex)
-            {
-                HandleOutputOwnershipFailure(ex, "start-held");
+                try
+                {
+                    if (idleGamepad != null) idleGamepad.SetBusy(true);
+                    foreach (MacroStep step in macro.Steps)
+                    {
+                        InputSpec input = InputFromStep(step);
+                        if (input != null) outputOwnership.SetDown(runtime.SourceId, input);
+                    }
+                    runtimeTrace.Add("held-source-start", "source=" + runtime.SourceId + "; macro-index=" + config.Macros.IndexOf(macro).ToString());
+                    if (!HasWorkerBackedRuns())
+                        SetStatusSafe(Localizer.IsEnglish ? "Held mappings active: " + ActiveParallelHeldMappingCount().ToString() : "按住映射活动：" + ActiveParallelHeldMappingCount().ToString());
+                }
+                catch (Exception ex)
+                {
+                    HandleOutputOwnershipFailure(ex, "start-held");
+                }
             }
         }
 
         private void StopParallelHeldMapping(MacroDefinition macro, string reason)
+        { lock (heldOutputGate) StopParallelHeldMappingCore(macro, reason); }
+
+        private void StopParallelHeldMappingCore(MacroDefinition macro, string reason)
         {
             if (macro == null) return;
             HeldMappingRuntime runtime = null;
@@ -6504,8 +6499,8 @@ namespace InputStitch
             if (!HasWorkerBackedRuns())
             {
                 int remaining = ActiveParallelHeldMappingCount();
-                statusLabel.Text = remaining == 0 ? Localizer.T("状态：空闲") :
-                    (Localizer.IsEnglish ? "Held mappings active: " + remaining.ToString() : "按住映射活动：" + remaining.ToString());
+                SetStatusSafe(remaining == 0 ? Localizer.T("状态：空闲") :
+                    (Localizer.IsEnglish ? "Held mappings active: " + remaining.ToString() : "按住映射活动：" + remaining.ToString()));
             }
         }
 
@@ -6517,6 +6512,7 @@ namespace InputStitch
             bool heldActive;
             lock (runLock)
             {
+                runCoordinator.InvalidateTrigger(macro);
                 heldActive = activeParallelHeldMappings.ContainsKey(macro);
                 MacroRunRuntime runtime = GetMacroRun_NoLock(macro);
                 if (runtime != null) RequestStopMacroRun_NoLock(runtime, resolved);
@@ -6525,6 +6521,9 @@ namespace InputStitch
         }
 
         private void StopAllParallelHeldMappings(string reason)
+        { lock (heldOutputGate) StopAllParallelHeldMappingsCore(reason); }
+
+        private void StopAllParallelHeldMappingsCore(string reason)
         {
             List<HeldMappingRuntime> active;
             lock (runLock)
@@ -6552,6 +6551,9 @@ namespace InputStitch
         }
 
         private void StartMacroFromHeldTriggerWithTrigger(MacroDefinition m, TriggerSpec effectiveTrigger)
+        { StartMacroFromHeldTriggerWithTicket(m, effectiveTrigger, null); }
+
+        private void StartMacroFromHeldTriggerWithTicket(MacroDefinition m, TriggerSpec effectiveTrigger, MacroTriggerTicket ticket)
         {
             if (m == null) return;
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
@@ -6568,18 +6570,21 @@ namespace InputStitch
             }
             if (capability.Category == MacroRuntimeCategory.ParallelHeldMapping)
             {
-                StartParallelHeldMappingWithTrigger(m, effectiveTrigger);
+                StartParallelHeldMappingWithTicket(m, effectiveTrigger, ticket);
                 return;
             }
             if (IsMacroActuallyRunning(m)) return;
-            StartMacroCore(m, 0, null, true, false, effectiveTrigger);
+            StartMacroWithTicket(m, 0, null, true, false, effectiveTrigger, ticket);
         }
 
         private void ToggleMacroFromHotkey(MacroDefinition m)
+        { ToggleMacroFromTicket(m, null); }
+
+        private void ToggleMacroFromTicket(MacroDefinition m, MacroTriggerTicket ticket)
         {
             if (m == null) return;
             if (IsMacroActuallyRunning(m)) StopMacro(m, "trigger-toggle-stop");
-            else StartMacro(m, 0, m.Trigger == null ? null : m.Trigger.Clone(), false);
+            else StartMacroWithTicket(m, 0, m.Trigger == null ? null : m.Trigger.Clone(), false, false, null, ticket);
         }
 
         private void RecordButton_Click(object sender, EventArgs e)
@@ -7069,7 +7074,7 @@ namespace InputStitch
             {
                 StopParallelHeldMapping(m, "ui-stop");
                 ReconcileHookState("ui-stop");
-                statusLabel.Text = Localizer.IsEnglish ? "Stopped selected Held Mapping." : "状态：已停止所选按住映射。";
+                SetStatusSafe(Localizer.IsEnglish ? "Stopped selected Held Mapping." : "状态：已停止所选按住映射。");
                 UpdateRunButton();
                 return;
             }
@@ -7080,7 +7085,7 @@ namespace InputStitch
             {
                 StopMacro(m, "ui-stop");
                 ReconcileHookState("ui-stop");
-                statusLabel.Text = Localizer.IsEnglish ? "Stopping selected macro..." : "状态：正在停止所选宏…";
+                SetStatusSafe(Localizer.IsEnglish ? "Stopping selected macro..." : "状态：正在停止所选宏…");
                 UpdateRunButton();
                 return;
             }
@@ -7305,7 +7310,11 @@ namespace InputStitch
         }
 
         private void StartMacroCore(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep, TriggerSpec holdTriggerOverride)
+        { StartMacroWithTicket(m, startDelayMs, waitForReleaseTrigger, holdControlled, singleStep, holdTriggerOverride, null); }
+
+        private void StartMacroWithTicket(MacroDefinition m, int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep, TriggerSpec holdTriggerOverride, MacroTriggerTicket ticket)
         {
+            if (shutdownStarted) return;
             MacroRuntimeCapability capability = MacroRuntimeClassifier.Classify(m);
             if (!capability.CanStart)
             {
@@ -7339,7 +7348,7 @@ namespace InputStitch
 
             MacroDefinition snapshot = m.Clone();
             snapshot.Name = m.Name;
-            StartPreparedMacro(m, snapshot, capability, startDelayMs, waitForReleaseTrigger, holdControlled, singleStep, holdTriggerOverride, false);
+            StartPreparedMacroWithTicket(m, snapshot, capability, startDelayMs, waitForReleaseTrigger, holdControlled, singleStep, holdTriggerOverride, false, ticket);
         }
 
         // All callers arrive with an immutable definition and ready output devices.
@@ -7347,7 +7356,13 @@ namespace InputStitch
         private void StartPreparedMacro(MacroDefinition m, MacroDefinition snapshot, MacroRuntimeCapability capability,
             int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep,
             TriggerSpec holdTriggerOverride, bool nativeUiGuard)
+        { StartPreparedMacroWithTicket(m, snapshot, capability, startDelayMs, waitForReleaseTrigger, holdControlled, singleStep, holdTriggerOverride, nativeUiGuard, null); }
+
+        private void StartPreparedMacroWithTicket(MacroDefinition m, MacroDefinition snapshot, MacroRuntimeCapability capability,
+            int startDelayMs, TriggerSpec waitForReleaseTrigger, bool holdControlled, bool singleStep,
+            TriggerSpec holdTriggerOverride, bool nativeUiGuard, MacroTriggerTicket ticket)
         {
+            if (shutdownStarted) return;
             InputSender.UseScanCodeInput = config.UseScanCodeInput;
 
             MacroRunRuntime runtime = new MacroRunRuntime();
@@ -7365,7 +7380,9 @@ namespace InputStitch
             runtime.StopReason = "running";
 
             runtime.Work = new MacroWorkItem(delegate { MacroWorker(runtime, startDelayMs, waitForReleaseTrigger); });
-            if (!runCoordinator.TryRegister(runtime))
+            bool registered;
+            lock (runLock) { registered = !shutdownStarted && (ticket == null || IsOrdinaryTriggerCurrent(ticket)) && runCoordinator.TryRegister(runtime); }
+            if (!registered)
             {
                 runtime.Stop.Dispose();
                 if (runtime.StepGate != null) runtime.StepGate.Dispose();
@@ -7414,423 +7431,9 @@ namespace InputStitch
             return runCoordinator.StopAll(reason);
         }
 
-        private void MacroWorker(MacroRunRuntime runtime, int startDelayMs, TriggerSpec waitForReleaseTrigger)
-        {
-            MacroDefinition snapshot = runtime.Snapshot;
-            ManualResetEventSlim stop = runtime.Stop;
-            System.Threading.AutoResetEvent stepGate = runtime.StepGate;
-            long runId = runtime.RunId;
-            string sourceId = runtime.SourceId;
-            bool singleStep = runtime.SingleStep;
-            Dictionary<string, InputSpec> held = new Dictionary<string, InputSpec>();
-            List<MacroStep> steps = new List<MacroStep>();
-            foreach (MacroStep original in snapshot.Steps) steps.Add(original.Clone());
-            string macroName = snapshot.Name;
-            bool infinite = snapshot.Infinite;
-            int repeatCount = Math.Max(1, snapshot.RepeatCount);
-            if (singleStep) { infinite = false; repeatCount = 1; }
-            string executionError = null;
-            bool outputObserved = false;
-            Random random = new Random(unchecked(Environment.TickCount * 31 + (int)(runId & 0x7FFFFFFF)));
-            int lastStatusTick = unchecked(Environment.TickCount - 100);
-
-            runCoordinator.BeginExecution(runtime, steps.Count);
-
-            try
-            {
-                if (waitForReleaseTrigger != null)
-                {
-                    SetMacroRunStatusSafe(runtime, "准备执行：" + macroName + "（等待触发键松开）");
-                    if (WaitForTriggerReleaseStable(stop, waitForReleaseTrigger, PhysicalReleaseSettleMs)) return;
-                }
-
-                if (startDelayMs > 0)
-                {
-                    SetMacroRunStatusSafe(runtime, "准备执行：" + macroName + "（等待目标窗口稳定 " + startDelayMs.ToString() + " ms）");
-                    if (WaitOrStopWithUiSafety(stop, startDelayMs, macroName, held, sourceId, runtime.NativeUiGuard)) return;
-                }
-
-                if (WaitForUiSafetyClear(stop, macroName, held, sourceId, runtime.NativeUiGuard)) return;
-
-                bool hasNaturalDelay = false;
-                foreach (MacroStep s in steps)
-                {
-                    int possibleDelay = s.RandomDelay ? Math.Max(s.RandomDelayMinMs, s.RandomDelayMaxMs) : s.DelayMs;
-                    if (possibleDelay > 0 || (s.Action == MacroAction.Press && s.HoldMs > 0))
-                    {
-                        hasNaturalDelay = true;
-                        break;
-                    }
-                }
-
-                int iteration = 0;
-                while (!stop.IsSet)
-                {
-                    if (!infinite && iteration >= repeatCount) break;
-                    iteration++;
-                    bool producedOutput = false;
-                    runCoordinator.SetIteration(runtime, iteration);
-                    int statusTick = Environment.TickCount;
-                    if (iteration == 1 || unchecked(statusTick - lastStatusTick) >= 100)
-                    {
-                        lastStatusTick = statusTick;
-                        SetMacroRunStatusSafe(runtime, "正在执行：" + macroName + (infinite ? "（第 " + iteration.ToString() + " 次，无限循环）" : "（" + iteration.ToString() + "/" + repeatCount.ToString() + "）"));
-                    }
-
-                    for (int stepIndex = 0; stepIndex < steps.Count; stepIndex++)
-                    {
-                        MacroStep step = steps[stepIndex];
-                        if (stop.IsSet) break;
-                        if (singleStep && stepIndex > 0 && WaitForSingleStepAdvance(runtime, stepIndex, steps.Count)) break;
-                        runCoordinator.BeginStep(runtime, stepIndex + 1, steps.Count);
-
-                        InputSpec input = InputFromStep(step);
-                        string key = InputKey(input);
-
-                        if (WaitForUiSafetyClear(stop, macroName, held, sourceId, runtime.NativeUiGuard)) break;
-                        if (WaitForDangerousPhysicalShortcutToClear(stop, macroName, held, step, sourceId, runtime.NativeUiGuard)) break;
-
-                        if (step.Action == MacroAction.Press)
-                        {
-                            if (InputSender.IsHoldable(input))
-                            {
-                                // State-first overlap semantics: a Press never bounces a control that
-                                // this same run already owns Down. It simply consumes its hold time and
-                                // preserves the earlier state. Across different runs, Output Ownership
-                                // likewise masks the pulse while another source still owns the control.
-                                bool alreadyHeldByThisRun = held.ContainsKey(key);
-                                if (!alreadyHeldByThisRun)
-                                {
-                                    outputOwnership.SetDown(sourceId, input);
-                                    if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                                    producedOutput = true;
-                                    held[key] = input.Clone();
-                                    SyncRunHeldInputs(runtime, held);
-                                }
-                                if (WaitOrStopWithUiSafety(stop, Math.Max(0, step.HoldMs), macroName, held, sourceId, runtime.NativeUiGuard)) break;
-                                if (!alreadyHeldByThisRun)
-                                {
-                                    outputOwnership.SetUp(sourceId, input);
-                                    if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                                    producedOutput = true;
-                                    held.Remove(key);
-                                    SyncRunHeldInputs(runtime, held);
-                                }
-                            }
-                            else
-                            {
-                                outputOwnership.SetDown(sourceId, input);
-                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                                producedOutput = true;
-                            }
-                        }
-                        else if (step.Action == MacroAction.Down)
-                        {
-                            InputSpec existingHeld;
-                            bool duplicateGamepadState = input.Kind == InputKind.Gamepad &&
-                                held.TryGetValue(key, out existingHeld) && SameGamepadState(existingHeld, input);
-                            if (!duplicateGamepadState)
-                            {
-                                outputOwnership.SetDown(sourceId, input);
-                                if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                                producedOutput = true;
-                                if (InputSender.IsHoldable(input))
-                                {
-                                    held[key] = input.Clone();
-                                    SyncRunHeldInputs(runtime, held);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            outputOwnership.SetUp(sourceId, input);
-                            if (!outputObserved) { runtimeTrace.Add("output-submitted", "run=" + runId.ToString()); outputObserved = true; }
-                            producedOutput = true;
-                            held.Remove(key);
-                            SyncRunHeldInputs(runtime, held);
-                        }
-
-                        if (stop.IsSet) break;
-                        if (!singleStep)
-                        {
-                            int stepDelay = ResolveStepDelay(step, random);
-                            if (WaitOrStopWithUiSafety(stop, stepDelay, macroName, held, sourceId, runtime.NativeUiGuard)) break;
-                        }
-                    }
-
-                    if (infinite && !hasNaturalDelay && !stop.IsSet)
-                    {
-                        if (WaitOrStopWithUiSafety(stop, producedOutput ? 1 : 15, macroName, held, sourceId, runtime.NativeUiGuard)) break;
-                    }
-                }
-
-            }
-            catch (Exception ex)
-            {
-                executionError = ex.Message;
-                AppLog.Write("Macro worker failed: " + macroName, ex);
-                if (ex is OutputOwnershipException) HandleOutputOwnershipFailure(ex, "macro-worker");
-            }
-            finally
-            {
-                runtimeTrace.Add(executionError != null ? "worker-error" : (stop.IsSet ? "worker-cancelled" : "worker-complete"),
-                    "run=" + runId.ToString() + "; output-submitted=" + outputObserved.ToString());
-                try { outputOwnership.ClearSource(sourceId); }
-                catch (OutputOwnershipException ex) { HandleOutputOwnershipFailure(ex, "macro-finally"); }
-                held.Clear();
-                SyncRunHeldInputs(runtime, held);
-
-                bool removed = runCoordinator.Finish(runtime, executionError != null ? "error" : null);
-                try { stop.Dispose(); } catch { }
-                try { if (stepGate != null) stepGate.Dispose(); } catch { }
-
-                if (idleGamepad != null) idleGamepad.NotifyActivity();
-                if (removed)
-                {
-                    if (executionError != null)
-                        SetStatusSafe((Localizer.IsEnglish ? "Macro failed: " : "执行出错：") + executionError);
-                    else RefreshAggregateRunStatusSafe();
-                    UpdateRunButtonSafe();
-                }
-            }
-        }
-
-        private bool WaitForSingleStepAdvance(MacroRunRuntime runtime, int completedSteps, int totalSteps)
-        {
-            if (runtime == null || runtime.Stop == null || runtime.Stop.IsSet) return true;
-            ManualResetEventSlim stop = runtime.Stop;
-            System.Threading.AutoResetEvent gate = runtime.StepGate;
-            runCoordinator.SetSingleStepWaiting(runtime, true);
-            SetStatusSafe((Localizer.IsEnglish ? "Single-step: completed " : "单步：已执行 ") + completedSteps.ToString() + "/" + totalSteps.ToString() +
-                (Localizer.IsEnglish ? "; click Next Step to continue." : "；点击“下一步”继续。"));
-            UpdateRunButtonSafe();
-
-            while (!stop.IsSet)
-            {
-                if (gate != null && gate.WaitOne(50)) break;
-                if (gate == null && stop.Wait(50)) break;
-            }
-
-            runCoordinator.SetSingleStepWaiting(runtime, false);
-            UpdateRunButtonSafe();
-            if (!stop.IsSet) SetStatusSafe((Localizer.IsEnglish ? "Single-step executing: " : "单步执行：") + (runtime.Snapshot == null ? "" : runtime.Snapshot.Name));
-            return stop.IsSet;
-        }
-
-        private static int ResolveStepDelay(MacroStep step, Random random)
-        {
-            if (step == null) return 0;
-            if (!step.RandomDelay) return Math.Max(0, step.DelayMs);
-            int min = Math.Max(0, Math.Min(step.RandomDelayMinMs, step.RandomDelayMaxMs));
-            int max = Math.Max(0, Math.Max(step.RandomDelayMinMs, step.RandomDelayMaxMs));
-            if (max <= min) return min;
-            return random.Next(min, max + 1);
-        }
-
-        private void SyncRunHeldInputs(MacroRunRuntime runtime, Dictionary<string, InputSpec> held)
-        {
-            runCoordinator.UpdateHeldInputs(runtime, held);
-        }
-
-        private void SetMacroRunStatusSafe(MacroRunRuntime runtime, string singleRunText)
-        {
-            int count = ActiveMacroRunCount();
-            if (count <= 1)
-            {
-                SetStatusSafe(singleRunText);
-                return;
-            }
-            string name = runtime == null || runtime.Snapshot == null ? "" : runtime.Snapshot.Name;
-            SetStatusSafe(Localizer.IsEnglish
-                ? "Running " + count.ToString() + " macros (latest activity: " + name + ")"
-                : "正在并发执行 " + count.ToString() + " 个宏（最近活动：" + name + "）");
-        }
-
-        private void RefreshAggregateRunStatusSafe()
-        {
-            int runCount = ActiveMacroRunCount();
-            if (runCount > 0)
-            {
-                SetStatusSafe(Localizer.IsEnglish ? "Running macros: " + runCount.ToString() : "正在执行的宏：" + runCount.ToString() + " 个");
-                return;
-            }
-            int heldCount = ActiveParallelHeldMappingCount();
-            if (heldCount > 0)
-            {
-                SetStatusSafe(Localizer.IsEnglish ? "Held mappings active: " + heldCount.ToString() : "按住映射活动：" + heldCount.ToString());
-                return;
-            }
-            SetStatusSafe(Localizer.T("状态：空闲"));
-        }
-
-        private bool WaitForUiSafetyClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, string sourceId, bool nativeUiGuard = false)
-        {
-            if (stop.IsSet) return true;
-            if (!WorkerUiPauseRequested(nativeUiGuard)) return false;
-
-            // Suspend only this worker's source. Other parallel Held Mapping sources remain active.
-            try { outputOwnership.SuspendSource(sourceId); }
-            catch (OutputOwnershipException ex) { HandleOutputOwnershipFailure(ex, "ui-suspend"); return true; }
-
-            string reason = uiSafetyPauseReason;
-            if (string.IsNullOrWhiteSpace(reason)) reason = "编辑控件";
-            SetStatusSafe("已暂停：" + macroName + "（UI编辑保护：" + Localizer.T(reason) + "）");
-
-            while (!stop.IsSet && WorkerUiPauseRequested(nativeUiGuard))
-            {
-                if (stop.Wait(10)) return true;
-            }
-            if (stop.IsSet) return true;
-
-            try { outputOwnership.ResumeSource(sourceId); }
-            catch (OutputOwnershipException ex) { HandleOutputOwnershipFailure(ex, "ui-resume"); return true; }
-            SetStatusSafe("正在执行：" + macroName + "（UI编辑保护已恢复）");
-            return false;
-        }
-
-        private bool WaitOrStopWithUiSafety(ManualResetEventSlim stop, int ms, string macroName, Dictionary<string, InputSpec> held, string sourceId, bool nativeUiGuard = false)
-        {
-            if (WaitForUiSafetyClear(stop, macroName, held, sourceId, nativeUiGuard)) return true;
-            if (ms <= 0) return stop.IsSet;
-
-            // Do not assume that Wait(10) advances time by exactly 10 ms. On Windows the scheduler
-            // may wake substantially later (commonly around the system timer quantum). Subtracting
-            // the requested slice once per loop makes long macro delays drift badly because that
-            // overshoot accumulates. Track actual monotonic elapsed time instead.
-            double remainingMs = ms;
-            while (remainingMs > 0.0 && !stop.IsSet)
-            {
-                if (WaitForUiSafetyClear(stop, macroName, held, sourceId, nativeUiGuard)) return true;
-                int slice = Math.Max(1, Math.Min(10, (int)Math.Ceiling(remainingMs)));
-                long before = Stopwatch.GetTimestamp();
-                if (stop.Wait(slice)) return true;
-                long after = Stopwatch.GetTimestamp();
-
-                // If UI protection became active during this slice, preserve the historical rule:
-                // none of that slice counts toward macro timing. The next iteration waits for the
-                // protection state to clear before timing resumes.
-                if (!WorkerUiPauseRequested(nativeUiGuard))
-                {
-                    double elapsedMs = (after - before) * 1000.0 / Stopwatch.Frequency;
-                    if (elapsedMs <= 0.0) elapsedMs = slice;
-                    remainingMs -= elapsedMs;
-                }
-            }
-            return stop.IsSet;
-        }
-
-        private bool WaitForDangerousPhysicalShortcutToClear(ManualResetEventSlim stop, string macroName, Dictionary<string, InputSpec> held, MacroStep step, string sourceId, bool nativeUiGuard = false)
-        {
-            if (step == null || step.Action == MacroAction.Up || step.Kind != InputKind.Keyboard) return stop.IsSet;
-
-            bool observedConflict = false;
-            long conflictFreeSince = 0;
-            long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
-            while (!stop.IsSet)
-            {
-                if (WorkerUiPauseRequested(nativeUiGuard) && WaitForUiSafetyClear(stop, macroName, held, sourceId, nativeUiGuard)) return true;
-
-                HookManager h = hooks;
-                int hookMask = h == null ? 0 : h.PhysicalModifierMaskSnapshot;
-                int macroHeldMask = GetMacroHeldModifierMask(held);
-                // GetAsyncKeyState includes InputStitch's own SendInput. Remove macro-held
-                // modifiers from that source, then add back any same modifier proven physical
-                // by the low-level hook snapshot.
-                int asyncMask = PhysicalInputState.GetModifierMask();
-                int physicalMask = hookMask | (asyncMask & ~macroHeldMask);
-                int effectiveMask = physicalMask | macroHeldMask;
-                int dangerousMask = ModifierSafetyPolicy.GetDangerousPhysicalModifierMask(step, effectiveMask);
-                int physicalBlockers = dangerousMask & physicalMask;
-
-                if (physicalBlockers == 0)
-                {
-                    if (!observedConflict) return stop.IsSet;
-                    long now = Stopwatch.GetTimestamp();
-                    if (conflictFreeSince == 0) conflictFreeSince = now;
-                    else if (now - conflictFreeSince >= requiredTicks) break;
-                }
-                else
-                {
-                    conflictFreeSince = 0;
-                    if (!observedConflict)
-                    {
-                        observedConflict = true;
-                        Interlocked.Increment(ref dangerousShortcutAvoidanceCount);
-                        AppLog.Write("Delayed macro step to avoid a physical shortcut: macro=" +
-                            macroName + ", key=" + InputNames.FormatInput(step) +
-                            ", modifierMask=" + physicalBlockers.ToString());
-                        SetStatusSafe("正在执行：" + macroName + "（等待避免特殊快捷键冲突）");
-                    }
-                }
-                if (WaitOrStop(stop, 5)) return true;
-            }
-            if (!stop.IsSet) SetStatusSafe("正在执行：" + macroName);
-            return stop.IsSet;
-        }
-
-        private static int GetMacroHeldModifierMask(Dictionary<string, InputSpec> held)
-        {
-            if (held == null || held.Count == 0) return 0;
-            int mask = 0;
-            foreach (KeyValuePair<string, InputSpec> pair in held)
-            {
-                InputSpec input = pair.Value;
-                if (input == null || input.Kind != InputKind.Keyboard) continue;
-                int vk = input.VirtualKey;
-                if (vk == (int)Keys.LControlKey || vk == (int)Keys.RControlKey || vk == (int)Keys.ControlKey)
-                    mask |= ModifierSafetyPolicy.Ctrl;
-                else if (vk == (int)Keys.LShiftKey || vk == (int)Keys.RShiftKey || vk == (int)Keys.ShiftKey)
-                    mask |= ModifierSafetyPolicy.Shift;
-                else if (vk == (int)Keys.LMenu || vk == (int)Keys.RMenu || vk == (int)Keys.Menu)
-                    mask |= ModifierSafetyPolicy.Alt;
-                else if (vk == (int)Keys.LWin || vk == (int)Keys.RWin)
-                    mask |= ModifierSafetyPolicy.Win;
-            }
-            return mask;
-        }
-
-        private static bool WaitForTriggerReleaseStable(ManualResetEventSlim stop, TriggerSpec trigger, int settleMs)
-        {
-            long releasedSince = 0;
-            long requiredTicks = Math.Max(0, settleMs) * Stopwatch.Frequency / 1000L;
-
-            while (!stop.IsSet)
-            {
-                if (!PhysicalInputState.IsTriggerTerminalReleased(trigger))
-                {
-                    releasedSince = 0;
-                }
-                else
-                {
-                    long now = Stopwatch.GetTimestamp();
-                    if (releasedSince == 0)
-                    {
-                        releasedSince = now;
-                    }
-                    else if (now - releasedSince >= requiredTicks)
-                    {
-                        return false;
-                    }
-                }
-
-                if (stop.Wait(5)) return true;
-            }
-            return true;
-        }
-
-        private static bool SameGamepadState(InputSpec left, InputSpec right)
-        {
-            if (left == null || right == null || left.Kind != InputKind.Gamepad || right.Kind != InputKind.Gamepad) return false;
-            return left.GamepadControl == right.GamepadControl &&
-                left.GamepadX == right.GamepadX && left.GamepadY == right.GamepadY &&
-                left.GamepadValue == right.GamepadValue;
-        }
-
         private static string InputKey(InputSpec input)
         {
-            if (input != null && input.Kind == InputKind.Gamepad)
-                return ((int)input.Kind).ToString() + ":" + ((int)input.GamepadControl).ToString();
-            return ((int)input.Kind).ToString() + ":" + input.VirtualKey.ToString() + ":" + input.ScanCode.ToString() + ":" + input.Extended.ToString();
+            return MacroExecutionPlan.KeyForInput(input);
         }
 
         private static bool WaitOrStop(ManualResetEventSlim stop, int ms)
@@ -7842,12 +7445,39 @@ namespace InputStitch
         private void SetStatusSafe(string text)
         {
             if (IsDisposed) return;
+            if (!InvokeRequired)
+            {
+                // A direct UI command supersedes notifications posted before it.
+                lock (statusDispatchLock) pendingStatusText = null;
+                try { statusLabel.Text = text; } catch { }
+                return;
+            }
+            lock (statusDispatchLock)
+            {
+                pendingStatusText = text ?? "";
+                if (statusDispatchQueued) return;
+                statusDispatchQueued = true;
+            }
             try
             {
-                if (InvokeRequired) BeginInvoke((MethodInvoker)delegate { if (!IsDisposed) statusLabel.Text = text; });
-                else statusLabel.Text = text;
+                BeginInvoke((MethodInvoker)ApplyPendingStatus);
             }
-            catch { }
+            catch
+            {
+                lock (statusDispatchLock) { pendingStatusText = null; statusDispatchQueued = false; }
+            }
+        }
+
+        private void ApplyPendingStatus()
+        {
+            string text;
+            lock (statusDispatchLock)
+            {
+                text = pendingStatusText;
+                pendingStatusText = null;
+                statusDispatchQueued = false;
+            }
+            if (!IsDisposed && text != null) statusLabel.Text = text;
         }
 
         private void UpdateRunButtonSafe()
@@ -7974,81 +7604,106 @@ namespace InputStitch
                     }
                 }
             }
-            try
+            // From here closing is committed. Stop admitting new triggers before
+            // disposing any provider; one failing subsystem cannot skip final release.
+            lock (runLock) { shutdownStarted = true; manualTriggerSuspend = true; }
+            ShutdownCleanup cleanup = new ShutdownCleanup(delegate(string name, Exception ex) { AppLog.Write("Shutdown step failed: " + name, ex); });
+            cleanup.Run("input-pipeline", delegate
             {
-                if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
-                DisposeCrosshair();
-                DisposeScreenTools();
-                if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; }
                 if (inputPipelineScheduler != null)
                 {
                     inputPipelineScheduler.Dispose();
                     inputPipelineScheduler = null;
                 }
+            });
+            cleanup.Run("macro-stop", delegate { StopAllMacroRuns("shutdown"); });
+            cleanup.Run("held-mapping-stop", delegate { StopAllParallelHeldMappings("shutdown"); });
+            cleanup.Run("held-state", ForceReleaseActiveHeldInputs);
+            cleanup.Run("screen-tools-and-network", DisposeScreenTools);
+            cleanup.Run("replacement-monitor", delegate
+            {
+                if (controlledReplacementHealthMonitor != null) { controlledReplacementHealthMonitor.Dispose(); controlledReplacementHealthMonitor = null; }
+            });
+            cleanup.Run("crosshair", DisposeCrosshair);
+            cleanup.Run("idle-gamepad", delegate { if (idleGamepad != null) { idleGamepad.Dispose(); idleGamepad = null; } });
+            cleanup.Run("router", delegate
+            {
                 if (gamepadRouter != null)
                 {
                     gamepadRouter.Dispose();
                     gamepadRouter = null;
                 }
-                if (gamepadInput != null)
+            });
+            IGamepadInputProvider closingInput = gamepadInput; gamepadInput = null; sdl3Input = null;
+            cleanup.Run("input-detach", delegate
+            {
+                if (closingInput != null)
                 {
-                    gamepadInput.InputDown = null;
-                    gamepadInput.InputUp = null;
-                    gamepadInput.Dispose();
-                    gamepadInput = null;
+                    closingInput.InputDown = null;
+                    closingInput.InputUp = null;
                 }
-                sdl3Input = null;
+            });
+            cleanup.Run("input-dispose", delegate { if (closingInput != null) closingInput.Dispose(); });
+            cleanup.Run("capture", delegate
+            {
                 CancelCapture();
                 uiSafetyPauseRequested = false;
                 uiSafetyPauseReason = "";
+            });
+            cleanup.Run("foreground-timer", delegate
+            {
                 if (foregroundTimer != null)
                 {
                     foregroundTimer.Stop();
                     foregroundTimer.Dispose();
                     foregroundTimer = null;
                 }
-                StopAllMacroRuns("shutdown");
-                StopAllParallelHeldMappings("shutdown");
-                ForceReleaseActiveHeldInputs();
-                macroWorkers.Dispose();
-                // Ownership is the final shutdown authority. This releases keyboard/mouse state
-                // as well as the gamepad, including the rare case where a worker missed its
-                // normal finally path before the bounded join returned.
-                outputOwnership.ClearAll("shutdown");
-                GamepadOutput.NeutralizeAll();
-                GamepadOutput.Disconnect();
-                SaveConfig();
+            });
+            cleanup.Run("macro-workers", macroWorkers.Dispose);
+            // Keep final ownership release after the bounded worker join. Each
+            // fallback is independent even when a provider or output backend fails.
+            cleanup.Run("owned-input-release", delegate { outputOwnership.ClearAll("shutdown"); });
+            cleanup.Run("gamepad-neutral", GamepadOutput.NeutralizeAll);
+            cleanup.Run("gamepad-disconnect", GamepadOutput.Disconnect);
+            cleanup.Run("configuration", delegate { SaveConfig(); });
+            cleanup.Run("raw-keyboard", delegate
+            {
                 if (rawKeyboardFallback != null)
                 {
                     rawKeyboardFallback.Input -= HandleRawKeyboardFallback;
                     rawKeyboardFallback.Dispose();
                     rawKeyboardFallback = null;
                 }
+            });
+            cleanup.Run("hooks", delegate
+            {
                 if (hooks != null)
                 {
                     hooks.Dispose();
                     hooks = null;
                 }
+            });
+            cleanup.Run("tray", delegate
+            {
                 if (trayIcon != null)
                 {
                     trayIcon.Visible = false;
                     trayIcon.Dispose();
                     trayIcon = null;
                 }
-                // Do not synchronously Dispose ContextMenuStrip instances during FormClosing.
-                // If shutdown was initiated from a menu item, WinForms' ModalMenuFilter may
-                // still reference that drop-down until the click/close message fully unwinds.
-                // The process is exiting, so dropping our references is safer than forcing an
-                // early Dispose that can surface ObjectDisposedException from ToolStrip internals.
-                trayMenu = null;
-                toolsMenu = null;
-                if (runtimeObservationForm != null && !runtimeObservationForm.IsDisposed) { runtimeObservationForm.Close(); runtimeObservationForm = null; }
-                AppLog.Write("Application closed normally.");
-            }
-            catch (Exception ex)
+            });
+            // Do not synchronously Dispose ContextMenuStrip instances during FormClosing.
+            // If shutdown was initiated from a menu item, WinForms' ModalMenuFilter may
+            // still reference that drop-down until the click/close message fully unwinds.
+            // The process is exiting, so dropping our references is safer than forcing an
+            // early Dispose that can surface ObjectDisposedException from ToolStrip internals.
+            trayMenu = null;
+            toolsMenu = null;
+            cleanup.Run("observation-window", delegate
             {
-                AppLog.Write("Shutdown cleanup failed", ex);
-            }
+                if (runtimeObservationForm != null && !runtimeObservationForm.IsDisposed) { runtimeObservationForm.Close(); runtimeObservationForm = null; }
+            });
+            try { AppLog.Write(cleanup.FailureCount == 0 ? "Application closed normally." : "Application closed with cleanup errors: " + cleanup.FailureCount.ToString()); } catch { }
         }
     }
 

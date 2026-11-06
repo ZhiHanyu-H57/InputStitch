@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-smoke",
+  "status": "PASS",
+  "sourceCommit": "304a75ae62aaf05b07a046f12dbe1d8f17c21918",
+  "fingerprint": "827aede2805d655356e2776fd6cbcf28c1c5d4cbf64c9649fba43b319cf439c5",
+  "qualification": "Both final beta languages, default/compact settings and old XML defaults; private desktop; final x64 packaged assembly. No physical input or network changes.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-smoke-304a75ae62aa.log",
+      "sha256": "9A4553F76BF15C89364B0BD277666ACE018FFD5B7B1C9137E9BF17653CCB0E6D"
+    }
+  ]
+}

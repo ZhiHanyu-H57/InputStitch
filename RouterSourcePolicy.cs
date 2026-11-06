@@ -79,15 +79,24 @@ namespace InputStitch
         string Summary { get; }
     }
 
+    // The router keeps its own copy; unchanged configuration needs no repeated clone.
+    // Other evaluators can keep using the original per-tick property contract.
+    internal interface IRouterTransformSnapshotProvider
+    {
+        bool CopyAnalogTransformIfChanged(ref long observedRevision, ref AnalogTransformProfile copy);
+    }
+
     // Persistent policy is keyed only by stable DeviceKey. XInput slot is accepted here solely as
     // transient runtime context for a binding that DeviceIdentityService has already proven.
-    internal sealed class RouterSourcePolicyEvaluator : IRouterSourcePolicyEvaluator
+    internal sealed class RouterSourcePolicyEvaluator : IRouterSourcePolicyEvaluator, IRouterTransformSnapshotProvider
     {
         private readonly DeviceIdentityService identities;
         private readonly object sync = new object();
         private string mode = RouterSourceModes.AllVisible;
         private HashSet<string> selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private AnalogTransformProfile analogTransform = new AnalogTransformProfile();
+        private long revision;
+        private string summary = "all-visible";
 
         internal RouterSourcePolicyEvaluator(DeviceIdentityService deviceIdentities, RouterSourcePolicyConfig initial)
         {
@@ -100,11 +109,18 @@ namespace InputStitch
             RouterSourcePolicyConfig copy = value == null ? new RouterSourcePolicyConfig() : value.Clone();
             HashSet<string> next = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string key in copy.SelectedDeviceKeys) next.Add(key);
+            string selection = string.Equals(copy.Mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase)
+                ? "all-visible" : "selected-devices=" + next.Count.ToString();
+            string transform = copy.AnalogTransform.Summary;
+            string nextSummary = string.Equals(transform, "identity", StringComparison.Ordinal)
+                ? selection : selection + "; analog=" + transform;
             lock (sync)
             {
                 mode = copy.Mode;
                 selected = next;
                 analogTransform = copy.AnalogTransform == null ? new AnalogTransformProfile() : copy.AnalogTransform.Clone();
+                summary = nextSummary;
+                revision++;
             }
         }
 
@@ -126,16 +142,17 @@ namespace InputStitch
 
         public string Summary
         {
-            get
+            get { lock (sync) return summary; }
+        }
+
+        public bool CopyAnalogTransformIfChanged(ref long observedRevision, ref AnalogTransformProfile copy)
+        {
+            lock (sync)
             {
-                lock (sync)
-                {
-                    string selection = string.Equals(mode, RouterSourceModes.AllVisible, StringComparison.OrdinalIgnoreCase)
-                        ? "all-visible" : "selected-devices=" + selected.Count.ToString();
-                    string transform = analogTransform == null ? "identity" : analogTransform.Summary;
-                    return string.Equals(transform, "identity", StringComparison.Ordinal)
-                        ? selection : selection + "; analog=" + transform;
-                }
+                if (observedRevision == revision && copy != null) return false;
+                copy = analogTransform.Clone();
+                observedRevision = revision;
+                return true;
             }
         }
 

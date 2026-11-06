@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:KeyboardTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "507702fd58aca80910302d8f1e493afe3251f1d4a6c09aaff9da6082ce66aecc",
+  "qualification": "Final beta.5 supplemental dependency regression; frozen complete production source. Original fake/private/keyboard-policy scope retained, no real keyboard or mouse output.",
+  "evidence": [
+    {
+      "sha256": "851598E8368D8FA5A4E5F278FB1D0A1EC3A262B79FA6126B6F96CCBAF791C0DF",
+      "path": "verification/evidence/suite-KeyboardTests-c8f1eda5ee67.log"
+    }
+  ]
+}

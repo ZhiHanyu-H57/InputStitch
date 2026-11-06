@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:Sdl3ProviderTests",
+  "status": "PASS",
+  "sourceCommit": "9a8ea5e25530eb1922fdc10667ceae514d811c6c",
+  "fingerprint": "09df5a0ef91a97ebc3c08d5157d2a94d64274e9b31965fbefe71f7965d56bf04",
+  "qualification": "Windows x64/.NET Framework4.7.2; targeted beta.2 integration. UI tests use private process desktops; fakes/observer output, except native SDL loading where explicitly logged. No real keyboard/mouse input or host network mutation. SDL suite was executed before metadata-only version update; relevant source/assertion/helper inputs are identical.",
+  "evidence": [
+    {
+      "sha256": "128ABF612CD827F31EF63550B8A2576F1D17A344A9535D5A025E1AD1D5656CFF",
+      "path": "verification/evidence/suite-Sdl3ProviderTests-9a8ea5e25530.log"
+    }
+  ]
+}

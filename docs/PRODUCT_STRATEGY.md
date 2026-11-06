@@ -1,5 +1,55 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Stable1.6.2 publication — 2026-11-06
+
+Promote frozen beta.5 maintenance behavior after cumulativev1.6.1 verification,
+reusing valid runtime/soak evidence. Fresh Stable metadata, missing cumulative
+checks and final actual packages/updates complete the release gate. No feature
+expansion or user-trial requirement. See RELEASE_1_6_2_VERIFICATION.md.
+
+## Reproduced safety and overhead fixes — 2026-11-06
+
+Beta.5 closes concrete stop/admission gaps and removes measured unchanged-save,
+unrelated-condition and static-route work. Keep stable input ownership, old XML
+and the single-file product; distinguish delivered-edge/physical-probe evidence
+from actual hook delivery or driver checks. No feature, dependency or polling-rate
+change. See RUNTIME_REPAIR_1_6_2_BETA5.md.
+
+## Executor maintenance — 2026-11-06
+
+Beta.4 separates the real macro loop from the window through a small policy
+interface, retaining stable stop/edit protection and configuration. Keep the
+single-file application and existing output ownership. Measure execution output
+parity and allocation with the same driver; use scoped runtime acceptance rather
+than repeating unrelated capture/network/update checks. See
+MACRO_EXECUTOR_1_6_2_BETA4.md.
+
+## Run preparation and shutdown maintenance — 2026-11-06
+
+Address actual repetition and cleanup failures with a small per-run plan and
+explicit independent shutdown stages. Preserve the single-file native product,
+stable features and input/output ownership. Continue to distinguish local
+preparation gains from whole-app CPU; do not equate partial-file moves with a
+complete runtime/UI separation. See EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
+## Architecture maintenance follow-up — 2026-11-06
+
+Keep the lightweight native application and existing backend/ownership seams.
+Local beta.2 improves native sample ownership, cleanup failure isolation and
+latest-status UI dispatch. MainForm still owns execution and presentation; its
+remaining coupling is documented rather than declared solved by partial files.
+Prioritize measured paths and scoped evidence. See
+ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md.
+
+## Performance maintenance — 2026-11-06
+
+Use official mature-tool/platform sources and same-host measurements to remove
+proven recurring work. This local1.6.2-beta.1 handles optional-tool shortcut
+validation and SDL managed scratch allocation, plus the discovered trigger-release
+defect. Keep public configuration, features and Stable1.6.1 unchanged; no framework
+or backend rewrite. Use impact-selected evidence and deliver runnable packages.
+See PERFORMANCE_1_6_2_BETA1.md.
+
 ## Current decision: Stable1.6.1 repair update — 2026-10-27
 
 Published the mouse-control recovery and shared Shift-trigger fixes with frozen

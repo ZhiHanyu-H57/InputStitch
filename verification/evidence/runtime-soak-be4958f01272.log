@@ -1,0 +1,5 @@
+PRIVATE UI process bound: InputStitchTest-2d16c223d8b64edea8441c85cdc54b8e
+PASS product acceptance: 1984 checks; isolated editor, saved files and runtime observer; no user configuration or real input.
+PASS private UI desktop; foreground test-window samples=0/1036; input desktop unchanged.
+PASS private UI process exited and desktop handle released.
+{"status":"PASS","version":"1.6.2-beta.3","durationSeconds":60.2,"cycles":441,"outputDowns":2416,"outputUps":2415,"longPressCycles":221,"longPressThresholdMs":50,"blockedUiSamples":22,"blockedUiDurationMs":120,"maxLongPressMs":113,"keyboardDowns":2327,"keyboardUps":2327,"maxContinuousGapMs":52,"cpuMilliseconds":4796.9,"baselinePrivateBytes":33910784,"finalPrivateBytes":35000320,"peakPrivateBytes":35000320,"baselineHandles":369,"finalHandles":386,"peakHandles":386,"warmedMedianHandles":370,"tailMedianHandles":369,"handlePeakBudget":626,"baselineGdi":26,"finalGdi":26,"baselineUser":30,"finalUser":31,"baselineThreads":11,"finalThreads":11,"peakThreads":13,"workerThreadsCreated":3,"maxUiDispatchMs":21,"remainingOutputSources":0,"remainingPressedOutputs":0,"forcedGc":false,"backend":"isolated observer"}

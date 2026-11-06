@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-smoke",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "7917b76cdd868bd0bad849a47b2c16c9fb361adf8169928c41952c3b1615d646",
+  "qualification": "Final beta.3 selected private-desktop workflow/layout/metadata check; see actual assertion/window/DPI scope in log. No real input or normal configuration.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-smoke-be4958f01272.log",
+      "sha256": "9B3632BE7E98C97546D27F75486878D539F9B9E6470E6C40A87C2C4D55EF155C"
+    }
+  ]
+}

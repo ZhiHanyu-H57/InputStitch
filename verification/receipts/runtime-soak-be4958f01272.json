@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "runtime:soak",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "413ea4296ff01098e842b4a85fb581370cf9d7729f1744b908cf8da889d3ca1b",
+  "qualification": "Final60.2s/441 cycles/221 long presses/22 blocked-UI samples; keyboard2327/2327, final sources/pressed zero,3 workers; no forcedGC. Private process desktop, observer output; path-only stdout header omitted, original raw report delivered.",
+  "evidence": [
+    {
+      "path": "verification/evidence/runtime-soak-be4958f01272.log",
+      "sha256": "C6946BFD3B29742D76F2645024227CEEEE53D0E213D1A53F925FE230177BBF12"
+    }
+  ]
+}

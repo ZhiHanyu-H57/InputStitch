@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:DeviceIdentityTests",
+  "status": "PASS",
+  "sourceCommit": "c8f1eda5ee674a328bacef0159a3c1d2f487780d",
+  "fingerprint": "06634733e3b516ea4c5ee7d14ea014bdae6b9ad1f810910bb68b4fdaa9b076e7",
+  "qualification": "Final beta.5 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "27899B27BFF3ACA2A3DE9ACDF19BDDACB5B87652499B1CC6C13CDC6283284B94",
+      "path": "verification/evidence/suite-DeviceIdentityTests-c8f1eda5ee67.log"
+    }
+  ]
+}

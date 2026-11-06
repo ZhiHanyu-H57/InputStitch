@@ -14,12 +14,17 @@ internal static class Sdl3ProviderTests
     private static int joystickUpdates;
     private static int nativeCount;
     private static int nativeFrees;
+    private static int[] nativeIds = new[] { 7, 9 };
+    private static uint nativeButtons;
+    private static short[] nativeAxes = new short[6];
+    private static int nativeButtonReads, nativeAxisReads, nativeCloses, nativeQuits;
+    private static bool failNativeClose, failNativeAxis;
     private static IntPtr NativeList(out int count)
     {
         count = Math.Max(0, nativeCount);
         if (nativeCount < 0) return IntPtr.Zero;
         IntPtr pointer = Marshal.AllocHGlobal((count + 1) * 4);
-        if (count != 0) Marshal.WriteInt32(pointer, 7);
+        for (int i = 0; i < count; i++) Marshal.WriteInt32(pointer, i * 4, nativeIds[i]);
         Marshal.WriteInt32(pointer, count * 4, 0);
         return pointer;
     }
@@ -39,6 +44,67 @@ internal static class Sdl3ProviderTests
         Check(indices.Length == 1 && indices[0] == 7 && nativeFrees == 5001, "nonempty lists are copied before the native allocation is freed");
         nativeCount = -1;
         Check(api.ListDeviceIds().Length == 0 && nativeFrees == 5001, "a null native result is not freed");
+        nativeCount = 1;
+        int[] retained = api.ListDeviceIds();
+        Check(object.ReferenceEquals(retained, api.ListDeviceIds()), "unchanged native membership reuses its read-only snapshot");
+        nativeIds[0] = 13;
+        int[] replaced = api.ListDeviceIds();
+        Check(replaced[0] == 13 && retained[0] == 7 && !object.ReferenceEquals(retained, replaced), "same-count membership change replaces the snapshot without mutating a retained list");
+        nativeCount = 2;
+        Check(api.ListDeviceIds().Length == 2 && replaced.Length == 1, "member count change preserves the previous snapshot");
+        nativeCount = 0;
+        Check(object.ReferenceEquals(api.ListDeviceIds(), api.ListDeviceIds()), "empty native membership reuses an empty snapshot while freeing every native list");
+        Check(nativeFrees == 5007, "snapshot reuse never skips SDL_free or native enumeration");
+        nativeIds[0] = 7;
+    }
+    private static void BindNative(Sdl3NativeApi api, string field, string method)
+    {
+        FieldInfo target = typeof(Sdl3NativeApi).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic);
+        target.SetValue(api, Delegate.CreateDelegate(target.FieldType, typeof(Sdl3ProviderTests).GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic)));
+    }
+    private static bool NativeButton(IntPtr handle, int index) { nativeButtonReads++; return (nativeButtons & (1U << index)) != 0; }
+    private static short NativeAxis(IntPtr handle, int index)
+    { nativeAxisReads++; if (failNativeAxis) throw new IOException("native axis failure"); return nativeAxes[index]; }
+    private static void NativeClose(IntPtr handle)
+    { nativeCloses++; if (failNativeClose && nativeCloses == 1) throw new IOException("native close failure"); }
+    private static void NativeQuit(uint flags) { nativeQuits++; }
+    private static void NativeFramesAndCleanup()
+    {
+        BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+        Sdl3NativeApi api = new Sdl3NativeApi();
+        typeof(Sdl3NativeApi).GetField("available", hidden).SetValue(api, true);
+        Dictionary<int, IntPtr> handles = (Dictionary<int, IntPtr>)typeof(Sdl3NativeApi).GetField("handles", hidden).GetValue(api);
+        handles.Add(7, new IntPtr(1)); handles.Add(9, new IntPtr(2));
+        BindNative(api, "sdlGetGamepadButton", "NativeButton"); BindNative(api, "sdlGetGamepadAxis", "NativeAxis");
+        BindNative(api, "sdlCloseGamepad", "NativeClose"); BindNative(api, "sdlQuitSubSystem", "NativeQuit");
+        nativeButtons = 0x7fff;
+        nativeAxes = new[] { short.MinValue, short.MaxValue, (short)1500, short.MinValue, short.MaxValue, (short)16384 };
+        Sdl3DeviceSnapshot first;
+        Check(api.TryGetSnapshot(7, out first) && first.Buttons == 0x7fff, "native frame reads all mapped SDL buttons into an independent value");
+        Check(nativeButtonReads == 15 && nativeAxisReads == 6, "each connected device still reads every mapped button and all six axes");
+        XInputPadState mapped = Sdl3InputProvider.MapSnapshot(first);
+        Check(mapped.Buttons == 0xf7ff && mapped.ThumbLX == short.MinValue && mapped.ThumbLY == -short.MaxValue && mapped.ThumbRX == 1500 && mapped.ThumbRY == short.MaxValue && mapped.LeftTrigger == 255 && mapped.RightTrigger == 128,
+            "value-frame mapping preserves all digital controls, Y saturation and trigger scaling");
+        ushort[] expected = { 0x1000, 0x2000, 0x4000, 0x8000, 0x20, 0x400, 0x10, 0x40, 0x80, 0x100, 0x200, 1, 2, 4, 8 };
+        for (int i = 0; i < expected.Length; i++)
+        {
+            nativeButtons = 1U << i; Sdl3DeviceSnapshot single;
+            Check(api.TryGetSnapshot(7, out single) && Sdl3InputProvider.MapSnapshot(single).Buttons == expected[i], "individual SDL button mapping remains unchanged: " + i);
+        }
+        nativeButtons = 0; nativeAxes[0] = 42; Sdl3DeviceSnapshot later;
+        Check(api.TryGetSnapshot(7, out later) && later.Buttons == 0 && later.LeftX == 42 && first.Buttons == 0x7fff && first.LeftX == short.MinValue,
+            "later reads cannot mutate retained value frames");
+        Check(!api.TryGetSnapshot(999, out later) && later.Equals(new Sdl3DeviceSnapshot()), "missing native handle returns false and a zero frame");
+        failNativeAxis = true;
+        try { api.TryGetSnapshot(7, out later); Check(false, "native getter exception is observable"); }
+        catch (IOException) { Check(later.Equals(new Sdl3DeviceSnapshot()), "failed native read never publishes a partially sampled frame"); }
+        failNativeAxis = false; failNativeClose = true;
+        api.Shutdown(); api.Shutdown();
+        Check(nativeCloses == 2 && nativeQuits == 1 && handles.Count == 0 && !api.Available, "one close failure cannot skip another handle or subsystem shutdown; cleanup is idempotent");
+        Check(!api.TryGetSnapshot(7, out later) && later.Equals(new Sdl3DeviceSnapshot()), "shutdown leaves no readable stale native frame");
+        api.Dispose();
+        Check(nativeCloses == 2 && nativeQuits == 1, "dispose after shutdown repeats no native side effects");
+        failNativeClose = false;
     }
     private static void GamepadUpdate() { gamepadUpdates++; }
     private static void JoystickUpdate() { joystickUpdates++; }
@@ -72,6 +138,9 @@ internal static class Sdl3ProviderTests
         public int ShutdownCount;
         public int UpdateCount;
         public int DescribeCount;
+        public int SnapshotCount;
+        public int[] DeviceIds;
+        public bool FailEnumeration;
         public readonly Dictionary<int, Sdl3DeviceDescriptor> Devices = new Dictionary<int, Sdl3DeviceDescriptor>();
         public readonly Dictionary<int, Sdl3DeviceSnapshot> Snapshots = new Dictionary<int, Sdl3DeviceSnapshot>();
         public readonly List<int> Opened = new List<int>();
@@ -80,7 +149,7 @@ internal static class Sdl3ProviderTests
         public bool Initialize() { InitializeCount++; return InitializeResult; }
         public void Shutdown() { ShutdownCount++; }
         public void Update() { UpdateCount++; }
-        public int[] ListDeviceIds() { return new List<int>(Devices.Keys).ToArray(); }
+        public int[] ListDeviceIds() { if (FailEnumeration) throw new IOException("enumeration test"); return DeviceIds ?? new List<int>(Devices.Keys).ToArray(); }
         public Sdl3DeviceDescriptor Describe(int deviceId)
         {
             DescribeCount++;
@@ -89,10 +158,11 @@ internal static class Sdl3ProviderTests
         }
         public bool Open(int deviceId) { Opened.Add(deviceId); return true; }
         public void Close(int deviceId) { Closed.Add(deviceId); }
-        public Sdl3DeviceSnapshot GetSnapshot(int deviceId)
+        public bool TryGetSnapshot(int deviceId, out Sdl3DeviceSnapshot snapshot)
         {
-            Sdl3DeviceSnapshot snapshot;
-            return Snapshots.TryGetValue(deviceId, out snapshot) ? snapshot : new Sdl3DeviceSnapshot();
+            SnapshotCount++;
+            Snapshots.TryGetValue(deviceId, out snapshot);
+            return true;
         }
     }
 
@@ -103,7 +173,15 @@ internal static class Sdl3ProviderTests
 
     private static Sdl3DeviceSnapshot Snapshot(bool[] buttons, short[] axes)
     {
-        return new Sdl3DeviceSnapshot { Buttons = buttons, Axes = axes };
+        uint mask = 0;
+        if (buttons != null) for (int i = 0; i < buttons.Length && i < 32; i++) if (buttons[i]) mask |= 1U << i;
+        return new Sdl3DeviceSnapshot { Buttons = mask,
+            LeftX = axes == null || axes.Length < 1 ? (short)0 : axes[0],
+            LeftY = axes == null || axes.Length < 2 ? (short)0 : axes[1],
+            RightX = axes == null || axes.Length < 3 ? (short)0 : axes[2],
+            RightY = axes == null || axes.Length < 4 ? (short)0 : axes[3],
+            LeftTrigger = axes == null || axes.Length < 5 ? (short)0 : axes[4],
+            RightTrigger = axes == null || axes.Length < 6 ? (short)0 : axes[5] };
     }
 
     private static bool[] Buttons(params int[] pressed)
@@ -131,6 +209,8 @@ internal static class Sdl3ProviderTests
     {
         NativeUpdate();
         NativeEnumeration();
+        NativeFramesAndCleanup();
+        PollingLifetime();
         // 1. An unavailable SDL3 runtime leaves the provider inert instead of throwing.
         FakeSdl3Api missing = new FakeSdl3Api();
         missing.InitializeResult = false;
@@ -315,5 +395,96 @@ internal static class Sdl3ProviderTests
 
         Console.WriteLine("PASS sdl3 provider: " + checks + " checks; mapping, edges, hysteresis, hot-plug and duplicate suppression with a fake SDL3 API.");
         return 0;
+    }
+
+    private static void PollingLifetime()
+    {
+        FakeSdl3Api api = new FakeSdl3Api();
+        api.Devices[21] = Device("DualSense", 0x054C, 1);
+        api.Devices[22] = Device("Xbox", Sdl3InputProvider.MicrosoftVendorId, 1);
+        api.DeviceIds = new[] { 21, 21, 22, 22 };
+        api.Snapshots[21] = Snapshot(Buttons(), Axes(0, 0, 0, 0, 0, 0));
+        Sdl3InputProvider provider = new Sdl3InputProvider(api);
+        List<InputEventInfo> downs = new List<InputEventInfo>(), ups = new List<InputEventInfo>();
+        provider.InputDown = downs.Add;
+        provider.InputUp = ups.Add;
+        provider.Poll();
+        int index = provider.ConnectedDeviceIndices()[0];
+        Check(api.Opened.Count == 1 && api.DescribeCount == 2, "duplicate ids open and describe each present device once");
+        int reads = api.SnapshotCount, updates = api.UpdateCount;
+        for (int i = 0; i < 100; i++) provider.Poll();
+        Check(api.UpdateCount - updates == 100 && api.SnapshotCount - reads == 100, "unchanged membership still updates and reads live state every tick");
+        Check(api.DescribeCount == 2, "a suppressed Xbox instance does not repeatedly query unchanged metadata");
+        api.Snapshots[21] = Snapshot(Buttons(Sdl3GamepadButtons.South), Axes(0, 0, 0, 0, 32767, 32767));
+        provider.Poll();
+        Check(downs.Count == 3, "button and both triggers have independent down edges");
+        api.Snapshots[21] = Snapshot(Buttons(Sdl3GamepadButtons.South), Axes(0, 0, 0, 0, (short)(32767 * 75 / 100), (short)(32767 * 75 / 100)));
+        provider.Poll();
+        Check(ups.Count == 0, "both held triggers retain hysteresis before disconnect");
+        api.DeviceIds = new[] { 22 };
+        provider.Poll();
+        Check(ups.Count == 3 && ups.Exists(delegate(InputEventInfo e) { return e.Input.GamepadControl == GamepadControl.LeftTrigger; }) && ups.Exists(delegate(InputEventInfo e) { return e.Input.GamepadControl == GamepadControl.RightTrigger; }), "disconnect releases both latched triggers as well as held buttons");
+        Check(ups.TrueForAll(delegate(InputEventInfo e) { return e.DeviceIndex == index; }), "disconnect release edges retain the removed device index");
+        provider.Poll();
+        Check(ups.Count == 3, "disconnected controls are released exactly once");
+
+        api.Snapshots[21] = Snapshot(Buttons(Sdl3GamepadButtons.South), Axes(0, 0, 0, 0, 32767, 32767));
+        api.DeviceIds = new[] { 21, 22 };
+        provider.Poll();
+        Check(downs.Count == 3 && provider.ConnectedDeviceIndices()[0] == index, "reconnected held inputs establish a baseline without activation");
+        api.DeviceIds = new[] { 21 };
+        provider.Poll();
+        api.DeviceIds = new[] { 21, 22 };
+        provider.Poll();
+        Check(api.DescribeCount == 4, "suppressed metadata cache is discarded when that instance leaves");
+
+        api.FailEnumeration = true;
+        provider.Poll();
+        Check(ups.Count == 6 && provider.ConnectedDeviceIndices().Length == 0, "enumeration failure releases the last known button and trigger state");
+        Check(provider.StatusSummary.StartsWith("enumerate-failed:", StringComparison.Ordinal), "enumeration failure remains visible in diagnostics");
+        api.FailEnumeration = false;
+        provider.Poll();
+        Check(provider.StatusSummary == "ready; devices=1" && downs.Count == 3, "successful recovery restores ready status and reconnect baseline");
+        // A callback must run after the state lock is released; use another thread to observe it.
+        bool outsideLock = false;
+        provider.InputUp = delegate(InputEventInfo e)
+        {
+            ups.Add(e);
+            System.Threading.Thread observer = new System.Threading.Thread(delegate()
+            { provider.ConnectedDeviceIndices(); outsideLock = true; });
+            observer.Start();
+            Check(observer.Join(1000), "release callbacks do not hold the provider state lock");
+        };
+        long topology = provider.TopologyVersion;
+        provider.Dispose();
+        Check(outsideLock && ups.Count == 9 && provider.CurrentGamingDevices().Count == 0, "dispose releases held controls and clears published device metadata");
+        Check(provider.TopologyVersion > topology && !provider.Available, "dispose invalidates published topology and availability");
+        provider.Dispose();
+        updates = api.UpdateCount;
+        provider.Poll();
+        Check(ups.Count == 9 && api.ShutdownCount == 1 && api.UpdateCount == updates, "repeated dispose and subsequent polling stay inert");
+        Sdl3InputProvider neverStarted = new Sdl3InputProvider(api);
+        neverStarted.Dispose(); neverStarted.Poll();
+        Check(api.InitializeCount == 1, "disposing before the first poll cannot initialize a runtime later");
+
+        FakeSdl3Api reentrantApi = new FakeSdl3Api();
+        reentrantApi.Devices[31] = Device("DualSense", 0x054C, 2);
+        reentrantApi.Snapshots[31] = Snapshot(Buttons(), Axes(0, 0, 0, 0, 0, 0));
+        using (Sdl3InputProvider reentrant = new Sdl3InputProvider(reentrantApi))
+        {
+            reentrant.Poll();
+            InputEventInfo retained = null;
+            int releases = 0;
+            reentrant.InputUp = delegate { releases++; };
+            reentrant.InputDown = delegate(InputEventInfo e)
+            {
+                retained = e;
+                reentrantApi.Snapshots[31] = Snapshot(Buttons(), Axes(0, 0, 0, 0, 0, 0));
+                reentrant.Poll();
+            };
+            reentrantApi.Snapshots[31] = Snapshot(Buttons(Sdl3GamepadButtons.South), Axes(0, 0, 0, 0, 0, 0));
+            reentrant.Poll();
+            Check(releases == 1 && retained != null && retained.Input.GamepadControl == GamepadControl.South, "reentrant callbacks retain independent edge objects and frame lists");
+        }
     }
 }

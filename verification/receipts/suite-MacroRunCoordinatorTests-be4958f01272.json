@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:MacroRunCoordinatorTests",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "8673c4441c47374aff8fbdb0cf6952e755251d3472034d1bd1db655484e3667b",
+  "qualification": "Final beta.3 frozen source, targeted regression; Windows x64/.NET Framework4.7.2. Private desktops for UI, observer/fake output; original log retains scope, no host input/network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-MacroRunCoordinatorTests-be4958f01272.log",
+      "sha256": "0A10C14C0E6A9B6C98363FFD5A9D56C3C26BC5818493E4E461805B6AF0E39C89"
+    }
+  ]
+}

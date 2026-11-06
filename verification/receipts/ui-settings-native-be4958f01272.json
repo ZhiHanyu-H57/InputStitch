@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-native",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "dfd1a1ce00b11727860dad37d02ed5b2872236d4e557b164bf2e0ced61a0404e",
+  "qualification": "Final beta.3 selected private-desktop workflow/layout/metadata check; see actual assertion/window/DPI scope in log. No real input or normal configuration.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-native-be4958f01272.log",
+      "sha256": "F233B2A6A8D3FE1C4660C738E2A154CCBD36A88B37132244F65F6A766149770D"
+    }
+  ]
+}

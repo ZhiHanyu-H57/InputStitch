@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-smoke",
+  "status": "PASS",
+  "sourceCommit": "63553963986b9b4e9a3fce396681cbbcfc76007c",
+  "fingerprint": "a04d0140bc7a4107176b94b4eda917bb7ece73d03c8c240c0ec8e1d2fdc1db6d",
+  "qualification": "Stable1.6.2 frozen promotion; metadata only versus beta.5. Cumulative baselinev1.6.1. Fresh missing suite/Stable metadata check; original log retains fake/private/native-SDL scope. No user configuration, keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-smoke-63553963986b.log",
+      "sha256": "17293F87EE191D22CE67E3401E1BC577517897274933045F918C5914F53E2AFC"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:NetworkControlTests",
+  "status": "PASS",
+  "sourceCommit": "304a75ae62aaf05b07a046f12dbe1d8f17c21918",
+  "fingerprint": "5c22d1b13f6fedce6bb38db584c4bdcb660a788b1769a907953747afa1793a4a",
+  "qualification": "Windows x64, .NET Framework 4.7.2; impact-selected regression; original log scope retained; windows use private process desktops, controller/state fakes unless native SDL loading is explicitly logged. No keyboard/mouse output or host network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-NetworkControlTests-304a75ae62aa.log",
+      "sha256": "F99AFFA15F997A0D685C989CE1408873B454C96B58EB09C9CF8554F7244F10AD"
+    }
+  ]
+}

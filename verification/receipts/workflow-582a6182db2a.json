@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "workflow",
+  "status": "PASS",
+  "sourceCommit": "582a6182db2ad0d470c5f497ba645884cb97495e",
+  "fingerprint": "79d5ede16b33870977c99e954e78698ff03bd14213393e83cf846a3a417a9bad",
+  "qualification": "31 targeted workflow checks; new module impact selection and host-lifecycle sustained-fingerprint invalidation, no product input.",
+  "evidence": [
+    {
+      "path": "verification/evidence/workflow-582a6182db2a.log",
+      "sha256": "598D6249F488C189001AE15B8029E6C93391D09EB09EAD3114A7605473E25253"
+    }
+  ]
+}

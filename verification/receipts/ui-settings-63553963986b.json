@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings",
+  "status": "PASS",
+  "sourceCommit": "63553963986b9b4e9a3fce396681cbbcfc76007c",
+  "fingerprint": "6f46bb8e2456c5e134c15ee242e49ee55ee548f01883d4bb1ec380a5bc37502f",
+  "qualification": "Stable1.6.2 frozen promotion; metadata only versus beta.5. Cumulative baselinev1.6.1. Fresh missing suite/Stable metadata check; original log retains fake/private/native-SDL scope. No user configuration, keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-63553963986b.log",
+      "sha256": "6A2EDAA155D606BEE8DEBF452616D891F20C03953A46A061E54755EEF9108850"
+    }
+  ]
+}

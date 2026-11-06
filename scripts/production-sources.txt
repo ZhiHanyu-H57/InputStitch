@@ -46,6 +46,10 @@ QuickCreate.cs
 ConcurrentRuntime.cs
 MacroRunCoordinator.cs
 MacroWorkerPool.cs
+MacroExecutionPlan.cs
+MacroExecutor.cs
+MainForm.Execution.cs
+ShutdownCleanup.cs
 OutputOwnership.cs
 VirtualGamepadBackend.cs
 VirtualKeyboard.cs

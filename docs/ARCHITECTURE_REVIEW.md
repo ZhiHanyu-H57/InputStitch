@@ -1,5 +1,40 @@
 # InputStitch architecture review
 
+## Stop/admission repair — 2026-11-06
+
+See [beta.5 repairs and evidence](RUNTIME_REPAIR_1_6_2_BETA5.md). Coordinator tickets
+bind ordinary physical starts to stop/edit invalidation. Runtime panic cleanup
+and held-source release run before UI presentation; physical-release fallback
+uses the existing input lane even after poll failure. The host still installs
+keyboard/mouse hooks on its UI lane; no claim that all physical edge delivery
+is UI-independent. Router preparation remains private and always resubmits to
+ownership, preserving recovery after external source cleanup.
+
+## Independent execution loop — 2026-11-06
+
+See [beta.4 implementation and evidence](MACRO_EXECUTOR_1_6_2_BETA4.md).
+MacroExecutor now owns the actual loop and prepared-input reuse without Forms,
+handles or UI dispatch. A six-method host adapter retains existing editing,
+physical-state and interruptible-wait policy. Admission/global recovery/final
+cleanup remain explicit host responsibilities; conditions were not migrated.
+Run-held state avoids a redundant clone while ownership/diagnostics retain copies.
+
+## Execution and shutdown follow-up — 2026-11-06
+
+See [beta.3 implementation and evidence](EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md).
+Per-run preparation is now outside MainForm, repeat input/key conversion is
+cached, and fault-injected cleanup stages do not skip later release/recovery.
+The main execution loop and some conditions/UI-pause coordination still remain
+in MainForm; this is an incremental extraction, not a completed runtime rewrite.
+
+## Current review — 2026-11-06
+
+See [1.6.2-beta.2 review](ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md) for the
+current source inventory, extension boundaries, remaining MainForm coupling and
+measured native-state/UI-notification improvements. Earlier findings below are
+dated history. Current verification is impact-selected with valid evidence reuse,
+including formal releases; older full-suite wording is superseded by AGENTS.md.
+
 ## Incremental follow-up — 2026-10-22
 
 Beta.2 adds coordinated progress, atomic button-state capture, single-step
