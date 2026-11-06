@@ -1,0 +1,1 @@
+PASS gamepad router: 28 checks; injected XInput/fake backend only, no real controller or virtual device.

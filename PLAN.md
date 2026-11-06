@@ -6,8 +6,9 @@ User authorized another measured performance/stability pass and independent
 subagents. Local 1.6.2-beta.1 removes unrelated optional-tool conflict scans and
 SDL per-poll scratch allocations, and fixes missing SDL LT/RT disconnect releases.
 Keep input cadence, configuration and existing runtime/stop safeguards. Selected
-automation and final packages are passing; finish source-bound receipts and
-delivery. Stable1.6.1 stays published. See docs/PERFORMANCE_1_6_2_BETA1.md.
+automation, resource measurements, reusable receipts and both final packages are
+complete. Local delivery outputs/beta162-1; Stable1.6.1 stays published. See
+docs/PERFORMANCE_1_6_2_BETA1.md. No further work pending under this scope.
 
 ## Stable1.6.1 repair update published — 2026-10-27
 

@@ -1,5 +1,41 @@
 # HANDOFF.md
 
+## Performance maintenance complete — 2026-11-06
+
+Local1.6.2-beta.1 on perf/runtime-162, production/test freeze
+304a75ae62aaf05b07a046f12dbe1d8f17c21918, baseline dada992. Two canary-gated
+agents owned independent SDL/shortcut files; root reviewed, integrated and
+verified. Tool keys reject unrelated input before existing full conflict checks,
+no config cache. SDL reuses only lock-private scratch, preserves each native
+update/enumeration/state read and independent edge objects; disconnect/disposal
+release both triggers once. No new feature, dependency, schema, driver or cadence.
+
+14 fresh impact-selected suites PASS. Added actual controller-callback to held
+mapping/ownership integration passes100 disconnect/reconnect cycles and disposal,
+preserving unrelated ownership and reconnect baseline. SDL66 (native library,
+zero physical devices), tool282, UI58, ownership303716, timer134, network36.
+Real ViGEm/XInput emergency-only11 PASS privately, final neutral; no host key/mouse
+injection or network interruption. Final x64/x86 packaged startup/cache/restore/
+shutdown and zh/en compact/default settings/old XML PASS. Settings metadata
+layouts8784/8 synthetic100–200% and2188/2 actual144-DPI PASS. Selector15 checks
+reuses13 valid receipts (12 this source plus unchanged workflow), executes only2
+missing settings layouts; no soak selected. No full suite/manual gate.
+
+Exact per-thread allocation counters confirm provider scratch0 bytes per300000
+stable polls (old96/136.8/127.2MB empty/connected/suppressed) and tool unmatched
+dispatch0 per20000 events (old16.48MB). No native-allocation elimination claim.
+Same-driver three-sample medians and four packaged ABBA resource samples are in
+docs/PERFORMANCE_1_6_2_BETA1.md. Idle CPU/memory did not consistently decrease;
+report local hot-path gains separately. Both EXEs add1024B:2180096/2010112B.
+
+Runnable delivery: task workspace outputs/beta162-1, fixed InputStitch.exe in
+Windows-x64 and Windows-x86, hashes, report and raw/reproducible measurements.
+The beta is local; published Stable/latest/website remain1.6.1. User installations
+were neither stopped nor replaced. No Computer Use, remote operations or services
+were started. All private test processes and desktop handles exited cleanly.
+Next optimization requires profiling a concrete remaining path (native snapshots
+and enumeration still allocate); no automatic larger runtime rewrite pending.
+
 ## Stable1.6.1 repair update published — 2026-10-27
 
 Published latest Stablev1.6.1 at2026-10-27 01:00:51 Beijing time. PR #10 merged

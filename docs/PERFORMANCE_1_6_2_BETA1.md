@@ -1,6 +1,7 @@
 # 1.6.2-beta.1 performance maintenance
 
 Baseline: Stable 1.6.1, main `dada9926a0ea3201a1e07c97fa1bdd4d17b1ff5b`.
+Production/test freeze: `304a75ae62aaf05b07a046f12dbe1d8f17c21918`.
 Scope: reduce recurring input-processing work and fix defects found along those
 paths. No new feature, dependency, driver or configuration format.
 
@@ -71,6 +72,23 @@ Every provider sample still makes 300,000 Update calls; active samples make
 300,000 snapshot reads. Its Gen0 collections fall from 15–22 to 0. This is a local
 hot-path measurement; other application/native paths still allocate and run.
 
+Actual packaged resource probe, minimal managed host on a private desktop,
+disabled macros, SDL enabled and zero devices: 5-second warmup, approximately
+20 seconds each with crosshair off/on, order Stable → beta → beta → Stable.
+All four runs queue zero UI activator ticks from 1,000 post-release requests and
+finish with no growing steady-state handle count; no forced GC.
+
+| Idle CPU, percent of one core | Stable samples | Beta samples |
+| --- | --- | --- |
+| Crosshair off | 1.094%, 2.422% | 1.874%, 1.328% |
+| Crosshair on | 1.563%, 2.385% | 2.135%, 1.484% |
+
+The short samples overlap and vary between runs; they do not establish an
+overall idle-CPU reduction. Final private memory spans 41.06–42.12 MB for Stable
+and 41.18–42.86 MB for beta, likewise without a consistent saving. The proven
+gain is reduced per-event/per-poll work and allocation, especially with tools
+enabled and many configured macros.
+
 ## Automated verification
 
 - 14 impact-selected suites pass: provider/SDL/composite/device identity, input
@@ -92,6 +110,11 @@ hot-path measurement; other application/native paths still allocate and run.
   compressed-runtime cold extraction/cache repair/reuse, saved overlay state and
   orderly shutdown. Settings smoke passes zh/en default/compact windows and old
   XML defaults. No configuration schema change or updater change.
+- Release-summary metadata layouts pass 8,784 assertions / 8 windows at
+  100/125/150/200% synthetic font scaling, and 2,188 / 2 windows at actual144 DPI.
+  The automated selector reuses 13 source-valid results and runs only these two
+  missing checks; its complete 15-check plan passes. The unchanged workflow
+  receipt retains its original source/environment rather than claiming a rerun.
 
 All window/resource/native-controller checks use private desktops without
 activating them. No host network interruption, user configuration modification,

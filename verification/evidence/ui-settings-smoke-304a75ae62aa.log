@@ -1,0 +1,9 @@
+PRIVATE UI process bound: InputStitchTest-abeb14ea8e3e413085cc9089c908663d
+PASS settings zh-CN 700x660; 3 tabs, defaults, footer
+PASS settings zh-CN 604x441; 3 tabs, defaults, footer
+PASS settings en-US 700x660; 3 tabs, defaults, footer
+PASS settings en-US 604x441; 3 tabs, defaults, footer
+PASS old XML configuration defaults; settings rendered without showing windows or injecting input.
+PASS saved gamepad vector initialization and live direction/strength editing; no real output.
+PASS private UI desktop; foreground test-window samples=0/29; input desktop unchanged.
+PASS private UI process exited and desktop handle released.

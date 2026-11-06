@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:CompositeInputProviderTests",
+  "status": "PASS",
+  "sourceCommit": "304a75ae62aaf05b07a046f12dbe1d8f17c21918",
+  "fingerprint": "b0b1b2ffe226b78deded97f091508b91a6d9e3243e95e22f4f598e5ba900b285",
+  "qualification": "Windows x64, .NET Framework 4.7.2; impact-selected regression; original log scope retained; windows use private process desktops, controller/state fakes unless native SDL loading is explicitly logged. No keyboard/mouse output or host network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-CompositeInputProviderTests-304a75ae62aa.log",
+      "sha256": "7391F140C15A537E8FE6B72C97D810777BBBA45B77D1FD8BFA4F3FCBF03D6969"
+    }
+  ]
+}
