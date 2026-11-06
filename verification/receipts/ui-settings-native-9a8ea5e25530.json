@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings-native",
+  "status": "PASS",
+  "sourceCommit": "9a8ea5e25530eb1922fdc10667ceae514d811c6c",
+  "fingerprint": "a46d8c7883ed3b33fa08a8243b3e3caada9e594451d69eae1a1970daccea78d9",
+  "qualification": "Beta.2 metadata settings only; zh/en; actual144DPI; 2188 assertions,2 private windows.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-native-9a8ea5e25530.log",
+      "sha256": "72D269FD6D8A917E0A1AD6E1E9ECE670BCE8DCCF5C8DEC467EB4A05EAD332D1B"
+    }
+  ]
+}

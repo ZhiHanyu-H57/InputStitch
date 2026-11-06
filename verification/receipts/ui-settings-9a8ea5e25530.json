@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings",
+  "status": "PASS",
+  "sourceCommit": "9a8ea5e25530eb1922fdc10667ceae514d811c6c",
+  "fingerprint": "c1e246ff737737d526394d36e1b65ed0a7c828556662c490658c7d351fc75dd9",
+  "qualification": "Beta.2 metadata settings only; zh/en; synthetic100/125/150/200%; 8784 assertions,8 private windows.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-settings-9a8ea5e25530.log",
+      "sha256": "49315369141E9163D21DFBEC95CEE11FFA98B1ED841ED9C1DE23B02D72C30A12"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:OutputOwnershipTests",
+  "status": "PASS",
+  "sourceCommit": "9a8ea5e25530eb1922fdc10667ceae514d811c6c",
+  "fingerprint": "7268ff87fd9e29748feeb3f99cc28d427d0cc16bb2990b571519a2b4812dc3a5",
+  "qualification": "Windows x64/.NET Framework4.7.2; targeted beta.2 integration. UI tests use private process desktops; fakes/observer output, except native SDL loading where explicitly logged. No real keyboard/mouse input or host network mutation. SDL suite was executed before metadata-only version update; relevant source/assertion/helper inputs are identical.",
+  "evidence": [
+    {
+      "sha256": "AA3FBF71C725514E4796C747E45A73847D5B9886DE7566F90AA396F548DC3635",
+      "path": "verification/evidence/suite-OutputOwnershipTests-9a8ea5e25530.log"
+    }
+  ]
+}

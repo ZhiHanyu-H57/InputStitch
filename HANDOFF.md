@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## Architecture and native-state maintenance complete — 2026-11-06
+
+Local1.6.2-beta.2 on perf/runtime-162; feature/test freeze
+9a8ea5e25530eb1922fdc10667ceae514d811c6c, baseline aeaa22a (beta.1).
+Native SDL uses independent16-byte raw value frames and TryGetSnapshot; one
+MapSnapshot normalization path, no duplicate compatibility API. Stable membership
+snapshots are internally read-only and replaced on change, retaining native
+enumeration/free and all15 button/6-axis reads each input tick. Close failures
+no longer skip remaining handles or subsystem cleanup (fault reproduction old
+1close/0quit/1remaining, new2/1/0). A canary-gated agent owned only those files;
+root reviewed/integrated and completed final acceptance.
+
+Root coalesced only background status text into one latest-value callback;
+direct UI status and ordinary/emergency stop invalidate older queued statuses.
+Actual packaged1000-request blocked-UI probe:1000 callbacks ->1, both display
+status-999. Input/output/stop/recording commands are not coalesced or delayed.
+Per-thread native-binding stub microbenchmark200000frames at0/1/4devices:
+4.8/32/110.4MB managed allocation ->0, unchanged native call counts. Timing nearly
+equal; no whole-app CPU claim, added dependency, feature or schema change.
+
+14 relevant suites pass, including SDL95 (real library/0devices), UI107,
+pipeline24 plus100 full disconnect/reconnect cycles, coordinator55, ownership
+303716, tool282 and productivity802. Delivered-edge UI-blocked long press152ms
+at150ms threshold/400ms block. Real ViGEm/XInput emergency-only11 passes privately,
+final neutral. No host keyboard/mouse input, host network mutation or Computer Use.
+Final x64/x86 startup/native cache/save-reopen/shutdown, bilingual compact/default
+settings/oldXML pass. Journey142; metadata layouts8784/8 synthetic100–200% and
+2188/2 actual144-DPI pass. Selector16 reuses13 and executes3 missing checks,
+no soak/full suite/manual gate. Logs and source-bound receipts preserve coverage.
+
+Final delivery: task workspace outputs/beta162-2, Windows-x64/InputStitch.exe and
+Windows-x86/InputStitch.exe, hashes, Chinese architecture/performance report,
+inventory and raw/reproducible measurements. Sizes2180608/2010624B, +512B each
+over beta.1. Published Stable/latest/website remain1.6.1, user installation untouched.
+All tests/processes/private desktop handles exited normally; no service left active.
+
+Review conclusion: existing input/output seams are adequate for extension.
+MainForm still owns execution/conditions/UI/shutdown; partial files are not full
+decoupling. Next priorities are a bounded executor/UI extraction and separate
+shutdown fault-injection/isolation. MainForm_FormClosing itself was not changed.
+See docs/ARCHITECTURE_AND_PERFORMANCE_1_6_2_BETA2.md for evidence and remaining work.
+
 ## Performance maintenance complete — 2026-11-06
 
 Local1.6.2-beta.1 on perf/runtime-162, production/test freeze

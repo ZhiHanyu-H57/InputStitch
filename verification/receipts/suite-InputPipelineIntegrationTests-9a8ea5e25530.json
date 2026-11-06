@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:InputPipelineIntegrationTests",
+  "status": "PASS",
+  "sourceCommit": "9a8ea5e25530eb1922fdc10667ceae514d811c6c",
+  "fingerprint": "828728f07caf3aa07c67e61a209b695957d7673d390c2e8f0b8e4abb4a48ec0c",
+  "qualification": "Windows x64/.NET Framework4.7.2; targeted beta.2 integration. UI tests use private process desktops; fakes/observer output, except native SDL loading where explicitly logged. No real keyboard/mouse input or host network mutation. SDL suite was executed before metadata-only version update; relevant source/assertion/helper inputs are identical.",
+  "evidence": [
+    {
+      "sha256": "9BAFDD3638D99112A69FB0AC8824AF2CDE7059C0CD38E50C8E9666173696B413",
+      "path": "verification/evidence/suite-InputPipelineIntegrationTests-9a8ea5e25530.log"
+    }
+  ]
+}

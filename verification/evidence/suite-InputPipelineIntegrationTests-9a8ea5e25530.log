@@ -1,0 +1,6 @@
+PRIVATE UI process bound: InputStitchTest-3798215308184f979213104878d13b67
+PASS SDL trigger lifecycle: 100 disconnect/reconnect cycles; held-baseline, dual-trigger release, source isolation and disposal; observer output only.
+{"version":"1.6.2-beta.2","thresholdMs":150,"uiBlockedMs":400,"responsiveMs":160,"blockedMs":152,"backend":"isolated observer","note":"Delivered input edge, production scheduler and worker; output before UI resumes; no physical hooks or real output."}
+PASS input pipeline integration: 24 checks; idle UI work, worker reuse, source-local cancellation, bilingual progress diagnostics, configuration completion and UI-blocked long-press samples; isolated observer, no hooks or real output.
+PASS private UI desktop; foreground test-window samples=0/117; input desktop unchanged.
+PASS private UI process exited and desktop handle released.
