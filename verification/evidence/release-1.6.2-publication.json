@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "version": "1.6.2",
+  "publishedAt": "2026-11-06T12:48:05Z",
+  "githubAssets": 5,
+  "checksumManifest": "PASS",
+  "latest": "v1.6.2",
+  "mirrorAliases": 4,
+  "mirrorManifest": "PASS",
+  "pinnedExecutables": 2,
+  "frozenFeatureSourceFiles": 70,
+  "localCumulativeChecks": 26,
+  "localReuse": 18,
+  "localFresh": 8,
+  "oldUpdateChecks": 472,
+  "releaseCommit": "413f5674689cbd52ea91dfe46d49ef46d99d62fe",
+  "ciRun": "https://github.com/ZhiHanyu-H57/InputStitch/actions/runs/42220226918",
+  "assets": [
+    {
+      "name": "InputStitch-1.6.2-Source.zip",
+      "size": 1692017,
+      "digest": "sha256:9549563813bb78a081f0a266ad1189b60fae9c1d761178569c805633ebf40bfa"
+    },
+    {
+      "name": "InputStitch-1.6.2-Windows-x64.exe",
+      "size": 2191872,
+      "digest": "sha256:4255e4b3d4e202c914a8e95e8dc7f3c21adedea751f051b7858703bbc6f5ea96"
+    },
+    {
+      "name": "InputStitch-1.6.2-Windows-x86.exe",
+      "size": 2021888,
+      "digest": "sha256:9c51edfd2f3a95030cc4ce2f1c327398f894fdad7686d8e48f33ae5235325f7a"
+    },
+    {
+      "name": "InputStitch-update.xml",
+      "size": 721,
+      "digest": "sha256:6cb68744d52d4ea9d674ac0c3cf1216d57e5ac93e774602b412d7d43921d92fc"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "size": 388,
+      "digest": "sha256:b0e917b55b9c62ac5ee904b5a4a4caf63c0a026305e478c093f24bbf053f3e72"
+    }
+  ],
+  "releasePr": "https://github.com/ZhiHanyu-H57/InputStitch/pull/12",
+  "ciChecks": 26,
+  "ciReused": 26,
+  "ciExecuted": 0,
+  "publishedUpdateChecks": 16,
+  "publishedUpdateResults": [
+    {
+      "status": "PASS",
+      "architecture": "x64",
+      "checks": 8,
+      "from": "1.6.1",
+      "to": "1.6.2",
+      "publishedNewSha256": "4255e4b3d4e202c914a8e95e8dc7f3c21adedea751f051b7858703bbc6f5ea96",
+      "oldSha256": "2710918daf85ffd9047b56d9caba1c6e329e5aef24e83f23dc0520e1ebeac4c8",
+      "actualGithubAndR2Parsers": true,
+      "fixedNameInPlace": true,
+      "exactBackups": true,
+      "rollback": true,
+      "launchCallbackOnly": true
+    },
+    {
+      "status": "PASS",
+      "architecture": "x86",
+      "checks": 8,
+      "from": "1.6.1",
+      "to": "1.6.2",
+      "publishedNewSha256": "9c51edfd2f3a95030cc4ce2f1c327398f894fdad7686d8e48f33ae5235325f7a",
+      "oldSha256": "6d95d1e11ac65bc5667f2f4e7e0b23c37d9a7f30de56c7dd6f9acc8d87cc51a2",
+      "actualGithubAndR2Parsers": true,
+      "fixedNameInPlace": true,
+      "exactBackups": true,
+      "rollback": true,
+      "launchCallbackOnly": true
+    }
+  ]
+}

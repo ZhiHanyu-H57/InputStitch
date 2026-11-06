@@ -1,12 +1,12 @@
 # PLAN.md
 
-## Stable1.6.2 frozen publication — 2026-11-06
+## Stable1.6.2 publication complete — 2026-11-06
 
 User froze beta.5 and authorized Stable publication after cumulative acceptance
 fromv1.6.1. Feature source c8f1eda, Stable metadata6355396/1.6.2.6.26 selected checks
 PASS:18 valid reuse/8 fresh, no repeated sustain/full run. Actual x64/x86 packages
-and472 old1.6.1 update/config/fixed-name/rollback checks PASS. Publish through normal
-protected-main PR/Actions; verify GitHub/latest/R2 bytes. See
+and472 old1.6.1 update/config/fixed-name/rollback checks PASS. Published through PR12/main413f567 and Actions42220226918; GitHub/latest/R2 bytes,
+70 frozen source files and16 final public-package update checks PASS. See
 docs/RELEASE_1_6_2_VERIFICATION.md.
 
 ## Stop/admission and measured overhead repairs — 2026-11-06

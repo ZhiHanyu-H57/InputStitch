@@ -1,11 +1,12 @@
 # ROADMAP.md
 
-## Stable1.6.2 release freeze — 2026-11-06
+## Stable1.6.2 release complete — 2026-11-06
 
 Freeze beta.5 behavior, promote metadata only, use cumulativev1.6.1 acceptance
 with input-bound reuse.26 checks PASS(18 reuse/8 fresh), final packages and472
 actual update/old-config checks PASS. No new feature or further architecture work
-in this release. Publication details: docs/RELEASE_1_6_2_VERIFICATION.md.
+in this release. PR12/Actions42220226918 published latestv1.6.2; public bytes and
+mirror/source verification PASS. Publication details: docs/RELEASE_1_6_2_VERIFICATION.md.
 
 ## Stop and admission boundaries — 2026-11-06
 
