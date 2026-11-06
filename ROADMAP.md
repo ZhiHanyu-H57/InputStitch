@@ -1,5 +1,14 @@
 # ROADMAP.md
 
+## Measured performance maintenance — 2026-11-06
+
+Local1.6.2-beta.1 narrows tool-key validation to matching candidates, reuses SDL
+private polling scratch and completes trigger release on disconnect/disposal.
+No feature, dependency, polling-rate or driver change. Continue to require actual
+evidence before larger scheduling/runtime changes; native state snapshot and
+enumeration allocations remain the next potential profile target. Source-backed
+research and verification: docs/PERFORMANCE_1_6_2_BETA1.md.
+
 ## Stable1.6.1 repair update complete — 2026-10-27
 
 The validated mouse-lockout and held-Shift fixes are published as latest Stable

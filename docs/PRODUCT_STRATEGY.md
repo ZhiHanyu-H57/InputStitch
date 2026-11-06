@@ -1,5 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Performance maintenance — 2026-11-06
+
+Use official mature-tool/platform sources and same-host measurements to remove
+proven recurring work. This local1.6.2-beta.1 handles optional-tool shortcut
+validation and SDL managed scratch allocation, plus the discovered trigger-release
+defect. Keep public configuration, features and Stable1.6.1 unchanged; no framework
+or backend rewrite. Use impact-selected evidence and deliver runnable packages.
+See PERFORMANCE_1_6_2_BETA1.md.
+
 ## Current decision: Stable1.6.1 repair update — 2026-10-27
 
 Published the mouse-control recovery and shared Shift-trigger fixes with frozen

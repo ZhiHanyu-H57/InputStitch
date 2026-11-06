@@ -40,10 +40,19 @@ namespace InputStitch
         private readonly Dictionary<int, bool> leftTriggerDownByIndex = new Dictionary<int, bool>();
         private readonly Dictionary<int, bool> rightTriggerDownByIndex = new Dictionary<int, bool>();
         private readonly HashSet<int> openedDevices = new HashSet<int>();
+        // Scratch membership never leaves sync; edge objects/lists remain local to each Poll so
+        // callbacks outside the lock can safely reenter the provider.
+        private readonly HashSet<int> presentDevices = new HashSet<int>();
+        private readonly HashSet<int> suppressedDevices = new HashSet<int>();
+        private readonly List<int> removedDevices = new List<int>();
+        private static readonly int[] EmptyDeviceIds = new int[0];
         private bool initialized;
         private bool available;
+        private bool disposed;
         private long topologyVersion;
         private string status = "not-initialized";
+        private int readyDeviceCount = -1;
+        private string readyStatus;
 
         public Sdl3InputProvider(ISdl3Api api, bool suppressXboxFamily)
         {
@@ -76,10 +85,11 @@ namespace InputStitch
 
         public void Poll()
         {
-            List<InputEventInfo> downs = new List<InputEventInfo>();
-            List<InputEventInfo> ups = new List<InputEventInfo>();
+            List<InputEventInfo> downs = null;
+            List<InputEventInfo> ups = null;
             lock (sync)
             {
+                if (disposed) return;
                 if (!initialized)
                 {
                     initialized = true;
@@ -100,21 +110,26 @@ namespace InputStitch
                 catch (Exception ex) { status = "update-failed: " + ex.Message; return; }
 
                 int[] ids;
-                try { ids = api.ListDeviceIds() ?? new int[0]; }
+                bool enumerated = true;
+                try { ids = api.ListDeviceIds() ?? EmptyDeviceIds; }
                 catch (Exception ex)
                 {
                     status = "enumerate-failed: " + ex.Message;
-                    ids = new int[0];
+                    ids = EmptyDeviceIds;
+                    enumerated = false;
                 }
 
-                HashSet<int> present = new HashSet<int>();
+                presentDevices.Clear();
                 foreach (int deviceId in ids)
                 {
-                    if (!present.Add(deviceId)) continue;
-                    if (indexByDeviceId.ContainsKey(deviceId)) continue;
+                    if (!presentDevices.Add(deviceId)) continue;
+                    if (indexByDeviceId.ContainsKey(deviceId) || suppressedDevices.Contains(deviceId)) continue;
                     Sdl3DeviceDescriptor descriptor = DescribeSafely(deviceId);
                     if (descriptor == null) continue;
-                    if (suppressXboxFamily && descriptor.VendorId == MicrosoftVendorId) continue;
+                    // SDL instance ids change on reconnect, so a skipped Xbox device only needs
+                    // metadata once while present; keep reading membership every input tick.
+                    if (suppressXboxFamily && descriptor.VendorId == MicrosoftVendorId)
+                    { suppressedDevices.Add(deviceId); continue; }
                     indexByDeviceId[deviceId] = AllocateIndexLocked();
                     descriptorByDeviceId[deviceId] = descriptor;
                     try
@@ -125,15 +140,16 @@ namespace InputStitch
                     topologyVersion++;
                 }
 
-                List<int> removed = new List<int>();
+                removedDevices.Clear();
                 foreach (KeyValuePair<int, int> pair in indexByDeviceId)
-                    if (!present.Contains(pair.Key)) removed.Add(pair.Key);
-                foreach (int deviceId in removed)
+                    if (!presentDevices.Contains(pair.Key)) removedDevices.Add(pair.Key);
+                foreach (int deviceId in removedDevices)
                 {
                     int index = indexByDeviceId[deviceId];
                     XInputPadState previous;
                     if (stateByIndex.TryGetValue(index, out previous))
-                        CollectEdges(downs, ups, index, previous, new XInputPadState());
+                        CollectEdges(ref downs, ref ups, index, previous, new XInputPadState());
+                    CollectTriggerEdges(ref downs, ref ups, index, new XInputPadState());
                     stateByIndex.Remove(index);
                     leftTriggerDownByIndex.Remove(index);
                     rightTriggerDownByIndex.Remove(index);
@@ -145,8 +161,12 @@ namespace InputStitch
                     }
                     topologyVersion++;
                 }
+                removedDevices.Clear();
+                foreach (int deviceId in suppressedDevices)
+                    if (!presentDevices.Contains(deviceId)) removedDevices.Add(deviceId);
+                foreach (int deviceId in removedDevices) suppressedDevices.Remove(deviceId);
 
-                foreach (KeyValuePair<int, int> pair in new List<KeyValuePair<int, int>>(indexByDeviceId))
+                foreach (KeyValuePair<int, int> pair in indexByDeviceId)
                 {
                     Sdl3DeviceSnapshot snapshot = SnapshotSafely(pair.Key);
                     if (snapshot == null) continue;
@@ -158,8 +178,8 @@ namespace InputStitch
                     stateByIndex[pair.Value] = mapped;
                     if (hadPrevious)
                     {
-                        CollectEdges(downs, ups, pair.Value, previous, mapped);
-                        CollectTriggerEdges(downs, ups, pair.Value, mapped);
+                        CollectEdges(ref downs, ref ups, pair.Value, previous, mapped);
+                        CollectTriggerEdges(ref downs, ref ups, pair.Value, mapped);
                     }
                     else
                     {
@@ -171,11 +191,19 @@ namespace InputStitch
                     }
                 }
 
-                status = "ready; devices=" + indexByDeviceId.Count.ToString();
+                if (enumerated)
+                {
+                    if (readyDeviceCount != indexByDeviceId.Count)
+                    {
+                        readyDeviceCount = indexByDeviceId.Count;
+                        readyStatus = "ready; devices=" + readyDeviceCount.ToString();
+                    }
+                    status = readyStatus;
+                }
             }
 
-            foreach (InputEventInfo edge in downs) Raise(InputDown, edge);
-            foreach (InputEventInfo edge in ups) Raise(InputUp, edge);
+            RaiseAll(InputDown, downs);
+            RaiseAll(InputUp, ups);
         }
 
         public int[] ConnectedDeviceIndices()
@@ -237,8 +265,16 @@ namespace InputStitch
 
         public void Dispose()
         {
+            List<InputEventInfo> downs = null, ups = null;
             lock (sync)
             {
+                if (disposed) return;
+                disposed = true;
+                foreach (KeyValuePair<int, XInputPadState> pair in stateByIndex)
+                {
+                    CollectEdges(ref downs, ref ups, pair.Key, pair.Value, new XInputPadState());
+                    CollectTriggerEdges(ref downs, ref ups, pair.Key, new XInputPadState());
+                }
                 if (available)
                 {
                     foreach (int deviceId in new List<int>(openedDevices))
@@ -248,13 +284,19 @@ namespace InputStitch
                     try { api.Shutdown(); } catch { }
                 }
                 openedDevices.Clear();
+                if (indexByDeviceId.Count > 0) topologyVersion++;
                 indexByDeviceId.Clear();
+                descriptorByDeviceId.Clear();
                 stateByIndex.Clear();
                 leftTriggerDownByIndex.Clear();
                 rightTriggerDownByIndex.Clear();
+                presentDevices.Clear();
+                suppressedDevices.Clear();
+                removedDevices.Clear();
                 available = false;
                 status = "disposed";
             }
+            RaiseAll(InputUp, ups);
         }
 
         // Maps one SDL3 gamepad snapshot onto the app's normalized pad state. SDL reports stick Y as positive
@@ -334,7 +376,7 @@ namespace InputStitch
             return candidate;
         }
 
-        private void CollectEdges(List<InputEventInfo> downs, List<InputEventInfo> ups, int index, XInputPadState previous, XInputPadState current)
+        private void CollectEdges(ref List<InputEventInfo> downs, ref List<InputEventInfo> ups, int index, XInputPadState previous, XInputPadState current)
         {
             for (int i = 0; i < EdgeMasks.Length; i++)
             {
@@ -346,19 +388,19 @@ namespace InputStitch
                     Input = new InputSpec { Kind = InputKind.Gamepad, GamepadControl = EdgeControls[i] },
                     DeviceIndex = index
                 };
-                if (now) downs.Add(edge); else ups.Add(edge);
+                if (now) AddEdge(ref downs, edge); else AddEdge(ref ups, edge);
             }
         }
 
-        private void CollectTriggerEdges(List<InputEventInfo> downs, List<InputEventInfo> ups, int index, XInputPadState current)
+        private void CollectTriggerEdges(ref List<InputEventInfo> downs, ref List<InputEventInfo> ups, int index, XInputPadState current)
         {
-            UpdateTriggerEdge(downs, ups, index, GamepadControl.LeftTrigger,
+            UpdateTriggerEdge(ref downs, ref ups, index, GamepadControl.LeftTrigger,
                 current.LeftTrigger * 100 / 255, leftTriggerDownByIndex);
-            UpdateTriggerEdge(downs, ups, index, GamepadControl.RightTrigger,
+            UpdateTriggerEdge(ref downs, ref ups, index, GamepadControl.RightTrigger,
                 current.RightTrigger * 100 / 255, rightTriggerDownByIndex);
         }
 
-        private void UpdateTriggerEdge(List<InputEventInfo> downs, List<InputEventInfo> ups, int index, GamepadControl control,
+        private void UpdateTriggerEdge(ref List<InputEventInfo> downs, ref List<InputEventInfo> ups, int index, GamepadControl control,
             int percent, Dictionary<int, bool> stateMap)
         {
             bool down;
@@ -366,12 +408,12 @@ namespace InputStitch
             if (!down && percent >= XInputInputService.TriggerActivatePercent)
             {
                 stateMap[index] = true;
-                downs.Add(Edge(index, control));
+                AddEdge(ref downs, Edge(index, control));
             }
             else if (down && percent <= XInputInputService.TriggerReleasePercent)
             {
                 stateMap[index] = false;
-                ups.Add(Edge(index, control));
+                AddEdge(ref ups, Edge(index, control));
             }
         }
 
@@ -388,6 +430,18 @@ namespace InputStitch
         {
             if (handler == null) return;
             handler(edge);
+        }
+
+        private static void AddEdge(ref List<InputEventInfo> edges, InputEventInfo edge)
+        {
+            if (edges == null) edges = new List<InputEventInfo>();
+            edges.Add(edge);
+        }
+
+        private static void RaiseAll(Action<InputEventInfo> handler, List<InputEventInfo> edges)
+        {
+            if (edges == null) return;
+            foreach (InputEventInfo edge in edges) Raise(handler, edge);
         }
 
         private Sdl3DeviceDescriptor DescribeSafely(int deviceId)

@@ -25,6 +25,63 @@ internal static class InputPipelineIntegrationTests
         while (!condition() && clock.ElapsedMilliseconds < 3000) { Application.DoEvents(); Thread.Sleep(2); }
         if (!condition()) throw new Exception("worker integration timed out");
     }
+    private sealed class SdlController : ISdl3Api
+    {
+        internal bool Connected = true;
+        internal readonly Sdl3DeviceSnapshot Frame = new Sdl3DeviceSnapshot { Axes = new short[6] };
+        public bool Initialize() { return true; }
+        public void Shutdown() { }
+        public void Update() { }
+        public int[] ListDeviceIds() { return Connected ? new[] { 17 } : new int[0]; }
+        public Sdl3DeviceDescriptor Describe(int id) { return new Sdl3DeviceDescriptor { DeviceId = id, VendorId = 0x054c }; }
+        public bool Open(int id) { return true; }
+        public void Close(int id) { }
+        public Sdl3DeviceSnapshot GetSnapshot(int id) { return Frame; }
+    }
+    // Provider -> actual controller callbacks -> held mapping -> output ownership.
+    // A disconnect must release both trigger-held outputs without the periodic
+    // physical-state fallback or disturbing another source.
+    private static void SdlTriggerLifecycle(string directory)
+    {
+        MacroConfig config = new MacroConfig { GamepadDeviceType = VirtualGamepadTypes.None, PauseMacroInRiskyUi = false };
+        config.Macros.Add(QuickMacros.Create(QuickTemplate.HeldMapping, "left trigger",
+            new TriggerSpec { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.LeftTrigger, GamepadUserIndex = -1 },
+            new System.Collections.Generic.List<MacroStep> { new MacroStep { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.South } }, 1));
+        config.Macros.Add(QuickMacros.Create(QuickTemplate.HeldMapping, "right trigger",
+            new TriggerSpec { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.RightTrigger, GamepadUserIndex = -1 },
+            new System.Collections.Generic.List<MacroStep> { new MacroStep { Kind = InputKind.Gamepad, GamepadControl = GamepadControl.East } }, 1));
+        Observer observer = new Observer(); SdlController api = new SdlController();
+        using (MainForm form = new MainForm(config, directory, observer))
+        using (Sdl3InputProvider provider = new Sdl3InputProvider(api))
+        {
+            IntPtr handle = form.Handle;
+            OutputOwnershipManager ownership = (OutputOwnershipManager)typeof(MainForm).GetField("outputOwnership", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
+            ownership.SetDown("unrelated", new InputSpec { Kind = InputKind.Keyboard, VirtualKey = (int)Keys.F21 });
+            provider.InputDown = delegate(InputEventInfo e) { Call(form, "HandleControllerInputDown", e); };
+            provider.InputUp = delegate(InputEventInfo e) { Call(form, "HandleControllerInputUp", e); };
+            for (int i = 0; i < 100; i++)
+            {
+                api.Connected = true;
+                api.Frame.Axes[4] = api.Frame.Axes[5] = short.MaxValue;
+                provider.Poll(); Application.DoEvents();
+                if (ownership.Snapshot().Sources.Count != 1) throw new Exception("reconnected held triggers must establish a baseline without activation");
+                api.Frame.Axes[4] = api.Frame.Axes[5] = 0; provider.Poll(); Application.DoEvents();
+                api.Frame.Axes[4] = api.Frame.Axes[5] = short.MaxValue; provider.Poll();
+                Wait(delegate { return ownership.Snapshot().Sources.Count == 3; });
+                api.Connected = false; provider.Poll();
+                Wait(delegate { return ownership.Snapshot().Sources.Count == 1; });
+                if (observer.Downs - observer.Ups != 1) throw new Exception("disconnect must release only both trigger-owned keys");
+            }
+            api.Connected = true; api.Frame.Axes[4] = api.Frame.Axes[5] = 0; provider.Poll();
+            api.Frame.Axes[4] = api.Frame.Axes[5] = short.MaxValue; provider.Poll();
+            Wait(delegate { return ownership.Snapshot().Sources.Count == 3; });
+            provider.Dispose();
+            Wait(delegate { return ownership.Snapshot().Sources.Count == 1; });
+            ownership.ClearAll("test-finish");
+            if (observer.Downs != observer.Ups) throw new Exception("SDL lifecycle left held output");
+        }
+        Console.WriteLine("PASS SDL trigger lifecycle: 100 disconnect/reconnect cycles; held-baseline, dual-trigger release, source isolation and disposal; observer output only.");
+    }
     private static void WorkerReuse(string directory)
     {
         MacroConfig config = new MacroConfig { GamepadDeviceType = VirtualGamepadTypes.None };
@@ -105,7 +162,7 @@ internal static class InputPipelineIntegrationTests
     public static int Main()
     {
         AppDomain.CurrentDomain.UnhandledException += delegate(object sender, UnhandledExceptionEventArgs e) { Dump(e.ExceptionObject as Exception); };
-        try { return Run(); } catch(Exception ex) { Dump(ex); return 1; }
+        try { return IsolatedUiDesktop.Run(Run); } catch(Exception ex) { Dump(ex); return 1; }
     }
     private static void Dump(Exception ex)
     {
@@ -142,6 +199,7 @@ internal static class InputPipelineIntegrationTests
             if ((int)queued.GetValue(form) != 0) throw new Exception("clearing activators must restore idle behavior");
         }
         WorkerReuse(directory);
+        SdlTriggerLifecycle(directory);
         long responsive = AdvancedLatency(directory, 0), blocked = AdvancedLatency(directory, 400);
         string report = "{\"version\":\"" + AppInfo.Version + "\",\"thresholdMs\":150,\"uiBlockedMs\":400,\"responsiveMs\":" + responsive +
             ",\"blockedMs\":" + blocked + ",\"backend\":\"isolated observer\",\"note\":\"Delivered input edge, production scheduler and worker; output before UI resumes; no physical hooks or real output.\"}";

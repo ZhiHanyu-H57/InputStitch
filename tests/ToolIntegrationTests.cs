@@ -95,7 +95,7 @@ internal static class ToolIntegrationTests
             if (args.Contains("--dialog-regressions")) { DialogRegressions(args.FirstOrDefault(x => x.StartsWith("--regression-focus=", StringComparison.Ordinal))); return 0; }
             if (args.Contains("--dialog-performance")) { DialogPerformance(); return 0; }
             bool core = !args.Contains("--ui") || args.Contains("--core");
-            if (core) { Persistence(); Conflicts(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); TimerCustomization(); NetworkCustomization(); Usability(); }
+            if (core) { Persistence(); Conflicts(); ShortcutDispatch(); Safety(); NetworkExitRaces(); ShortcutValidation(); IndependentNetworkControls(); PartEditing(); TimerCustomization(); NetworkCustomization(); Usability(); }
             if (args.Contains("--modal-workflow")) { ModalWorkflow(); Console.WriteLine("PASS modal workflows: " + checks); return 0; }
             if (args.Contains("--ui")) { DialogLayouts(); Console.WriteLine("PASS tool layouts"); CustomRuleLayouts(); Console.WriteLine("PASS shortcut rule layouts"); ModalWorkflow(); Console.WriteLine("PASS modal workflows"); DialogRegressions(); }
             string summary = "PASS tool integration: " + checks + " checks; " + windows + " dialog views; core=" + core + "; ui=" + args.Contains("--ui");
@@ -664,6 +664,55 @@ internal static class ToolIntegrationTests
         if (kind == "timer") { TimerOptions o = c.Timer.Clone(); o.StartPauseHotkey = key.Clone(); return (string)Call(main, "TimerShortcutConflict", o); }
         if (kind == "network") { NetworkControlOptions o = c.NetworkControl.Clone(); o.Hotkey = key.Clone(); return (string)Call(main, "NetworkShortcutConflict", o); }
         CrosshairOptions crosshair = c.Crosshair.Clone(); crosshair.Hotkey = key.Clone(); return (string)Call(main, "CrosshairShortcutConflict", crosshair);
+    }
+    private static void ShortcutDispatch()
+    {
+        MethodInfo match = typeof(MainForm).GetMethod("MatchTimerShortcut", StaticHidden);
+        TimerOptions options = Config().Timer;
+        options.ShortcutRules = new List<TimerShortcutRule>
+        {
+            null,
+            new TimerShortcutRule { Hotkey = Hotkey(Keys.F6) },
+            new TimerShortcutRule { Hotkey = Hotkey(Keys.F7) },
+            new TimerShortcutRule { Hotkey = Hotkey(Keys.F6) }
+        };
+        foreach (TimerControlMode mode in Enum.GetValues(typeof(TimerControlMode)))
+        {
+            options.ControlMode = mode;
+            foreach (Keys key in new[] { Keys.A, Keys.F6, Keys.F7, Keys.F8, Keys.F9, Keys.F10 })
+            foreach (bool extraModifier in new[] { false, true })
+            {
+                InputEventInfo input = Event(Hotkey(key)); input.Shift = extraModifier;
+                TriggerSpec[] keys = TimerControls.ActiveKeys(options);
+                int expected = Array.FindIndex(keys, x => x != null && ModifierSafetyPolicy.GetTriggerModifierMask(x) == ModifierSafetyPolicy.GetEventModifierMask(input) && ModifierSafetyPolicy.TriggerTerminalMatches(x, input)) + 1;
+                Check((int)match.Invoke(null, new object[] { options, input }) == expected, "candidate matching preserves active-key order, mode and modifiers " + mode + "/" + key + "/" + extraModifier);
+            }
+        }
+        options.ControlMode = TimerControlMode.Custom; options.ShortcutRules = null;
+        Check((int)match.Invoke(null, new object[] { options, Event(Hotkey(Keys.F6)) }) == 0, "missing custom rules have no active command");
+
+        MacroConfig c = Config();
+        using (MainForm main = new MainForm(c, Path.Combine(root, "shortcut-dispatch"), new NoOutput()))
+        {
+            IntPtr handle = main.Handle;
+            Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(Hotkey(Keys.F2))), "unrelated key is not consumed by enabled tools");
+            MacroDefinition conflict = new MacroDefinition { Enabled = true, Trigger = c.Timer.ResetHotkey.Clone() };
+            c.Macros.Add(conflict);
+            Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(c.Timer.StartPauseHotkey)), "conflict on a different active timer control still blocks the candidate");
+            conflict.Enabled = false;
+            Check((bool)Call(main, "HandleScreenToolShortcut", Event(c.Timer.StartPauseHotkey)), "disabling conflict takes effect on the next edge without a cache refresh");
+            Set(main, "uiSafetyModalDepth", 1); Pump(10); Set(main, "uiSafetyModalDepth", 0);
+            conflict.Enabled = true; conflict.Trigger = c.Timer.StartPauseHotkey.Clone();
+            Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(c.Timer.StartPauseHotkey)), "editing macro binding takes effect on the next edge");
+            c.Macros.Clear();
+            c.MappingLayers.Add(new MappingLayerDefinition { SwitchTrigger = c.Timer.StartPauseHotkey.Clone() });
+            Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(c.Timer.StartPauseHotkey)), "new layer conflict blocks timer dispatch immediately");
+            c.MappingLayers.Clear();
+            c.NetworkControl.BlockHotkey = c.NetworkControl.Hotkey.Clone();
+            c.NetworkControl.RestoreHotkey = c.PanicTrigger.Clone();
+            Check(!(bool)Call(main, "HandleScreenToolShortcut", Event(c.NetworkControl.BlockShortcut)), "conflict on restore also blocks the normal network block command");
+            Check(Field<int>(main, "networkOperationPending") == 0 && Field<NetworkController>(main, "networkController") == null, "rejected and unrelated events never create a network helper");
+        }
     }
     private static void Safety()
     {

@@ -89,6 +89,24 @@ namespace InputStitch
         {
             return key != null && ModifierSafetyPolicy.GetTriggerModifierMask(key) == ModifierSafetyPolicy.GetEventModifierMask(e) && ModifierSafetyPolicy.TriggerTerminalMatches(key, e);
         }
+        private static int MatchTimerShortcut(TimerOptions options, InputEventInfo e)
+        {
+            // This runs on every input edge. Check only the active keys here; the
+            // complete, current conflict policy still gates an actual command.
+            if (options.ControlMode == TimerControlMode.Custom)
+            {
+                if (options.ShortcutRules != null)
+                    for (int i = 0; i < options.ShortcutRules.Count; i++)
+                    {
+                        TimerShortcutRule rule = options.ShortcutRules[i];
+                        if (rule != null && MatchesToolShortcut(rule.Hotkey, e)) return i + 1;
+                    }
+                return 0;
+            }
+            if (MatchesToolShortcut(options.StartPauseHotkey, e)) return 1;
+            if (options.ControlMode != TimerControlMode.SingleKeyCycle && MatchesToolShortcut(options.ResetHotkey, e)) return 2;
+            return options.ControlMode == TimerControlMode.Independent && MatchesToolShortcut(options.VisibilityHotkey, e) ? 3 : 0;
+        }
         private bool HandleScreenToolShortcut(InputEventInfo e)
         {
             if (((networkController != null && networkController.IsBlocked) || Volatile.Read(ref networkOperationPending) != 0) &&
@@ -96,26 +114,29 @@ namespace InputStitch
             { QueueNetworkOperation(true); return true; }
             if (uiSafetyModalDepth > 0 || pauseHotkeys || uiSafetyPauseRequested) return false;
             TimerOptions timer = config.Timer;
-            if (timer != null && timer.Enabled && TimerShortcutConflict(timer).Length == 0)
+            if (timer != null && timer.Enabled)
             {
-                int command = 0; TriggerSpec[] keys = TimerControls.ActiveKeys(timer);
-                for (int i = 0; i < keys.Length; i++) if (MatchesToolShortcut(keys[i], e)) { command = i + 1; break; }
-                if (command != 0)
+                int command = MatchTimerShortcut(timer, e);
+                if (command != 0 && TimerShortcutConflict(timer).Length == 0)
                 {
+                    int matchedCommand = command;
                     try { BeginInvoke((MethodInvoker)delegate
                     {
                         if (IsDisposed || uiSafetyModalDepth > 0 || uiSafetyPauseRequested || pauseHotkeys || !config.Timer.Enabled) return;
-                        ExecuteTimerControl(command);
+                        ExecuteTimerControl(matchedCommand);
                     }); } catch (InvalidOperationException) { }
                     return true;
                 }
             }
             NetworkControlOptions network = config.NetworkControl;
-            if (network != null && network.Enabled && NetworkShortcutConflict(network).Length == 0)
+            if (network != null && network.Enabled)
             {
-                if (MatchesToolShortcut(network.RestoreShortcut, e) && !SameShortcut(network.BlockShortcut, network.RestoreShortcut))
+                bool restore = MatchesToolShortcut(network.RestoreShortcut, e);
+                bool block = MatchesToolShortcut(network.BlockShortcut, e);
+                if ((!restore && !block) || NetworkShortcutConflict(network).Length != 0) return false;
+                if (restore && !SameShortcut(network.BlockShortcut, network.RestoreShortcut))
                 { QueueNetworkOperation(true); return true; }
-                if (MatchesToolShortcut(network.BlockShortcut, e)) { QueueNetworkOperation(false); return true; }
+                if (block) { QueueNetworkOperation(false); return true; }
             }
             return false;
         }

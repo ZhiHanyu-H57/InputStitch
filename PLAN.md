@@ -1,5 +1,14 @@
 # PLAN.md
 
+## Performance maintenance — 2026-11-06
+
+User authorized another measured performance/stability pass and independent
+subagents. Local 1.6.2-beta.1 removes unrelated optional-tool conflict scans and
+SDL per-poll scratch allocations, and fixes missing SDL LT/RT disconnect releases.
+Keep input cadence, configuration and existing runtime/stop safeguards. Selected
+automation and final packages are passing; finish source-bound receipts and
+delivery. Stable1.6.1 stays published. See docs/PERFORMANCE_1_6_2_BETA1.md.
+
 ## Stable1.6.1 repair update published — 2026-10-27
 
 Published the frozen d06bdf7 mouse/Shift fixes through PR #10 and protected main.
