@@ -7,7 +7,8 @@ reuse input conversion/keys and fix unused wheel HoldMs bypassing loop pacing.
 Reproduce provider shutdown failure and isolate each cleanup phase, preserving
 final macro stop/output release and network-helper disposal after timer failure.
 Use affected checks and one bounded60-second runtime acceptance, no full/repeated
-ten-minute gate. Final local beta.3 delivery pending integration closure.
+ten-minute gate. Final19 selected checks, both packages and real emergency-only11
+pass. Local delivery outputs/beta162-3 complete; no Stable publication.
 See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
 
 ## Native-state and UI-dispatch maintenance — 2026-11-06

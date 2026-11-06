@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:OutputOwnershipTests",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "1af8949433ec6e8807c5a69845e29fbffa076c0d4fc158a3c1ee245b9cb3e825",
+  "qualification": "Final beta.3 frozen source, targeted regression; Windows x64/.NET Framework4.7.2. Private desktops for UI, observer/fake output; original log retains scope, no host input/network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-OutputOwnershipTests-be4958f01272.log",
+      "sha256": "AA3FBF71C725514E4796C747E45A73847D5B9886DE7566F90AA396F548DC3635"
+    }
+  ]
+}

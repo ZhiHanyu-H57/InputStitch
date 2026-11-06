@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:journey",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "641be795c959e5bff65760047db2c04c54aa51bffa6b1669419fc94cee4de1ec",
+  "qualification": "Final beta.3 selected private-desktop workflow/layout/metadata check; see actual assertion/window/DPI scope in log. No real input or normal configuration.",
+  "evidence": [
+    {
+      "path": "verification/evidence/ui-journey-be4958f01272.log",
+      "sha256": "ABE03291639E346115EE52981183730021B2737E17917D7CD8B78A7D54C65555"
+    }
+  ]
+}

@@ -1,5 +1,50 @@
 # HANDOFF.md
 
+## Execution preparation / fault-isolated shutdown complete — 2026-11-06
+
+Local1.6.2-beta.3 on perf/runtime-162. Baseline5c028bc; final production/test freeze
+be4958f0127204de8535671c65fc0300e9421a84 (initial implementation582a618 superseded
+for final lifecycle evidence). MacroExecutionPlan is UI-free per-run preparation:
+clone steps once, cache InputSpec/identity/holdability; existing recording/held
+wrappers delegate shared conversion. Worker output/ownership/waits remain in
+MainForm; do not claim full executor separation. Pure plan260 checks;200000-step
+prepared access61.6MB->0,25.281ms->0.336ms local median. Four-step creation1800B
+vs legacy clone408B, trading small per-run retention for repeated allocation.
+
+Fixed wheel Press HoldMs being counted as a delay despite no executed hold wait.
+Frozen beta.2 source reproduces735479 observer edges/213ms; final WheelUp/Down
+17/15 edges over217/212ms, prompt stop and no remaining source. No real wheel input.
+
+ShutdownCleanup independently attempts explicit stop/recovery/release steps even
+when one resource or its logger throws. Provider Dispose fault no longer skips
+macro stop/final release; timer Dispose fault still disposes fake network helper.
+Committed shutdown gating and run registration share runLock; fault injection
+reproduces/rejects already-waiting prepared and held admissions. Pending network
+block work rechecks shutdown under screenToolsGate. User cancel-close branches
+remain before committed shutdown. No lock is held across UI/driver/IPC waits.
+
+Final19 selected checks PASS:4 valid reuse/15 executed,13 regression suites,
+journey142, settings8784/8 scaled100–200% and2188/2 native144DPI, final packaged
+settings smoke. Includes UI117, tool287, timing15, ownership303716, coordinator55,
+dispatch163, productivity802, manifest436, workflow31. Source-bound fingerprints
+now include host worker/shutdown and new modules for sustained acceptance.
+Final60.2s sustain:441 cycles,221 long presses,22 UI blocks, keyboard2327/2327,
+zero final sources/pressed outputs,3 macro workers,GDI26->26,USER30->31,no forcedGC.
+The earlier pre-admission-fix60s sample is not final evidence; no10-minute/full run.
+
+Both final packages pass metadata/resources/cache/save-reopen/startup/shutdown.
+Private real ViGEm/XInput emergency-only11 PASS/final neutral, no keyboard/mouse
+SendInput. No actual WFP/host disconnect or OBS/native-render rerun: backends
+unchanged. No Computer Use, installed-app replacement or user-trial gate.
+
+Delivery: task workspace outputs/beta162-3, Windows-x64/InputStitch.exe and
+Windows-x86/InputStitch.exe, Chinese report/hashes/raw logs/probes. Sizes2184192/
+2014208B, +3584B each over beta.2, no dependency/thread/timer/schema/feature addition.
+Code and evidence are local topic-branch commits; no Stable/latest/site publication.
+All test processes/private desktops exited. Next meaningful architectural step
+is a bounded execution-loop/pause-state extraction, not a framework rewrite.
+See docs/EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md.
+
 ## Architecture and native-state maintenance complete — 2026-11-06
 
 Local1.6.2-beta.2 on perf/runtime-162; feature/test freeze

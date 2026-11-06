@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:AdvancedTriggerDispatchTests",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "2bca58c5bc1b528cd87bc119a055afdfa3aefd73c140c226641994ec1455e7cb",
+  "qualification": "Final beta.3 committed-source163 focused dispatch/cancel/edit/stop checks; observer and fake driver interfaces, no real input.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-AdvancedTriggerDispatchTests-be4958f01272.log",
+      "sha256": "1247BACD740D58916E66BD1ADB44470410A37CA0C5E765D386BA47535495FEAB"
+    }
+  ]
+}

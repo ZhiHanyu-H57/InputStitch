@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:ToolIntegrationTests",
+  "status": "PASS",
+  "sourceCommit": "be4958f0127204de8535671c65fc0300e9421a84",
+  "fingerprint": "2c8dd41eaf3e7514ddc405a8f0576ffcf989bec563d5b369e93188a3b06db5af",
+  "qualification": "Final beta.3 committed-source287 core checks; injected timer cleanup failure still disposes fake network helper, pending helper/block admission races; private desktop; no UAC/WFP/network mutation.",
+  "evidence": [
+    {
+      "path": "verification/evidence/suite-ToolIntegrationTests-be4958f01272.log",
+      "sha256": "F8F891730B0781F99480585AA9D61CD33FD7BFA247F9470D858D3CCD7A8F46D3"
+    }
+  ]
+}

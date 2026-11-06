@@ -1,0 +1,4 @@
+PRIVATE UI process bound: InputStitchTest-44c8eaf15df54346b671c3abbc1c9432
+PASS productivity: 802 checks; isolated files, no hooks / real input / devices.
+PASS private UI desktop; foreground test-window samples=0/887; input desktop unchanged.
+PASS private UI process exited and desktop handle released.
