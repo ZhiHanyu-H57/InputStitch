@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:MacroTimingTests",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "aa1a815a7f43bcc6d53a25942429fdb88deecd37ba253fa3a8a661fc471a582a",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "3AB9CA29ABB056FBD374D80CBC1AF9A685CCE2A0CBC2BCF81745F277B3AE1B22",
+      "path": "verification/evidence/suite-MacroTimingTests-6c30df336404.log"
+    }
+  ]
+}

@@ -1,5 +1,14 @@
 ﻿# InputStitch product positioning and competitive strategy
 
+## Executor maintenance — 2026-11-06
+
+Beta.4 separates the real macro loop from the window through a small policy
+interface, retaining stable stop/edit protection and configuration. Keep the
+single-file application and existing output ownership. Measure execution output
+parity and allocation with the same driver; use scoped runtime acceptance rather
+than repeating unrelated capture/network/update checks. See
+MACRO_EXECUTOR_1_6_2_BETA4.md.
+
 ## Run preparation and shutdown maintenance — 2026-11-06
 
 Address actual repetition and cleanup failures with a small per-run plan and

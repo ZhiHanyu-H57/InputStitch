@@ -1,5 +1,13 @@
 # ROADMAP.md
 
+## Executor separated from the window — 2026-11-06
+
+Beta.4 moves step execution and repeat/held/output logic into a UI-free executor,
+independently testable without a Form or message loop. The host adapter retains
+editing/physical-state policy, admission and final cleanup. Continue to preserve
+those boundaries; no scheduler/backend rewrite or extension framework is needed.
+See docs/MACRO_EXECUTOR_1_6_2_BETA4.md.
+
 ## Execution / cleanup boundary follow-up — 2026-11-06
 
 Beta.3 extracts UI-free run preparation and makes committed shutdown stages

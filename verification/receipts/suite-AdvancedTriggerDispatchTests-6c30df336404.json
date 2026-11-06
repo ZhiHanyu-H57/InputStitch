@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:AdvancedTriggerDispatchTests",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "7bfe91605be58ec2186d09e5a20552b16f21584b41b960945d4db32fd6f222e1",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "EC63704CEEF644C008B951F0ADC0115D14E381396CFB37B0D96A6CC89BE4DF0B",
+      "path": "verification/evidence/suite-AdvancedTriggerDispatchTests-6c30df336404.log"
+    }
+  ]
+}

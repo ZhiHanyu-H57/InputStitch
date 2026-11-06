@@ -1,5 +1,16 @@
 # PLAN.md
 
+## Independent macro executor — 2026-11-06
+
+Continue from beta.3 at545cd68. Move the actual step/repeat/hold/output loop into
+MacroExecutor with six explicit environment calls; keep host editing/physical
+policies and lifecycle cleanup. Remove the redundant run-held input clone while
+retaining ownership/diagnostic copies. Frozen production/tests6c30df3; local
+beta.4, no features/schema/dependencies/threads/timers. All17 selected runtime,
+UI safety/config/journey checks pass, with one60.1-second sustain. Actual x64/x86
+packages and real emergency-only11 pass. Local delivery outputs/beta162-4 complete.
+See docs/MACRO_EXECUTOR_1_6_2_BETA4.md for boundaries, measurement and final evidence.
+
 ## Execution preparation and shutdown maintenance — 2026-11-06
 
 Continue from beta.2 at5c028bc. Extract per-run prepared steps from MainForm;

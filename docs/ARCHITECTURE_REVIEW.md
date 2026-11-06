@@ -1,5 +1,14 @@
 # InputStitch architecture review
 
+## Independent execution loop — 2026-11-06
+
+See [beta.4 implementation and evidence](MACRO_EXECUTOR_1_6_2_BETA4.md).
+MacroExecutor now owns the actual loop and prepared-input reuse without Forms,
+handles or UI dispatch. A six-method host adapter retains existing editing,
+physical-state and interruptible-wait policy. Admission/global recovery/final
+cleanup remain explicit host responsibilities; conditions were not migrated.
+Run-held state avoids a redundant clone while ownership/diagnostics retain copies.
+
 ## Execution and shutdown follow-up — 2026-11-06
 
 See [beta.3 implementation and evidence](EXECUTION_AND_SHUTDOWN_1_6_2_BETA3.md).

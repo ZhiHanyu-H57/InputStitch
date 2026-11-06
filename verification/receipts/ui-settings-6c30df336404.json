@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:settings",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "ff645c6832a2a837807cf71aaea8e7e87c79fe162fa57b1a4d0f39554e78ed22",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "9FA76AF289765A0AB6B040C0E8E31D6E0ED6702675CC5D50D2279608B7015F7E",
+      "path": "verification/evidence/ui-settings-6c30df336404.log"
+    }
+  ]
+}

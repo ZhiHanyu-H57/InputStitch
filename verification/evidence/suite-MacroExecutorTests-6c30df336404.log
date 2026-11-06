@@ -1,0 +1,1 @@
+PASS macro executor: 339 checks; console-only finite/infinite/single-step, safety/stop, ownership/copy isolation and failure cleanup; no Form, hooks, real input or configuration.

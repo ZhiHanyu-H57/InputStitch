@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "ui:journey",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "05d606c1b7bd7b4c6e3253cf0c6473588d5718706c44dfb17dbe256dbe99dcaf",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "BA41C533B7ECE0742334C31E6113B550D860736861C200A666C0F04BCB2023FB",
+      "path": "verification/evidence/ui-journey-6c30df336404.log"
+    }
+  ]
+}

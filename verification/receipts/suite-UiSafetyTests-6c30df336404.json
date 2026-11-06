@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:UiSafetyTests",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "44058e6df5f9fa9b04b402bcd8966e553bd60028cf024846248969caed5b64fa",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "DE7FEFD301ADFA54F19FD982EA36BF2CB5878E6F98CB241A116B0D87E282C2D5",
+      "path": "verification/evidence/suite-UiSafetyTests-6c30df336404.log"
+    }
+  ]
+}

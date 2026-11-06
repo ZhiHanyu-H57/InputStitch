@@ -1,5 +1,52 @@
 # HANDOFF.md
 
+## Independent macro executor complete — 2026-11-06
+
+Local1.6.2-beta.4 on perf/runtime-162. Baseline545cd689a94c161c0b10eddb8d51b53ce9d45c12;
+production/test freeze6c30df33640442c804cff25b8ec2ecc439c0047d. MacroExecutor owns the
+actual step/repeat/held/output loop without Forms, handles or UI dispatch. Six
+environment calls delegate unchanged editing/physical-state/wait/status policies
+to MainForm.Execution. Host still owns registration, global failure recovery and
+finally release/disposal; conditions/admission were not migrated. Old helper
+bodies were moved unchanged, final cleanup order retained. Main file ~400lines less.
+Run-private context captures effective single-step/repeat/name/held state; held
+dictionary references private read-only prepared inputs, ownership/diagnostics
+retain their own copies. No new feature/schema/dependency/thread/timer/poll change.
+
+Console-only executor339 checks PASS without any Form/message loop, including
+cancellation/safety/waits, finite/infinite/single-step, same/cross-source ownership,
+all input fields, hostile output/snapshot/config mutation and caller failure cleanup.
+Final reverse-order20000-step mixed host-worker probe: allocation median22557768B
+->22173816B (-383952B/1.702%), time51.728->51.106ms (similar; do not extrapolate initial
+timing difference or whole-app CPU).12000down/8000up incl instantaneous wheel edges,
+all fields/order checksum15508316335096831171, final sources0 in every sample.
+
+Final17 selected checks PASS:11 suites, one60.1s sustain, journey142, settings8784/8
+scaled100–200%,2188/2 native144DPI, compact/default packaged settings and workflow32.
+Includes UI117, timing15, pipeline24+100 SDL lifecycle cycles, coordinator55,
+ownership303716, dispatch163, productivity802, tool287, source manifest448/71files.
+Delivered-edge long press150ms threshold:162ms responsive/157ms with400ms UI block,
+output before UI resumes.60.1s/437 cycles/219 long presses/21 blocked-UI samples,
+keyboard2346/2346, final output sources/pressed0,2 workers,GDI26->26,USER30->30,no forcedGC.
+All17 selected fingerprints changed, so freshly executed; unchanged OBS/network/
+updater paths not selected. No full44-suite or ten-minute gate. Durable receipts
+and source-bound logs recorded against6c30df3 for valid subsequent reuse.
+
+Actual ViGEm/XInput emergency-only11 PASS/final neutral, no keyboard/mouse SendInput.
+Initial preflight was BLOCKED by another product instance; user closed it and the
+unchanged preflight then passed. A host tool-session reset interrupted one package
+attempt before a result; only that missing package evidence was rerun. Both final
+x64/x86 metadata/resources/cache/save-reopen/message-loop/normal-exit PASS privately.
+No Computer Use, host network interruption, installed-app replacement or user-trial
+gate. All test children/private desktops exited. Stable/latest/site unchanged.
+
+Delivery: task workspace outputs/beta162-4, x64/x86 InputStitch.exe, Chinese report,
+SHA256SUMS, verification.json and raw logs/probe. Sizes2186240/2016256B, +2048B each
+over beta.3. Source/evidence remain local topic-branch commits, no publication.
+See docs/MACRO_EXECUTOR_1_6_2_BETA4.md. Continue future work only from current source;
+host policy and condition coordination remain explicit boundaries, not hidden debt
+to solve through a framework rewrite.
+
 ## Execution preparation / fault-isolated shutdown complete — 2026-11-06
 
 Local1.6.2-beta.3 on perf/runtime-162. Baseline5c028bc; final production/test freeze

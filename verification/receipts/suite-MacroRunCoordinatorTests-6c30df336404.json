@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "check": "suite:MacroRunCoordinatorTests",
+  "status": "PASS",
+  "sourceCommit": "6c30df33640442c804cff25b8ec2ecc439c0047d",
+  "fingerprint": "c7c9ee4e580a88386300a63c6e04d65c5a840f4a07f267ce7135aba25d05c772",
+  "qualification": "Final beta.4 frozen production/tests. Windows x64/.NET Framework4.7.2; private whole-process desktops for UI, isolated observer/fake output; raw log retains scope. One60-second sustained run; no host keyboard/mouse injection or network mutation.",
+  "evidence": [
+    {
+      "sha256": "0A10C14C0E6A9B6C98363FFD5A9D56C3C26BC5818493E4E461805B6AF0E39C89",
+      "path": "verification/evidence/suite-MacroRunCoordinatorTests-6c30df336404.log"
+    }
+  ]
+}
