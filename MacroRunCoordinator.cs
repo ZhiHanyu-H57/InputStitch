@@ -41,15 +41,24 @@ namespace InputStitch
         }
     }
 
-    // Owns run identity and lifecycle. No Form, UI dispatch, output backend or timer.
-    // Shares the existing runtime lock so held mappings and UI safety keep their
-    // atomic observations. Execution and presentation remain separate callers.
+    // One generation covers pending ordinary edges for one macro. It is retired
+    // after the last callback, or invalidated by stop/edit before any worker exists.
+    internal sealed class MacroTriggerTicket
+    {
+        internal readonly MacroDefinition Macro;
+        internal int Pending = 1;
+        internal MacroTriggerTicket(MacroDefinition macro) { Macro = macro; }
+    }
+
+    // Owns run identity and admission/stop lifecycle without UI or output ownership.
+    // The existing shared lock keeps tickets, held mappings and runs consistent.
     internal sealed class MacroRunCoordinator
     {
         private readonly object sync;
         private readonly Action<long, string> onStopRequested;
         private readonly Dictionary<long, MacroRunRuntime> runs = new Dictionary<long, MacroRunRuntime>();
         private readonly Dictionary<MacroDefinition, long> byMacro = new Dictionary<MacroDefinition, long>();
+        private readonly Dictionary<MacroDefinition, MacroTriggerTicket> pendingTriggers = new Dictionary<MacroDefinition, MacroTriggerTicket>();
         private long sequence;
         private string lastStopReason = "none";
 
@@ -64,6 +73,37 @@ namespace InputStitch
 
         // Caller must hold sync throughout enumeration and any mutable run reads.
         internal Dictionary<long, MacroRunRuntime>.ValueCollection ActiveRunsLocked { get { return runs.Values; } }
+        internal Dictionary<MacroDefinition, MacroTriggerTicket>.KeyCollection PendingTriggerMacrosLocked { get { return pendingTriggers.Keys; } }
+
+        internal MacroTriggerTicket QueueTrigger(MacroDefinition macro)
+        {
+            lock (sync)
+            {
+                MacroTriggerTicket ticket;
+                if (pendingTriggers.TryGetValue(macro, out ticket)) ticket.Pending++;
+                else { ticket = new MacroTriggerTicket(macro); pendingTriggers.Add(macro, ticket); }
+                return ticket;
+            }
+        }
+
+        internal bool IsTriggerCurrent(MacroTriggerTicket ticket)
+        {
+            lock (sync)
+            {
+                MacroTriggerTicket current;
+                return ticket != null && pendingTriggers.TryGetValue(ticket.Macro, out current) && ReferenceEquals(current, ticket);
+            }
+        }
+
+        internal void CompleteTrigger(MacroTriggerTicket ticket)
+        {
+            lock (sync) if (IsTriggerCurrent(ticket) && --ticket.Pending == 0) pendingTriggers.Remove(ticket.Macro);
+        }
+
+        internal void InvalidateTrigger(MacroDefinition macro)
+        {
+            lock (sync) if (macro != null) pendingTriggers.Remove(macro);
+        }
 
         internal MacroRunRuntime Find(MacroDefinition macro)
         {
@@ -209,6 +249,7 @@ namespace InputStitch
             lock (sync)
             {
                 if (!IsCurrent(run) || run.Stop == null) return;
+                InvalidateTrigger(run.OwnerMacro);
                 string resolved = string.IsNullOrWhiteSpace(reason) ? "stop-request" : reason;
                 if (!run.Stop.IsSet && onStopRequested != null) onStopRequested(run.RunId, resolved);
                 run.StopReason = resolved;
@@ -221,7 +262,7 @@ namespace InputStitch
 
         internal void Stop(MacroDefinition macro, string reason)
         {
-            lock (sync) RequestStop(Find(macro), reason);
+            lock (sync) { InvalidateTrigger(macro); RequestStop(Find(macro), reason); }
         }
 
         internal void Stop(long id, string reason)
@@ -237,6 +278,7 @@ namespace InputStitch
         {
             lock (sync)
             {
+                pendingTriggers.Clear();
                 List<MacroWorkItem> work = new List<MacroWorkItem>();
                 foreach (MacroRunRuntime run in runs.Values)
                 {

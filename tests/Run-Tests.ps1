@@ -7,6 +7,7 @@ $allSuites = @('SourceManifestTests','ForegroundIdentityCacheTests','TickCadence
 $allSuites += 'AdvancedTriggerDispatchTests'
 $allSuites += 'MacroExecutionPlanTests'
 $allSuites += 'MacroExecutorTests'
+$allSuites += 'RuntimeControlTests'
 $allSuites += 'RecordingEditingTests'
 $allSuites += @('CornerCutCrosshairTests','CornerCutDialogTests','TimerTests','NetworkControlTests','ToolIntegrationTests')
 if ($List) { $allSuites; return }

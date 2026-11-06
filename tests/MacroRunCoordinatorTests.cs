@@ -25,10 +25,31 @@ internal static class MacroRunCoordinatorTests
             Lifecycle();
             ProgressAndControls();
             ConcurrentRegistration();
+            TriggerTickets();
             Console.WriteLine("PASS run coordinator: " + checks + " checks; identity, independent stop, stale completion, single-step, stop-all and concurrent registration; no UI or output.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+    }
+
+    private static void TriggerTickets()
+    {
+        MacroRunCoordinator coordinator = new MacroRunCoordinator(new object(), null);
+        MacroDefinition a = new MacroDefinition(), b = new MacroDefinition();
+        MacroTriggerTicket first = coordinator.QueueTrigger(a), second = coordinator.QueueTrigger(a), other = coordinator.QueueTrigger(b);
+        Check(ReferenceEquals(first, second) && first.Pending == 2, "queued ordinary edges share one bounded admission generation");
+        coordinator.CompleteTrigger(first);
+        Check(coordinator.IsTriggerCurrent(second), "completing one edge preserves another pending edge");
+        coordinator.Stop(a, "disabled");
+        Check(!coordinator.IsTriggerCurrent(second) && coordinator.IsTriggerCurrent(other), "stopping one macro invalidates only its pending starts, even before it runs");
+        MacroTriggerTicket restarted = coordinator.QueueTrigger(a);
+        coordinator.CompleteTrigger(second);
+        Check(coordinator.IsTriggerCurrent(restarted), "late completion cannot cancel the replacement ticket");
+        coordinator.StopAll("stop-all");
+        Check(!coordinator.IsTriggerCurrent(restarted) && !coordinator.IsTriggerCurrent(other), "stop-all invalidates pending starts without active workers");
+        MacroTriggerTicket final = coordinator.QueueTrigger(a);
+        coordinator.CompleteTrigger(final);
+        Check(coordinator.PendingTriggerMacrosLocked.Count == 0, "drained tickets retain no macro owners");
     }
 
     private static void Lifecycle()

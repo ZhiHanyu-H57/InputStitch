@@ -31,6 +31,7 @@ function Get-VerificationPlan {
         if ($path -notmatch '^[^/]+\.cs$') { $unknown.Add($path); continue }
         [void]$checks.Add('suite:SourceManifestTests')
         if ($path -match '^(ConcurrentRuntime|MacroRunCoordinator|MacroWorkerPool|MacroExecutionPlan|MacroExecutor|ShutdownCleanup|OutputOwnership|MainForm\.(AdvancedTriggers|Execution)|InputPipeline)\.cs$') {
+            if($path -match '^(MacroRunCoordinator|MainForm\.Execution)\.cs$'){[void]$checks.Add('suite:RuntimeControlTests')}
             if($path -match '^(MacroExecutor|MainForm\.Execution)\.cs$'){[void]$checks.Add('suite:MacroExecutorTests');[void]$checks.Add('suite:MacroTimingTests');[void]$checks.Add('suite:UiSafetyTests')}
             if($path -eq 'MacroExecutionPlan.cs'){[void]$checks.Add('suite:MacroExecutionPlanTests');[void]$checks.Add('suite:MacroTimingTests')}
             if($path -eq 'ShutdownCleanup.cs'){[void]$checks.Add('suite:UiSafetyTests');[void]$checks.Add('suite:ToolIntegrationTests')}
@@ -47,7 +48,7 @@ function Get-VerificationPlan {
             foreach($id in @('suite:UiSafetyTests','ui:secondary','ui:tools','ui:journey')){[void]$checks.Add($id)}; continue
         }
         if ($path -match '^IdleGamepad\.cs$') { [void]$checks.Add('suite:IdleGamepadTests'); [void]$checks.Add('ui:settings'); [void]$checks.Add('ui:settings-native'); continue }
-        if ($path -match '^(InputStitch|RuntimeDiagnostics)\.cs$') { foreach($id in @('suite:UiSafetyTests','suite:InputPipelineIntegrationTests','suite:MacroRunCoordinatorTests','suite:ProductivityTests','suite:ToolIntegrationTests','ui:journey','ui:settings-smoke')){[void]$checks.Add($id)}; continue }
+        if ($path -match '^(InputStitch|RuntimeDiagnostics)\.cs$') { foreach($id in @('suite:UiSafetyTests','suite:InputPipelineIntegrationTests','suite:MacroRunCoordinatorTests','suite:ProductivityTests','suite:ToolIntegrationTests','ui:journey','ui:settings-smoke')){[void]$checks.Add($id)}; if($path -eq 'InputStitch.cs'){[void]$checks.Add('suite:RuntimeControlTests')}; continue }
         if ($path -match '^(Config|AtomicXml|ProfileCatalog|StepHistory|StepTimingEditor)') { [void]$checks.Add('suite:ProductivityTests'); [void]$checks.Add('suite:ToolIntegrationTests'); [void]$checks.Add('ui:settings-smoke'); continue }
         if ($path -match '^Update') { foreach($id in @('suite:UpdateInstallerTests','suite:UpdateNetworkTests','suite:ReleasePolicyTests')){[void]$checks.Add($id)}; continue }
         if ($path -match '^(InputProvider|CompositeInputProvider|Sdl3|RawKeyboard|XInput|WindowsDevice|DeviceIdentity|GamepadRouter|VirtualGamepad|ActivatorCondition|AnalogTransform|RouterSourcePolicy|ControlledReplacement|SlotAcquisition)') {

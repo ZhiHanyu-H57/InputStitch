@@ -8,6 +8,94 @@ namespace InputStitch
 {
     public partial class MainForm
     {
+        private long nextRuntimeReleaseProbe;
+
+        // Keep the existing 50ms physical fallback cadence on the input lane.
+        // No new thread/timer, and no UI wait when an up edge was missed.
+        private void ReconcileRuntimeTriggerReleaseIfDue()
+        {
+            long now = Stopwatch.GetTimestamp();
+            if (now < nextRuntimeReleaseProbe) return;
+            nextRuntimeReleaseProbe = now + 50 * Stopwatch.Frequency / 1000L;
+            ReconcileRuntimeTriggerRelease();
+        }
+
+        private void ReconcileRuntimeTriggerRelease()
+        {
+            long now = Stopwatch.GetTimestamp();
+            long requiredTicks = PhysicalReleaseSettleMs * Stopwatch.Frequency / 1000L;
+            List<MacroDefinition> parallelToStop;
+            List<long> holdRunsToStop;
+            lock (runLock)
+            {
+                if (activeParallelHeldMappings.Count == 0 && runCoordinator.Count == 0) return;
+                parallelToStop = new List<MacroDefinition>();
+                holdRunsToStop = new List<long>();
+                foreach (KeyValuePair<MacroDefinition, HeldMappingRuntime> pair in activeParallelHeldMappings)
+                {
+                    HeldMappingRuntime runtime = pair.Value;
+                    if (runtime == null || runtime.Trigger == null) continue;
+                    bool released = !IsActivatorPhysicallyHeld(runtime.Trigger);
+                    if (!released)
+                    {
+                        runtime.ReleaseProbeSince = 0;
+                    }
+                    else if (runtime.ReleaseProbeSince == 0)
+                    {
+                        runtime.ReleaseProbeSince = now;
+                    }
+                    else if (now - runtime.ReleaseProbeSince >= requiredTicks)
+                    {
+                        runtime.ReleaseProbeSince = 0;
+                        parallelToStop.Add(pair.Key);
+                    }
+                }
+
+                foreach (MacroRunRuntime runtime in runCoordinator.ActiveRunsLocked)
+                {
+                    if (runtime == null || !runtime.HoldControlled || runtime.HoldTrigger == null || runtime.Stop == null || runtime.Stop.IsSet) continue;
+                    bool released = !IsActivatorPhysicallyHeld(runtime.HoldTrigger);
+                    if (UpdateRunReleaseProbe(runtime, released, now)) holdRunsToStop.Add(runtime.RunId);
+                }
+            }
+            foreach (MacroDefinition parallel in parallelToStop)
+            {
+                runtimeTrace.Add("hold-release-fallback", "parallel mapping physical release detected without terminal KeyUp/MouseUp callback");
+                StopParallelHeldMapping(parallel, "physical-release-fallback");
+            }
+            foreach (long runId in holdRunsToStop)
+            {
+                runtimeTrace.Add("hold-release-fallback", "concurrent Hold run=" + runId.ToString() + " physical release detected without terminal KeyUp/MouseUp callback");
+                StopMacroRun(runId, "physical-release-fallback");
+            }
+        }
+
+        private readonly object heldOutputGate = new object();
+
+        private bool IsOrdinaryTriggerCurrent(MacroTriggerTicket ticket)
+        {
+            return runCoordinator.IsTriggerCurrent(ticket) && !IsActivatorStartBlocked() &&
+                ticket.Macro.Enabled && IsActivatorMacroCurrent(ticket.Macro) && IsMacroLayerEligible(ticket.Macro);
+        }
+
+        // Only runtime operations run here. UI/settings and driver visibility recovery
+        // remain in EmergencyStop; an unresponsive UI cannot defer owned-output release.
+        private void StopRuntimeOutputForPanic()
+        {
+            AttemptRuntimeStop(delegate { StopAllMacroRuns("emergency-stop"); }, "macro-stop");
+            AttemptRuntimeStop(delegate { if (idleGamepad != null) idleGamepad.PanicStop(); }, "idle-stop");
+            AttemptRuntimeStop(delegate { if (gamepadRouter != null) gamepadRouter.Configure(false); }, "router-stop");
+            AttemptRuntimeStop(delegate { StopAllParallelHeldMappings("emergency-stop"); }, "held-stop");
+            AttemptRuntimeStop(delegate { outputOwnership.ClearAll("emergency-stop"); }, "output-release");
+            QueueNetworkOperation(true);
+        }
+
+        private static void AttemptRuntimeStop(Action action, string stage)
+        {
+            try { action(); }
+            catch (Exception ex) { AppLog.Write("Emergency runtime cleanup failed: " + stage, ex); }
+        }
+
         // The executor calls these same policies at the same points as the old
         // loop. Only this adapter/host layer knows about editing and presentation.
         private sealed class MainFormExecutionEnvironment : IMacroExecutionEnvironment

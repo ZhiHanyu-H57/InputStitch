@@ -26,12 +26,15 @@ internal static class ProductivityTests
         {
             return FixedUtcNow.HasValue ? FixedUtcNow.Value : base.GetUtcNow();
         }
-        internal override void Write(string path, MacroConfig config)
+        internal int Writes, Validations;
+        internal override void Write(string path, byte[] payload)
         {
+            Writes++;
             if (Fail == 1) { File.WriteAllText(path, "partial"); throw new IOException("Simulated disk full"); }
-            base.Write(path, config);
+            base.Write(path, payload);
             if (Fail == 2) File.WriteAllText(path, "<broken");
         }
+        internal override void Validate(string path) { Validations++; base.Validate(path); }
         internal override void Replace(string staged, string target, string backup)
         {
             if (Fail == 3) throw new IOException("Simulated replacement denied");
@@ -139,6 +142,25 @@ internal static class ProductivityTests
         Check(legacyConfig != null && legacyConfig.Macros.Count == 1 && legacyConfig.Macros[0].Name == "original",
             "Legacy removed RestorePreviousWindowOnUiRun element remains deserializable");
         byte[] original = File.ReadAllBytes(path);
+        int writes = store.Writes, validations = store.Validations;
+        DateTime written = File.GetLastWriteTimeUtc(path);
+        for (int i = 0; i < 10; i++) store.Save(path, config);
+        Check(store.Writes == writes && store.Validations == validations, "Validated identical payload skips disk write and repeated deserialization");
+        Check(File.GetLastWriteTimeUtc(path) == written, "No-op preserves actual target timestamp");
+        FaultStore fresh = new FaultStore(); fresh.Save(path, config);
+        Check(fresh.Writes == 0 && fresh.Validations == 1, "A fresh store validates an existing equal payload once");
+        fresh.Save(path, config);
+        Check(fresh.Writes == 0 && fresh.Validations == 1, "Validated existing bytes can be reused without writing");
+        string externalPath = Path.Combine(directory, "external-cache", "config.xml");
+        FaultStore external = new FaultStore(); external.Save(externalPath, config);
+        DateTime externalStamp = File.GetLastWriteTimeUtc(externalPath);
+        string modifiedXml = File.ReadAllText(externalPath).Replace("original", "changed!");
+        bool hadBom = original.Length >= 3 && original[0] == 239 && original[1] == 187 && original[2] == 191;
+        File.WriteAllText(externalPath, modifiedXml, new System.Text.UTF8Encoding(hadBom));
+        File.SetLastWriteTimeUtc(externalPath, externalStamp);
+        Check(new FileInfo(externalPath).Length == original.Length, "External cache test preserves exact byte length");
+        external.Save(externalPath, config);
+        Check(external.Writes == 2 && original.SequenceEqual(File.ReadAllBytes(externalPath)), "External edits are observed even with the same timestamp and length");
         string backups = Path.Combine(directory, "backups", "config");
         store.Save(path, config);
         Check(!Directory.Exists(backups), "Identical saves do not rotate history");
